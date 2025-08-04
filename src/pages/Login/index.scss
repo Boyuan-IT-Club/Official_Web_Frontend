@@ -1,0 +1,109 @@
+// 背景设置
+$background-image: url('../../assets/background.png');
+
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start; // 改为顶部对齐
+  min-height: 100vh;
+  background: {
+    image: $background-image;
+    size: cover;
+    position: center;
+    repeat: no-repeat;
+    attachment: fixed;
+  }
+  padding: 60px 10% 40px 40px; // 上右下左，增加上方和右侧间距
+
+  // Welcome文字样式
+  .welcome-title {
+    margin-bottom: 30px;
+    text-align: right;
+    width: 100%;
+    max-width: 450px;
+    
+    h1 {
+      font-family: 'Arial', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 300;
+      letter-spacing: 1px;
+      color: #fff;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+      margin: 0;
+      
+      span {
+        font-weight: 600;
+        color: #1890ff;
+      }
+    }
+    
+    p {
+      font-family: 'Arial', sans-serif;
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.8);
+      margin-top: 8px;
+      text-align: right;
+    }
+  }
+
+  // 卡片样式
+  .auth-card {
+    width: 100%;
+    max-width: 450px;
+    min-height: 580px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    margin-top: 0; // 移除默认margin
+    margin-right: 0; // 移除默认margin
+  }
+
+  // 响应式调整
+  @media (max-width: 1200px) {
+    padding: 50px 8% 40px 30px;
+    
+    .welcome-title h1 {
+      font-size: 2rem;
+    }
+  }
+
+  @media (max-width: 992px) {
+    padding: 40px 5% 30px 20px;
+    
+    .auth-card {
+      min-height: 540px;
+    }
+    
+    .welcome-title h1 {
+      font-size: 1.8rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    align-items: center;
+    padding: 30px 20px;
+    justify-content: center; // 移动端恢复居中
+    
+    .welcome-title {
+      text-align: center;
+      max-width: 100%;
+      
+      h1 {
+        font-size: 1.8rem;
+        text-align: center;
+      }
+      
+      p {
+        text-align: center;
+      }
+    }
+
+    .auth-card {
+      max-width: 100%;
+      min-height: auto;
+      padding: 25px 20px;
+    }
+  }
+}
