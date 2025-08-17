@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { Card, Form, Input, Button, Checkbox, message, Steps } from 'antd';
 import { MailOutlined, LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
 import './index.scss';
-import { useDispatch } from 'react-redux';
-import { fetchLogin, fetchRegister, fetchResetPassword } from '@/store/modules/user';
 import { useNavigate } from 'react-router-dom';
 import { request } from '@/utils/request';
 
@@ -11,15 +9,16 @@ const { Item } = Form;
 const { Step } = Steps;
 
 const AuthCard = () => {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [authType, setAuthType] = useState('email-password');
   const [countdown, setCountdown] = useState(0);
   const [showRegister, setShowRegister] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
-  const [registerStep, setRegisterStep] = useState(0); // 0: 验证邮箱, 1: 设置密码
+  const [registerStep, setRegisterStep] = useState(0);
+  const [loading, setLoading] = useState(false);
 
+  // 发送验证码
   const sendVerificationCode = async () => {
     if (countdown > 0) return;
     
@@ -33,10 +32,8 @@ const AuthCard = () => {
     }
     
     try {
-      await request.post('/api/auth/send-code', { 
-        email,
-        type: showForgot ? 'reset' : 'register' 
-      });
+      setLoading(true);
+      await request.post('/api/auth/send-email-code', { email });
       
       setCountdown(60);
       const timer = setInterval(() => {
@@ -48,81 +45,91 @@ const AuthCard = () => {
       
       message.success('验证码已发送');
     } catch (error) {
-      message.error(error.message || '验证码发送失败');
+      message.error(error.response?.data?.message || '验证码发送失败');
+      console.error('验证码发送错误:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // 切换登录方式
   const onAuthTypeChange = () => {
     const newType = authType === 'email-password' ? 'email-code' : 'email-password';
     setAuthType(newType);
     form.resetFields(['verify']);
   };
 
+  // 提交表单
   const onFinish = async (values) => {
-    let submitData;
-    
-    if (!showRegister && !showForgot) {
-      submitData = {
-        auth_id: values.auth_id,
-        auth_type: authType,
-        verify: authType === 'email-password' ? values.password : values.code
-      };
-      try {
-        await dispatch(fetchLogin(submitData));
+    try {
+      setLoading(true);
+      
+      if (!showRegister && !showForgot) {
+        // 登录逻辑
+        const loginData = {
+          auth_type: authType,
+          auth_id: values.auth_id,
+          verify: values[authType === 'email-password' ? 'password' : 'code']
+        };
+        
+        const res = await request.post('/api/auth/login', loginData);
+        
+        // 关键修改：根据后端实际响应结构获取token
+        const token = res.data?.data?.token || res.data?.token;
+        if (!token) {
+          console.error('Token未返回，完整响应:', res);
+          throw new Error('登录成功但未获取到token');
+        }
+        
+        localStorage.setItem('token', token);
         message.success('登录成功');
         navigate('/');
-      } catch (error) {
-        message.error(error.message || '登录失败');
-      }
-    } else if (showRegister) {
-      if (registerStep === 0) {
-        // 第一步：验证邮箱和验证码
-        try {
+      } else if (showRegister) {
+        if (registerStep === 0) {
+          // 验证邮箱步骤
           await request.post('/api/auth/verify-code', {
             email: values.email,
             code: values.code
           });
           setRegisterStep(1);
           message.success('邮箱验证成功，请设置密码');
-        } catch (error) {
-          message.error(error.message || '验证码验证失败');
-        }
-      } else {
-        // 第二步：设置密码
-        submitData = {
-          name: values.name,
-          email: values.email,
-          password: values.password,
-          confirmPassword: values.confirmPassword
-        };
-        try {
-          await dispatch(fetchRegister(submitData));
+        } else {
+          // 注册步骤
+          await request.post('/api/auth/register', {
+            username: values.name,
+            password: values.password,
+            email: values.email,
+            name: values.name,
+            phone: ""
+          });
           message.success('注册成功，请登录');
           setShowRegister(false);
           setRegisterStep(0);
           form.resetFields();
-        } catch (error) {
-          message.error(error.message || '注册失败');
         }
-      }
-    } else if (showForgot) {
-      submitData = {
-        email: values.email,
-        code: values.code,
-        newPassword: values.newPassword,
-        confirmPassword: values.confirmPassword
-      };
-      try {
-        await dispatch(fetchResetPassword(submitData));
+      } else if (showForgot) {
+        // 重置密码
+        await request.post('/api/auth/reset-password', {
+          identifier: values.email,
+          code: values.code,
+          newPassword: values.newPassword
+        });
         message.success('密码重置成功，请重新登录');
         setShowForgot(false);
         form.resetFields();
-      } catch (error) {
-        message.error(error.message || '密码重置失败');
       }
+    } catch (error) {
+      console.error('操作失败:', error);
+      const errorMessage = error.response?.data?.message || 
+                         error.message || 
+                         '操作失败，请检查输入';
+      message.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // 邮箱验证规则
   const emailValidator = (_, value) => {
     if (value && !value.endsWith('@stu.ecnu.edu.cn')) {
       return Promise.reject(new Error('必须使用@stu.ecnu.edu.cn邮箱'));
@@ -174,7 +181,8 @@ const AuthCard = () => {
                     <Button 
                       type="link" 
                       onClick={sendVerificationCode}
-                      disabled={countdown > 0}
+                      disabled={countdown > 0 || loading}
+                      loading={loading}
                     >
                       {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
                     </Button>
@@ -190,7 +198,12 @@ const AuthCard = () => {
             </Item>
 
             <Item>
-              <Button type="primary" htmlType="submit" block>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                block
+                loading={loading}
+              >
                 登录
               </Button>
             </Item>
@@ -258,7 +271,8 @@ const AuthCard = () => {
                       <Button 
                         type="link" 
                         onClick={sendVerificationCode}
-                        disabled={countdown > 0}
+                        disabled={countdown > 0 || loading}
+                        loading={loading}
                       >
                         {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
                       </Button>
@@ -267,7 +281,12 @@ const AuthCard = () => {
                 </Item>
 
                 <Item>
-                  <Button type="primary" htmlType="submit" block>
+                  <Button 
+                    type="primary" 
+                    htmlType="submit" 
+                    block
+                    loading={loading}
+                  >
                     验证邮箱
                   </Button>
                 </Item>
@@ -303,7 +322,12 @@ const AuthCard = () => {
                 </Item>
 
                 <Item>
-                  <Button type="primary" htmlType="submit" block>
+                  <Button 
+                    type="primary" 
+                    htmlType="submit" 
+                    block
+                    loading={loading}
+                  >
                     完成注册
                   </Button>
                 </Item>
@@ -347,7 +371,8 @@ const AuthCard = () => {
                   <Button 
                     type="link" 
                     onClick={sendVerificationCode}
-                    disabled={countdown > 0}
+                    disabled={countdown > 0 || loading}
+                    loading={loading}
                   >
                     {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
                   </Button>
@@ -384,7 +409,12 @@ const AuthCard = () => {
             </Item>
 
             <Item>
-              <Button type="primary" htmlType="submit" block>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                block
+                loading={loading}
+              >
                 重置密码
               </Button>
             </Item>

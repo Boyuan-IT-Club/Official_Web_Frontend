@@ -1,0 +1,267 @@
+// 变量定义
+$primary-color: #1890ff;
+$tech-blue: #1a73e8;
+$tech-dark: #0f1621;
+$tech-light: #f8f9fa;
+$tech-accent: #00c6ff;
+$text-color: #333;
+
+.home-layout {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+
+  /* 科技感流动背景 */
+  .background-watermark {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    background: $tech-dark;
+    opacity: 0.9;
+    overflow: hidden;
+    
+    &::before {
+      content: "";
+      position: absolute;
+      height: 100%;
+      width: 100%;
+      background: 
+        linear-gradient(transparent 0%, rgba($tech-blue, 0.1) 50%, transparent 100%),
+        repeating-linear-gradient(
+          0deg,
+          rgba($tech-blue, 0.1) 0px,
+          rgba($tech-blue, 0.1) 1px,
+          transparent 1px,
+          transparent 10px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          rgba($tech-blue, 0.1) 0px,
+          rgba($tech-blue, 0.1) 1px,
+          transparent 1px,
+          transparent 10px
+        );
+      animation: flow 20s linear infinite;
+    }
+    
+    @keyframes flow {
+      0% { transform: translateY(0) translateX(0); }
+      50% { transform: translateY(25%) translateX(25%); }
+      100% { transform: translateY(0) translateX(0); }
+    }
+  }
+  
+  .home-header {
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 0 24px;
+    height: 64px;
+    line-height: 64px;
+    position: relative;
+    z-index: 10;
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      
+      .logo-title {
+        display: flex;
+        align-items: center;
+        
+        .title-text {
+          margin: 0 0 0 16px;
+          color: $tech-dark;
+          font-weight: 600;
+          font-size: 18px;
+        }
+      }
+      
+      .nav-menu {
+        flex: 1;
+        background: transparent;
+        border-bottom: none;
+        margin: 0 24px;
+        
+        .ant-menu-item {
+          font-weight: 500;
+        }
+      }
+      
+      .login-button {
+        background: $tech-blue;
+        border: none;
+        border-radius: 20px;
+        padding: 0 20px;
+        height: 36px;
+        font-weight: 500;
+        
+        &:hover {
+          opacity: 0.9;
+        }
+      }
+    }
+  }
+  
+  .home-content {
+    padding: 80px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 128px);
+    
+    .recruitment-hero {
+      text-align: center;
+      width: 100%;
+      
+      /* 艺术字标题 */
+      .art-title {
+        margin-bottom: 30px;
+        
+        .art-text {
+          font-size: 3.5rem;
+          font-weight: 700;
+          background: linear-gradient(90deg, #1a73e8, #00c6ff);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          letter-spacing: 2px;
+          text-shadow: 0 4px 10px rgba(26, 115, 232, 0.2);
+          position: relative;
+          display: inline-block;
+          
+          &::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #1a73e8, transparent);
+            border-radius: 2px;
+          }
+        }
+      }
+      
+      /* 艺术字副标题 */
+      .art-subtitle {
+        margin-bottom: 50px;
+        
+        span {
+          font-size: 1.8rem;
+          font-weight: 500;
+          color: $tech-dark;
+          letter-spacing: 1px;
+          position: relative;
+          padding-bottom: 8px;
+          
+          &::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(26, 115, 232, 0.5), transparent);
+          }
+        }
+      }
+      
+      .cta-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        
+        .apply-button {
+          background: linear-gradient(90deg, $tech-blue, $tech-accent);
+          border: none;
+          border-radius: 30px;
+          padding: 0 50px;
+          height: 56px;
+          font-size: 20px;
+          font-weight: 600;
+          box-shadow: 0 4px 20px rgba(26, 115, 232, 0.3);
+          transition: all 0.3s;
+          
+          &:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(26, 115, 232, 0.4);
+          }
+        }
+      }
+    }
+  }
+  
+  .home-footer {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 24px;
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .home-layout {
+    .home-header {
+      padding: 0 12px;
+      
+      .header-content {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 12px 0;
+        
+        .logo-title {
+          width: 100%;
+          justify-content: center;
+          margin-bottom: 12px;
+        }
+        
+        .nav-menu {
+          margin: 0 0 12px 0;
+          width: 100%;
+          justify-content: center;
+        }
+        
+        .login-button {
+          margin: 0 auto;
+        }
+      }
+    }
+    
+    .home-content {
+      padding: 40px 16px;
+      
+      .recruitment-hero {
+        .art-title .art-text {
+          font-size: 2.2rem;
+        }
+        
+        .art-subtitle span {
+          font-size: 1.3rem;
+        }
+        
+        .cta-buttons {
+          .apply-button {
+            width: 100%;
+            max-width: 280px;
+            padding: 0 30px;
+            height: 48px;
+            font-size: 18px;
+          }
+        }
+      }
+    }
+  }
+}

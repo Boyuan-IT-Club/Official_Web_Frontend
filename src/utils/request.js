@@ -6,8 +6,11 @@ import { getToken } from './token';
 //3.请求拦截器
 //4.响应拦截器
 const request=axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3000',
+    baseURL: process.env.REACT_APP_API_URL || 'http://43.143.27.198:8080',
     timeout: 10000,
+    headers: {
+      'Content-Type': 'application/json'
+    }
 })
 
 //添加请求拦截器
