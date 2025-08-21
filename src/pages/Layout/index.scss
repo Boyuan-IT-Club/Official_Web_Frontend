@@ -43,11 +43,20 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     .tech-menu {
       background: transparent;
       border-right: none;
+      padding-top: 16px;
       
       .ant-menu-item {
-        margin: 8px 0;
+        margin: 8px 16px;
         border-radius: 4px;
         transition: all 0.3s;
+        
+        a {
+          color: rgba(255, 255, 255, 0.65);
+          display: block;
+          &:hover {
+            color: white;
+          }
+        }
         
         &:hover {
           background: rgba(255, 255, 255, 0.1) !important;
@@ -69,14 +78,14 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         &.ant-menu-item-selected {
           background: rgba(0, 198, 255, 0.1) !important;
           
+          a {
+            color: white;
+          }
+          
           &::after {
             opacity: 1;
           }
         }
-      }
-      
-      .menu-icon {
-        font-size: 18px;
       }
     }
   }
@@ -128,115 +137,6 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       }
     }
   }
-}
-
-// 简历卡片样式
-.resume-card {
-  max-width: 800px;
-  margin: 0 auto;
-  background: transparent;
-  
-  .resume-header {
-    text-align: center;
-    margin-bottom: 30px;
-    
-    .art-title {
-      font-family: 'Microsoft YaHei', sans-serif;
-      color: $tech-blue;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      position: relative;
-      display: inline-block;
-      
-      &::after {
-        content: '';
-        position: absolute;
-        bottom: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 80px;
-        height: 3px;
-        background: linear-gradient(90deg, $tech-accent, $tech-blue);
-        border-radius: 3px;
-      }
-    }
-  }
-  
-  .resume-section {
-    margin-bottom: 24px;
-    
-    .resume-textarea {
-      border-radius: 6px;
-      border: 1px solid #e0e0e0;
-      transition: all 0.3s;
-      
-      &:focus {
-        border-color: $tech-blue;
-        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
-      }
-    }
-  }
-  
-  .upload-section {
-    margin-bottom: 24px;
-    text-align: center;
-    
-    .upload-hint {
-      color: #666;
-      font-size: 13px;
-      margin-top: 8px;
-    }
-  }
-  
-  .submit-section {
-    margin-top: 32px;
-    text-align: center;
-  }
-}
-
-// 科技风按钮
-.tech-button {
-  border-radius: 20px;
-  border: 1px solid $tech-blue;
-  color: $tech-blue;
-  background: transparent;
-  transition: all 0.3s;
-  padding: 0 20px;
-  height: 40px;
-  
-  &:hover {
-    background: rgba(26, 115, 232, 0.1);
-    transform: translateY(-2px);
-  }
-}
-
-.tech-primary-btn {
-  border-radius: 20px;
-  background: linear-gradient(90deg, $tech-blue, $tech-accent);
-  border: none;
-  color: white;
-  padding: 0 30px;
-  height: 44px;
-  font-weight: 500;
-  box-shadow: 0 4px 10px rgba(26, 115, 232, 0.3);
-  transition: all 0.3s;
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(26, 115, 232, 0.4);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-}
-
-.coming-soon {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 300px;
-  font-size: 18px;
-  color: $text-color;
 }
 
 // 动画效果

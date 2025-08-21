@@ -83,7 +83,7 @@ const AuthCard = () => {
         
         localStorage.setItem('token', token);
         message.success('登录成功');
-        navigate('/');
+        navigate('/publish');
       } else if (showRegister) {
         if (registerStep === 0) {
           // 验证邮箱步骤

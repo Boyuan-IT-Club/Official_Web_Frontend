@@ -1,0 +1,82 @@
+// pages/Publish/index.scss
+.publish-page {
+  max-width: 800px;
+  margin: 0 auto;
+
+  .publish-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    gap: 16px;
+  }
+
+  .resume-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .resume-form {
+    .form-actions {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid #f0f0f0;
+      text-align: center;
+    }
+  }
+
+  .resume-preview {
+    .preview-item {
+      margin-bottom: 24px;
+      padding: 16px;
+      border: 1px solid #f0f0f0;
+      border-radius: 6px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .preview-content {
+      margin-top: 8px;
+      padding: 12px;
+      background: #fafafa;
+      border-radius: 4px;
+      min-height: 60px;
+    }
+
+    .preview-actions {
+      margin-top: 32px;
+      text-align: center;
+    }
+  }
+
+  .submit-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0;
+
+    .success-content {
+      text-align: center;
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .publish-page {
+    margin: 0 8px;
+
+    .resume-header {
+      text-align: center;
+    }
+
+    .preview-item {
+      padding: 12px !important;
+    }
+  }
+}
