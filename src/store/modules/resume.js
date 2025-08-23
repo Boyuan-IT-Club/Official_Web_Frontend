@@ -46,6 +46,7 @@ export const saveFieldValues = createAsyncThunk(
   'resume/saveFieldValues',
   async ({ cycleId, fieldValues }, { rejectWithValue }) => {
     try {
+      // 修改：直接发送 fieldValues 数组，而不是包含 fieldValues 属性的对象
       const res = await request.post(`/api/resumes/cycle/${cycleId}/field-values`, fieldValues);
       return res.data;
     } catch (error) {
@@ -60,6 +61,23 @@ export const submitResume = createAsyncThunk(
   async (cycleId, { rejectWithValue }) => {
     try {
       const res = await request.post(`/api/resumes/cycle/${cycleId}/submit`);
+      return res.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 修改简历
+export const updateResume = createAsyncThunk(
+  'resume/updateResume',
+  async ({ cycleId, fieldValues }, { rejectWithValue }) => {
+    try {
+      // 修改：直接发送 fieldValues 数组
+      await request.post(`/api/resumes/cycle/${cycleId}/field-values`, fieldValues);
+      
+      // 然后更新简历
+      const res = await request.put(`/api/resumes/cycle/${cycleId}`);
       return res.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
@@ -124,6 +142,22 @@ const resumeSlice = createSlice({
       })
       .addCase(fetchOrCreateResume.rejected, (state, action) => {
         state.loading = false;
+        state.error = action.payload;
+      })
+
+      // 修改简历
+      .addCase(updateResume.pending, (state) => {
+        state.saving = true;
+        state.error = null;
+      })
+      .addCase(updateResume.fulfilled, (state, action) => {
+        state.saving = false;
+        if (state.resume) {
+          state.resume.submittedAt = new Date().toISOString();
+        }
+      })
+      .addCase(updateResume.rejected, (state, action) => {
+        state.saving = false;
         state.error = action.payload;
       })
 

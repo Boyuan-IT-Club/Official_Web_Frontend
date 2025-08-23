@@ -2,6 +2,9 @@
 .publish-page {
   max-width: 800px;
   margin: 0 auto;
+  padding: 20px 16px;
+  background: #f5f5f5;
+  min-height: 100vh;
 
   .publish-loading {
     display: flex;
@@ -12,71 +15,89 @@
     gap: 16px;
   }
 
-  .resume-header {
+  .questionnaire-header {
+    background: white;
+    padding: 24px;
+    border-radius: 8px;
     margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #f0f0f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
-  .resume-form {
-    .form-actions {
-      margin-top: 32px;
-      padding-top: 16px;
-      border-top: 1px solid #f0f0f0;
-      text-align: center;
+  .questionnaire-card {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    
+    .ant-card-body {
+      padding: 0;
     }
   }
 
-  .resume-preview {
-    .preview-item {
-      margin-bottom: 24px;
-      padding: 16px;
-      border: 1px solid #f0f0f0;
-      border-radius: 6px;
-
+  .questionnaire-form {
+    padding: 24px;
+    
+    .form-section {
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px dashed #f0f0f0;
+      
       &:last-child {
+        border-bottom: none;
         margin-bottom: 0;
+        padding-bottom: 0;
       }
     }
-
-    .preview-content {
-      margin-top: 8px;
-      padding: 12px;
-      background: #fafafa;
-      border-radius: 4px;
-      min-height: 60px;
+    
+    .section-title {
+      color: #1890ff;
+      margin-bottom: 24px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #1890ff;
+      display: inline-block;
     }
-
-    .preview-actions {
-      margin-top: 32px;
-      text-align: center;
+    
+    .ant-form-item-label {
+      font-weight: 600;
+      
+      label {
+        color: #262626;
+        
+        &::after {
+          content: '' !important;
+        }
+      }
+    }
+    
+    .ant-input,
+    .ant-select-selector,
+    .ant-picker {
+      border-radius: 4px;
+    }
+    
+    .ant-input-affix-wrapper {
+      padding: 8px 11px;
     }
   }
 
-  .submit-success {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 0;
-
-    .success-content {
-      text-align: center;
-    }
+  .form-actions {
+    text-align: center;
+    padding-top: 24px;
+    margin-top: 32px;
+    border-top: 1px solid #f0f0f0;
   }
 }
 
 // 响应式设计
 @media (max-width: 768px) {
   .publish-page {
-    margin: 0 8px;
-
-    .resume-header {
+    padding: 12px 8px;
+    
+    .questionnaire-header {
+      padding: 16px;
       text-align: center;
     }
-
-    .preview-item {
-      padding: 12px !important;
+    
+    .questionnaire-form {
+      padding: 16px;
     }
   }
 }

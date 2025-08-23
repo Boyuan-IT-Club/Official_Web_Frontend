@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Card, Form, Input, Button, Checkbox, message, Steps } from 'antd';
-import { MailOutlined, LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, Checkbox, message } from 'antd';
+import { MailOutlined, LockOutlined, SafetyCertificateOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
 import './index.scss';
 import { useNavigate } from 'react-router-dom';
 import { request } from '@/utils/request';
 
 const { Item } = Form;
-const { Step } = Steps;
 
 const AuthCard = () => {
   const navigate = useNavigate();
@@ -15,7 +14,6 @@ const AuthCard = () => {
   const [countdown, setCountdown] = useState(0);
   const [showRegister, setShowRegister] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
-  const [registerStep, setRegisterStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
   // 发送验证码
@@ -85,27 +83,24 @@ const AuthCard = () => {
         message.success('登录成功');
         navigate('/publish');
       } else if (showRegister) {
-        if (registerStep === 0) {
-          // 验证邮箱步骤
-          await request.post('/api/auth/verify-code', {
-            email: values.email,
-            code: values.code
-          });
-          setRegisterStep(1);
-          message.success('邮箱验证成功，请设置密码');
-        } else {
-          // 注册步骤
-          await request.post('/api/auth/register', {
-            username: values.name,
-            password: values.password,
-            email: values.email,
-            name: values.name,
-            phone: ""
-          });
+        // 直接注册，验证码比对已在后端完成
+        const res = await request.post('/api/auth/register', {
+          username: values.email.split('@')[0], // 使用邮箱前缀作为用户名
+          password: values.password,
+          confirmPassword: values.confirmPassword,
+          name: values.name,
+          email: values.email,
+          phone: values.phone || "",
+          emailCode: values.code
+        });
+        
+        if (res.code === 200) {
           message.success('注册成功，请登录');
           setShowRegister(false);
-          setRegisterStep(0);
           form.resetFields();
+        } else {
+          // 只有当注册失败时才抛出错误
+          throw new Error(res.message || '注册失败');
         }
       } else if (showForgot) {
         // 重置密码
@@ -232,112 +227,99 @@ const AuthCard = () => {
           </Form>
         ) : showRegister ? (
           <Form form={form} name="register" onFinish={onFinish}>
-            <Steps current={registerStep} size="small" className="register-steps">
-              <Step title="验证邮箱" />
-              <Step title="设置密码" />
-            </Steps>
+            <Item
+              name="name"
+              rules={[{ required: true, message: '请输入真实姓名' }]}
+            >
+              <Input prefix={<UserOutlined />} placeholder="真实姓名" />
+            </Item>
 
-            {registerStep === 0 ? (
-              <>
-                <Item
-                  name="name"
-                  rules={[{ required: true, message: '请输入真实姓名' }]}
-                >
-                  <Input prefix={<UserOutlined />} placeholder="真实姓名" />
-                </Item>
+            <Item
+              name="email"
+              rules={[
+                { required: true, message: '请输入邮箱' },
+                { type: 'email', message: '邮箱格式不正确' },
+                { validator: emailValidator }
+              ]}
+            >
+              <Input 
+                prefix={<MailOutlined />} 
+                placeholder="请输入@stu.ecnu.edu.cn邮箱" 
+              />
+            </Item>
 
-                <Item
-                  name="email"
-                  rules={[
-                    { required: true, message: '请输入邮箱' },
-                    { type: 'email', message: '邮箱格式不正确' },
-                    { validator: emailValidator }
-                  ]}
-                >
-                  <Input 
-                    prefix={<MailOutlined />} 
-                    placeholder="请输入@stu.ecnu.edu.cn邮箱" 
-                  />
-                </Item>
+            <Item
+              name="phone"
+              rules={[
+                { required: false },
+                { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码' }
+              ]}
+            >
+              <Input prefix={<PhoneOutlined />} placeholder="手机号码（选填）" />
+            </Item>
 
-                <Item
-                  name="code"
-                  rules={[{ required: true, message: '请输入验证码' }]}
-                >
-                  <Input
-                    prefix={<SafetyCertificateOutlined />}
-                    placeholder="验证码"
-                    addonAfter={
-                      <Button 
-                        type="link" 
-                        onClick={sendVerificationCode}
-                        disabled={countdown > 0 || loading}
-                        loading={loading}
-                      >
-                        {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
-                      </Button>
+            <Item
+              name="code"
+              rules={[{ required: true, message: '请输入验证码' }]}
+            >
+              <Input
+                prefix={<SafetyCertificateOutlined />}
+                placeholder="验证码"
+                addonAfter={
+                  <Button 
+                    type="link" 
+                    onClick={sendVerificationCode}
+                    disabled={countdown > 0 || loading}
+                    loading={loading}
+                  >
+                    {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
+                  </Button>
+                }
+              />
+            </Item>
+
+            <Item
+              name="password"
+              rules={[
+                { required: true, message: '请输入密码' },
+                { min: 8, message: '密码至少8位' }
+              ]}
+            >
+              <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+            </Item>
+
+            <Item
+              name="confirmPassword"
+              dependencies={['password']}
+              rules={[
+                { required: true, message: '请确认密码' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('password') === value) {
+                      return Promise.resolve();
                     }
-                  />
-                </Item>
+                    return Promise.reject(new Error('两次输入的密码不一致'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password prefix={<LockOutlined />} placeholder="确认密码" />
+            </Item>
 
-                <Item>
-                  <Button 
-                    type="primary" 
-                    htmlType="submit" 
-                    block
-                    loading={loading}
-                  >
-                    验证邮箱
-                  </Button>
-                </Item>
-              </>
-            ) : (
-              <>
-                <Item
-                  name="password"
-                  rules={[
-                    { required: true, message: '请输入密码' },
-                    { min: 8, message: '密码至少8位' }
-                  ]}
-                >
-                  <Input.Password prefix={<LockOutlined />} placeholder="密码" />
-                </Item>
-
-                <Item
-                  name="confirmPassword"
-                  dependencies={['password']}
-                  rules={[
-                    { required: true, message: '请确认密码' },
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        if (!value || getFieldValue('password') === value) {
-                          return Promise.resolve();
-                        }
-                        return Promise.reject(new Error('两次输入的密码不一致'));
-                      },
-                    }),
-                  ]}
-                >
-                  <Input.Password prefix={<LockOutlined />} placeholder="确认密码" />
-                </Item>
-
-                <Item>
-                  <Button 
-                    type="primary" 
-                    htmlType="submit" 
-                    block
-                    loading={loading}
-                  >
-                    完成注册
-                  </Button>
-                </Item>
-              </>
-            )}
+            <Item>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                block
+                loading={loading}
+              >
+                注册
+              </Button>
+            </Item>
 
             <div className="auth-links">
               <span onClick={() => {
                 setShowRegister(false);
-                setRegisterStep(0);
                 form.resetFields();
               }}>
                 返回登录
