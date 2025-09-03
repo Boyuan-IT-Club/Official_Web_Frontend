@@ -1,103 +1,164 @@
 // pages/Publish/index.scss
 .publish-page {
-  max-width: 800px;
+  padding: 24px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 20px 16px;
-  background: #f5f5f5;
-  min-height: 100vh;
-
+  
+  .questionnaire-header {
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  
+  .content-wrapper {
+    .questionnaire-card {
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      
+      .questionnaire-form {
+        .form-section {
+          margin-bottom: 32px;
+          
+          .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f0f0;
+            
+            .section-icon {
+              margin-right: 8px;
+              color: #1890ff;
+            }
+            
+            .section-title {
+              margin: 0;
+              color: #262626;
+            }
+          }
+        }
+        
+        .form-actions {
+          margin-top: 32px;
+          padding-top: 16px;
+          border-top: 1px solid #f0f0f0;
+          text-align: center;
+        }
+      }
+    }
+  }
+  
+  .photo-section {
+    margin-bottom: 24px;
+  }
+  
+  .tips-section {
+    margin-bottom: 24px;
+  }
+  
   .publish-loading {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 300px;
-    gap: 16px;
-  }
-
-  .questionnaire-header {
-    background: white;
-    padding: 24px;
-    border-radius: 8px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .questionnaire-card {
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    height: 200px;
     
-    .ant-card-body {
-      padding: 0;
+    .ant-spin {
+      margin-bottom: 16px;
     }
   }
+}
 
-  .questionnaire-form {
-    padding: 24px;
+// 黑色字体选择器
+.black-text-select {
+  .ant-select-selection-item {
+    color: #000 !important;
+  }
+}
+
+// 年级选项黑色字体
+.ant-select-item-option {
+  &.ant-select-item-option-selected {
+    .ant-select-item-option-content {
+      color: #000 !important;
+    }
+  }
+  
+  .ant-select-item-option-content {
+    color: #000 !important;
+  }
+}
+
+// 确保选择器中的文字也是黑色
+.ant-select-dropdown {
+  .ant-select-item {
+    color: #000 !important;
     
-    .form-section {
-      margin-bottom: 32px;
-      padding-bottom: 24px;
-      border-bottom: 1px dashed #f0f0f0;
-      
-      &:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
+    &.ant-select-item-option-selected {
+      .ant-select-item-option-content {
+        color: #000 !important;
       }
     }
-    
-    .section-title {
-      color: #1890ff;
-      margin-bottom: 24px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #1890ff;
-      display: inline-block;
+  }
+}
+
+// 提交确认弹窗样式
+.submit-confirm-modal {
+  .modal-content {
+    .modal-text {
+      color: #333;
+      margin-bottom: 12px;
+      font-size: 14px;
+      line-height: 1.5;
     }
     
-    .ant-form-item-label {
-      font-weight: 600;
-      
-      label {
-        color: #262626;
-        
-        &::after {
-          content: '' !important;
-        }
-      }
-    }
-    
-    .ant-input,
-    .ant-select-selector,
-    .ant-picker {
+    .modal-warning {
+      color: #fa8c16; // 橙色警告，更友好
+      background-color: #fff7e6;
+      padding: 12px;
       border-radius: 4px;
-    }
-    
-    .ant-input-affix-wrapper {
-      padding: 8px 11px;
+      border-left: 3px solid #fa8c16;
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
     }
   }
+  
+  .ant-modal-confirm-btns {
+    margin-top: 16px;
+  }
+}
 
-  .form-actions {
-    text-align: center;
-    padding-top: 24px;
-    margin-top: 32px;
-    border-top: 1px solid #f0f0f0;
+// 预览弹窗样式
+.preview-modal {
+  .ant-modal-body {
+    padding: 0;
+    
+    .resume-display-card {
+      border: none;
+      box-shadow: none;
+    }
   }
 }
 
 // 响应式设计
 @media (max-width: 768px) {
   .publish-page {
-    padding: 12px 8px;
-    
-    .questionnaire-header {
-      padding: 16px;
-      text-align: center;
+    padding: 16px;
+  }
+  
+  .content-wrapper {
+    .questionnaire-card {
+      margin: 0 -16px;
+      border-radius: 0;
     }
-    
-    .questionnaire-form {
-      padding: 16px;
+  }
+  
+  .submit-confirm-modal {
+    .modal-content {
+      .modal-warning {
+        padding: 8px;
+        font-size: 12px;
+      }
     }
   }
 }

@@ -11,8 +11,12 @@ import Person from "@/pages/User";
 //路由配置实例
 const router = createBrowserRouter([
   {
+    path: "/",
+    element: <Land />,  // 将根路径指向Land页面
+  },
+  {
     path: "/land",
-    element: <Land />,  // 社团介绍/登录入口页
+    element: <Land />,  // 保留land路径
   },
   {
     path: "/login",
@@ -21,12 +25,12 @@ const router = createBrowserRouter([
 
   // 受保护的后台路由
   {
-    path: "/",
-    element: <AuthRoute><Layout /></AuthRoute>,
+    path: "/dashboard",  // 修改后台路由路径
+    element: /* <AuthRoute> */<Layout />/* </AuthRoute> */,
     children: [
       {
-        index: true, // 默认子路由
-        element: <Navigate to="/publish" replace />,
+        index: true,
+        element: <Navigate to="/dashboard/publish" replace />,
       },
       {
         path: 'publish',
@@ -38,7 +42,7 @@ const router = createBrowserRouter([
       },
       {
         path: '*',
-        element: <Navigate to="/publish" replace />,
+        element: <Navigate to="/dashboard/publish" replace />,
       },
     ],
   }

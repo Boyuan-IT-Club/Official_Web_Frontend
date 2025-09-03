@@ -1,264 +1,560 @@
-// 变量定义
-$primary-color: #1890ff;
-$tech-blue: #1a73e8;
-$tech-dark: #0f1621;
-$tech-light: #f8f9fa;
-$tech-accent: #00c6ff;
-$text-color: #333;
+// src/pages/Land/index.scss
+// 变量定义 - 蓝色主题
+$primary-blue: #1e90ff;
+$tech-blue: #1e78ff;
+$tech-dark-blue: #0052cc;
+$tech-light-blue: #e6f2ff;
+$tech-accent: #4d94ff;
+$tech-purple: #5c6bc0;
+$text-dark: #1a365d;
+$text-gray: #4a5568;
+$text-light: #ffffff;
+$background-light: #ffffff;
+$background-blue: #f0f8ff;
+$background-gradient: linear-gradient(135deg, #e6f0ff 0%, #d6e6ff 50%, #ebf4ff 100%);
+$border-color: #cbd5e0;
 
-.home-layout {
+.land-page {
   min-height: 100vh;
+  height: 100vh; // 确保页面高度为视口高度
+  background: $background-gradient;
+  color: $text-dark;
+  display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
 
-  /* 科技感流动背景 */
-  .background-watermark {
-    position: fixed;
+  // 背景装饰元素
+  .background-elements {
+    position: absolute;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: -1;
-    background: $tech-dark;
-    opacity: 0.9;
-    overflow: hidden;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
     
-    &::before {
-      content: "";
+    .bg-circle {
       position: absolute;
-      height: 100%;
-      width: 100%;
-      background: 
-        linear-gradient(transparent 0%, rgba($tech-blue, 0.1) 50%, transparent 100%),
-        repeating-linear-gradient(
-          0deg,
-          rgba($tech-blue, 0.1) 0px,
-          rgba($tech-blue, 0.1) 1px,
-          transparent 1px,
-          transparent 10px
-        ),
-        repeating-linear-gradient(
-          90deg,
-          rgba($tech-blue, 0.1) 0px,
-          rgba($tech-blue, 0.1) 1px,
-          transparent 1px,
-          transparent 10px
-        );
-      animation: flow 20s linear infinite;
+      border-radius: 50%;
+      opacity: 0.1;
+      background: linear-gradient(135deg, $primary-blue, $tech-purple);
+      
+      &.bg-circle-1 {
+        width: 250px;
+        height: 250px;
+        top: -100px;
+        right: -80px;
+        filter: blur(40px);
+      }
+      
+      &.bg-circle-2 {
+        width: 180px;
+        height: 180px;
+        bottom: 80px;
+        left: -40px;
+        filter: blur(30px);
+      }
+      
+      &.bg-circle-3 {
+        width: 120px;
+        height: 120px;
+        top: 40%;
+        right: 15%;
+        filter: blur(25px);
+      }
     }
     
-    @keyframes flow {
-      0% { transform: translateY(0) translateX(0); }
-      50% { transform: translateY(25%) translateX(25%); }
-      100% { transform: translateY(0) translateX(0); }
+    .bg-dots {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: radial-gradient(rgba($primary-blue, 0.1) 1px, transparent 1px);
+      background-size: 20px 20px;
+      opacity: 0.3;
     }
   }
-  
-  .home-header {
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  // 顶部导航栏样式
+  .land-header {
+    background: rgba($background-light, 0.95);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 1px 15px rgba(0, 0, 0, 0.08);
     padding: 0 24px;
-    height: 64px;
-    line-height: 64px;
-    position: relative;
-    z-index: 10;
-    
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba($border-color, 0.6);
+
     .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      max-width: 1200px;
-      margin: 0 auto;
-      width: 100%;
-      
-      .logo-title {
+      height: 64px;
+
+      .logo-section {
         display: flex;
         align-items: center;
+        gap: 12px;
         
-        .title-text {
-          margin: 0 0 0 16px;
-          color: $tech-dark;
-          font-weight: 600;
-          font-size: 18px;
+        .logo {
+          width: 38px;
+          height: 38px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          
+          .logo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
         }
-      }
-      
-      .nav-menu {
-        flex: 1;
-        background: transparent;
-        border-bottom: none;
-        margin: 0 24px;
         
-        .ant-menu-item {
-          font-weight: 500;
-        }
-      }
-      
-      .login-button {
-        background: $tech-blue;
-        border: none;
-        border-radius: 20px;
-        padding: 0 20px;
-        height: 36px;
-        font-weight: 500;
-        
-        &:hover {
-          opacity: 0.9;
+        .club-name {
+          font-size: 17px;
+          font-weight: 700;
+          color: $tech-dark-blue;
+          letter-spacing: 0.3px;
         }
       }
     }
   }
-  
-  .home-content {
-    padding: 80px 24px;
+
+  // 主内容区域
+  .land-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 20px 24px; // 减少上下内边距
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
+    box-sizing: border-box;
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: calc(100vh - 128px);
-    
-    .recruitment-hero {
-      text-align: center;
+    z-index: 2;
+
+    .main-content {
       width: 100%;
+      min-height: auto; // 移除最小高度
+    }
+
+    // 欢迎文字区域
+    .welcome-section {
+      padding: 20px; // 减少内边距
       
-      /* 艺术字标题 */
-      .art-title {
-        margin-bottom: 30px;
+      .welcome-content {
+        max-width: 480px;
         
-        .art-text {
-          font-size: 3.5rem;
-          font-weight: 700;
-          background: linear-gradient(90deg, #1a73e8, #00c6ff);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-          letter-spacing: 2px;
-          text-shadow: 0 4px 10px rgba(26, 115, 232, 0.2);
-          position: relative;
-          display: inline-block;
+        .title-wrapper {
+          margin-bottom: 15px; // 减少间距
           
-          &::after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, #1a73e8, transparent);
-            border-radius: 2px;
+          .main-title {
+            font-size: 2.4rem; // 稍微减小字体
+            font-weight: 800;
+            margin-bottom: 0;
+            color: $text-dark;
+            line-height: 1.1;
+            letter-spacing: -0.5px;
+            
+            .title-accent {
+              background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+            }
+            
+            @media (max-width: 768px) {
+              font-size: 2rem;
+              text-align: center;
+            }
           }
         }
-      }
-      
-      /* 艺术字副标题 */
-      .art-subtitle {
-        margin-bottom: 50px;
         
-        span {
-          font-size: 1.8rem;
+        .subtitle {
+          font-size: 1.1rem; // 减小字体
+          color: $text-gray;
+          margin-bottom: 15px; // 减少间距
           font-weight: 500;
-          color: $tech-dark;
-          letter-spacing: 1px;
-          position: relative;
-          padding-bottom: 8px;
+          line-height: 1.4;
           
-          &::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80px;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, rgba(26, 115, 232, 0.5), transparent);
+          @media (max-width: 768px) {
+            font-size: 1rem;
+            text-align: center;
           }
         }
-      }
-      
-      .cta-buttons {
-        display: flex;
-        justify-content: center;
-        gap: 24px;
         
-        .apply-button {
-          background: linear-gradient(90deg, $tech-blue, $tech-accent);
-          border: none;
-          border-radius: 30px;
-          padding: 0 50px;
-          height: 56px;
-          font-size: 20px;
-          font-weight: 600;
-          box-shadow: 0 4px 20px rgba(26, 115, 232, 0.3);
-          transition: all 0.3s;
+        .description {
+          font-size: 0.95rem; // 减小字体
+          color: $text-gray;
+          line-height: 1.6;
+          display: block;
+          margin-bottom: 20px; // 减少间距
           
-          &:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 25px rgba(26, 115, 232, 0.4);
+          .highlight {
+            color: $primary-blue;
+            font-weight: 600;
+          }
+          
+          @media (max-width: 768px) {
+            text-align: center;
+            font-size: 0.9rem;
+          }
+        }
+        
+        .stats-container {
+          display: flex;
+          gap: 20px; // 减少间距
+          margin-top: 20px; // 减少间距
+          
+          .stat-item {
+            text-align: center;
+            
+            .stat-number {
+              font-size: 1.3rem; // 减小字体
+              font-weight: 700;
+              color: $primary-blue;
+              margin-bottom: 4px;
+            }
+            
+            .stat-label {
+              font-size: 0.8rem; // 减小字体
+              color: $text-gray;
+              font-weight: 500;
+            }
           }
         }
       }
+    }
+
+    // 卡片区域
+    .card-section {
+      padding: 20px; // 减少内边距
+      display: flex;
+      justify-content: flex-end;
+      
+      .card-wrapper {
+        display: flex;
+        justify-content: flex-end;
+        
+        .application-card {
+          border: none;
+          border-radius: 20px;
+          box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+          padding: 24px; // 减少内边距
+          background: $background-light;
+          max-width: 380px;
+          width: 100%;
+          backdrop-filter: blur(8px);
+          
+          .card-header {
+            text-align: center;
+            margin-bottom: 20px; // 减少间距
+            
+            .card-icon {
+              width: 50px; // 减小尺寸
+              height: 50px; // 减小尺寸
+              border-radius: 16px;
+              background: linear-gradient(135deg, $tech-light-blue, #d6e6ff);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 12px; // 减少间距
+              font-size: 20px; // 减小字体
+              color: $primary-blue;
+            }
+            
+            .card-title {
+              color: $text-dark;
+              margin-bottom: 6px;
+              font-size: 1.2rem; // 减小字体
+              font-weight: 700;
+            }
+            
+            .card-subtitle {
+              font-size: 0.85rem; // 减小字体
+              color: $text-gray;
+            }
+          }
+          
+          .card-features {
+            margin-bottom: 20px; // 减少间距
+            
+            .feature-item {
+              display: flex;
+              align-items: center;
+              padding: 12px; // 减少内边距
+              background: $background-blue;
+              border-radius: 14px;
+              transition: all 0.3s ease;
+              
+              &:hover {
+                background: $tech-light-blue;
+                transform: translateY(-1px);
+                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+              }
+              
+              .feature-icon {
+                font-size: 16px; // 减小字体
+                color: $primary-blue;
+                margin-right: 10px; // 减少间距
+                width: 20px; // 减小宽度
+                flex-shrink: 0;
+              }
+              
+              .feature-content {
+                display: flex;
+                flex-direction: column;
+                
+                .feature-title {
+                  margin-bottom: 2px;
+                  font-size: 0.8rem; // 减小字体
+                }
+                
+                .feature-desc {
+                  font-size: 0.7rem; // 减小字体
+                }
+              }
+            }
+          }
+          
+          .card-actions {
+  text-align: center;
+  
+  .apply-button {
+    height: 48px; // 增加高度
+    background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
+    border: none;
+    border-radius: 12px; // 增加圆角
+    font-size: 16px; // 增大字体
+    font-weight: 600;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+    padding: 0 24px; // 增加内边距
+    box-shadow: 0 4px 12px rgba($primary-blue, 0.3); // 添加阴影
+    
+    &:hover {
+      transform: translateY(-2px); // 增加悬停效果
+      box-shadow: 0 8px 25px rgba($primary-blue, 0.4);
+    }
+    
+    &:active {
+      transform: translateY(0);
     }
   }
   
-  .home-footer {
-    text-align: center;
-    background: rgba(255, 255, 255, 0.95);
-    padding: 24px;
+  .apply-hint {
+    margin-top: 8px;
+    
+    .ant-typography {
+      font-size: 0.8rem;
+    }
   }
+}
+        }
+      }
+    }
+  }
+
+  // 联系信息区域
+  .contact-section {
+    background: rgba($background-light, 0.95);
+    padding: 20px 0; // 减少内边距
+    text-align: center;
+    margin-top: 10px; // 减少间距
+    
+    .contact-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      
+      .contact-title {
+        color: $text-dark;
+        margin-bottom: 12px; // 减少间距
+        font-weight: 600;
+        font-size: 1rem; // 减小字体
+      }
+      
+      .contact-items {
+        display: flex;
+        justify-content: center;
+        gap: 24px; // 减少间距
+        
+        .contact-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          
+          .contact-label {
+            color: $text-gray;
+            font-weight: 500;
+            font-size: 0.85rem; // 减小字体
+          }
+          
+          .contact-value {
+            color: $primary-blue;
+            font-weight: 600;
+            font-size: 0.85rem; // 减小字体
+          }
+        }
+      }
+    }
+  }
+
+  // 移除页脚样式
 }
 
 // 响应式设计
-@media (max-width: 768px) {
-  .home-layout {
-    .home-header {
-      padding: 0 12px;
+@media (max-width: 992px) {
+  .land-page {
+    .land-content {
+      padding: 15px 16px; // 减少内边距
       
-      .header-content {
-        flex-wrap: wrap;
-        height: auto;
-        padding: 12px 0;
+      .welcome-section,
+      .card-section {
+        padding: 15px; // 减少内边距
+      }
+      
+      .welcome-section {
+        text-align: center;
         
-        .logo-title {
-          width: 100%;
-          justify-content: center;
-          margin-bottom: 12px;
+        .welcome-content {
+          .main-title {
+            font-size: 1.8rem; // 减小字体
+          }
+          
+          .subtitle {
+            font-size: 1rem;
+          }
+          
+          .description {
+            font-size: 0.9rem;
+          }
+          
+          .stats-container {
+            justify-content: center;
+            gap: 15px; // 减少间距
+            
+            .stat-item {
+              .stat-number {
+                font-size: 1.1rem; // 减小字体
+              }
+              
+              .stat-label {
+                font-size: 0.75rem; // 减小字体
+              }
+            }
+          }
         }
+      }
+      
+      .card-section {
+        justify-content: center;
         
-        .nav-menu {
-          margin: 0 0 12px 0;
-          width: 100%;
-          justify-content: center;
-        }
-        
-        .login-button {
-          margin: 0 auto;
+        .application-card {
+          padding: 20px; // 减少内边距
+          max-width: 350px;
         }
       }
     }
     
-    .home-content {
-      padding: 40px 16px;
+    .contact-section {
+      padding: 15px 0; // 减少内边距
       
-      .recruitment-hero {
-        .art-title .art-text {
-          font-size: 2.2rem;
-        }
+      .contact-items {
+        flex-direction: column;
+        gap: 8px; // 减少间距
+      }
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .land-page {
+    .land-header {
+      padding: 0 16px;
+      
+      .header-content {
+        height: 56px;
         
-        .art-subtitle span {
-          font-size: 1.3rem;
+        .logo-section {
+          .logo {
+            width: 34px;
+            height: 34px;
+          }
+          
+          .club-name {
+            font-size: 15px;
+          }
         }
+      }
+    }
+    
+    .land-content {
+      padding: 10px 12px; // 减少内边距
+      
+      .welcome-section {
+        padding: 10px 0; // 减少内边距
         
-        .cta-buttons {
-          .apply-button {
-            width: 100%;
-            max-width: 280px;
-            padding: 0 30px;
-            height: 48px;
-            font-size: 18px;
+        .welcome-content {
+          .main-title {
+            font-size: 1.6rem; // 减小字体
+          }
+          
+          .stats-container {
+            gap: 12px; // 减少间距
+            
+            .stat-item {
+              .stat-number {
+                font-size: 1rem; // 减小字体
+              }
+              
+              .stat-label {
+                font-size: 0.7rem; // 减小字体
+              }
+            }
+          }
+        }
+      }
+      
+      .card-section {
+        padding: 10px 0; // 减少内边距
+        
+        .application-card {
+          padding: 16px; // 减少内边距
+          border-radius: 16px;
+          
+          .card-header {
+            margin-bottom: 16px; // 减少间距
+            
+            .card-icon {
+              width: 45px; // 减小尺寸
+              height: 45px; // 减小尺寸
+              font-size: 18px; // 减小字体
+              margin-bottom: 10px; // 减少间距
+            }
+            
+            .card-title {
+              font-size: 1.1rem; // 减小字体
+            }
+          }
+          
+          .card-features {
+            margin-bottom: 16px; // 减少间距
+            
+            .feature-item {
+              padding: 10px; // 减少内边距
+              
+              .feature-icon {
+                font-size: 14px; // 减小字体
+                margin-right: 8px; // 减少间距
+              }
+            }
           }
         }
       }

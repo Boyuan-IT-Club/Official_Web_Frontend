@@ -81,7 +81,7 @@ const AuthCard = () => {
         
         localStorage.setItem('token', token);
         message.success('登录成功');
-        navigate('/publish');
+        navigate('/dashboard');
       } else if (showRegister) {
         // 直接注册，验证码比对已在后端完成
         const res = await request.post('/api/auth/register', {

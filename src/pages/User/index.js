@@ -94,9 +94,7 @@ const PersonPage = () => {
 
       // 如果只有日期没有时间，添加默认时间部分
       let awardTime = values.awardTime;
-      if (awardTime && !awardTime.includes(':')) {
-        awardTime = `${awardTime} 10:23:00`; // 添加默认时间
-      }
+      
 
       const formattedValues = {
         ...values,
@@ -224,10 +222,10 @@ const PersonPage = () => {
     }
     
     if (userInfo.avatar.startsWith('/')) {
-      return `http://43.143.27.198:8080${userInfo.avatar}`;
+      return `https://official.boyuan.club${userInfo.avatar}`;
     }
     
-    return `http://43.143.27.198:8080/uploads/avatars/${userInfo.avatar}`;
+    return `https://official.boyuan.club/uploads/avatars/${userInfo.avatar}`;
   };
 
   const awardColumns = [

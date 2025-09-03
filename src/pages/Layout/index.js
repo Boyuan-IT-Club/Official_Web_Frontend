@@ -38,15 +38,15 @@ const MainLayout = () => {
   };
 
   const menuItems = [
-    {
-      key: '/publish',
-      label: <Link to="/publish">简历投递</Link>,
-    },
-    {
-      key: '/person',
-      label: <Link to="/person">个人主页</Link>,
-    },
-  ];
+  {
+    key: '/dashboard/publish',
+    label: <Link to="/dashboard/publish">简历投递</Link>,
+  },
+  {
+    key: '/dashboard/person',
+    label: <Link to="/dashboard/person">个人主页</Link>,
+  },
+];
 
   // 根据当前路径设置选中的菜单项
   const selectedKeys = [location.pathname];

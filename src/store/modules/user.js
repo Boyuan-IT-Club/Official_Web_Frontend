@@ -123,11 +123,8 @@ function formatDateTime(dateString) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
     
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return `${year}-${month}-${day}`;
   } catch (error) {
     console.error('日期格式化错误:', error);
     return null;
@@ -145,7 +142,7 @@ export const addAward = createAsyncThunk(
       const formattedData = {
         userId: userInfo.userId,
         awardName: awardData.awardName,
-        awardTime: formatDateTime(awardData.awardTime) || '2024-12-01 10:23:00', // 默认值防止空值
+        awardTime: formatDateTime(awardData.awardTime) || '2024-12-01', // 默认值防止空值
         description: awardData.description
       };
       
@@ -297,9 +294,9 @@ const userSlice = createSlice({
           if (userInfo.avatar.startsWith('http')) {
             // 不做任何处理
           } else if (userInfo.avatar.startsWith('/')) {
-            userInfo.avatar = `http://43.143.27.198:8080${userInfo.avatar}`;
+            userInfo.avatar = `https://official.boyuan.club${userInfo.avatar}`;
           } else {
-            userInfo.avatar = `http://43.143.27.198:8080/uploads/avatars/${userInfo.avatar}`;
+            userInfo.avatar = `https://official.boyuan.club/uploads/avatars/${userInfo.avatar}`;
           }
         }
         

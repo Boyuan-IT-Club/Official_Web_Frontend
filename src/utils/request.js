@@ -1,9 +1,9 @@
 //axios的封装处理
 import axios from 'axios';
-import { getToken } from './token';
+import { getToken, removeToken } from './token';
 
 const request = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://43.143.27.198:8080',
+    baseURL: process.env.REACT_APP_API_URL || 'https://official.boyuan.club',
     timeout: 10000,
     // 移除默认的Content-Type设置，让axios根据数据类型自动设置
 })
@@ -37,6 +37,11 @@ request.interceptors.response.use(
         return response.data;
     },
     (error) => {
+        console.dir(error);
+        if(error.response.statues === 401){
+            removeToken();
+            window.location.href = '/login';
+        }
         return Promise.reject(error);
     }
 );

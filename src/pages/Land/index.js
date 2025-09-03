@@ -1,82 +1,182 @@
+// src/pages/Land/index.js
 import React from 'react';
-import { Layout, Button, Avatar, Typography, Menu } from 'antd';
-import { TeamOutlined, CalendarOutlined, FileTextOutlined, UserOutlined } from '@ant-design/icons';
-import './index.scss';
 import { useNavigate } from 'react-router-dom';
-import logo from '../../assets/SingleLogo.png';
+import { Card, Button, Row, Col, Typography } from 'antd';
+import { RocketOutlined, TeamOutlined, CodeOutlined, CalendarOutlined, UserOutlined } from '@ant-design/icons';
+import './index.scss';
 
-const { Header, Content, Footer } = Layout;
-const { Text } = Typography;
+// 导入logo图片 - 请确保路径正确
+import boyuanLogo from '@/assets/SingleLogo.png';
 
-const HomePage = () => {
-    const navigate = useNavigate();
-  const navItems = [
-    { key: 'about', icon: <TeamOutlined />, label: '社团简介' },
-    { key: 'activities', icon: <CalendarOutlined />, label: '社团活动' },
-    { key: 'members', icon: <UserOutlined />, label: '社团成员' },
-    { key: 'admin', icon: <UserOutlined />, label: '管理员入口' }
+const { Title, Text, Paragraph } = Typography;
+
+const Land = () => {
+  const navigate = useNavigate();
+
+  const handleApplyClick = () => {
+  // 检查是否已登录
+  const token = localStorage.getItem('token');
+  if (token) {
+    // 已登录，跳转到发布页面
+    navigate('/dashboard/publish');
+  } else {
+    // 未登录，跳转到登录页面
+    navigate('/login');
+  }
+};
+
+  const featureItems = [
+    {
+      icon: <CodeOutlined />,
+      title: '技术学习',
+      description: '前沿技术，项目实践'
+    },
+    {
+      icon: <TeamOutlined />,
+      title: '团队协作',
+      description: '志同道合，共同成长'
+    },
+    {
+      icon: <RocketOutlined />,
+      title: '实践机会',
+      description: '校企合作，真实项目'
+    },
+    {
+      icon: <CalendarOutlined />,
+      title: '丰富活动',
+      description: '技术分享，竞赛指导'
+    }
   ];
-  const onNavigate = (key) => {
-    if (key === 'login') {
-      navigate('/login');}}
+
   return (
-    <Layout className="home-layout">
-      {/* 科技感流动背景 */}
-      <div className="background-watermark"></div>
-      
-      <Header className="home-header">
+    <div className="land-page">
+      {/* 背景装饰元素 */}
+      <div className="background-elements">
+        <div className="bg-circle bg-circle-1"></div>
+        <div className="bg-circle bg-circle-2"></div>
+        <div className="bg-circle bg-circle-3"></div>
+        <div className="bg-dots"></div>
+      </div>
+
+      {/* 顶部导航栏 */}
+      <header className="land-header">
         <div className="header-content">
-          <div className="logo-title">
-            <Avatar src={logo} size={48} />
-            <h3 className="title-text">博远信息技术社</h3>
+          <div className="logo-section">
+            <div className="logo">
+              {/* 替换为图片logo */}
+              <img src={boyuanLogo} alt="博远信息技术社" className="logo-image" />
+            </div>
+            <span className="club-name">博远信息技术社</span>
           </div>
-          <Menu
-            theme="light"
-            mode="horizontal"
-            items={navItems}
-            className="nav-menu"
-            onClick={({ key }) => onNavigate(key)}
-          />
-          <Button 
-            type="primary" 
-            className="login-button"
-            onClick={() => onNavigate('login')}
-          >
-            登录/注册
-          </Button>
         </div>
-      </Header>
-      
-      <Content className="home-content">
-        <div className="recruitment-hero">
-          {/* 艺术字标题 */}
-          <div className="art-title">
-            <span className="art-text">欢迎加入博远信息技术社</span>
-          </div>
-          {/* 艺术字副标题 */}
-          <div className="art-subtitle">
-            <span>与优秀的人一起，探索技术的无限可能</span>
-          </div>
+      </header>
+
+      {/* 主内容区域 */}
+      <main className="land-content">
+        <Row justify="space-between" align="middle" className="main-content">
+          <Col xs={24} lg={10} className="welcome-section">
+            <div className="welcome-content">
+              <div className="title-wrapper">
+                <Title level={1} className="main-title">
+                  博远信息
+                  <span className="title-accent">技术社</span>
+                </Title>
+              </div>
+              <Paragraph className="subtitle">
+                卓越技术 · 绝佳创意 · 实践平台
+              </Paragraph>
+              <Text className="description">
+                成立于2016年，前身为博远工作室。我们聚集各个专业对IT技术
+                有热情、有想法的小伙伴，提供学习交流、项目实践的平台。
+                <span className="highlight">学校组织与社会企业的紧密合作</span>
+                为社员提供多元的发展机会。
+              </Text>
+              <div className="stats-container">
+                <div className="stat-item">
+                  <div className="stat-number">8年</div>
+                  <div className="stat-label">深厚积淀</div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-number">100+</div>
+                  <div className="stat-label">优秀社员</div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-number">众多</div>
+                  <div className="stat-label">合作资源</div>
+                </div>
+              </div>
+            </div>
+          </Col>
           
-          <div className="cta-buttons">
-            <Button 
-              type="primary" 
-              size="large" 
-              className="apply-button"
-              icon={<FileTextOutlined />}
-              onClick={() => onNavigate('resume')}
-            >
-              立即投递简历
-            </Button>
+          <Col xs={24} lg={12} className="card-section">
+            <div className="card-wrapper">
+              <Card className="application-card">
+                <div className="card-header">
+                  <div className="card-icon">
+                    <UserOutlined />
+                  </div>
+                  <Title level={3} className="card-title">加入博远</Title>
+                  <Text className="card-subtitle">
+                    开启技术成长之旅
+                  </Text>
+                </div>
+                
+                <div className="card-features">
+                  <Row gutter={[12, 12]}>
+                    {featureItems.map((item, index) => (
+                      <Col xs={12} key={index}>
+                        <div className="feature-item">
+                          <span className="feature-icon">{item.icon}</span>
+                          <div className="feature-content">
+                            <Text strong className="feature-title">{item.title}</Text>
+                            <Text type="secondary" className="feature-desc">{item.description}</Text>
+                          </div>
+                        </div>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+
+                <div className="card-actions">
+                  <Button 
+                    type="primary" 
+                    size="large" 
+                    className="apply-button"
+                    onClick={handleApplyClick}
+                  >
+                    <UserOutlined />
+                    投递简历
+                  </Button>
+                  <div className="apply-hint">
+                    <Text type="secondary">填写信息加入我们</Text>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </Col>
+        </Row>
+      </main>
+
+      {/* 联系信息 */}
+      <section className="contact-section">
+        <div className="contact-content">
+          <Title level={4} className="contact-title">了解更多</Title>
+          <div className="contact-items">
+            <div className="contact-item">
+              <span className="contact-label">答疑QQ群：</span>
+              <span className="contact-value">765667302</span>
+            </div>
+            <div className="contact-item">
+              <span className="contact-label">官方公众号：</span>
+              <span className="contact-value">ECNUCoder</span>
+            </div>
           </div>
         </div>
-      </Content>
-      
-      <Footer className="home-footer">
-        <Text>© {new Date().getFullYear()} 博远信息技术社 版权所有</Text>
-      </Footer>
-    </Layout>
+      </section>
+
+      {/* 移除页脚部分 */}
+    </div>
   );
 };
 
-export default HomePage;
+export default Land;
