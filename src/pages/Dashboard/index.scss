@@ -1,0 +1,239 @@
+// src/pages/Dashboard/index.scss
+// 使用与Land页面一致的变量
+$primary-blue: #4da6ff;
+$tech-blue: #4d94ff;
+$tech-dark-blue: #0066cc;
+$tech-light-blue: #f5f9ff;
+$tech-accent: #66a3ff;
+$tech-purple: #6c7ae0;
+$text-dark: #2d3748;
+$text-gray: #718096;
+$text-light: #ffffff;
+$background-light: #ffffff;
+$background-blue: #f8fbff;
+$border-color: #e2e8f0;
+
+.dashboard-page {
+  padding: 0;
+  
+  // 欢迎横幅
+  .dashboard-banner {
+    background: linear-gradient(135deg, rgba($primary-blue, 0.1) 0%, rgba($tech-purple, 0.1) 100%);
+    padding: 40px 24px;
+    text-align: center;
+    margin-bottom: 32px;
+    
+    .banner-content {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .banner-title {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+      color: $text-dark;
+      
+      .title-accent {
+        background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-left: 8px;
+      }
+    }
+    
+    .banner-subtitle {
+      font-size: 1.2rem;
+      color: $text-gray;
+    }
+  }
+  
+  // 通用部分样式
+  .section-header {
+    text-align: center;
+    margin-bottom: 32px;
+    
+    h2 {
+      color: $text-dark;
+      margin-bottom: 8px;
+    }
+  }
+  
+  // 成就部分
+  .achievement-section {
+    padding: 0 24px 40px;
+    
+    .achievement-cards {
+      .achievement-card {
+        text-align: center;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border: 1px solid $border-color;
+        
+        .achievement-icon {
+          font-size: 32px;
+          margin-bottom: 16px;
+        }
+        
+        .achievement-content {
+          .achievement-count {
+            font-size: 2rem;
+            font-weight: 700;
+            color: $primary-blue;
+            margin-bottom: 4px;
+          }
+          
+          .achievement-title {
+            color: $text-gray;
+            font-size: 0.9rem;
+          }
+        }
+      }
+    }
+  }
+  
+  // 部门部分
+  .departments-section {
+    padding: 40px 24px;
+    background: $background-blue;
+    
+    .department-cards {
+      .department-card {
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border: 1px solid $border-color;
+        height: 100%;
+        
+        .department-header {
+          display: flex;
+          align-items: center;
+          margin-bottom: 16px;
+          
+          .department-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-right: 16px;
+          }
+          
+          .department-title {
+            flex: 1;
+          }
+        }
+        
+        .department-features {
+          .feature-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+            
+            .feature-tag {
+              background: rgba($primary-blue, 0.1);
+              color: $primary-blue;
+              padding: 4px 12px;
+              border-radius: 16px;
+              font-size: 0.85rem;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 活动部分
+  .activities-section {
+    padding: 40px 24px;
+    
+    .activity-card {
+      text-align: center;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid $border-color;
+      height: 100%;
+      
+      .activity-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        background: rgba($primary-blue, 0.1);
+        color: $primary-blue;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        margin: 0 auto 16px;
+      }
+    }
+  }
+  
+  // 加入我们部分
+  .join-section {
+    padding: 40px 24px;
+    background: $background-blue;
+    
+    .join-card {
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid $border-color;
+      max-width: 800px;
+      margin: 0 auto;
+      
+      .join-content {
+        text-align: center;
+        
+        .contact-info {
+          margin-top: 24px;
+          
+          .contact-item {
+            margin-bottom: 8px;
+            
+            strong {
+              margin-right: 8px;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .dashboard-page {
+    .dashboard-banner {
+      padding: 24px 16px;
+      
+      .banner-title {
+        font-size: 2rem;
+      }
+    }
+    
+    .section-header {
+      margin-bottom: 24px;
+    }
+    
+    .achievement-section,
+    .departments-section,
+    .activities-section,
+    .join-section {
+      padding: 24px 16px;
+    }
+    
+    .department-card {
+      .department-header {
+        flex-direction: column;
+        text-align: center;
+        
+        .department-icon {
+          margin-right: 0;
+          margin-bottom: 12px;
+        }
+      }
+    }
+  }
+}

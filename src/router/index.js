@@ -1,22 +1,31 @@
-//路由配置
+// src/router/index.js
+import { createBrowserRouter } from "react-router-dom";
 import Layout from "../pages/Layout";
 import Login from "../pages/Login";
 import Land from "../pages/Land";
-import { createBrowserRouter } from "react-router-dom";
+import Dashboard from "../pages/Dashboard";
 import { AuthRoute } from "@/components/AuthRoute";
 import { Navigate } from "react-router-dom";
 import Publish from "@/pages/Publish";
 import Person from "@/pages/User";
 
-//路由配置实例
+// 路由配置实例
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <AuthRoute><Layout /></AuthRoute>,
+    element: <Land />, // Land页面独立，不包含Layout
+  },
+  {
+    path: "/main",
+    element: <AuthRoute><Layout /></AuthRoute>, // 需要登录的路由放在/main下
     children: [
       {
         index: true,
-        element: <Land />,
+        element: <Navigate to="/main/dashboard" replace />,
+      },
+      {
+        path: 'dashboard',
+        element: <Dashboard />,
       },
       {
         path: 'publish',
@@ -26,10 +35,6 @@ const router = createBrowserRouter([
         path: 'person',
         element: <Person />,
       },
-      {
-        path: '*',
-        element: <Navigate to="/" replace />,
-      },
     ],
   },
   {
@@ -37,9 +42,9 @@ const router = createBrowserRouter([
     element: <Login />,
   },
   {
-    path: "/land",
+    path: "*",
     element: <Navigate to="/" replace />,
-  }
+  },
 ]);
 
 export default router;

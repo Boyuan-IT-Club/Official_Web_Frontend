@@ -36,22 +36,22 @@ const MainLayout = () => {
   };
 
   const menuItems = [
-    {
-      key: '/',
-      icon: <HomeOutlined />,
-      label: '首页',
-    },
-    {
-      key: '/publish',
-      icon: <FileTextOutlined />,
-      label: '简历投递',
-    },
-    {
-      key: '/person',
-      icon: <UserOutlined />,
-      label: '个人主页',
-    },
-  ];
+  {
+    key: '/main/dashboard',
+    icon: <HomeOutlined />,
+    label: '首页',
+  },
+  {
+    key: '/main/publish',
+    icon: <FileTextOutlined />,
+    label: '简历投递',
+  },
+  {
+    key: '/main/person',
+    icon: <UserOutlined />,
+    label: '个人主页',
+  },
+];
 
   const handleMenuClick = ({ key }) => {
     navigate(key);

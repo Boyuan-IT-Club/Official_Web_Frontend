@@ -26,6 +26,69 @@ $border-color: #e2e8f0;
   overflow: hidden;
   padding: 0;
 
+  // 顶部导航栏
+  .land-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba($background-light, 0.95);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 1px 10px rgba(0, 0, 0, 0.1);
+    padding: 0 24px;
+    height: 64px;
+    
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 100%;
+      
+      .logo-container {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        
+        .header-logo {
+          height: 40px;
+          margin-right: 12px;
+        }
+        
+        .logo-text {
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: $text-dark;
+          background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+      }
+      
+      // 新增登录按钮样式
+      .login-button {
+        background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba($primary-blue, 0.3);
+        transition: all 0.3s ease;
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba($primary-blue, 0.4);
+        }
+        
+        &:active {
+          transform: translateY(0);
+        }
+      }
+    }
+  }
+
   // 背景装饰元素
   .background-elements {
     position: absolute;
@@ -83,7 +146,7 @@ $border-color: #e2e8f0;
     flex: 1;
     display: flex;
     align-items: center;
-    padding: 20px 24px;
+    padding: 84px 24px 20px; // 增加顶部内边距以适应固定导航栏
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
@@ -185,6 +248,32 @@ $border-color: #e2e8f0;
             }
           }
         }
+        
+        .action-buttons {
+          display: flex;
+          gap: 16px;
+          margin-top: 24px;
+          
+          .explore-button {
+            height: 48px;
+            background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 0 28px;
+            box-shadow: 0 6px 18px rgba($primary-blue, 0.35);
+            
+            &:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 10px 25px rgba($primary-blue, 0.5);
+            }
+            
+            &:active {
+              transform: translateY(0);
+            }
+          }
+        }
       }
     }
 
@@ -281,9 +370,7 @@ $border-color: #e2e8f0;
           }
           
           .card-actions {
-            text-align: center;
-            
-            .apply-button {
+            .card-apply-button {
               height: 48px;
               background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
               border: none;
@@ -291,8 +378,6 @@ $border-color: #e2e8f0;
               font-size: 16px;
               font-weight: 600;
               margin-bottom: 15px;
-              transition: all 0.3s ease;
-              padding: 0 28px;
               box-shadow: 0 6px 18px rgba($primary-blue, 0.35);
               
               &:hover {
@@ -306,10 +391,12 @@ $border-color: #e2e8f0;
             }
             
             .apply-hint {
-              margin-top: 10px;
+              text-align: center;
               
               .ant-typography {
-                font-size: 0.85rem;
+                font-size: 0.9rem;
+                color: $text-gray;
+                font-weight: 500;
               }
             }
           }
@@ -371,7 +458,7 @@ $border-color: #e2e8f0;
     min-height: 100vh;
     
     .land-content {
-      padding: 15px;
+      padding: 84px 15px 15px;
       flex-direction: column;
       
       .welcome-section,
@@ -410,6 +497,10 @@ $border-color: #e2e8f0;
               }
             }
           }
+          
+          .action-buttons {
+            justify-content: center;
+          }
         }
       }
       
@@ -436,8 +527,26 @@ $border-color: #e2e8f0;
 
 @media (max-width: 576px) {
   .land-page {
+    .land-header {
+      padding: 0 16px;
+      
+      .header-container {
+        .logo-container {
+          .logo-text {
+            display: none;
+          }
+        }
+        
+        // 移动端按钮调整
+        .login-button {
+          padding: 4px 12px;
+          font-size: 0.9rem;
+        }
+      }
+    }
+    
     .land-content {
-      padding: 10px;
+      padding: 74px 10px 10px;
       
       .welcome-section {
         padding: 10px 0;
@@ -458,6 +567,12 @@ $border-color: #e2e8f0;
               .stat-label {
                 font-size: 0.75rem;
               }
+            }
+          }
+          
+          .action-buttons {
+            button {
+              width: 100%;
             }
           }
         }
@@ -495,6 +610,13 @@ $border-color: #e2e8f0;
                 font-size: 16px;
                 margin-right: 10px;
               }
+            }
+          }
+          
+          .card-actions {
+            .card-apply-button {
+              height: 44px;
+              font-size: 15px;
             }
           }
         }

@@ -1,8 +1,9 @@
 // src/pages/Land/index.js
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Button, Row, Col, Typography } from 'antd';
-import { RocketOutlined, TeamOutlined, CodeOutlined, CalendarOutlined, UserOutlined } from '@ant-design/icons';
+import { Card, Button, Row, Col, Typography, Space } from 'antd';
+import { RocketOutlined, TeamOutlined, CodeOutlined, CalendarOutlined, UserOutlined, LoginOutlined, FileTextOutlined } from '@ant-design/icons';
+import logo from '../../assets/SingleLogo.png'; // 导入logo图片
 import './index.scss';
 
 const { Title, Text, Paragraph } = Typography;
@@ -13,7 +14,20 @@ const Land = () => {
   const handleApplyClick = () => {
     const token = localStorage.getItem('token');
     if (token) {
-      navigate('/publish');
+      navigate('/main/publish');
+    } else {
+      navigate('/login');
+    }
+  };
+
+  const handleLoginClick = () => {
+    navigate('/login');
+  };
+
+  const handleExploreClick = () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/main/dashboard');
     } else {
       navigate('/login');
     }
@@ -44,6 +58,27 @@ const Land = () => {
 
   return (
     <div className="land-page">
+      {/* 顶部导航栏 */}
+      <header className="land-header">
+        <div className="header-container">
+          <div className="logo-container" onClick={() => navigate('/')}>
+            <img src={logo} alt="博远信息技术社" className="header-logo" />
+            <span className="logo-text">博远信息技术社</span>
+          </div>
+          <Space>
+            <Button 
+              type="primary"
+              size="middle"
+              icon={<LoginOutlined />}
+              onClick={handleLoginClick}
+              className="login-button"
+            >
+              登录/注册
+            </Button>
+          </Space>
+        </div>
+      </header>
+
       {/* 背景装饰元素 */}
       <div className="background-elements">
         <div className="bg-circle bg-circle-1"></div>
@@ -86,6 +121,17 @@ const Land = () => {
                   <div className="stat-label">合作资源</div>
                 </div>
               </div>
+              <div className="action-buttons">
+                <Button 
+                  type="primary" 
+                  size="large" 
+                  className="explore-button"
+                  onClick={handleExploreClick}
+                >
+                  <RocketOutlined />
+                    探索更多
+                </Button>
+              </div>
             </div>
           </Col>
           
@@ -122,14 +168,14 @@ const Land = () => {
                   <Button 
                     type="primary" 
                     size="large" 
-                    className="apply-button"
+                    className="card-apply-button"
                     onClick={handleApplyClick}
+                    block
                   >
-                    <UserOutlined />
+                    <FileTextOutlined />
                     投递简历
                   </Button>
                   <div className="apply-hint">
-                    <Text type="secondary">填写信息加入我们</Text>
                   </div>
                 </div>
               </Card>
