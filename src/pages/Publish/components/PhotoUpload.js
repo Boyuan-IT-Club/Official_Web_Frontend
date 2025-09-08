@@ -33,18 +33,22 @@ const PhotoUpload = ({
             <img 
               src={photoBase64} 
               alt="个人照片" 
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                objectFit: 'cover',
+                borderRadius: '4px'
+              }}
             />
           ) : (
             <div>
-              {/* 修改图标颜色为蓝色 */}
-              <UploadOutlined style={{ color: '#1890ff' }} />
+              <UploadOutlined style={{ color: '#1890ff', fontSize: '20px' }} />
               <div style={{ marginTop: 8, color: '#000' }}>上传照片</div>
             </div>
           )}
         </Upload>
-        <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-          建议上传正面免冠照片，大小不超过2MB
+        <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: '12px' }}>
+          建议上传正面免冠照片，大小不超过5MB
         </Text>
       </div>
     </Form.Item>

@@ -12,11 +12,13 @@ import {
   Typography,
   Spin,
   Descriptions,
-  Tag
+  Tag,
+  Select,
+  Row,
+  Col
 } from 'antd';
 import {
   UserOutlined,
-  UploadOutlined,
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
@@ -28,6 +30,7 @@ import './index.scss';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
+const { Option } = Select;
 
 const PersonPage = () => {
   const [form] = Form.useForm();
@@ -35,6 +38,7 @@ const PersonPage = () => {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAwardModalVisible, setIsAwardModalVisible] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarVersion, setAvatarVersion] = useState(0);
 
   const dispatch = useDispatch();
   const {
@@ -51,7 +55,6 @@ const PersonPage = () => {
     }
   }, [token, dispatch]);
 
-  // 新增：获取获奖经历
   useEffect(() => {
     if (token && userInfo?.userId) {
       console.log('获取用户获奖经历，用户ID:', userInfo.userId);
@@ -65,26 +68,32 @@ const PersonPage = () => {
     }
   }, [error]);
 
-  // 调试：检查获奖数据
-  useEffect(() => {
-    console.log('获奖数据:', awards);
-    console.log('获奖数据类型:', Array.isArray(awards) ? '数组' : typeof awards);
-    console.log('获奖数据长度:', Array.isArray(awards) ? awards.length : '非数组');
-  }, [awards]);
-
   const handleEditSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      const result = await dispatch(userActions.updateUserInfo(values));
-      
-      if (userActions.updateUserInfo.fulfilled.match(result)) {
-        message.success('更新成功');
-        setTimeout(() => setIsEditModalVisible(false), 300);
-      }
-    } catch (err) {
-      message.error(err.message);
+  try {
+    const values = await form.validateFields();
+    console.log('表单提交值:', values); // 调试
+    
+    const updateData = {
+      name: values.name,
+      phone: values.phone,
+      major: values.major // 确保包含
+    };
+    console.log('准备发送的更新数据:', updateData); // 调试
+    
+    const result = await dispatch(userActions.updateUserInfo(updateData));
+    
+    if (userActions.updateUserInfo.fulfilled.match(result)) {
+      console.log('更新成功，重新获取用户信息'); // 调试
+      const newUserInfo = await dispatch(userActions.fetchUserInfo()).unwrap();
+      console.log('重新获取后的用户信息:', newUserInfo); // 调试
+      message.success('更新成功');
+      setIsEditModalVisible(false);
     }
-  };
+  } catch (err) {
+    console.error('更新错误:', err); // 调试
+    message.error(err.message || '更新失败');
+  }
+};
 
   const handleAwardSubmit = async () => {
     try {
@@ -92,18 +101,13 @@ const PersonPage = () => {
       
       console.log('表单原始值:', values);
 
-      // 如果只有日期没有时间，添加默认时间部分
-      let awardTime = values.awardTime;
-      
-
       const formattedValues = {
         ...values,
-        awardTime: awardTime
+        awardTime: values.awardTime
       };
 
       console.log('准备发送的数据:', formattedValues);
 
-      // 确保 awardId 存在（如果是编辑操作）
       if (values.awardId) {
         if (!values.awardId) {
           throw new Error('获奖记录ID不能为空');
@@ -115,12 +119,10 @@ const PersonPage = () => {
           userActions.addAward(formattedValues)
         ).unwrap();
         message.success('获奖经历添加成功');
-        
-        // 添加成功后重新获取获奖列表
         dispatch(userActions.fetchUserAwards(userInfo.userId));
       }
       setIsAwardModalVisible(false);
-      awardForm.resetFields(); // 重置表单
+      awardForm.resetFields();
     } catch (err) {
       console.error('操作失败详情:', err);
       message.error(err.message || '操作失败，请重试');
@@ -138,7 +140,6 @@ const PersonPage = () => {
         try {
           await dispatch(userActions.deleteAward(awardId)).unwrap();
           message.success('删除成功');
-          // 删除成功后重新获取获奖列表
           dispatch(userActions.fetchUserAwards(userInfo.userId));
         } catch (err) {
           message.error('删除失败');
@@ -153,7 +154,6 @@ const PersonPage = () => {
       return;
     }
 
-    // 转换日期格式为YYYY-MM-DD（去掉时间部分）
     let awardTime = record.awardTime;
     if (awardTime) {
       try {
@@ -173,7 +173,6 @@ const PersonPage = () => {
     setIsAwardModalVisible(true);
   };
 
-  // 处理头像上传
   const handleAvatarUpload = async (file) => {
     const MAX_FILE_SIZE = 2 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
@@ -191,11 +190,16 @@ const PersonPage = () => {
     try {
       console.log('开始上传文件:', file.name, file.type, file.size);
       
-      await dispatch(userActions.uploadAvatar(file)).unwrap();
+      const avatarUrl = await dispatch(userActions.uploadAvatar(file)).unwrap();
       message.success('头像上传成功');
       
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await dispatch(userActions.fetchUserInfo());
+      // 强制重新渲染头像
+      setAvatarVersion(prev => prev + 1);
+      
+      // 重新获取用户信息
+      setTimeout(() => {
+        dispatch(userActions.fetchUserInfo());
+      }, 300);
       
     } catch (error) {
       console.error('上传完整错误:', error);
@@ -214,18 +218,25 @@ const PersonPage = () => {
     disabled: avatarLoading
   };
 
+  // 修复头像URL处理
   const getAvatarUrl = () => {
     if (!userInfo?.avatar) return null;
     
-    if (userInfo.avatar.startsWith('http')) {
-      return userInfo.avatar;
+    let avatarUrl = userInfo.avatar;
+    
+    // 如果已经是完整URL，直接返回
+    if (avatarUrl.startsWith('http')) {
+      return `${avatarUrl}?t=${Date.now()}&v=${avatarVersion}`;
     }
     
-    if (userInfo.avatar.startsWith('/')) {
-      return `https://official.boyuan.club${userInfo.avatar}`;
+    // 处理相对路径
+    if (avatarUrl.startsWith('/')) {
+      avatarUrl = `https://official.boyuan.club${avatarUrl}`;
+    } else {
+      avatarUrl = `https://official.boyuan.club/uploads/avatars/${avatarUrl}`;
     }
     
-    return `https://official.boyuan.club/uploads/avatars/${userInfo.avatar}`;
+    return `${avatarUrl}?t=${Date.now()}&v=${avatarVersion}`;
   };
 
   const awardColumns = [
@@ -255,7 +266,6 @@ const PersonPage = () => {
           if (isNaN(date.getTime())) {
             return text;
           }
-          // 只显示日期，不显示时间
           return (
             <Tag color="blue" style={{ margin: 0, border: 'none', borderRadius: '6px' }}>
               {date.toLocaleDateString('zh-CN')}
@@ -315,120 +325,130 @@ const PersonPage = () => {
 
   return (
     <div className="person-page">
-      <Card className="profile-card" loading={loading}>
-        <div className="profile-header">
-          <div className="avatar-section">
-            <Upload {...uploadProps}>
-              <Avatar
-                size={120}
-                src={getAvatarUrl()}
-                icon={<UserOutlined />}
-                className="user-avatar"
-              />
-            </Upload>
-            <Upload {...uploadProps} className="avatar-upload-btn">
-              <Button 
-                icon={<UploadOutlined />} 
-                loading={avatarLoading}
-                disabled={avatarLoading}
-              >
-                更换头像
-              </Button>
-            </Upload>
-          </div>
-
-          <div className="profile-info">
-            <Title level={3} className="profile-name">
-              {userInfo?.name || '未命名用户'}
-            </Title>
-            <Text type="secondary" className="profile-username">
-              @{userInfo?.username}
-            </Text>
-
-            <Descriptions column={1} className="profile-details">
-              <Descriptions.Item label="部门">
-                {userInfo?.dept || '未设置'}
-              </Descriptions.Item>
-              <Descriptions.Item label="邮箱">{userInfo?.email}</Descriptions.Item>
-              <Descriptions.Item label="电话">
-                {userInfo?.phone || '未设置'}
-              </Descriptions.Item>
-            </Descriptions>
-
-            <Button
-              type="primary"
-              onClick={() => {
-                form.setFieldsValue({
-                  name: userInfo?.name,
-                  dept: userInfo?.dept,
-                  phone: userInfo?.phone
-                });
-                setIsEditModalVisible(true);
-              }}
-            >
-              编辑个人信息
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <Card
-        className="awards-card"
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TrophyOutlined style={{ color: '#ffc53d', fontSize: '18px' }} />
-            <span style={{ color: '#1f1f1f', fontWeight: '600' }}>获奖经历</span>
-          </div>
-        }
-        loading={loading}
-        extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              awardForm.resetFields();
-              setIsAwardModalVisible(true);
-            }}
-            style={{ 
-              backgroundColor: '#1890ff',
-              borderColor: '#1890ff',
-              borderRadius: '6px'
-            }}
-          >
-            添加获奖经历
-          </Button>
-        }
-        headStyle={{ 
-          borderBottom: '1px solid #f0f0f0',
-          padding: '16px 24px'
-        }}
-        bodyStyle={{ padding: '0' }}
-      >
-        <Table
-          columns={awardColumns}
-          dataSource={Array.isArray(awards) ? awards : []}
-          rowKey="awardId"
-          pagination={{ 
-            pageSize: 5, 
-            showSizeChanger: false,
-            showTotal: (total) => `共 ${total} 条记录`
-          }}
-          loading={loading}
-          locale={{ 
-            emptyText: (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '40px 0',
-                color: '#999'
-              }}>
-                <TrophyOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
-                <div>暂无获奖经历</div>
+      <Row justify="center">
+        <Col xs={24} lg={20} xl={18}>
+          <Card className="profile-card" loading={loading}>
+            <div className="profile-header">
+              <div className="avatar-section">
+                <Upload {...uploadProps}>
+                  <Avatar
+                    size={120}
+                    src={getAvatarUrl()}
+                    icon={<UserOutlined />}
+                    className="user-avatar"
+                    key={`avatar-${avatarVersion}`}
+                  />
+                </Upload>
+                {avatarLoading && (
+                  <div className="avatar-loading">
+                    <Spin size="small" />
+                  </div>
+                )}
+                <div className="avatar-tip">
+                  <Text type="secondary">点击头像更换</Text>
+                </div>
               </div>
-            ) 
-          }}
-          style={{ border: 'none' }}
-        />
-      </Card>
+
+              <div className="profile-info">
+                <Title level={3} className="profile-name">
+                  {userInfo?.name || '未命名用户'}
+                </Title>
+                <Text type="secondary" className="profile-username">
+                  @{userInfo?.username}
+                </Text>
+
+                <Descriptions column={1} className="profile-details">
+                  <Descriptions.Item label="专业">
+                    {userInfo?.major || '未设置'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="部门">
+                    <Tag color={userInfo?.dept ? "blue" : "default"}>
+                      {userInfo?.dept || '非社员'}
+                    </Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="邮箱">{userInfo?.email}</Descriptions.Item>
+                  <Descriptions.Item label="电话">
+                    {userInfo?.phone || '未设置'}
+                  </Descriptions.Item>
+                </Descriptions>
+
+                <Button
+                  type="primary"
+                  onClick={() => {
+                    form.setFieldsValue({
+                      name: userInfo?.name,
+                      major: userInfo?.major,
+                      phone: userInfo?.phone
+                      // 不设置部门字段，因为不能修改
+                    });
+                    setIsEditModalVisible(true);
+                  }}
+                >
+                  编辑个人信息
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card
+            className="awards-card"
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <TrophyOutlined style={{ color: '#ffc53d', fontSize: '18px' }} />
+                <span style={{ color: '#1f1f1f', fontWeight: '600' }}>获奖经历</span>
+              </div>
+            }
+            loading={loading}
+            extra={
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  awardForm.resetFields();
+                  setIsAwardModalVisible(true);
+                }}
+                style={{ 
+                  backgroundColor: '#1890ff',
+                  borderColor: '#1890ff',
+                  borderRadius: '6px'
+                }}
+              >
+                添加获奖经历
+              </Button>
+            }
+            headStyle={{ 
+              borderBottom: '1px solid #f0f0f0',
+              padding: '16px 24px'
+            }}
+            bodyStyle={{ padding: '0' }}
+          >
+            <Table
+              columns={awardColumns}
+              dataSource={Array.isArray(awards) ? awards : []}
+              rowKey="awardId"
+              pagination={{ 
+                pageSize: 5, 
+                showSizeChanger: false,
+                showTotal: (total) => `共 ${total} 条记录`
+              }}
+              loading={loading}
+              locale={{ 
+                emptyText: (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '40px 0',
+                    color: '#999'
+                  }}>
+                    <TrophyOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+                    <div>暂无获奖经历</div>
+                  </div>
+                ) 
+              }}
+              style={{ border: 'none' }}
+            />
+          </Card>
+        </Col>
+      </Row>
 
       {/* 编辑个人信息模态框 */}
       <Modal
@@ -439,13 +459,14 @@ const PersonPage = () => {
         confirmLoading={loading}
         okText="保存"
         cancelText="取消"
+        width={500}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="name" label="姓名" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="dept" label="部门">
-            <Input />
+          <Form.Item name="major" label="专业" rules={[{ required: false }]}>
+            <Input placeholder="请输入您的专业" />
           </Form.Item>
           <Form.Item
             name="phone"
@@ -459,6 +480,7 @@ const PersonPage = () => {
           >
             <Input />
           </Form.Item>
+          {/* 移除部门编辑字段 */}
         </Form>
       </Modal>
 

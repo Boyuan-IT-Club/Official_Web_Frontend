@@ -18,6 +18,7 @@ const SelectField = ({
       label={label}
       name={name}
       rules={required ? [{ required: true, message: `请选择${label}` }] : []}
+      className={className}
     >
       <Select
         placeholder={placeholder}
@@ -26,6 +27,8 @@ const SelectField = ({
         disabled={disabled}
         className={`${className} black-text-select`}
         getPopupContainer={trigger => trigger.parentNode}
+        dropdownStyle={{ zIndex: 9999 }} // 确保下拉菜单在最上层
+        suffixIcon={<span className="ant-select-arrow-icon" />} // 使用自定义箭头图标
       >
         {options.map(option => (
           <Select.Option 

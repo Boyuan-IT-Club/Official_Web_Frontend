@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layout as AntdLayout, Menu, Avatar, Typography } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
-import { Outlet, Link, useLocation } from 'react-router-dom'; // 添加 useLocation
+import { UserOutlined, HomeOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchUserInfo } from '@/store/modules/user';
 import logo from '../../assets/SingleLogo.png';
@@ -14,41 +14,49 @@ const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const dispatch = useDispatch();
   const { userInfo, loading } = useSelector((state) => state.user);
-  const location = useLocation(); // 获取当前路由位置
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     dispatch(fetchUserInfo());
   }, [dispatch]);
 
-  // 获取完整的头像URL（安全处理）
   const getAvatarUrl = () => {
     if (!userInfo?.avatar) return null;
     
-    // 如果已经是完整URL，直接使用
     if (userInfo.avatar.startsWith('http')) {
       return userInfo.avatar;
     }
     
-    // 如果是相对路径，拼接完整URL
     if (userInfo.avatar.startsWith('/')) {
-      return `http://43.143.27.198:8080${userInfo.avatar}`;
+      return `https://official.boyuan.club${userInfo.avatar}`;
     }
     
     return userInfo.avatar;
   };
 
   const menuItems = [
-  {
-    key: '/dashboard/publish',
-    label: <Link to="/dashboard/publish">简历投递</Link>,
-  },
-  {
-    key: '/dashboard/person',
-    label: <Link to="/dashboard/person">个人主页</Link>,
-  },
-];
+    {
+      key: '/',
+      icon: <HomeOutlined />,
+      label: '首页',
+    },
+    {
+      key: '/publish',
+      icon: <FileTextOutlined />,
+      label: '简历投递',
+    },
+    {
+      key: '/person',
+      icon: <UserOutlined />,
+      label: '个人主页',
+    },
+  ];
 
-  // 根据当前路径设置选中的菜单项
+  const handleMenuClick = ({ key }) => {
+    navigate(key);
+  };
+
   const selectedKeys = [location.pathname];
 
   return (
@@ -59,22 +67,37 @@ const MainLayout = () => {
         onCollapse={setCollapsed}
         width={220}
         className="tech-sider"
+        style={{
+          position: 'fixed',
+          height: '100vh',
+          left: 0,
+          top: 0,
+          bottom: 0,
+        }}
       >
-        <div className="sider-logo">
+        <div className="sider-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
           <img src={logo} alt="博远信息技术社" className="logo-image" />
           {!collapsed && <div className="logo-glow"></div>}
         </div>
 
         <Menu
           theme="dark"
-          selectedKeys={selectedKeys} // 动态设置选中的菜单项
+          selectedKeys={selectedKeys}
           mode="inline"
           items={menuItems}
           className="tech-menu"
+          onClick={handleMenuClick}
         />
       </Sider>
 
-      <AntdLayout className="site-layout">
+      <AntdLayout 
+        className="site-layout" 
+        style={{ 
+          marginLeft: collapsed ? 80 : 220,
+          transition: 'margin-left 0.3s ease',
+          minHeight: '100vh'
+        }}
+      >
         <Header className="tech-header">
           {loading ? (
             <Text type="secondary">加载中...</Text>

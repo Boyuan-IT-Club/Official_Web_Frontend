@@ -5,25 +5,19 @@ import { Card, Button, Row, Col, Typography } from 'antd';
 import { RocketOutlined, TeamOutlined, CodeOutlined, CalendarOutlined, UserOutlined } from '@ant-design/icons';
 import './index.scss';
 
-// 导入logo图片 - 请确保路径正确
-import boyuanLogo from '@/assets/SingleLogo.png';
-
 const { Title, Text, Paragraph } = Typography;
 
 const Land = () => {
   const navigate = useNavigate();
 
   const handleApplyClick = () => {
-  // 检查是否已登录
-  const token = localStorage.getItem('token');
-  if (token) {
-    // 已登录，跳转到发布页面
-    navigate('/dashboard/publish');
-  } else {
-    // 未登录，跳转到登录页面
-    navigate('/login');
-  }
-};
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/publish');
+    } else {
+      navigate('/login');
+    }
+  };
 
   const featureItems = [
     {
@@ -58,19 +52,6 @@ const Land = () => {
         <div className="bg-dots"></div>
       </div>
 
-      {/* 顶部导航栏 */}
-      <header className="land-header">
-        <div className="header-content">
-          <div className="logo-section">
-            <div className="logo">
-              {/* 替换为图片logo */}
-              <img src={boyuanLogo} alt="博远信息技术社" className="logo-image" />
-            </div>
-            <span className="club-name">博远信息技术社</span>
-          </div>
-        </div>
-      </header>
-
       {/* 主内容区域 */}
       <main className="land-content">
         <Row justify="space-between" align="middle" className="main-content">
@@ -86,10 +67,10 @@ const Land = () => {
                 卓越技术 · 绝佳创意 · 实践平台
               </Paragraph>
               <Text className="description">
-                成立于2016年，前身为博远工作室。我们聚集各个专业对IT技术
-                有热情、有想法的小伙伴，提供学习交流、项目实践的平台。
-                <span className="highlight">学校组织与社会企业的紧密合作</span>
-                为社员提供多元的发展机会。
+                博远信息技术社，是为卓越技术与绝佳创意量身打造的实践沃土。在这里，无论你来自哪个专业，只要对IT抱有好奇与热爱，都能找到志同道合的伙伴，一起学习，共同成长。
+                <span className="highlight">聚集有热情、有想法的伙伴，建立最温馨、能传承的社团</span>。
+                社团的发展根基是唐博远学姐（现为学校教师）牵头创立的博远工作室，社团与学校各级组织及多家社会企业保持着紧密联动，从校内信息化项目开发到企业真实业务案例实训，为社员提供了多元而宝贵的实践机会。
+                <span className="highlight">培养会技术、敢创造的社员，打造重实践、促成长的平台</span>。
               </Text>
               <div className="stats-container">
                 <div className="stat-item">
@@ -173,8 +154,6 @@ const Land = () => {
           </div>
         </div>
       </section>
-
-      {/* 移除页脚部分 */}
     </div>
   );
 };

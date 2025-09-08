@@ -16,11 +16,11 @@ import {
   ClockCircleOutlined,
   CloseCircleOutlined
 } from '@ant-design/icons';
+import ResumeDisplay from './ResumeDisplay';
 
 const { Title, Text } = Typography;
 
-const ResumeView = ({ resume, fieldValues, fieldIdMapping, photoBase64, onEdit, onView }) => {
-  
+const ResumeView = ({ resume, fieldValues = [], fieldIdMapping = {}, photoBase64 = '', onEdit, onView }) => {
   const getStatusInfo = (status) => {
     switch (status) {
       case 1:
@@ -38,7 +38,45 @@ const ResumeView = ({ resume, fieldValues, fieldIdMapping, photoBase64, onEdit, 
     }
   };
 
+  // 解析 departments 数据
+  const parseDepartments = () => {
+    try {
+      const departmentsField = fieldValues.find(f => 
+        f.fieldId === fieldIdMapping['expected_departments']
+      );
+      
+      if (departmentsField && departmentsField.fieldValue) {
+        const deptArray = JSON.parse(departmentsField.fieldValue);
+        return {
+          first: deptArray[0] || '',
+          second: deptArray[1] || ''
+        };
+      }
+    } catch (e) {
+      console.error('解析部门志愿失败', e);
+    }
+    return { first: '', second: '' };
+  };
+
+  // 解析 techStackItems 数据
+  const parseTechStackItems = () => {
+    try {
+      const techStackField = fieldValues.find(f => 
+        f.fieldId === fieldIdMapping['tech_stack']
+      );
+      
+      if (techStackField && techStackField.fieldValue) {
+        return JSON.parse(techStackField.fieldValue);
+      }
+    } catch (e) {
+      console.error('解析技术栈失败', e);
+    }
+    return [];
+  };
+
   const statusInfo = getStatusInfo(resume?.status);
+  const departments = parseDepartments();
+  const techStackItems = parseTechStackItems();
 
   return (
     <div className="resume-view">
@@ -97,7 +135,15 @@ const ResumeView = ({ resume, fieldValues, fieldIdMapping, photoBase64, onEdit, 
           />
         )}
 
-        <div className="action-buttons">
+        <ResumeDisplay
+          fieldValues={fieldValues}
+          fieldIdMapping={fieldIdMapping}
+          photoBase64={photoBase64}
+          departments={departments}
+          techStackItems={techStackItems}
+        />
+
+        <div className="action-buttons" style={{ marginTop: 24 }}>
           <Space>
             <Button
               type="primary"

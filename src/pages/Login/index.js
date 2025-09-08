@@ -81,7 +81,7 @@ const AuthCard = () => {
         
         localStorage.setItem('token', token);
         message.success('登录成功');
-        navigate('/dashboard');
+        navigate('/');
       } else if (showRegister) {
         // 直接注册，验证码比对已在后端完成
         const res = await request.post('/api/auth/register', {
@@ -94,7 +94,7 @@ const AuthCard = () => {
           emailCode: values.code
         });
         
-        if (res.code === 200) {
+        if (res.code === 201) {
           message.success('注册成功，请登录');
           setShowRegister(false);
           form.resetFields();
@@ -132,6 +132,15 @@ const AuthCard = () => {
     return Promise.resolve();
   };
 
+  //自动加入邮箱后缀
+  const handleIdBlur = (e) => {
+  const value = e.target.value.trim();
+  if (value && /^\d{11}$/.test(value)) { // 检查是否是11位数字
+    form.setFieldsValue({
+      auth_id: `${value}@stu.ecnu.edu.cn`
+    });
+  }
+};
   return (
     <div className="auth-container">
       <Card className="auth-card" hoverable>
@@ -151,6 +160,7 @@ const AuthCard = () => {
               <Input 
                 prefix={<MailOutlined />} 
                 placeholder="请输入@stu.ecnu.edu.cn邮箱" 
+                onBlur={handleIdBlur}
               />
             </Item>
 
@@ -251,11 +261,11 @@ const AuthCard = () => {
             <Item
               name="phone"
               rules={[
-                { required: false },
+                { required: true , message: '请输入手机号码' },
                 { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码' }
               ]}
             >
-              <Input prefix={<PhoneOutlined />} placeholder="手机号码（选填）" />
+              <Input prefix={<PhoneOutlined />} placeholder="手机号码" />
             </Item>
 
             <Item

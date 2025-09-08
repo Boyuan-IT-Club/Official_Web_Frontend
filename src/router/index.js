@@ -12,25 +12,11 @@ import Person from "@/pages/User";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Land />,  // 将根路径指向Land页面
-  },
-  {
-    path: "/land",
-    element: <Land />,  // 保留land路径
-  },
-  {
-    path: "/login",
-    element: <Login />,
-  },
-
-  // 受保护的后台路由
-  {
-    path: "/dashboard",  // 修改后台路由路径
-    element: /* <AuthRoute> */<Layout />/* </AuthRoute> */,
+    element: <AuthRoute><Layout /></AuthRoute>,
     children: [
       {
         index: true,
-        element: <Navigate to="/dashboard/publish" replace />,
+        element: <Land />,
       },
       {
         path: 'publish',
@@ -42,9 +28,17 @@ const router = createBrowserRouter([
       },
       {
         path: '*',
-        element: <Navigate to="/dashboard/publish" replace />,
+        element: <Navigate to="/" replace />,
       },
     ],
+  },
+  {
+    path: "/login",
+    element: <Login />,
+  },
+  {
+    path: "/land",
+    element: <Navigate to="/" replace />,
   }
 ]);
 

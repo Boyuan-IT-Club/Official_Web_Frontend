@@ -1,28 +1,30 @@
 // src/pages/Land/index.scss
-// 变量定义 - 蓝色主题
-$primary-blue: #1e90ff;
-$tech-blue: #1e78ff;
-$tech-dark-blue: #0052cc;
-$tech-light-blue: #e6f2ff;
-$tech-accent: #4d94ff;
-$tech-purple: #5c6bc0;
-$text-dark: #1a365d;
-$text-gray: #4a5568;
+// 变量定义 - 更浅的蓝色主题
+$primary-blue: #4da6ff;
+$tech-blue: #4d94ff;
+$tech-dark-blue: #0066cc;
+$tech-light-blue: #f5f9ff;
+$tech-accent: #66a3ff;
+$tech-purple: #6c7ae0;
+$text-dark: #2d3748;
+$text-gray: #718096;
 $text-light: #ffffff;
 $background-light: #ffffff;
-$background-blue: #f0f8ff;
-$background-gradient: linear-gradient(135deg, #e6f0ff 0%, #d6e6ff 50%, #ebf4ff 100%);
-$border-color: #cbd5e0;
+$background-blue: #f8fbff;
+$background-gradient: linear-gradient(135deg, #f8fbff 0%, #f0f7ff 50%, #fafcff 100%);
+$border-color: #e2e8f0;
 
 .land-page {
   min-height: 100vh;
-  height: 100vh; // 确保页面高度为视口高度
+  height: 100vh;
+  max-height: 100vh;
   background: $background-gradient;
   color: $text-dark;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  padding: 0;
 
   // 背景装饰元素
   .background-elements {
@@ -36,7 +38,7 @@ $border-color: #cbd5e0;
     .bg-circle {
       position: absolute;
       border-radius: 50%;
-      opacity: 0.1;
+      opacity: 0.06;
       background: linear-gradient(135deg, $primary-blue, $tech-purple);
       
       &.bg-circle-1 {
@@ -50,17 +52,17 @@ $border-color: #cbd5e0;
       &.bg-circle-2 {
         width: 180px;
         height: 180px;
-        bottom: 80px;
-        left: -40px;
-        filter: blur(30px);
+        bottom: 60px;
+        left: -50px;
+        filter: blur(35px);
       }
       
       &.bg-circle-3 {
-        width: 120px;
-        height: 120px;
-        top: 40%;
-        right: 15%;
-        filter: blur(25px);
+        width: 140px;
+        height: 140px;
+        top: 30%;
+        right: 12%;
+        filter: blur(30px);
       }
     }
     
@@ -70,59 +72,9 @@ $border-color: #cbd5e0;
       left: 0;
       right: 0;
       bottom: 0;
-      background-image: radial-gradient(rgba($primary-blue, 0.1) 1px, transparent 1px);
-      background-size: 20px 20px;
-      opacity: 0.3;
-    }
-  }
-
-  // 顶部导航栏样式
-  .land-header {
-    background: rgba($background-light, 0.95);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 1px 15px rgba(0, 0, 0, 0.08);
-    padding: 0 24px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    flex-shrink: 0;
-    border-bottom: 1px solid rgba($border-color, 0.6);
-
-    .header-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      height: 64px;
-
-      .logo-section {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        
-        .logo {
-          width: 38px;
-          height: 38px;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          
-          .logo-image {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-          }
-        }
-        
-        .club-name {
-          font-size: 17px;
-          font-weight: 700;
-          color: $tech-dark-blue;
-          letter-spacing: 0.3px;
-        }
-      }
+      background-image: radial-gradient(rgba($primary-blue, 0.06) 1px, transparent 1px);
+      background-size: 30px 30px;
+      opacity: 0.2;
     }
   }
 
@@ -131,7 +83,7 @@ $border-color: #cbd5e0;
     flex: 1;
     display: flex;
     align-items: center;
-    padding: 20px 24px; // 减少上下内边距
+    padding: 20px 24px;
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
@@ -141,21 +93,20 @@ $border-color: #cbd5e0;
 
     .main-content {
       width: 100%;
-      min-height: auto; // 移除最小高度
     }
 
     // 欢迎文字区域
     .welcome-section {
-      padding: 20px; // 减少内边距
+      padding: 20px;
       
       .welcome-content {
-        max-width: 480px;
+        max-width: 520px;
         
         .title-wrapper {
-          margin-bottom: 15px; // 减少间距
+          margin-bottom: 15px;
           
           .main-title {
-            font-size: 2.4rem; // 稍微减小字体
+            font-size: 2.5rem;
             font-weight: 800;
             margin-bottom: 0;
             color: $text-dark;
@@ -177,28 +128,33 @@ $border-color: #cbd5e0;
         }
         
         .subtitle {
-          font-size: 1.1rem; // 减小字体
+          font-size: 1.2rem;
           color: $text-gray;
-          margin-bottom: 15px; // 减少间距
+          margin-bottom: 15px;
           font-weight: 500;
           line-height: 1.4;
           
           @media (max-width: 768px) {
-            font-size: 1rem;
+            font-size: 1.1rem;
             text-align: center;
           }
         }
         
         .description {
-          font-size: 0.95rem; // 减小字体
+          font-size: 0.95rem;
           color: $text-gray;
           line-height: 1.6;
           display: block;
-          margin-bottom: 20px; // 减少间距
+          margin-bottom: 20px;
           
           .highlight {
             color: $primary-blue;
             font-weight: 600;
+            background: rgba($primary-blue, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 5px 0;
           }
           
           @media (max-width: 768px) {
@@ -209,21 +165,21 @@ $border-color: #cbd5e0;
         
         .stats-container {
           display: flex;
-          gap: 20px; // 减少间距
-          margin-top: 20px; // 减少间距
+          gap: 25px;
+          margin-top: 20px;
           
           .stat-item {
             text-align: center;
             
             .stat-number {
-              font-size: 1.3rem; // 减小字体
+              font-size: 1.4rem;
               font-weight: 700;
               color: $primary-blue;
-              margin-bottom: 4px;
+              margin-bottom: 5px;
             }
             
             .stat-label {
-              font-size: 0.8rem; // 减小字体
+              font-size: 0.85rem;
               color: $text-gray;
               font-weight: 500;
             }
@@ -234,7 +190,7 @@ $border-color: #cbd5e0;
 
     // 卡片区域
     .card-section {
-      padding: 20px; // 减少内边距
+      padding: 20px;
       display: flex;
       justify-content: flex-end;
       
@@ -245,65 +201,65 @@ $border-color: #cbd5e0;
         .application-card {
           border: none;
           border-radius: 20px;
-          box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
-          padding: 24px; // 减少内边距
+          box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
+          padding: 25px;
           background: $background-light;
-          max-width: 380px;
+          max-width: 400px;
           width: 100%;
-          backdrop-filter: blur(8px);
+          backdrop-filter: blur(12px);
           
           .card-header {
             text-align: center;
-            margin-bottom: 20px; // 减少间距
+            margin-bottom: 20px;
             
             .card-icon {
-              width: 50px; // 减小尺寸
-              height: 50px; // 减小尺寸
+              width: 60px;
+              height: 60px;
               border-radius: 16px;
-              background: linear-gradient(135deg, $tech-light-blue, #d6e6ff);
+              background: linear-gradient(135deg, $tech-light-blue, #e6f2ff);
               display: flex;
               align-items: center;
               justify-content: center;
-              margin: 0 auto 12px; // 减少间距
-              font-size: 20px; // 减小字体
+              margin: 0 auto 15px;
+              font-size: 24px;
               color: $primary-blue;
             }
             
             .card-title {
               color: $text-dark;
-              margin-bottom: 6px;
-              font-size: 1.2rem; // 减小字体
+              margin-bottom: 8px;
+              font-size: 1.3rem;
               font-weight: 700;
             }
             
             .card-subtitle {
-              font-size: 0.85rem; // 减小字体
+              font-size: 1rem;
               color: $text-gray;
             }
           }
           
           .card-features {
-            margin-bottom: 20px; // 减少间距
+            margin-bottom: 20px;
             
             .feature-item {
               display: flex;
               align-items: center;
-              padding: 12px; // 减少内边距
+              padding: 12px;
               background: $background-blue;
               border-radius: 14px;
               transition: all 0.3s ease;
               
               &:hover {
                 background: $tech-light-blue;
-                transform: translateY(-1px);
-                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
               }
               
               .feature-icon {
-                font-size: 16px; // 减小字体
+                font-size: 18px;
                 color: $primary-blue;
-                margin-right: 10px; // 减少间距
-                width: 20px; // 减小宽度
+                margin-right: 12px;
+                width: 24px;
                 flex-shrink: 0;
               }
               
@@ -312,50 +268,51 @@ $border-color: #cbd5e0;
                 flex-direction: column;
                 
                 .feature-title {
-                  margin-bottom: 2px;
-                  font-size: 0.8rem; // 减小字体
+                  margin-bottom: 3px;
+                  font-size: 0.9rem;
+                  font-weight: 600;
                 }
                 
                 .feature-desc {
-                  font-size: 0.7rem; // 减小字体
+                  font-size: 0.8rem;
                 }
               }
             }
           }
           
           .card-actions {
-  text-align: center;
-  
-  .apply-button {
-    height: 48px; // 增加高度
-    background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
-    border: none;
-    border-radius: 12px; // 增加圆角
-    font-size: 16px; // 增大字体
-    font-weight: 600;
-    margin-bottom: 12px;
-    transition: all 0.3s ease;
-    padding: 0 24px; // 增加内边距
-    box-shadow: 0 4px 12px rgba($primary-blue, 0.3); // 添加阴影
-    
-    &:hover {
-      transform: translateY(-2px); // 增加悬停效果
-      box-shadow: 0 8px 25px rgba($primary-blue, 0.4);
-    }
-    
-    &:active {
-      transform: translateY(0);
-    }
-  }
-  
-  .apply-hint {
-    margin-top: 8px;
-    
-    .ant-typography {
-      font-size: 0.8rem;
-    }
-  }
-}
+            text-align: center;
+            
+            .apply-button {
+              height: 48px;
+              background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
+              border: none;
+              border-radius: 14px;
+              font-size: 16px;
+              font-weight: 600;
+              margin-bottom: 15px;
+              transition: all 0.3s ease;
+              padding: 0 28px;
+              box-shadow: 0 6px 18px rgba($primary-blue, 0.35);
+              
+              &:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 25px rgba($primary-blue, 0.5);
+              }
+              
+              &:active {
+                transform: translateY(0);
+              }
+            }
+            
+            .apply-hint {
+              margin-top: 10px;
+              
+              .ant-typography {
+                font-size: 0.85rem;
+              }
+            }
+          }
         }
       }
     }
@@ -363,10 +320,10 @@ $border-color: #cbd5e0;
 
   // 联系信息区域
   .contact-section {
-    background: rgba($background-light, 0.95);
-    padding: 20px 0; // 减少内边距
+    background: rgba($background-light, 0.98);
+    padding: 15px 0;
     text-align: center;
-    margin-top: 10px; // 减少间距
+    margin-top: auto;
     
     .contact-content {
       max-width: 1200px;
@@ -375,49 +332,52 @@ $border-color: #cbd5e0;
       
       .contact-title {
         color: $text-dark;
-        margin-bottom: 12px; // 减少间距
+        margin-bottom: 12px;
         font-weight: 600;
-        font-size: 1rem; // 减小字体
+        font-size: 1.1rem;
       }
       
       .contact-items {
         display: flex;
         justify-content: center;
-        gap: 24px; // 减少间距
+        gap: 25px;
         
         .contact-item {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           
           .contact-label {
             color: $text-gray;
             font-weight: 500;
-            font-size: 0.85rem; // 减小字体
+            font-size: 0.9rem;
           }
           
           .contact-value {
             color: $primary-blue;
             font-weight: 600;
-            font-size: 0.85rem; // 减小字体
+            font-size: 0.9rem;
           }
         }
       }
     }
   }
-
-  // 移除页脚样式
 }
 
 // 响应式设计
 @media (max-width: 992px) {
   .land-page {
+    height: auto;
+    min-height: 100vh;
+    
     .land-content {
-      padding: 15px 16px; // 减少内边距
+      padding: 15px;
+      flex-direction: column;
       
       .welcome-section,
       .card-section {
-        padding: 15px; // 减少内边距
+        padding: 15px;
+        width: 100%;
       }
       
       .welcome-section {
@@ -425,11 +385,11 @@ $border-color: #cbd5e0;
         
         .welcome-content {
           .main-title {
-            font-size: 1.8rem; // 减小字体
+            font-size: 2.2rem;
           }
           
           .subtitle {
-            font-size: 1rem;
+            font-size: 1.1rem;
           }
           
           .description {
@@ -438,15 +398,15 @@ $border-color: #cbd5e0;
           
           .stats-container {
             justify-content: center;
-            gap: 15px; // 减少间距
+            gap: 20px;
             
             .stat-item {
               .stat-number {
-                font-size: 1.1rem; // 减小字体
+                font-size: 1.3rem;
               }
               
               .stat-label {
-                font-size: 0.75rem; // 减小字体
+                font-size: 0.8rem;
               }
             }
           }
@@ -457,18 +417,18 @@ $border-color: #cbd5e0;
         justify-content: center;
         
         .application-card {
-          padding: 20px; // 减少内边距
-          max-width: 350px;
+          padding: 20px;
+          max-width: 380px;
         }
       }
     }
     
     .contact-section {
-      padding: 15px 0; // 减少内边距
+      padding: 15px 0;
       
       .contact-items {
         flex-direction: column;
-        gap: 8px; // 减少间距
+        gap: 10px;
       }
     }
   }
@@ -476,46 +436,27 @@ $border-color: #cbd5e0;
 
 @media (max-width: 576px) {
   .land-page {
-    .land-header {
-      padding: 0 16px;
-      
-      .header-content {
-        height: 56px;
-        
-        .logo-section {
-          .logo {
-            width: 34px;
-            height: 34px;
-          }
-          
-          .club-name {
-            font-size: 15px;
-          }
-        }
-      }
-    }
-    
     .land-content {
-      padding: 10px 12px; // 减少内边距
+      padding: 10px;
       
       .welcome-section {
-        padding: 10px 0; // 减少内边距
+        padding: 10px 0;
         
         .welcome-content {
           .main-title {
-            font-size: 1.6rem; // 减小字体
+            font-size: 2rem;
           }
           
           .stats-container {
-            gap: 12px; // 减少间距
+            gap: 15px;
             
             .stat-item {
               .stat-number {
-                font-size: 1rem; // 减小字体
+                font-size: 1.2rem;
               }
               
               .stat-label {
-                font-size: 0.7rem; // 减小字体
+                font-size: 0.75rem;
               }
             }
           }
@@ -523,36 +464,36 @@ $border-color: #cbd5e0;
       }
       
       .card-section {
-        padding: 10px 0; // 减少内边距
+        padding: 10px 0;
         
         .application-card {
-          padding: 16px; // 减少内边距
+          padding: 18px;
           border-radius: 16px;
           
           .card-header {
-            margin-bottom: 16px; // 减少间距
+            margin-bottom: 18px;
             
             .card-icon {
-              width: 45px; // 减小尺寸
-              height: 45px; // 减小尺寸
-              font-size: 18px; // 减小字体
-              margin-bottom: 10px; // 减少间距
+              width: 50px;
+              height: 50px;
+              font-size: 20px;
+              margin-bottom: 12px;
             }
             
             .card-title {
-              font-size: 1.1rem; // 减小字体
+              font-size: 1.2rem;
             }
           }
           
           .card-features {
-            margin-bottom: 16px; // 减少间距
+            margin-bottom: 18px;
             
             .feature-item {
-              padding: 10px; // 减少内边距
+              padding: 10px;
               
               .feature-icon {
-                font-size: 14px; // 减小字体
-                margin-right: 8px; // 减少间距
+                font-size: 16px;
+                margin-right: 10px;
               }
             }
           }

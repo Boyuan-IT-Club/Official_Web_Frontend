@@ -9,6 +9,7 @@ const TextInputField = ({
   onChange,
   disabled = false,
   required = false,
+  className = '',
   ...props
 }) => {
   return (
@@ -16,6 +17,7 @@ const TextInputField = ({
       label={label} 
       name={name}
       rules={required ? [{ required: true, message: `${label}不能为空` }] : []}
+      className={className}
     >
       <Input
         placeholder={placeholder}

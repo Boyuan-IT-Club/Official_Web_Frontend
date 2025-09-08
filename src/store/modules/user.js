@@ -55,13 +55,30 @@ export const fetchResetPassword = createAsyncThunk(
   }
 );
 
+// 修改updateUserInfo异步thunk
 export const updateUserInfo = createAsyncThunk(
   'user/updateUserInfo',
   async (userData, { rejectWithValue, dispatch }) => {
     try {
-      await request.put('/api/user/me', userData);
-      const res = await dispatch(userActions.fetchUserInfo()).unwrap();
-      return res;
+      // 确保包含所有可更新字段
+      const updateData = {
+        name: userData.name,
+        phone: userData.phone,
+        major: userData.major || null // 明确处理major字段
+      };
+      
+      // 过滤掉空值
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined || updateData[key] === '') {
+          updateData[key] = null; // 设置为null而不是删除
+        }
+      });
+      
+      const res = await request.put('/api/user/me', updateData);
+      
+      // 立即重新获取用户信息以确保前端显示最新数据
+      await dispatch(userActions.fetchUserInfo()).unwrap();
+      return res.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -77,12 +94,28 @@ export const uploadAvatar = createAsyncThunk(
       
       console.log('上传文件:', file.name, file.type, file.size);
       
-      const res = await request.post('/api/user/avatar', formData);
+      const res = await request.post('/api/user/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       
       console.log('上传响应:', res);
       
       if (res.code === 200) {
-        return res.data.fullHttpPath;
+        // 返回完整的头像URL，确保包含域名
+        let avatarUrl = res.data.fullHttpPath || res.data.avatarUrl || res.data.avatar;
+        
+        // 确保返回的是完整URL
+        if (avatarUrl && !avatarUrl.startsWith('http')) {
+          if (avatarUrl.startsWith('/')) {
+            avatarUrl = `https://official.boyuan.club${avatarUrl}`;
+          } else {
+            avatarUrl = `https://official.boyuan.club/uploads/avatars/${avatarUrl}`;
+          }
+        }
+        
+        return avatarUrl;
       } else {
         throw new Error(res.message || '上传失败');
       }
@@ -286,22 +319,22 @@ const userSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchUserInfo.fulfilled, (state, action) => {
-        state.loading = false;
-        const userInfo = { ...action.payload };
-        
-        // 统一转换头像路径为完整URL
-        if (userInfo.avatar) {
-          if (userInfo.avatar.startsWith('http')) {
-            // 不做任何处理
-          } else if (userInfo.avatar.startsWith('/')) {
-            userInfo.avatar = `https://official.boyuan.club${userInfo.avatar}`;
-          } else {
-            userInfo.avatar = `https://official.boyuan.club/uploads/avatars/${userInfo.avatar}`;
-          }
-        }
-        
-        state.userInfo = userInfo;
-      })
+  state.loading = false;
+  const userInfo = action.payload.user || action.payload;
+  
+  // 修复这里的URL拼接错误
+  if (userInfo.avatar) {
+    if (userInfo.avatar.startsWith('http')) {
+      // 不做任何处理
+    } else if (userInfo.avatar.startsWith('/')) {
+      userInfo.avatar = `https://official.boyuan.club${userInfo.avatar}`;
+    } else {
+      userInfo.avatar = `hhttps://official.boyuan.club/uploads/avatars/${userInfo.avatar}`;
+    }
+  }
+  
+  state.userInfo = userInfo;
+})
       .addCase(fetchUserInfo.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
