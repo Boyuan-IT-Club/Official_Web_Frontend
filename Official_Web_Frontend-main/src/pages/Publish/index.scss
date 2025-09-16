@@ -1,0 +1,423 @@
+.publish-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  
+  .questionnaire-header {
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  
+  .content-wrapper {
+    .questionnaire-card {
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      
+      .questionnaire-form {
+        .form-section {
+          margin-bottom: 32px;
+          
+          .section-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f0f0;
+            
+            .anticon {
+              margin-right: 8px;
+              color: #1890ff;
+            }
+          }
+        }
+        
+        .form-actions {
+          margin-top: 32px;
+          padding-top: 16px;
+          border-top: 1px solid #f0f0f0;
+          text-align: center;
+        }
+      }
+    }
+  }
+  
+  .photo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    
+    .photo-label {
+      margin-bottom: 12px;
+      text-align: center;
+      width: 100%;
+      
+      .ant-form-item-label {
+        text-align: center;
+        
+        label {
+          font-weight: 500;
+          color: #262626;
+          font-size: 14px;
+        }
+      }
+    }
+    
+    .ant-upload {
+      width: 120px !important;
+      height: 160px !important;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      
+      .ant-upload-select {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        border-radius: 6px;
+      }
+    }
+  }
+  
+  // 填写提示按钮容器
+  .tips-button-container {
+    text-align: center;
+    margin-bottom: 16px;
+    
+    .tips-toggle-button {
+      background: #f9f9f9;
+      border-color: #d9d9d9;
+      border-radius: 20px;
+      padding: 4px 16px;
+      font-size: 12px;
+      height: auto;
+      
+      &:hover {
+        background: #e6f7ff;
+        border-color: #40a9ff;
+        color: #40a9ff;
+      }
+    }
+  }
+  
+  // 填写提示卡片
+  .tips-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    background: #fafafa;
+    
+    .tips-header {
+      color: #1f3a60;
+      font-weight: bold;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+  }
+  
+  .tips-list {
+    padding-left: 16px;
+    margin: 0;
+    
+    .tip-item {
+      color: #595959;
+      margin-bottom: 8px;
+      line-height: 1.6;
+      font-size: 13px;
+      position: relative;
+      
+      &:before {
+        content: "•";
+        color: #1890ff;
+        font-weight: bold;
+        display: inline-block;
+        width: 1em;
+        margin-left: -1em;
+      }
+    }
+  }
+
+  .tips-content {
+  .tip-item {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+    
+    strong {
+      display: block;
+      color: #1f3a60;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    
+    p, span {
+      color: #595959;
+      margin: 0;
+      line-height: 1.6;
+      font-size: 12px;
+    }
+  }
+}
+  
+  .publish-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    
+    .ant-spin {
+      margin-bottom: 16px;
+    }
+  }
+}
+
+// 修复下拉箭头位置
+.ant-select {
+  &.ant-select-single {
+    .ant-select-selector {
+      padding-right: 24px !important;
+      
+      .ant-select-arrow {
+        right: 8px !important;
+        width: 12px;
+        height: 12px;
+        margin-top: -6px;
+        pointer-events: none;
+        
+        .ant-select-arrow-icon {
+          display: block;
+          width: 100%;
+          height: 100%;
+          background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23666'%3E%3Cpath d='M8 12L2 6h12L8 12z'/%3E%3C/svg%3E") no-repeat center;
+          background-size: contain;
+        }
+      }
+    }
+  }
+}
+
+// 特定选择器的样式修复
+#first_department,
+#second_department,
+#expected_interview_time,
+#grade {
+  .ant-select-selector {
+    padding-right: 24px !important;
+    
+    .ant-select-arrow {
+      right: 8px !important;
+      width: 12px;
+      height: 12px;
+      margin-top: -6px;
+      pointer-events: none;
+    }
+  }
+}
+
+// 通用下拉框样式
+.ant-select {
+  .ant-select-selector {
+    padding-right: 24px !important;
+    
+    .ant-select-arrow {
+      right: 8px !important;
+      width: 12px;
+      height: 12px;
+      margin-top: -6px;
+      pointer-events: none;
+    }
+  }
+}
+
+.interview-time-section {
+  margin-bottom: 16px;
+  
+  .custom-time-input {
+    margin-top: 12px;
+    
+    .ant-form-item {
+      margin-bottom: 0;
+    }
+  }
+}
+
+// 下拉选项黑色字体
+.ant-select-item {
+  &.ant-select-item-option {
+    color: #000 !important;
+    
+    .ant-select-item-option-content {
+      color: #000 !important;
+    }
+  }
+}
+
+// 选择器选中项黑色字体
+.ant-select-selection-item {
+  color: #000 !important;
+}
+
+// 紧凑输入框样式
+.compact-input {
+  .ant-input,
+  .ant-select-selector {
+    max-width: 240px !important;
+  }
+}
+
+// 技术栈样式
+.tech-stack-container {
+  .tech-stack-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    
+    .ant-input {
+      max-width: 200px !important;
+      margin-right: 8px;
+    }
+    
+    .ant-btn {
+      border-radius: 4px;
+      
+      &.add-button {
+        background-color: #1890ff;
+        border-color: #1890ff;
+        box-shadow: 0 2px 4px rgba(24, 144, 255, 0.3);
+        
+        &:hover {
+          background-color: #40a9ff;
+          border-color: #40a9ff;
+        }
+      }
+    }
+  }
+}
+
+// 提交确认弹窗样式
+.submit-confirm-modal {
+  .modal-content {
+    .modal-text {
+      color: #333;
+      margin-bottom: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    
+    .modal-warning {
+      color: #fa8c16;
+      background-color: #fff7e6;
+      padding: 12px;
+      border-radius: 4px;
+      border-left: 3px solid #fa8c16;
+      margin: 0;
+    }
+  }
+  
+  .ant-modal-confirm-btns {
+    margin-top: 16px;
+  }
+}
+
+.edit-mode-alert {
+  background-color: #f6ffed !important;
+  border: 1px solid #b7eb8f !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  margin-bottom: 24px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  
+  .ant-alert-icon {
+    color: #52c41a !important;
+    font-size: 18px !important;
+    margin-right: 12px !important;
+    margin-top: 2px !important;
+    align-self: flex-start !important;
+  }
+  
+  .ant-alert-message {
+    color: #389e0d !important;
+    font-weight: 600 !important;
+    margin-bottom: 4px !important;
+    font-size: 14px !important;
+  }
+  
+  .ant-alert-description {
+    color: #595959 !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    margin: 0 !important;
+  }
+  
+  .ant-alert-content {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .publish-page {
+    padding: 16px;
+  }
+  
+  .content-wrapper {
+    .questionnaire-card {
+      margin: 0;
+      border-radius: 8px;
+    }
+  }
+  
+  .compact-input {
+    .ant-input,
+    .ant-select-selector {
+      max-width: 100% !important;
+    }
+  }
+  
+  .tech-stack-container {
+    .tech-stack-item {
+      .ant-input {
+        max-width: 100% !important;
+      }
+    }
+  }
+  
+  .photo-container {
+    margin-top: 24px;
+    
+    .ant-upload {
+      width: 100px !important;
+      height: 140px !important;
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .publish-page {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .interview-time-section {
+    .ant-radio-group {
+      display: flex;
+      flex-direction: column;
+      
+      .ant-radio-wrapper {
+        margin-bottom: 8px;
+      }
+    }
+  }
+}

@@ -1,0 +1,242 @@
+// src/pages/Resume/index.scss
+
+// --- 保留原有的变量定义 ---
+$primary-color: #1890ff;
+$tech-blue: #1a73e8;
+$tech-dark: #0f1621;
+$tech-light: #f8f9fa;
+$tech-accent: #00c6ff;
+$text-color: #333;
+$menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+
+// --- 修改和新增的样式 ---
+
+// --- 保留原有的列表容器样式 ---
+.resume-list-container {
+  width: 100%;
+  padding: 24px;
+
+  // 筛选控制区域
+  .list-controls {
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 20px;
+    border-radius: 4px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+  }
+
+  .list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  // 简历卡片样式
+  .resume-card {
+    border-radius: 8px;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .ant-card-meta-title {
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .resume-card-description {
+      > div {
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+
+        .ant-typography {
+          margin-left: 8px;
+        }
+      }
+    }
+
+    .ant-card-actions {
+      background: #fafafa;
+
+      > li {
+        margin: 4px 0;
+      }
+    }
+  }
+
+  // 分页样式
+  .resume-pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+
+    .ant-pagination-item {
+      border-radius: 4px;
+
+      &.ant-pagination-item-active {
+        background-color: $tech-blue; // 原文件中硬编码的值，可考虑改为 $primary-color
+        border-color: $tech-blue; // 原文件中硬编码的值，可考虑改为 $primary-color
+
+        a {
+          color: #fff;
+        }
+      }
+
+      &:hover {
+        border-color: #1b8aea; // 原文件中硬编码的值，可考虑改为 $tech-blue
+        color: #1b8aea; // 原文件中硬编码的值，可考虑改为 $tech-blue
+      }
+    }
+
+    .ant-pagination-options {
+      margin-left: 16px;
+
+      .ant-select {
+        .ant-select-selector {
+          background-color: rgba(255, 255, 255, 0.5);
+          border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+      }
+    }
+  }
+}
+
+// --- 修改：简历详情容器样式，使其更像 Publish 页面的整体布局 ---
+.resume-detail-container {
+  // --- 新增：模仿 .publish-page 的容器样式 ---
+  padding: 24px;
+  max-width: 1200px; // 限制最大宽度，与 Publish 一致
+  margin: 0 auto;    // 居中
+  position: relative;
+  // --- ---
+
+  // --- 修改：详情页头部样式 ---
+  .detail-header {
+    // --- 新增：模仿 Publish 的 header 样式 ---
+    margin-bottom: 24px;
+    text-align: center; // 可根据需要调整，Publish 是居中
+    display: flex;      // 使用 flex 布局，与 Publish 的操作按钮布局类似
+    justify-content: space-between; // 左右分布
+    align-items: center; // 垂直居中
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #f0f0f0;
+    // --- ---
+  }
+
+  // --- 修改：简历详情内容容器 ---
+  .resume-detail-content {
+    // --- 新增：可以添加额外的包裹样式 ---
+  }
+
+  // --- 新增：模仿 .resume-display-card 的样式 ---
+  // 这是核心部分，让 ResumeDetail 的卡片看起来像 Publish 的 ResumeDisplay
+  .resume-display-card {
+    // --- 新增：模仿 Publish 中 .questionnaire-card 的样式 ---
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    // --- ---
+
+    // --- 新增：模仿 ResumeDisplay 内部的布局样式 ---
+    .resume-header {
+      margin-bottom: 16px; // Publish 中是 16px
+
+      .ant-row {
+        // 可以根据需要调整行间距
+      }
+    }
+
+    // --- 新增：模仿 Publish 中的 Divider 样式 ---
+    .ant-divider {
+      margin: 16px 0; // Publish 中是 16px
+    }
+
+    // --- 新增：统一 Typography 样式（可选）---
+    .ant-typography {
+      // 可以在这里设置字体、颜色等，与 Publish 保持一致
+      // 例如：
+      // color: $text-color;
+    }
+
+    // --- 新增：标题样式（可选）---
+    .ant-typography-title {
+       // 例如：
+       // margin-bottom: 16px; // Publish 中 Section Title 下间距是 16px
+    }
+
+    // --- 新增：字段容器样式（可选）---
+    .field-container {
+       // 可以为每个字段块添加样式，例如 margin-bottom
+       // margin-bottom: 12px; // 与 ResumeDisplay 中 renderField 的 marginBottom 一致
+    }
+    // --- ---
+  }
+  // --- ---
+
+  // --- 保留原有的 .coming-soon 样式 ---
+  .coming-soon {
+    text-align: center;
+    padding: 50px 0;
+    color: #999;
+    font-size: 16px;
+  }
+}
+
+// --- 保留并可能需要的表格样式 ---
+.resume-detail-table {
+  // 确保表格适应容器宽度
+  width: 100%;
+
+  // 自定义表头样式
+  .ant-table-thead > tr > th {
+    background-color: #f5f5f5; // 或者使用变量如 $tech-light
+    font-weight: bold;
+    // color: $text-color;
+  }
+
+  // 自定义表体单元格样式
+  .ant-table-tbody > tr > td {
+    word-break: break-word; // 长单词换行
+    // white-space: pre-wrap; // 保留空格和换行符
+  }
+
+  // 表格主体区域滚动样式
+  .ant-table-container {
+    // 如果需要，可以自定义滚动条样式
+  }
+
+  // 如果需要调整表格大小或边框
+  // .ant-table {
+  //   border: 1px solid #e8e8e8;
+  //   border-radius: 4px;
+  // }
+}
+
+// --- 新增：响应式设计，与 Publish 保持一致 ---
+@media (max-width: 768px) {
+  .resume-detail-container {
+    padding: 16px; // 与 Publish 一致
+
+    .detail-header {
+       // 可以调整移动端头部样式
+       flex-direction: column; // 垂直排列按钮
+       gap: 16px; // 添加间距
+    }
+
+    .resume-display-card {
+       // 卡片在移动端的调整（如果需要）
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .resume-detail-container {
+    padding: 12px; // 与 Publish 一致
+  }
+}
+// --- ---
