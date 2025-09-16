@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Layout as AntdLayout, Menu, Avatar, Typography } from 'antd';
-import { UserOutlined, HomeOutlined, FileTextOutlined } from '@ant-design/icons';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Layout as AntdLayout, Menu, Avatar, Typography, Dropdown, message } from 'antd';
+import { UserOutlined, HomeOutlined, FileTextOutlined, LogoutOutlined } from '@ant-design/icons';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUserInfo } from '@/store/modules/user';
+import { fetchUserInfo, logout } from '@/store/modules/user';
 import logo from '../../assets/SingleLogo.png';
 import './index.scss';
 
@@ -36,26 +36,51 @@ const MainLayout = () => {
   };
 
   const menuItems = [
-  {
-    key: '/main/dashboard',
-    icon: <HomeOutlined />,
-    label: '首页',
-  },
-  {
-    key: '/main/publish',
-    icon: <FileTextOutlined />,
-    label: '简历投递',
-  },
-  {
-    key: '/main/person',
-    icon: <UserOutlined />,
-    label: '个人主页',
-  },
-];
+    {
+      key: '/main/dashboard',
+      icon: <HomeOutlined />,
+      label: '首页',
+    },
+    {
+      key: '/main/publish',
+      icon: <FileTextOutlined />,
+      label: '简历投递',
+    },
+    {
+      key: '/main/person',
+      icon: <UserOutlined />,
+      label: '个人主页',
+    },
+  ];
 
   const handleMenuClick = ({ key }) => {
     navigate(key);
   };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/login');
+    message.success('已成功退出登录');
+  };
+
+  const userMenuItems = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: '个人资料',
+      onClick: () => navigate('/main/person')
+    },
+    {
+      type: 'divider'
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: '退出登录',
+      onClick: handleLogout,
+      danger: true
+    }
+  ];
 
   const selectedKeys = [location.pathname];
 
@@ -75,7 +100,7 @@ const MainLayout = () => {
           bottom: 0,
         }}
       >
-        <div className="sider-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+        <div className="sider-logo"  style={{ cursor: 'pointer' }}>
           <img src={logo} alt="博远信息技术社" className="logo-image" />
           {!collapsed && <div className="logo-glow"></div>}
         </div>
@@ -103,12 +128,24 @@ const MainLayout = () => {
             <Text type="secondary">加载中...</Text>
           ) : (
             <div className="header-user">
-              <Avatar
-                src={getAvatarUrl()}
-                icon={<UserOutlined />}
-                className="user-avatar"
-              />
-              <span className="username">{userInfo?.name || '未登录用户'}</span>
+              <Dropdown
+                menu={{
+                  items: userMenuItems
+                }}
+                placement="bottomRight"
+                trigger={['click']}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '8px 12px', borderRadius: '6px' }}>
+                  <Avatar
+                    src={getAvatarUrl()}
+                    icon={<UserOutlined />}
+                    className="user-avatar"
+                  />
+                  <span className="username" style={{ marginLeft: '8px', marginRight: '4px' }}>
+                    {userInfo?.name || '未登录用户'}
+                  </span>
+                </div>
+              </Dropdown>
             </div>
           )}
         </Header>

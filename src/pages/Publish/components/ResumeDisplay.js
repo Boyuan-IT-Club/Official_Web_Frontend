@@ -45,7 +45,7 @@ const ResumeDisplay = ({
   };
 
   const renderInterviewTime = (label, value) => {
-    if (!value) return null;
+    if (!value || value === "无") return null;
     return (
       <div style={{ marginBottom: 12 }}>
         <Text strong>
@@ -58,7 +58,7 @@ const ResumeDisplay = ({
   };
 
   const renderDepartment = (label, value) => {
-    if (!value) return null;
+    if (!value || value === "无") return null; // 添加对"无"值的检查
 
     return (
       <div style={{ marginBottom: 12 }}>
@@ -66,7 +66,7 @@ const ResumeDisplay = ({
           <TeamOutlined style={{ marginRight: 8 }} />
           {label}:
         </Text>
-        <Text style={{ marginLeft: 8 }}>{value || "未填写"}</Text>
+        <Text style={{ marginLeft: 8 }}>{value}</Text>
       </div>
     );
   };
@@ -78,16 +78,18 @@ const ResumeDisplay = ({
       );
 
       if (interviewTimeField && interviewTimeField.fieldValue) {
-        const timesArray = JSON.parse(interviewTimeField.fieldValue);
+        const timesData = JSON.parse(interviewTimeField.fieldValue);
         return {
-          first: timesArray[0] || "",
-          second: timesArray[1] || "",
+          first: timesData.first || "",
+          second: timesData.second || "",
+          canAttend: timesData.canAttend || "yes",
+          customTime: timesData.customTime || "",
         };
       }
     } catch (e) {
       console.error("解析面试时间失败", e);
     }
-    return { first: "", second: "" };
+    return { first: "", second: "", canAttend: "yes", customTime: "" };
   };
 
   // 使用解析后的面试时间数据
@@ -160,8 +162,24 @@ const ResumeDisplay = ({
           <Title level={4}>志愿信息</Title>
           {renderDepartment("第一志愿", departments.first)}
           {renderDepartment("第二志愿", departments.second)}
-          {renderInterviewTime("第一面试时间", interviewTimes.first)}
-          {renderInterviewTime("第二面试时间", interviewTimes.second)}
+          {interviewTimes.canAttend === "yes" ? (
+            <>
+              {renderInterviewTime("第一面试时间", interviewTimes.first)}
+              {renderInterviewTime("第二面试时间", interviewTimes.second)}
+            </>
+          ) : (
+            <div style={{ marginBottom: 12 }}>
+              <Text strong>
+                <TeamOutlined style={{ marginRight: 8 }} />
+                面试安排:
+              </Text>
+              <Text style={{ marginLeft: 8 }}>线上面试（时间待通知）</Text>
+            </div>
+          )}
+          {renderInterviewTime(
+            "是否能参加线下面试",
+            interviewTimes.canAttend === "yes" ? "能参加" : "不能参加"
+          )}
         </Col>
       </Row>
 

@@ -106,8 +106,6 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         align-items: center;
         cursor: pointer;
         transition: all 0.3s;
-        padding: 5px 10px;
-        border-radius: 20px;
         
         &:hover {
           background: rgba(0, 0, 0, 0.05);
@@ -163,6 +161,12 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       
       .tech-header {
         padding: 0 12px;
+        
+        .header-user {
+          .username {
+            display: none;
+          }
+        }
       }
       
       .site-content {
@@ -171,6 +175,29 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         .content-container {
           padding: 16px;
         }
+      }
+    }
+  }
+}
+
+// 下拉菜单样式
+.ant-dropdown-menu {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  
+  .ant-dropdown-menu-item {
+    padding: 8px 16px;
+    margin: 4px 0;
+    
+    &:hover {
+      background-color: #f5f5f5;
+    }
+    
+    &.ant-dropdown-menu-item-danger {
+      color: #ff4d4f;
+      
+      &:hover {
+        background-color: #fff2f0;
       }
     }
   }

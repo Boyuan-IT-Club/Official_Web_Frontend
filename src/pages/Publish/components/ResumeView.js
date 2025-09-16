@@ -40,23 +40,23 @@ const ResumeView = ({ resume, fieldValues = [], fieldIdMapping = {}, photoBase64
 
   // 解析 departments 数据
   const parseDepartments = () => {
-    try {
-      const departmentsField = fieldValues.find(f => 
-        f.fieldId === fieldIdMapping['expected_departments']
-      );
-      
-      if (departmentsField && departmentsField.fieldValue) {
-        const deptArray = JSON.parse(departmentsField.fieldValue);
-        return {
-          first: deptArray[0] || '',
-          second: deptArray[1] || ''
-        };
-      }
-    } catch (e) {
-      console.error('解析部门志愿失败', e);
+  try {
+    const departmentsField = fieldValues.find(f => 
+      f.fieldId === fieldIdMapping['expected_departments']
+    );
+    
+    if (departmentsField && departmentsField.fieldValue) {
+      const deptArray = JSON.parse(departmentsField.fieldValue);
+      return {
+        first: deptArray[0] || '',
+        second: deptArray[1] || ''
+      };
     }
-    return { first: '', second: '' };
-  };
+  } catch (e) {
+    console.error('解析部门志愿失败', e);
+  }
+  return { first: '', second: '' };
+};
 
   // 解析 techStackItems 数据
   const parseTechStackItems = () => {
@@ -77,6 +77,28 @@ const ResumeView = ({ resume, fieldValues = [], fieldIdMapping = {}, photoBase64
   const statusInfo = getStatusInfo(resume?.status);
   const departments = parseDepartments();
   const techStackItems = parseTechStackItems();
+
+  const parseInterviewTimes = () => {
+  try {
+    const interviewTimeField = fieldValues.find(f => 
+      f.fieldId === fieldIdMapping['expected_interview_time']
+    );
+    
+    if (interviewTimeField && interviewTimeField.fieldValue) {
+      const timesData = JSON.parse(interviewTimeField.fieldValue);
+      return {
+        first: timesData.first || '',
+        second: timesData.second || '',
+        canAttend: timesData.canAttend || 'yes',
+        customTime: timesData.customTime || ''
+      };
+    }
+  } catch (e) {
+    console.error('解析面试时间失败', e);
+  }
+  return { first: '', second: '', canAttend: 'yes', customTime: '' };
+};
+
 
   return (
     <div className="resume-view">

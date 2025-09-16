@@ -43,7 +43,10 @@ const AuthCard = () => {
       
       message.success('验证码已发送');
     } catch (error) {
-      message.error(error.response?.data?.message || '验证码发送失败');
+      const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.error || 
+                         '验证码发送失败';
+      message.error(errorMessage);
       console.error('验证码发送错误:', error);
     } finally {
       setLoading(false);
@@ -115,9 +118,38 @@ const AuthCard = () => {
       }
     } catch (error) {
       console.error('操作失败:', error);
-      const errorMessage = error.response?.data?.message || 
-                         error.message || 
-                         '操作失败，请检查输入';
+      
+      // 改进的错误处理逻辑
+      let errorMessage = '操作失败，请检查输入';
+      
+      // 处理不同的错误响应格式
+      if (error.response?.data) {
+        const responseData = error.response.data;
+        
+        if (typeof responseData === 'string') {
+          errorMessage = responseData;
+        } else if (typeof responseData === 'object') {
+          // 处理常见的错误字段
+          errorMessage = responseData.message || 
+                        responseData.error || 
+                        responseData.msg || 
+                        JSON.stringify(responseData);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // 特殊处理登录错误
+      if (!showRegister && !showForgot) {
+        if (errorMessage.includes('密码') || errorMessage.includes('password')) {
+          errorMessage = '邮箱或密码错误';
+        } else if (errorMessage.includes('验证码') || errorMessage.includes('code')) {
+          errorMessage = '验证码错误或已过期';
+        } else if (errorMessage.includes('邮箱') || errorMessage.includes('email')) {
+          errorMessage = '邮箱格式错误或不存在';
+        }
+      }
+      
       message.error(errorMessage);
     } finally {
       setLoading(false);
@@ -134,13 +166,14 @@ const AuthCard = () => {
 
   //自动加入邮箱后缀
   const handleIdBlur = (e) => {
-  const value = e.target.value.trim();
-  if (value && /^\d{11}$/.test(value)) { // 检查是否是11位数字
-    form.setFieldsValue({
-      auth_id: `${value}@stu.ecnu.edu.cn`
-    });
-  }
-};
+    const value = e.target.value.trim();
+    if (value && /^\d{11}$/.test(value)) { // 检查是否是11位数字
+      form.setFieldsValue({
+        auth_id: `${value}@stu.ecnu.edu.cn`
+      });
+    }
+  };
+
   return (
     <div className="auth-container">
       <Card className="auth-card" hoverable>
@@ -245,6 +278,16 @@ const AuthCard = () => {
             </Item>
 
             <Item
+              name="phone"
+              rules={[
+                { required: true , message: '请输入手机号码' },
+                { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码' }
+              ]}
+            >
+              <Input prefix={<PhoneOutlined />} placeholder="手机号码" />
+            </Item>
+
+            <Item
               name="email"
               rules={[
                 { required: true, message: '请输入邮箱' },
@@ -259,32 +302,22 @@ const AuthCard = () => {
             </Item>
 
             <Item
-              name="phone"
-              rules={[
-                { required: true , message: '请输入手机号码' },
-                { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码' }
-              ]}
-            >
-              <Input prefix={<PhoneOutlined />} placeholder="手机号码" />
-            </Item>
-
-            <Item
               name="code"
               rules={[{ required: true, message: '请输入验证码' }]}
             >
               <Input
                 prefix={<SafetyCertificateOutlined />}
-                placeholder="验证码"
+                placeholder="邮箱验证码"
                 addonAfter={
-                  <Button 
-                    type="link" 
-                    onClick={sendVerificationCode}
-                    disabled={countdown > 0 || loading}
-                    loading={loading}
-                  >
-                    {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
-                  </Button>
-                }
+                    <Button 
+                      type="link" 
+                      onClick={sendVerificationCode}
+                      disabled={countdown > 0 || loading}
+                      loading={loading}
+                    >
+                      {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
+                    </Button>
+                  }
               />
             </Item>
 
@@ -360,15 +393,15 @@ const AuthCard = () => {
                 prefix={<SafetyCertificateOutlined />}
                 placeholder="验证码"
                 addonAfter={
-                  <Button 
-                    type="link" 
-                    onClick={sendVerificationCode}
-                    disabled={countdown > 0 || loading}
-                    loading={loading}
-                  >
-                    {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
-                  </Button>
-                }
+                    <Button 
+                      type="link" 
+                      onClick={sendVerificationCode}
+                      disabled={countdown > 0 || loading}
+                      loading={loading}
+                    >
+                      {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
+                    </Button>
+                  }
               />
             </Item>
 

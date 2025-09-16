@@ -137,6 +137,33 @@
       }
     }
   }
+
+  .tips-content {
+  .tip-item {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+    
+    strong {
+      display: block;
+      color: #1f3a60;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    
+    p, span {
+      color: #595959;
+      margin: 0;
+      line-height: 1.6;
+      font-size: 12px;
+    }
+  }
+}
   
   .publish-loading {
     display: flex;
@@ -205,6 +232,18 @@
       height: 12px;
       margin-top: -6px;
       pointer-events: none;
+    }
+  }
+}
+
+.interview-time-section {
+  margin-bottom: 16px;
+  
+  .custom-time-input {
+    margin-top: 12px;
+    
+    .ant-form-item {
+      margin-bottom: 0;
     }
   }
 }
@@ -287,6 +326,45 @@
   }
 }
 
+.edit-mode-alert {
+  background-color: #f6ffed !important;
+  border: 1px solid #b7eb8f !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  margin-bottom: 24px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  
+  .ant-alert-icon {
+    color: #52c41a !important;
+    font-size: 18px !important;
+    margin-right: 12px !important;
+    margin-top: 2px !important;
+    align-self: flex-start !important;
+  }
+  
+  .ant-alert-message {
+    color: #389e0d !important;
+    font-weight: 600 !important;
+    margin-bottom: 4px !important;
+    font-size: 14px !important;
+  }
+  
+  .ant-alert-description {
+    color: #595959 !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    margin: 0 !important;
+  }
+  
+  .ant-alert-content {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+}
+
 // 响应式设计
 @media (max-width: 768px) {
   .publish-page {
@@ -328,5 +406,18 @@
 @media (max-width: 576px) {
   .publish-page {
     padding: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .interview-time-section {
+    .ant-radio-group {
+      display: flex;
+      flex-direction: column;
+      
+      .ant-radio-wrapper {
+        margin-bottom: 8px;
+      }
+    }
   }
 }

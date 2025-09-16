@@ -25,14 +25,18 @@ const TipsCard = ({
           size="small" 
           title={title} 
           className="tips-card" 
-          // 修改标题颜色为深蓝色
           headStyle={{ color: '#1f3a60', borderBottom: '1px solid #d9d9d9' }}
         >
-          <ul className="tips-list">
+          <div className="tips-content">
             {tips.map((tip, index) => (
-              <li key={index} className="tip-item" style={{ color: '#595959', marginBottom: '8px' }}>{tip}</li>
+              <div key={index} className="tip-item" style={{ marginBottom: '12px' }}>
+                <strong style={{ color: '#1f3a60' }}>{tip.title}:</strong>
+                <p style={{ color: '#595959', margin: '4px 0 0 0', lineHeight: '1.6' }}>
+                  {tip.content}
+                </p>
+              </div>
             ))}
-          </ul>
+          </div>
         </Card>
       )}
     </div>

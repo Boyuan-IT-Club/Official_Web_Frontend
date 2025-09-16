@@ -1,10 +1,10 @@
 // store/modules/resume.js
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { request } from '@/utils';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { request } from "@/utils";
 
 // 获取字段定义
 export const fetchResumeFields = createAsyncThunk(
-  'resume/fetchResumeFields',
+  "resume/fetchResumeFields",
   async (cycleId, { rejectWithValue }) => {
     try {
       const res = await request.get(`/api/resumes/fields/${cycleId}`);
@@ -17,7 +17,7 @@ export const fetchResumeFields = createAsyncThunk(
 
 // 获取或创建简历
 export const fetchOrCreateResume = createAsyncThunk(
-  'resume/fetchOrCreateResume',
+  "resume/fetchOrCreateResume",
   async (cycleId, { rejectWithValue }) => {
     try {
       const res = await request.get(`/api/resumes/cycle/${cycleId}`);
@@ -29,7 +29,9 @@ export const fetchOrCreateResume = createAsyncThunk(
           const createRes = await request.post(`/api/resumes/cycle/${cycleId}`);
           return createRes.data;
         } catch (createError) {
-          return rejectWithValue(createError.response?.data?.message || createError.message);
+          return rejectWithValue(
+            createError.response?.data?.message || createError.message
+          );
         }
       }
       return rejectWithValue(error.response?.data?.message || error.message);
@@ -39,10 +41,12 @@ export const fetchOrCreateResume = createAsyncThunk(
 
 // 获取字段值
 export const fetchFieldValues = createAsyncThunk(
-  'resume/fetchFieldValues',
+  "resume/fetchFieldValues",
   async (cycleId, { rejectWithValue }) => {
     try {
-      const res = await request.get(`/api/resumes/cycle/${cycleId}/field-values`);
+      const res = await request.get(
+        `/api/resumes/cycle/${cycleId}/field-values`
+      );
       return res.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
@@ -52,46 +56,53 @@ export const fetchFieldValues = createAsyncThunk(
 
 // 保存字段值
 export const saveFieldValues = createAsyncThunk(
-  'resume/saveFieldValues',
+  "resume/saveFieldValues",
   async ({ cycleId, fieldValues, resumeId }, { rejectWithValue }) => {
     try {
       if (!resumeId) {
-        return rejectWithValue('简历ID不存在');
+        return rejectWithValue("简历ID不存在");
       }
 
       // 过滤掉空值并确保每个字段值都包含resumeId
       const fieldValuesWithResumeId = fieldValues
-        .filter(item => item.fieldValue !== null && item.fieldValue !== undefined)
-        .map(item => ({
+        .filter(
+          (item) => item.fieldValue !== null && item.fieldValue !== undefined
+        )
+        .map((item) => ({
           ...item,
-          resumeId: resumeId
+          resumeId: resumeId,
         }));
 
       const res = await request.post(
-        `/api/resumes/cycle/${cycleId}/field-values`, 
+        `/api/resumes/cycle/${cycleId}/field-values`,
         fieldValuesWithResumeId
       );
-      
+
       return res.data;
     } catch (error) {
-      console.error('保存字段值错误:', error.response?.data || error.message);
-      return rejectWithValue(error.response?.data?.message || '保存失败，请检查数据格式');
+      console.error("保存字段值错误:", error.response?.data || error.message);
+      return rejectWithValue(
+        error.response?.data?.message || "保存失败，请检查数据格式"
+      );
     }
   }
 );
 
 // 提交简历
 export const submitResume = createAsyncThunk(
-  'resume/submitResume',
+  "resume/submitResume",
   async ({ cycleId, resumeId }, { rejectWithValue }) => {
     try {
       const res = await request.post(`/api/resumes/cycle/${cycleId}/submit`, {
-        resumeId: resumeId
+        resumeId: resumeId,
       });
       return res.data;
     } catch (error) {
-      if (error.response?.status === 400 && error.response?.data?.code === 3002) {
-        return rejectWithValue('您已经提交过简历，无法重复提交');
+      if (
+        error.response?.status === 400 &&
+        error.response?.data?.code === 3002
+      ) {
+        return rejectWithValue("您已经提交过简历，无法重复提交");
       }
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -100,35 +111,63 @@ export const submitResume = createAsyncThunk(
 
 // 更新简历
 export const updateResume = createAsyncThunk(
-  'resume/updateResume',
+  "resume/updateResume",
   async ({ cycleId, fieldValues, resumeId }, { rejectWithValue }) => {
     try {
-      // 先保存字段值
-      const fieldValuesWithResumeId = fieldValues
-        .filter(item => item.fieldValue !== null && item.fieldValue !== undefined)
-        .map(item => ({
-          ...item,
-          resumeId: resumeId
-        }));
+      if (!resumeId) {
+        return rejectWithValue("简历ID不存在");
+      }
 
-      await request.post(
-        `/api/resumes/cycle/${cycleId}/field-values`,
-        fieldValuesWithResumeId
+      // 准备批量更新的数据
+      const updateData = fieldValues
+        .filter(
+          (item) => item.fieldValue !== null && item.fieldValue !== undefined
+        )
+        .map((item) => {
+          // 确保字段值是正确的格式
+          let fieldValue = item.fieldValue;
+          
+          // 如果已经是字符串化的JSON，保持原样
+          // 如果是对象，则字符串化
+          if (typeof fieldValue === 'object' && !Array.isArray(fieldValue)) {
+            fieldValue = JSON.stringify(fieldValue);
+          }
+          
+          // 如果是数组（如技术栈），也字符串化
+          if (Array.isArray(fieldValue)) {
+            fieldValue = JSON.stringify(fieldValue);
+          }
+          
+          return {
+            fieldId: item.fieldId,
+            fieldValue: fieldValue,
+            valueId: item.valueId || null, // 如果有valueId就传，没有就null
+            resumeId: resumeId
+          };
+        });
+
+      console.log('批量更新数据:', updateData);
+
+      // 直接发送字段值数组，而不是包裹在对象中
+      const res = await request.put(
+        `/api/resumes/cycle/${cycleId}`, // 假设后端有批量更新接口
+        updateData  // 直接发送数组
       );
 
-      // 然后调用更新接口
-      const res = await request.put(`/api/resumes/cycle/${cycleId}`, {
-        resumeId: resumeId
-      });
       return res.data;
+
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      console.error("更新简历错误:", error.response?.data || error.message);
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "系统异常"
+      );
     }
   }
 );
 
+
 const resumeSlice = createSlice({
-  name: 'resume',
+  name: "resume",
   initialState: {
     cycleId: 2,
     fields: [],
@@ -143,7 +182,9 @@ const resumeSlice = createSlice({
   reducers: {
     setFieldValue: (state, action) => {
       const { fieldId, value } = action.payload;
-      const existingIndex = state.fieldValues.findIndex(item => item.fieldId === fieldId);
+      const existingIndex = state.fieldValues.findIndex(
+        (item) => item.fieldId === fieldId
+      );
 
       if (existingIndex >= 0) {
         state.fieldValues[existingIndex].fieldValue = value;
@@ -163,10 +204,10 @@ const resumeSlice = createSlice({
     initializeFieldValuesFromResume: (state, action) => {
       const resumeData = action.payload;
       if (resumeData && resumeData.simpleFields) {
-        state.fieldValues = resumeData.simpleFields.map(field => ({
+        state.fieldValues = resumeData.simpleFields.map((field) => ({
           fieldId: field.fieldId,
           fieldValue: field.fieldValue,
-          valueId: field.valueId // 保存valueId用于更新
+          valueId: field.valueId, // 保存valueId用于更新
         }));
       }
     },
@@ -181,9 +222,9 @@ const resumeSlice = createSlice({
         state.resume.resume_id = action.payload;
         state.resume.id = action.payload;
       } else {
-        state.resume = { 
+        state.resume = {
           resume_id: action.payload,
-          id: action.payload 
+          id: action.payload,
         };
       }
     },
@@ -192,7 +233,11 @@ const resumeSlice = createSlice({
       if (state.resume) {
         state.resume.status = action.payload;
       }
-    }
+    },
+    // 清空字段值
+    clearFieldValues: (state) => {
+      state.fieldValues = [];
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -214,52 +259,56 @@ const resumeSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchOrCreateResume.fulfilled, (state, action) => {
-  state.loading = false;
-  const responseData = action.payload;
-  
-  console.log('fetchOrCreateResume response:', responseData);
-  
-  // 处理不同的响应格式
-  let resumeData;
-  if (responseData && responseData.data) {
-    // 格式: {data: {...}}
-    resumeData = responseData.data;
-  } else if (responseData && (responseData.resumeId || responseData.resume_id)) {
-    // 格式: {resumeId: ..., ...} (直接简历对象)
-    resumeData = responseData;
-  }
-  
-  if (resumeData) {
-    console.log('resumeData:', resumeData);
-    
-    state.resume = {
-      ...resumeData,
-      resume_id: resumeData.resumeId || resumeData.resume_id || resumeData.id,
-      id: resumeData.resumeId || resumeData.resume_id || resumeData.id,
-      status: resumeData.status || 1
-    };
-    
-    console.log('state.resume after setting:', state.resume);
-    
-    // 初始化字段值 - 处理不同的字段值格式
-    if (resumeData.simpleFields) {
-      state.fieldValues = resumeData.simpleFields.map(field => ({
-        fieldId: field.fieldId,
-        fieldValue: field.fieldValue,
-        valueId: field.valueId
-      }));
-    }
-  } else {
-    console.warn('No valid resume data found in response:', responseData);
-    // 创建一个空的简历对象，避免后续错误
-    state.resume = {
-      resume_id: null,
-      id: null,
-      status: 1,
-      submittedAt: null
-    };
-  }
-})
+        state.loading = false;
+        const responseData = action.payload;
+
+        console.log("fetchOrCreateResume response:", responseData);
+
+        // 处理不同的响应格式
+        let resumeData;
+        if (responseData && responseData.data) {
+          // 格式: {data: {...}}
+          resumeData = responseData.data;
+        } else if (
+          responseData &&
+          (responseData.resumeId || responseData.resume_id)
+        ) {
+          // 格式: {resumeId: ..., ...} (直接简历对象)
+          resumeData = responseData;
+        }
+
+        if (resumeData) {
+          console.log("resumeData:", resumeData);
+
+          state.resume = {
+            ...resumeData,
+            resume_id:
+              resumeData.resumeId || resumeData.resume_id || resumeData.id,
+            id: resumeData.resumeId || resumeData.resume_id || resumeData.id,
+            status: resumeData.status || 1,
+          };
+
+          console.log("state.resume after setting:", state.resume);
+
+          // 初始化字段值 - 处理不同的字段值格式
+          if (resumeData.simpleFields) {
+            state.fieldValues = resumeData.simpleFields.map((field) => ({
+              fieldId: field.fieldId,
+              fieldValue: field.fieldValue,
+              valueId: field.valueId,
+            }));
+          }
+        } else {
+          console.warn("No valid resume data found in response:", responseData);
+          // 创建一个空的简历对象，避免后续错误
+          state.resume = {
+            resume_id: null,
+            id: null,
+            status: 1,
+            submittedAt: null,
+          };
+        }
+      })
       .addCase(fetchOrCreateResume.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -297,7 +346,7 @@ const resumeSlice = createSlice({
           state.resume = {
             ...state.resume,
             ...action.payload.data,
-            status: 2 // 设置为已提交状态
+            status: 2, // 设置为已提交状态
           };
         }
       })
@@ -314,7 +363,8 @@ const resumeSlice = createSlice({
         if (action.payload.data) {
           state.resume = {
             ...state.resume,
-            ...action.payload.data
+            ...action.payload.data,
+            status: 2, // 保持已提交状态
           };
         }
       })
@@ -322,7 +372,7 @@ const resumeSlice = createSlice({
         state.updating = false;
         state.error = action.payload;
       });
-  }
+  },
 });
 
 export const {
@@ -333,7 +383,8 @@ export const {
   initializeFieldValuesFromResume,
   setResumeEditable,
   setResumeId,
-  setResumeStatus
+  setResumeStatus,
+  clearFieldValues,
 } = resumeSlice.actions;
 
 export default resumeSlice.reducer;

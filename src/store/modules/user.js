@@ -2,6 +2,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { request } from '@/utils';
 import { setToken as _setToken, getToken, removeToken } from '@/utils';
+import { message } from 'antd';
 
 // 异步thunk actions
 export const fetchLogin = createAsyncThunk(
@@ -11,7 +12,7 @@ export const fetchLogin = createAsyncThunk(
       const res = await request.post('/api/auth/login', loginForm);
       return res.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(error.response?.data?.message || error.message||'登录失败');
     }
   }
 );
@@ -50,6 +51,35 @@ export const fetchResetPassword = createAsyncThunk(
       const res = await request.post('/api/auth/reset-password', resetData);
       return res.data;
     } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// 添加登出异步thunk
+export const logout = createAsyncThunk(
+  'user/logout',
+  async (_, { rejectWithValue, dispatch }) => {
+    try {
+      // 可选：调用后端登出接口
+      try {
+        await request.post('/api/auth/logout');
+      } catch (error) {
+        console.log('后端登出接口调用失败，继续清理前端状态');
+      }
+      
+      // 清除本地存储的token
+      removeToken();
+      
+      // 清除redux状态
+      dispatch(clearToken());
+      
+      return true;
+    } catch (error) {
+      console.error('登出失败:', error);
+      // 即使后端登出失败，也清除本地token
+      removeToken();
+      dispatch(clearToken());
       return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
@@ -218,8 +248,8 @@ export const addAward = createAsyncThunk(
       }
       
       return rejectWithValue(errorMessage);
+      }
     }
-  }
 );
 
 // 修改获奖经历
@@ -255,6 +285,7 @@ export const updateAward = createAsyncThunk(
     }
   }
 );
+
 // 删除获奖经历
 export const deleteAward = createAsyncThunk(
   'user/deleteAward',
@@ -313,28 +344,47 @@ const userSlice = createSlice({
         state.error = action.payload;
       })
 
+      // 登出状态处理
+      .addCase(logout.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.loading = false;
+        state.token = '';
+        state.userInfo = {};
+        state.awards = [];
+        state.error = null;
+      })
+      .addCase(logout.rejected, (state, action) => {
+        state.loading = false;
+        state.token = '';
+        state.userInfo = {};
+        state.awards = [];
+        state.error = action.payload;
+      })
+
       // 用户信息状态处理
       .addCase(fetchUserInfo.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchUserInfo.fulfilled, (state, action) => {
-  state.loading = false;
-  const userInfo = action.payload.user || action.payload;
-  
-  // 修复这里的URL拼接错误
-  if (userInfo.avatar) {
-    if (userInfo.avatar.startsWith('http')) {
-      // 不做任何处理
-    } else if (userInfo.avatar.startsWith('/')) {
-      userInfo.avatar = `https://official.boyuan.club${userInfo.avatar}`;
-    } else {
-      userInfo.avatar = `hhttps://official.boyuan.club/uploads/avatars/${userInfo.avatar}`;
-    }
-  }
-  
-  state.userInfo = userInfo;
-})
+        state.loading = false;
+        const userInfo = action.payload.user || action.payload;
+        
+        // 修复这里的URL拼接错误
+        if (userInfo.avatar) {
+          if (userInfo.avatar.startsWith('http')) {
+            // 不做任何处理
+          } else if (userInfo.avatar.startsWith('/')) {
+            userInfo.avatar = `https://official.boyuan.club${userInfo.avatar}`;
+          } else {
+            userInfo.avatar = `https://official.boyuan.club/uploads/avatars/${userInfo.avatar}`;
+          }
+        }
+        
+        state.userInfo = userInfo;
+      })
       .addCase(fetchUserInfo.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -370,23 +420,23 @@ const userSlice = createSlice({
 
       // 修改获奖经历
       .addCase(updateAward.pending, (state) => {
-      state.loading = true;
-      state.error = null;
-    })
-    .addCase(updateAward.fulfilled, (state, action) => {
-      state.loading = false;
-      // 添加空值检查
-      if (action.payload && action.payload.awardId) {
-        const index = state.awards.findIndex(a => a.awardId === action.payload.awardId);
-        if (index !== -1) {
-          state.awards[index] = { ...state.awards[index], ...action.payload };
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateAward.fulfilled, (state, action) => {
+        state.loading = false;
+        // 添加空值检查
+        if (action.payload && action.payload.awardId) {
+          const index = state.awards.findIndex(a => a.awardId === action.payload.awardId);
+          if (index !== -1) {
+            state.awards[index] = { ...state.awards[index], ...action.payload };
+          }
         }
-      }
-    })
-    .addCase(updateAward.rejected, (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
-    })
+      })
+      .addCase(updateAward.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
 
       // 删除获奖经历
       .addCase(deleteAward.pending, (state) => {
@@ -428,6 +478,7 @@ export const userActions = {
   fetchUserInfo,
   fetchUserAwards,
   fetchResetPassword,
+  logout, // 添加登出action
   updateUserInfo,
   uploadAvatar,
   addAward,
