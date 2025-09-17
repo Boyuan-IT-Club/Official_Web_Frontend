@@ -1,4 +1,3 @@
-// src/pages/Resume/ResumeDetail.js
 import React from 'react';
 import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button } from 'antd';
 import {
@@ -86,6 +85,27 @@ const getFieldValueFromResume = (resume, fieldLabel) => {
   return field ? field.fieldValue : '';
 };
 
+// --- 新增：解析期望部门字段 ---
+const parseExpectedDepartments = (rawValue) => {
+  if (!rawValue) return '';
+
+  // 使用正则表达式移除所有引号（单引号、双引号）和括号（圆括号、方括号）
+  let cleanedValue = rawValue.replace(/["'()[]]/g, '');
+  // 移除多余的空格和换行符
+  cleanedValue = cleanedValue.trim();
+
+  // 分割字符串，得到部门列表
+  const departments = cleanedValue.split(',').map(dep => dep.trim());
+
+  // 如果只有一个部门，直接返回
+  if (departments.length === 1) {
+    return departments[0];
+  }
+
+  // 如果有多个部门，用逗号连接并返回
+  return departments.join(', ');
+};
+
 // --- 主要组件 ---
 const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
   // 如果 `resume` 是 null 或 undefined，显示提示
@@ -136,6 +156,9 @@ const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
     }
   };
   const statusInfo = getStatusInfo(resume.status);
+
+  // 解析期望部门
+  const expectedDepartments = parseExpectedDepartments(getFieldValueFromResume(resume, "期望部门"));
 
   return (
     <div className="resume-detail-container">
@@ -214,10 +237,13 @@ const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
               <Title level={4}>联系方式</Title>
               {renderField(MailOutlined, "邮箱", getFieldValueFromResume(resume, "邮箱"), true)}
               {renderField(PhoneOutlined, "手机号", getFieldValueFromResume(resume, "手机号"), true)}
-              {renderField(GithubOutlined, "GitHub", getFieldValueFromResume(resume, "GitHub主页"))}
+              {/* 显示 GitHub 地址 */}
+              {renderField(GithubOutlined, "GitHub", getFieldValueFromResume(resume, "GitHub地址"))}
             </Col>
             <Col xs={24} md={12}>
               <Title level={4}>志愿信息</Title>
+              {/* 显示解析后的期望部门 */}
+              {renderField(TeamOutlined, "期望部门", expectedDepartments)}
               {renderDepartment("第一志愿", departments.first)}
               {renderDepartment("第二志愿", departments.second)}
               {interviewTimes.canAttend === "yes" ? (
@@ -256,13 +282,14 @@ const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
                   </div>
                 </div>
               )}
+              {/* 优化“项目经验”排版 */}
               {getFieldValueFromResume(resume, "项目经验") && (
                 <div style={{ marginBottom: 16 }}>
                   <Text strong>
                     <CodeOutlined style={{ marginRight: 8 }} />
                     项目经验:
                   </Text>
-                  <Paragraph style={{ marginTop: 8, marginBottom: 0 }}>
+                  <Paragraph style={{ marginTop: 8, marginBottom: 0, whiteSpace: 'pre-wrap' }}>
                     {getFieldValueFromResume(resume, "项目经验")}
                   </Paragraph>
                 </div>
@@ -273,24 +300,26 @@ const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
           <Row gutter={24}>
             <Col xs={24}>
               <Title level={4}>自我介绍</Title>
+              {/* 优化“自我介绍”排版 */}
               {getFieldValueFromResume(resume, "自我介绍") && (
                 <div style={{ marginBottom: 16 }}>
                   <Text strong>
                     <CommentOutlined style={{ marginRight: 8 }} />
                     自我介绍:
                   </Text>
-                  <Paragraph style={{ marginTop: 8, marginBottom: 0 }}>
+                  <Paragraph style={{ marginTop: 8, marginBottom: 0, whiteSpace: 'pre-wrap' }}>
                     {getFieldValueFromResume(resume, "自我介绍")}
                   </Paragraph>
                 </div>
               )}
+              {/* 优化“加入理由”排版 */}
               {getFieldValueFromResume(resume, "加入理由") && (
                 <div style={{ marginTop: 16 }}>
                   <Text strong>
                     <CommentOutlined style={{ marginRight: 8 }} />
                     加入理由:
                   </Text>
-                  <Paragraph style={{ marginTop: 8, marginBottom: 0 }}>
+                  <Paragraph style={{ marginTop: 8, marginBottom: 0, whiteSpace: 'pre-wrap' }}>
                     {getFieldValueFromResume(resume, "加入理由")}
                   </Paragraph>
                 </div>
