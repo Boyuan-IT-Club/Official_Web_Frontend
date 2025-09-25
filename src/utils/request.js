@@ -44,6 +44,18 @@ const setupRequestInterceptor = () => {
   request.interceptors.response.use(
     (response) => {
       // 对响应数据做点什么
+      // --- 修改开始：判断是否为文件下载请求 ---
+      // 检查请求配置中是否有 responseType 且值为 'blob' 或 'arraybuffer'
+      if (
+        response.config &&
+        (response.config.responseType === 'blob' || response.config.responseType === 'arraybuffer')
+      ) {
+        // 如果是文件下载，直接返回完整的 response 对象，以便访问 headers
+        return response;
+      }
+      // --- 修改结束 ---
+
+      // 否则，返回 data 部分
       return response.data;
     },
     (error) => {
