@@ -1,5 +1,6 @@
+// src/pages/Resume/ResumeDetail.js
 import React from 'react';
-import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button ,Modal} from 'antd';
+import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal } from 'antd';
 import {
   UserOutlined,
   IdcardOutlined,
@@ -16,9 +17,41 @@ import {
   DownloadOutlined,
   ArrowLeftOutlined
 } from '@ant-design/icons';
+
 const { Title, Text, Paragraph } = Typography;
 
-// --- 新增：从 ResumeDisplay.js 复制的核心函数 ---
+// --- 复用 ResumeList 中的解析函数 ---
+const parseExpectedDepartments = (rawValue) => {
+  if (!rawValue) return '';
+  try {
+    // 先尝试解析 JSON
+    const parsedValue = JSON.parse(rawValue);
+    if (Array.isArray(parsedValue)) {
+      // 如果是数组，过滤空值并连接
+      return parsedValue.filter(dept => dept && dept.trim() && dept !== "无").join(', ');
+    } else if (typeof parsedValue === 'string') {
+      // 如果是字符串，直接返回
+      return parsedValue;
+    }
+  } catch (e) {
+    // 如果不是 JSON，使用原来的处理逻辑
+    console.log("不是 JSON 格式，使用备用解析方法");
+  }
+  // 备用解析方法：使用正则表达式移除所有引号（单引号、双引号）和括号（圆括号、方括号）
+  let cleanedValue = rawValue.replace(/["'()[\]]/g, '');
+  // 移除多余的空格和换行符
+  cleanedValue = cleanedValue.trim();
+  // 分割字符串，得到部门列表
+  const departments = cleanedValue.split(',').map(dep => dep.trim()).filter(dep => dep && dep !== "无");
+  // 如果没有部门，返回空字符串
+  if (departments.length === 0) {
+    return '';
+  }
+  // 用逗号连接并返回
+  return departments.join(', ');
+};
+
+// --- 保留原有的辅助函数 ---
 const renderField = (icon, label, value, isRequired = false) => {
   if (!value && !isRequired) return null;
   return (
@@ -33,7 +66,7 @@ const renderField = (icon, label, value, isRequired = false) => {
 };
 
 const renderDepartment = (label, value) => {
-  if (!value || value === "无") return null; // 添加对"无"值的检查
+  if (!value || value === "无") return null;
   return (
     <div style={{ marginBottom: 12 }}>
       <Text strong>
@@ -85,43 +118,6 @@ const getFieldValueFromResume = (resume, fieldLabel) => {
   return field ? field.fieldValue : '';
 };
 
-// --- 新增：解析期望部门字段 ---
-const parseExpectedDepartments = (rawValue) => {
-  if (!rawValue) return '';
-
-  try {
-    // 先尝试解析 JSON
-    const parsedValue = JSON.parse(rawValue);
-    
-    if (Array.isArray(parsedValue)) {
-      // 如果是数组，过滤空值并连接
-      return parsedValue.filter(dept => dept && dept.trim() && dept !== "无").join(', ');
-    } else if (typeof parsedValue === 'string') {
-      // 如果是字符串，直接返回
-      return parsedValue;
-    }
-  } catch (e) {
-    // 如果不是 JSON，使用原来的处理逻辑
-    console.log("不是 JSON 格式，使用备用解析方法");
-  }
-
-  // 备用解析方法：使用正则表达式移除所有引号（单引号、双引号）和括号（圆括号、方括号）
-  let cleanedValue = rawValue.replace(/["'()[\]]/g, '');
-  // 移除多余的空格和换行符
-  cleanedValue = cleanedValue.trim();
-
-  // 分割字符串，得到部门列表
-  const departments = cleanedValue.split(',').map(dep => dep.trim()).filter(dep => dep && dep !== "无");
-
-  // 如果没有部门，返回空字符串
-  if (departments.length === 0) {
-    return '';
-  }
-
-  // 用逗号连接并返回
-  return departments.join(', ');
-};
-
 // --- 主要组件 ---
 const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
   // 如果 `resume` 是 null 或 undefined，显示提示
@@ -154,7 +150,7 @@ const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
   };
 
   // 提取数据
-  const photoBase64 = getFieldValueFromResume(resume, "个人照片"); // 注意：这里假设是 "个人照片" 字段，或使用 fieldId
+  const photoBase64 = getFieldValueFromResume(resume, "个人照片");
   const departments = {
     first: getFieldValueFromResume(resume, "第一志愿"),
     second: getFieldValueFromResume(resume, "第二志愿")
@@ -195,10 +191,12 @@ const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
         return { text: '草稿', color: 'default', icon: <ClockCircleOutlined /> };
     }
   };
+
   const statusInfo = getStatusInfo(resume.status);
 
   // 解析期望部门
-  const expectedDepartments = parseExpectedDepartments(getFieldValueFromResume(resume, "期望部门"));
+  const rawExpectedDeptValue = getFieldValueFromResume(resume, "期望部门"); // 获取原始值
+  const expectedDepartments = parseExpectedDepartments(rawExpectedDeptValue); // 解析
 
   return (
     <div className="resume-detail-container">
@@ -208,7 +206,8 @@ const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
           返回列表
         </Button>
         <Space>
-          {(resume.status === 1 || resume.status === 2 || resume.status === 3) && (
+          {/* 修改：只有状态为 3 (评审中) 时才显示通过/拒绝按钮 */}
+          {resume.status === 3 && (
             <>
               <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => handleApproveWithConfirm()}>
                 通过
@@ -221,16 +220,20 @@ const ResumeDetail = ({ resume, onBack, onApprove, onReject, onDownload }) => {
           <Button type="default" icon={<DownloadOutlined />} onClick={() => onDownload(resume.resumeId)}>
             下载PDF
           </Button>
-          {(resume.status !== 1 && resume.status !== 2) && (
-            <Tag icon={statusInfo.icon} color={statusInfo.color}>
-              当前状态: {statusInfo.text}
-            </Tag>
-          )}
         </Space>
       </div>
+
       {/* 简历主体内容 */}
       <div className="resume-detail-content">
-        <Card className="resume-display-card">
+        <Card
+          className="resume-display-card"
+          // --- 新增：使用 extra 属性在卡片右上角显示状态 ---
+          extra={
+              <Tag icon={statusInfo.icon} color={statusInfo.color} style={{ fontSize: '14px' }}>
+                {statusInfo.text}
+              </Tag>
+          }
+        >
           <div className="resume-header">
             <Row gutter={24} align="middle">
               <Col xs={24} md={6}>

@@ -1,4 +1,4 @@
-// store/modules/resume.js
+// src/store/modules/resume.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { request } from "@/utils";
 
@@ -163,25 +163,21 @@ export const fetchResumes = createAsyncThunk(
     try {
       // 构建查询字符串
       const queryParams = new URLSearchParams();
-      
       // 添加所有参数
       Object.keys(searchParams).forEach(key => {
         if (searchParams[key] !== undefined && searchParams[key] !== null && searchParams[key] !== '') {
           queryParams.append(key, searchParams[key]);
         }
       });
-      
       // 如果没有设置状态筛选，默认只显示已提交及之后的简历(status>=2)
       if (!searchParams.status) {
         queryParams.append('status', '2,3,4,5');
       }
-      
       const queryString = queryParams.toString();
       const url = `/api/resumes/search${queryString ? `?${queryString}` : ''}`;
       console.log(`Fetching resumes with URL: ${url}`); // 调试日志
       const res = await request.get(url);
       console.log('Fetched resumes response:', res); // 调试日志
-      
       // 根据接口文档，后端返回分页数据格式
       if (res.code === 200) {
         // 返回分页数据和参数
@@ -241,7 +237,7 @@ export const updateResumeStatus = createAsyncThunk(
   }
 );
 
-// 下载简历 PDF (管理员)
+// --- 修改：下载简历 PDF (管理员) ---
 export const downloadResumePDF = createAsyncThunk(
   'resume/downloadResumePDF',
   async (resumeId, { rejectWithValue }) => {
@@ -251,6 +247,7 @@ export const downloadResumePDF = createAsyncThunk(
       const response = await request.get(`/api/resumes/export/pdf/${resumeId}`, {
         responseType: 'blob' // 关键：指定响应类型为 blob
       });
+
       // --- 处理 Blob 并触发浏览器下载 ---
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -270,18 +267,21 @@ export const downloadResumePDF = createAsyncThunk(
       link.remove();
       window.URL.revokeObjectURL(url);
       // --- 下载处理结束 ---
+
       return { resumeId, message: '下载成功' }; // 可以返回一些信息
     } catch (error) {
+      console.error('Download PDF error:', error);
       return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
+// --- ---
 
 // --- 移除 batchUpdateResumeStatus Thunk ---
 // 因为后端没有提供批量更新的 API，所以移除这个 thunk。
 // 我们将通过循环调用 updateResumeStatus 来实现批量更新。
-
 // --- ---
+
 const resumeSlice = createSlice({
   name: "resume",
   initialState: {
@@ -383,7 +383,6 @@ const resumeSlice = createSlice({
     setPagination: (state, action) => {
       state.pagination = { ...state.pagination, ...action.payload };
     },
-    
     // 修改：清空简历列表（不再需要清空所有数据）
     clearResumesAndErrors: (state) => {
       state.resumes = [];
@@ -528,14 +527,11 @@ const resumeSlice = createSlice({
 .addCase(fetchResumes.fulfilled, (state, action) => {
   state.adminLoading = false;
   const { data, total, page, size, params } = action.payload;
-  
   // 更新简历列表和分页信息
   state.resumes = data || [];
-  
   // 修复：安全地访问 params 对象，避免空指针错误
   let requestedPage = 1; // 默认第一页
   let requestedSize = 9; // 默认每页大小
-  
   if (params && params.size !== undefined && params.size !== null) {
     // 优先使用请求参数中的 size
     requestedSize = parseInt(params.size);
@@ -543,7 +539,6 @@ const resumeSlice = createSlice({
     // 其次使用后端返回的 size
     requestedSize = parseInt(size);
   }
-  
   if (params && params.page !== undefined && params.page !== null) {
     // 使用请求参数中的页码
     requestedPage = parseInt(params.page) + 1;
@@ -551,13 +546,11 @@ const resumeSlice = createSlice({
     // 使用后端返回的页码
     requestedPage = parseInt(page) + 1;
   }
-  
   state.pagination = {
     current: requestedPage, // 使用正确的页码
     pageSize: requestedSize, // 使用正确的每页大小
     total: total || 0
   };
-  
   state.adminError = null;
 })
       .addCase(fetchResumes.rejected, (state, action) => {
@@ -622,6 +615,7 @@ const resumeSlice = createSlice({
       // --- ---
   },
 });
+
 export const {
   setFieldValue,
   setFieldDefinitions,
@@ -650,7 +644,7 @@ export const resumeActions = {
   fetchResumes,        
   fetchResumeById,     
   updateResumeStatus,  
-  downloadResumePDF,   
+  downloadResumePDF,   // --- 新增 ---
   // --- 注意：这里不再导出 batchUpdateResumeStatus ---
   // --- ---
   setFieldValue,
@@ -668,4 +662,5 @@ export const resumeActions = {
    setPagination,    
   clearResumesAndErrors 
 };
+
 export default resumeSlice.reducer;
