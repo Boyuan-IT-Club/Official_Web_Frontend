@@ -1,5 +1,5 @@
 // src/pages/Resume/ResumeList.js
-import React, { useState, useEffect, useCallback } from 'react'; // 引入 useCallback
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   List,
@@ -17,7 +17,8 @@ import {
   Dropdown,
   Menu,
   Spin,
-  Alert
+  Alert,
+  Modal
 } from 'antd';
 import {
   UserOutlined,
@@ -30,121 +31,185 @@ import {
   FilterOutlined,
   SortAscendingOutlined,
   SortDescendingOutlined,
-  CloseCircleOutlined
+  CloseCircleOutlined,
+  AppstoreOutlined, // 用于部门筛选图标
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
-import { resumeActions } from '@/store/modules/resume'; // 确保导入了新的 action
+import { resumeActions } from '@/store/modules/resume';
 import './index.scss';
+
 const { Text, Title } = Typography;
 const { Option } = Select;
 
-const ResumeList = ({ onShowDetail, onApprove, onReject, onDownload }) => {
+// --- 新增：解析期望部门字段的函数 ---
+const parseExpectedDepartments = (rawValue) => {
+  if (!rawValue) return '';
+  try {
+    // 先尝试解析 JSON
+    const parsedValue = JSON.parse(rawValue);
+    if (Array.isArray(parsedValue)) {
+      // 如果是数组，过滤空值并连接
+      return parsedValue.filter(dept => dept && dept.trim() && dept !== "无").join(', ');
+    } else if (typeof parsedValue === 'string') {
+      // 如果是字符串，直接返回
+      return parsedValue;
+    }
+  } catch (e) {
+    // 如果不是 JSON，使用原来的处理逻辑
+    console.log("不是 JSON 格式，使用备用解析方法");
+  }
+  // 备用解析方法：使用正则表达式移除所有引号（单引号、双引号）和括号（圆括号、方括号）
+  let cleanedValue = rawValue.replace(/["'()[\]]/g, '');
+  // 移除多余的空格和换行符
+  cleanedValue = cleanedValue.trim();
+  // 分割字符串，得到部门列表
+  const departments = cleanedValue.split(',').map(dep => dep.trim()).filter(dep => dep && dep !== "无");
+  // 如果没有部门，返回空字符串
+  if (departments.length === 0) {
+    return '';
+  }
+  // 用逗号连接并返回
+  return departments.join(', ');
+};
+
+const ResumeList = ({ 
+  onShowDetail, 
+  onApprove, 
+  onReject, 
+  onDownload,
+  currentPage,        // 新增：接收当前页码
+  onPageChange        // 新增：接收页码变化回调
+}) => {
   const dispatch = useDispatch();
-  // 注意：这里获取的是所有简历的集合，因为我们将在 useEffect 中请求多个状态
-  const { resumes, adminLoading, adminError } = useSelector((state) => state.resume);
-  const [filteredResumes, setFilteredResumes] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(9); // 默认每页显示 9 个
+  // 从 Redux 获取分页相关状态
+  const { resumes, adminLoading, adminError, pagination } = useSelector((state) => state.resume);
+
+  // 添加 ref 来跟踪是否是从详情页返回
+  const isReturningFromDetail = useRef(false);
+  // 添加 ref 来跟踪搜索参数是否变化
+  const searchParamsRef = useRef({
+    searchText: '',
+    searchType: 'name', // 新增：搜索类型
+    expectedDepartment: '', // 新增：部门筛选
+    statusFilter: '2,3,4,5',
+    sortBy: 'time',
+    sortOrder: 'desc'
+  });
+
+  // 搜索和筛选状态
   const [searchText, setSearchText] = useState('');
-  const [sortBy, setSortBy] = useState('time'); // time, name
-  const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
-  // 修改状态筛选的默认值和选项，以匹配新的状态码
-  const [statusFilter, setStatusFilter] = useState('all'); // all, 2(submitted), 3(under_review), 4(accepted), 5(rejected)
-  // --- 新增状态：控制“开始审核”按钮的加载状态 ---
+  const [searchType, setSearchType] = useState('name'); // 新增：搜索类型
+  const [expectedDepartment, setExpectedDepartment] = useState(''); // 新增：部门筛选
+  const [sortBy, setSortBy] = useState('time');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [statusFilter, setStatusFilter] = useState('2,3,4,5'); // 默认只显示已提交及之后的简历
   const [isStartingReview, setIsStartingReview] = useState(false);
-  // --- ---
 
-  // 从 Redux resumes 数据中提取所有可能的部门 (如果字段存在)
-  // 注意：根据 Pasted_Text_1757350393089.txt，部门信息可能在 simpleFields 中，需要查找
-  const getDepartments = (resumesList) => {
-    const deptSet = new Set();
-    resumesList.forEach(resume => {
-      if (resume.simpleFields && Array.isArray(resume.simpleFields)) {
-        const deptField = resume.simpleFields.find(f => f.fieldLabel === "期望部门" || f.fieldKey === "expected_department"); // 根据实际字段调整
-        if (deptField && deptField.fieldValue) {
-          deptSet.add(deptField.fieldValue);
-        }
-      }
-    });
-    return Array.from(deptSet);
+  // 使用从父组件传递的 currentPage 作为初始值
+  const [localCurrentPage, setLocalCurrentPage] = useState(currentPage || 1);
+
+  // 当父组件的 currentPage 变化时更新本地状态
+  useEffect(() => {
+    if (currentPage && currentPage !== localCurrentPage) {
+      console.log("父组件页码变化，更新本地页码:", currentPage);
+      setLocalCurrentPage(currentPage);
+      isReturningFromDetail.current = true; // 标记为从详情页返回
+      // 如果页码变化，重新加载数据
+      loadResumes(currentPage, pagination.pageSize, true);
+    }
+  }, [currentPage]);
+
+  // 组件挂载时获取当前页码的数据
+  useEffect(() => {
+    loadResumes(localCurrentPage, pagination.pageSize);
+  }, []);
+
+  // 检查搜索参数是否真正变化
+  const hasSearchParamsChanged = () => {
+    const currentParams = { searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder };
+    const prevParams = searchParamsRef.current;
+    return currentParams.searchText !== prevParams.searchText ||
+           currentParams.searchType !== prevParams.searchType ||
+           currentParams.expectedDepartment !== prevParams.expectedDepartment ||
+           currentParams.statusFilter !== prevParams.statusFilter ||
+           currentParams.sortBy !== prevParams.sortBy ||
+           currentParams.sortOrder !== prevParams.sortOrder;
   };
-  const departments = getDepartments(resumes);
 
-  // 组件挂载时获取简历列表 - 修改为请求多个单值状态
-  useEffect(() => {
-    // 清空现有简历列表，准备加载新数据
-    dispatch(resumeActions.clearResumesAndErrors());
-    // 定义需要获取的状态 (对应 submitted, under_review, accepted, rejected)
-    // 注意：我们不获取 draft (1) 状态的简历，因为管理员通常不关心草稿
-    const statusesToFetch = ['2', '3', '4', '5'];
-    // 创建一个 Promise 数组，包含所有状态的请求
-    const fetchPromises = statusesToFetch.map(status =>
-      // 调用 action，传递单个 status 参数
-      dispatch(resumeActions.fetchResumes({ status })).unwrap()
-    );
-    // 使用 Promise.all 并行处理所有请求
-    Promise.allSettled(fetchPromises)
-      .then((results) => {
-        // results 是一个包含每次调用结果（fulfilled 或 rejected）的数组
-        console.log("所有状态简历获取尝试完成:", results);
-      })
-      .catch((error) => {
-        console.error("获取简历列表时发生未预期的错误:", error);
-      });
-  }, [dispatch]); // 依赖项保持 [dispatch]
+  // 更新搜索参数引用
+  const updateSearchParamsRef = () => {
+    searchParamsRef.current = { searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder };
+  };
 
-  // 筛选和排序逻辑 (基于 Redux 中的 resumes)
-  useEffect(() => {
-    let result = [...resumes]; // 使用从 Redux store 获取的完整简历列表
-    // 搜索逻辑
+  // 加载简历数据的函数
+  const loadResumes = (page, size, isReturning = false) => {
+    // 更新本地页码状态
+    setLocalCurrentPage(page);
+    // 如果是返回操作，不通知父组件页码变化（避免循环）
+    if (!isReturning && onPageChange) {
+      onPageChange(page);
+    }
+    // 构建查询参数
+    const params = {
+      page: page - 1, // 后端页码从0开始
+      size: size,
+    };
+
+    // 添加搜索条件
     if (searchText) {
-      result = result.filter(resume =>
-        (resume.simpleFields && resume.simpleFields.find(f => f.fieldLabel === "姓名")?.fieldValue?.toLowerCase().includes(searchText.toLowerCase())) ||
-        (resume.simpleFields && resume.simpleFields.find(f => f.fieldLabel === "专业")?.fieldValue?.toLowerCase().includes(searchText.toLowerCase())) ||
-        (resume.simpleFields && resume.simpleFields.find(f => f.fieldLabel === "邮箱")?.fieldValue?.toLowerCase().includes(searchText.toLowerCase())) // 添加邮箱搜索
-      );
+        // 根据 searchType 选择对应的参数
+        if (searchType === 'name') {
+            params.name = searchText;
+        } else if (searchType === 'major') {
+            params.major = searchText;
+        }
     }
-    // 状态筛选逻辑 - 使用新的状态码
-    if (statusFilter !== 'all') {
-      const statusValue = parseInt(statusFilter, 10);
-      if (!isNaN(statusValue)) {
-        result = result.filter(resume => resume.status === statusValue);
-      }
-    }
-    // 排序逻辑
-    result.sort((a, b) => {
-      let compareA, compareB;
-      switch (sortBy) {
-        case 'name':
-          compareA = a.simpleFields?.find(f => f.fieldLabel === "姓名")?.fieldValue || '';
-          compareB = b.simpleFields?.find(f => f.fieldLabel === "姓名")?.fieldValue || '';
-          break;
-        case 'time':
-        default:
-          // 使用后端的 submittedAt 字段 (注意大小写)
-          compareA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
-          compareB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-          break;
-      }
-      if (typeof compareA === 'number' && typeof compareB === 'number') {
-        return sortOrder === 'asc' ? compareA - compareB : compareB - compareA;
-      }
-      if (typeof compareA === 'string' && typeof compareB === 'string') {
-        return sortOrder === 'asc' ? compareA.localeCompare(compareB) : compareB.localeCompare(compareA);
-      }
-      return 0;
-    });
-    setFilteredResumes(result);
-    setCurrentPage(1); // 重置到第一页
-  }, [resumes, searchText, sortBy, sortOrder, statusFilter]); // 依赖项包含所有影响筛选/排序的因素
 
-  // 获取状态信息 (处理新的数字状态 1, 2, 3, 4, 5)
-  // 状态码说明：
-  // - 1: draft (草稿)
-  // - 2: submitted (已提交)
-  // - 3: under_review (评审中)
-  // - 4: accepted (录取)
-  // - 5: rejected (拒绝)
+    // 添加部门筛选
+    if (expectedDepartment) {
+        params.expectedDepartment = expectedDepartment;
+    }
+
+    // 添加状态筛选
+    if (statusFilter) {
+      params.status = statusFilter;
+    }
+
+    // 添加排序
+    if (sortBy === 'time') {
+      params.sort = `submittedAt,${sortOrder}`;
+    } else if (sortBy === 'name') {
+      params.sort = `name,${sortOrder}`;
+    }
+
+    dispatch(resumeActions.fetchResumes(params));
+    // 更新搜索参数引用
+    updateSearchParamsRef();
+    // 重置返回标记
+    if (isReturning) {
+      isReturningFromDetail.current = false;
+    }
+  };
+
+  // 搜索、筛选、排序变化时重新加载数据（重置到第一页）
+  useEffect(() => {
+    // 检查是否是从详情页返回，如果是则跳过重置逻辑
+    if (isReturningFromDetail.current) {
+      console.log("从详情页返回，跳过搜索条件变化的重置逻辑");
+      return;
+    }
+    // 检查搜索参数是否真正变化
+    if (hasSearchParamsChanged()) {
+      console.log("搜索/筛选条件变化，重置到第一页");
+      setLocalCurrentPage(1);
+      if (onPageChange) {
+        onPageChange(1);
+      }
+      loadResumes(1, pagination.pageSize);
+    }
+  }, [searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder]);
+
+  // 获取状态信息
   const getStatusInfo = (status) => {
     switch (status) {
       case 5:
@@ -168,99 +233,115 @@ const ResumeList = ({ onShowDetail, onApprove, onReject, onDownload }) => {
     return field ? field.fieldValue : '';
   };
 
-  // 修改：接收整个简历对象
-  const handleViewResume = (resumeObject) => { // 注意参数变化
-    console.log("Viewing resume:", resumeObject); // 调试日志
+  // 查看简历详情
+  const handleViewResume = (resumeObject) => {
+    console.log("Viewing resume:", resumeObject);
     if (onShowDetail) {
-      // 调用从父组件传入的函数，并传递整个简历对象
-      onShowDetail(resumeObject); // 注意参数变化
+      onShowDetail(resumeObject, localCurrentPage); // 传递当前页码
     }
   };
 
-  const handleDownloadResume = (resumeId) => { // 下载仍需要 ID
+  // 下载简历
+  const handleDownloadResume = (resumeId) => {
     if (onDownload) {
       onDownload(resumeId);
     }
   };
 
-  // --- 新增：处理“开始审核”按钮点击 ---
-  const handleStartReview = useCallback(async () => {
-    // 1. 确认操作
-    if (!window.confirm('确定要开始审核吗？此操作会将所有“已提交”的简历状态变为“评审中”，申请人将无法再修改简历。')) {
-      return; // 用户取消操作
-    }
+  // 处理搜索文本变化
+  const handleSearchTextChange = (value) => {
+    setSearchText(value);
+  };
 
-    setIsStartingReview(true); // 设置按钮加载状态
-    try {
-      // 2. 从当前 filteredResumes 或 resumes 中筛选出所有状态为 2 的简历 ID
-      // 这里选择从当前显示的简历列表中筛选，更符合用户直观感受
-      const resumeIdsToReview = filteredResumes
-        .filter(resume => resume.status === 2)
-        .map(resume => resume.resumeId); // 假设后端返回的字段是 resumeId
+  // 处理搜索类型变化
+  const handleSearchTypeChange = (value) => {
+    setSearchType(value);
+  };
 
-      if (resumeIdsToReview.length === 0) {
-         message.info('当前没有状态为“已提交”的简历需要更新。');
-         setIsStartingReview(false);
-         return;
+  // 处理部门筛选变化
+  const handleDepartmentFilterChange = (value) => {
+    setExpectedDepartment(value);
+  };
+
+  // 处理状态筛选变化
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+  };
+
+  // 处理排序变化
+  const handleSortChange = (newSortBy, newSortOrder) => {
+    setSortBy(newSortBy);
+    setSortOrder(newSortOrder);
+  };
+
+  // 分页变化时加载数据
+  const handlePageChange = (page, size) => {
+    // 如果 size 变化了，需要重置到第一页
+    if (size && size !== pagination.pageSize) {
+      const newPage = 1; // 每页大小变化时回到第一页
+      setLocalCurrentPage(newPage);
+      if (onPageChange) {
+        onPageChange(newPage);
       }
-
-      // 3. 使用 updateResumeStatus 逐个更新状态
-      // 由于后端没有提供批量接口，我们只能循环调用单个更新 API
-      const updatePromises = resumeIdsToReview.map(resumeId =>
-        // 调用单个更新 action
-        dispatch(resumeActions.updateResumeStatus({ resumeId, status: 3 })).unwrap()
-      );
-
-      // 4. 使用 Promise.all 并发执行所有更新请求
-      await Promise.all(updatePromises);
-
-      // 5. 如果成功，给出提示
-      message.success(`已开始审核，成功将 ${resumeIdsToReview.length} 份“已提交”的简历状态更新为“评审中”`);
-
-      // 6. 刷新列表以立即显示状态变化
-      // 方式一：简单地重新获取状态为 2 和 3 的简历
-      // dispatch(resumeActions.fetchResumes({ status: '2' })); // 如果还有状态2的，说明可能有并发
-      // dispatch(resumeActions.fetchResumes({ status: '3' })); // 获取最新的状态3的简历
-
-      // 方式二（推荐）：更彻底地刷新列表
-      dispatch(resumeActions.clearResumesAndErrors()); // 清空现有数据
-      const statusesToFetch = ['2', '3', '4', '5'];
-      const fetchPromises = statusesToFetch.map(status =>
-        dispatch(resumeActions.fetchResumes({ status })).unwrap()
-      );
-      await Promise.allSettled(fetchPromises); // 等待刷新完成
-
-    } catch (error) {
-      // 7. 如果失败，给出错误提示
-      console.error("开始审核失败:", error);
-      const errorMessage = error?.message || '操作失败，请稍后重试';
-      message.error(`开始审核失败: ${errorMessage}`);
-    } finally {
-      // 8. 无论成功与否，都结束加载状态
-      setIsStartingReview(false);
+      loadResumes(newPage, size);
+    } else {
+      // 只是页码变化
+      loadResumes(page, size || pagination.pageSize);
     }
-  }, [dispatch, filteredResumes]); // 依赖 dispatch 和 filteredResumes
-  // --- ---
+  };
 
-  // 分页逻辑
-  const paginatedResumes = filteredResumes.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  // 处理"开始审核"按钮点击
+  const handleStartReview = useCallback(async () => {
+    Modal.confirm({
+      title: '确认开始审核',
+      content: '此操作会将所有"已提交"的简历状态变为"评审中"，申请人将无法再修改简历。确定要继续吗？',
+      okText: '确定',
+      cancelText: '取消',
+      okType: 'danger',
+      onOk: async () => {
+        setIsStartingReview(true);
+        try {
+          // 获取当前页状态为2的简历
+          const resumeIdsToReview = resumes
+            .filter(resume => resume.status === 2)
+            .map(resume => resume.resumeId);
+          if (resumeIdsToReview.length === 0) {
+            message.info('当前页没有状态为"已提交"的简历需要更新。');
+            setIsStartingReview(false);
+            return;
+          }
+          const updatePromises = resumeIdsToReview.map(resumeId =>
+            dispatch(resumeActions.updateResumeStatus({ resumeId, status: 3 })).unwrap()
+          );
+
+          await Promise.all(updatePromises);
+          message.success(`已开始审核，成功将 ${resumeIdsToReview.length} 份"已提交"的简历状态更新为"评审中"`);
+          // 刷新当前页数据
+          loadResumes(localCurrentPage, pagination.pageSize);
+        } catch (error) {
+          console.error("开始审核失败:", error);
+          const errorMessage = error?.message || '操作失败，请稍后重试';
+          message.error(`开始审核失败: ${errorMessage}`);
+        } finally {
+          setIsStartingReview(false);
+        }
+      }
+    });
+  }, [dispatch, resumes, localCurrentPage, pagination.pageSize]);
 
   // 排序菜单
   const sortMenu = (
     <Menu>
-      <Menu.Item key="time_desc" icon={<SortDescendingOutlined />} onClick={() => { setSortBy('time'); setSortOrder('desc'); }}>
+      <Menu.Item key="time_desc" icon={<SortDescendingOutlined />} onClick={() => handleSortChange('time', 'desc')}>
         按时间倒序
       </Menu.Item>
-      <Menu.Item key="time_asc" icon={<SortAscendingOutlined />} onClick={() => { setSortBy('time'); setSortOrder('asc'); }}>
+      <Menu.Item key="time_asc" icon={<SortAscendingOutlined />} onClick={() => handleSortChange('time', 'asc')}>
         按时间正序
       </Menu.Item>
-      <Menu.Item key="name_asc" icon={<SortAscendingOutlined />} onClick={() => { setSortBy('name'); setSortOrder('asc'); }}>
+      <Menu.Item key="name_asc" icon={<SortAscendingOutlined />} onClick={() => handleSortChange('name', 'asc')}>
         按姓名正序
       </Menu.Item>
-      <Menu.Item key="name_desc" icon={<SortDescendingOutlined />} onClick={() => { setSortBy('name'); setSortOrder('desc'); }}>
+      <Menu.Item key="name_desc" icon={<SortDescendingOutlined />} onClick={() => handleSortChange('name', 'desc')}>
         按姓名倒序
       </Menu.Item>
     </Menu>
@@ -271,73 +352,85 @@ const ResumeList = ({ onShowDetail, onApprove, onReject, onDownload }) => {
       {/* 显示全局错误信息 */}
       {adminError && <Alert message="获取简历列表失败" description={adminError} type="error" showIcon style={{ marginBottom: 16 }} />}
       <div className="list-controls">
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={6}>
+        {/* --- 修改开始：使用 Flexbox 替代 Row/Col --- */}
+        <div className="controls-flex-container">
+          <div className="control-item search-box">
             <Input
-              placeholder="搜索姓名/专业/邮箱"
+              placeholder="输入搜索内容"
               prefix={<SearchOutlined />}
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+              onChange={(e) => handleSearchTextChange(e.target.value)}
               allowClear
             />
-          </Col>
-          {/* 部门筛选 (如果需要且字段明确) */}
-          {/* <Col xs={24} sm={12} md={4}>
+          </div>
+          <div className="control-item search-type-select">
+            <Select
+              style={{ width: '100%' }}
+              placeholder="搜索类型"
+              value={searchType}
+              onChange={handleSearchTypeChange}
+            >
+              <Option value="name">姓名</Option>
+              <Option value="major">专业</Option>
+              {/* 移除邮箱选项 */}
+            </Select>
+          </div>
+          <div className="control-item department-filter-select">
             <Select
               style={{ width: '100%' }}
               placeholder="部门筛选"
-              // value={departmentFilter}
-              // onChange={setDepartmentFilter}
+              value={expectedDepartment}
+              onChange={handleDepartmentFilterChange}
               allowClear
+              suffixIcon={<AppstoreOutlined />}
             >
-              <Option value="all">全部部门</Option>
-              {departments.map(dept => (
-                <Option key={dept} value={dept}>{dept}</Option>
-              ))}
+              <Option value="技术部">技术部</Option>
+              <Option value="项目部">项目部</Option>
+              <Option value="媒体部">媒体部</Option>
+              <Option value="综合部">综合部</Option>
             </Select>
-          </Col> */}
-          <Col xs={24} sm={12} md={4}>
-            {/* 修改状态筛选选项以匹配新的状态码 */}
+          </div>
+          <div className="control-item status-filter-select">
             <Select
               style={{ width: '100%' }}
               placeholder="状态筛选"
               value={statusFilter}
-              onChange={setStatusFilter}
+              onChange={handleStatusFilterChange}
               allowClear
             >
-              <Option value="all">全部状态</Option>
+              <Option value="2,3,4,5">全部可审核简历</Option>
               <Option value="2">已提交</Option>
               <Option value="3">评审中</Option>
               <Option value="4">已录取</Option>
               <Option value="5">已拒绝</Option>
             </Select>
-          </Col>
-          <Col xs={24} sm={12} md={4}>
+          </div>
+          <div className="control-item sort-dropdown">
             <Dropdown overlay={sortMenu} trigger={['click']}>
               <Button icon={<FilterOutlined />}>排序方式</Button>
             </Dropdown>
-          </Col>
-          {/* --- 修改：添加“开始审核”按钮 --- */}
-          <Col xs={24} sm={12} md={10} style={{ textAlign: 'right' }}> {/* 使用 Col 来布局，靠右对齐 */}
-            <Space> {/* 使用 Space 组件来管理按钮间距 */}
-              <Button
-                type="primary" // 使用主要按钮样式
-                danger // 使用危险色（红色）以示重要性
-                onClick={handleStartReview} // 绑定点击事件
-                loading={isStartingReview} // 绑定加载状态
-                disabled={isStartingReview || adminLoading} // 在加载或列表加载时禁用
-              >
-                开始审核
-              </Button>
-              <div className="results-info">共找到 {filteredResumes.length} 份简历</div>
-            </Space>
-          </Col>
-          {/* --- --- */}
-        </Row>
+          </div>
+          <div className="control-item start-review-button">
+            <Button
+              type="primary"
+              danger
+              onClick={handleStartReview}
+              loading={isStartingReview}
+              disabled={isStartingReview || adminLoading}
+            >
+              开始审核
+            </Button>
+          </div>
+          <div className="control-item results-info-wrapper">
+            <div className="results-info">
+              共找到 {pagination.total} 份简历
+            </div>
+          </div>
+        </div>
       </div>
       <div className="list-header">
         <Title level={4}>简历管理</Title>
-        <Text type="secondary">共 {filteredResumes.length} 份简历</Text>
+        <Text type="secondary">共 {pagination.total} 份简历</Text>
       </div>
       <Spin spinning={adminLoading}>
         {adminLoading ? (
@@ -347,7 +440,7 @@ const ResumeList = ({ onShowDetail, onApprove, onReject, onDownload }) => {
         ) : (
           <>
             <List
-              dataSource={paginatedResumes}
+              dataSource={resumes}
               grid={{
                 gutter: 16,
                 xs: 1,
@@ -357,23 +450,24 @@ const ResumeList = ({ onShowDetail, onApprove, onReject, onDownload }) => {
                 xl: 3,
                 xxl: 3,
               }}
-              renderItem={(resume) => { // 这里的 resume 是从 /api/resumes/search 获取的完整对象
+              renderItem={(resume) => {
                 const statusInfo = getStatusInfo(resume.status);
                 const name = getFieldValueFromResume(resume, "姓名");
                 const major = getFieldValueFromResume(resume, "专业");
-                const dept = getFieldValueFromResume(resume, "期望部门");
-                const email = getFieldValueFromResume(resume, "邮箱"); // 获取邮箱
+                // const dept = getFieldValueFromResume(resume, "期望部门"); // 旧的获取方法
+                const rawDeptValue = getFieldValueFromResume(resume, "期望部门"); // 获取原始值
+                const parsedDept = parseExpectedDepartments(rawDeptValue); // 解析
+                const email = getFieldValueFromResume(resume, "邮箱");
+
                 return (
                   <List.Item>
                     <Card
                       hoverable
                       className="resume-card"
                       actions={[
-                        // 修改：传递整个 resume 对象
                         <Button type="link" icon={<EyeOutlined />} onClick={() => handleViewResume(resume)}>
                           查看
                         </Button>,
-                        // 下载仍传递 resumeId
                         <Button type="link" icon={<DownloadOutlined />} onClick={() => handleDownloadResume(resume.resumeId)}>
                           下载
                         </Button>
@@ -390,7 +484,7 @@ const ResumeList = ({ onShowDetail, onApprove, onReject, onDownload }) => {
                         description={
                           <div className="resume-card-description">
                             <div><Text type="secondary">专业:</Text> {major || '未提供'}</div>
-                            <div><Text type="secondary">部门:</Text> {dept || '未提供'}</div>
+                            <div><Text type="secondary">部门:</Text> {parsedDept || '未提供'}</div> {/* 使用解析后的部门 */}
                             <div><Text type="secondary">邮箱:</Text> {email || '未提供'}</div>
                             <div><Text type="secondary">提交时间:</Text> <CalendarOutlined /> {resume.submittedAt ? new Date(resume.submittedAt).toLocaleString() : '未提交'}</div>
                           </div>
@@ -403,16 +497,15 @@ const ResumeList = ({ onShowDetail, onApprove, onReject, onDownload }) => {
             />
             <Pagination
               className="resume-pagination"
-              current={currentPage}
-              pageSize={pageSize}
-              total={filteredResumes.length}
-              onChange={(page, size) => {
-                setCurrentPage(page);
-                setPageSize(size);
-              }}
+              current={localCurrentPage} // 使用本地页码状态
+              pageSize={pagination.pageSize}
+              total={pagination.total}
+              onChange={handlePageChange}
+              onShowSizeChange={handlePageChange}
               showSizeChanger
               showQuickJumper
-              showTotal={(total) => `共 ${total} 条`}
+              showTotal={(total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`}
+              pageSizeOptions={['9', '20', '50', '100']} // 确保有合适的选项
             />
           </>
         )}

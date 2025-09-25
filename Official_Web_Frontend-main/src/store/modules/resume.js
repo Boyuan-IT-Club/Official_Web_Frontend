@@ -1,4 +1,4 @@
-// store/modules/resume.js
+// src/store/modules/resume.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { request } from "@/utils";
 
@@ -162,23 +162,37 @@ export const fetchResumes = createAsyncThunk(
   async (searchParams = {}, { rejectWithValue }) => {
     try {
       // 构建查询字符串
-      const queryParams = new URLSearchParams(searchParams).toString();
-      const url = `/api/resumes/search${queryParams ? `?${queryParams}` : ''}`;
+      const queryParams = new URLSearchParams();
+      // 添加所有参数
+      Object.keys(searchParams).forEach(key => {
+        if (searchParams[key] !== undefined && searchParams[key] !== null && searchParams[key] !== '') {
+          queryParams.append(key, searchParams[key]);
+        }
+      });
+      // 如果没有设置状态筛选，默认只显示已提交及之后的简历(status>=2)
+      if (!searchParams.status) {
+        queryParams.append('status', '2,3,4,5');
+      }
+      const queryString = queryParams.toString();
+      const url = `/api/resumes/search${queryString ? `?${queryString}` : ''}`;
       console.log(`Fetching resumes with URL: ${url}`); // 调试日志
       const res = await request.get(url);
       console.log('Fetched resumes response:', res); // 调试日志
-      // 根据 Pasted_Text_1757350393089.txt，后端返回 { code: 200, message: "...", data: [...] }
-      // 我们需要的是 data 数组
+      // 根据接口文档，后端返回分页数据格式
       if (res.code === 200) {
-        // 确保返回的是数组
-        const resumesData = Array.isArray(res.data) ? res.data : [];
-        console.log('Fetched resumes data:', resumesData); // 调试日志
-        return { params: searchParams, data: resumesData }; // 返回参数和数据，便于 reducer 判断
+        // 返回分页数据和参数
+        return { 
+          params: searchParams, 
+          data: res.data.content || [], // 简历列表
+          total: res.data.totalElements || 0, // 总条数
+          page: searchParams.page || 0, // 当前页码（后端从0开始）
+          size: res.data.size || 9 // 每页大小
+        };
       } else {
         throw new Error(res.message || '获取简历列表失败');
       }
     } catch (error) {
-      console.error('Fetch resumes error:', error); // 调试日志
+      console.error('Fetch resumes error:', error);
       return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
@@ -223,7 +237,7 @@ export const updateResumeStatus = createAsyncThunk(
   }
 );
 
-// 下载简历 PDF (管理员)
+// --- 修改：下载简历 PDF (管理员) ---
 export const downloadResumePDF = createAsyncThunk(
   'resume/downloadResumePDF',
   async (resumeId, { rejectWithValue }) => {
@@ -233,6 +247,7 @@ export const downloadResumePDF = createAsyncThunk(
       const response = await request.get(`/api/resumes/export/pdf/${resumeId}`, {
         responseType: 'blob' // 关键：指定响应类型为 blob
       });
+
       // --- 处理 Blob 并触发浏览器下载 ---
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -252,18 +267,21 @@ export const downloadResumePDF = createAsyncThunk(
       link.remove();
       window.URL.revokeObjectURL(url);
       // --- 下载处理结束 ---
+
       return { resumeId, message: '下载成功' }; // 可以返回一些信息
     } catch (error) {
+      console.error('Download PDF error:', error);
       return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
+// --- ---
 
 // --- 移除 batchUpdateResumeStatus Thunk ---
 // 因为后端没有提供批量更新的 API，所以移除这个 thunk。
 // 我们将通过循环调用 updateResumeStatus 来实现批量更新。
-
 // --- ---
+
 const resumeSlice = createSlice({
   name: "resume",
   initialState: {
@@ -278,6 +296,12 @@ const resumeSlice = createSlice({
     updating: false,
     error: null,
     // 新增状态：用于管理员管理简历
+    //分页相关状态
+     pagination: {
+      current: 1, // 前端当前页码（从1开始）
+      pageSize: 9, // 每页大小
+      total: 0, // 总条数
+    },
     resumes: [], // 简历列表
     currentResume: null, // 当前查看的简历详情
     adminLoading: false, // 管理员操作的加载状态
@@ -355,11 +379,15 @@ const resumeSlice = createSlice({
     resetDetailError: (state) => {
       state.detailError = null;
     },
-    // --- 新增：用于在并行请求前清空列表和错误 ---
+    // 新增：设置分页信息
+    setPagination: (state, action) => {
+      state.pagination = { ...state.pagination, ...action.payload };
+    },
+    // 修改：清空简历列表（不再需要清空所有数据）
     clearResumesAndErrors: (state) => {
-       state.resumes = [];
-       state.adminError = null;
-       // 注意：不清除 adminLoading，因为 fetchResumes.pending 会处理
+      state.resumes = [];
+      state.adminError = null;
+      state.pagination.total = 0;
     }
   },
   extraReducers: (builder) => {
@@ -492,31 +520,44 @@ const resumeSlice = createSlice({
       })
       // --- 新增 extraReducers：管理员功能 ---
       // Fetch Resumes (List)
-      .addCase(fetchResumes.pending, (state) => {
+       .addCase(fetchResumes.pending, (state) => {
         state.adminLoading = true;
-        // 不在此处清除 adminError，让调用者决定何时清除
-        // state.adminError = null;
       })
-      .addCase(fetchResumes.fulfilled, (state, action) => {
-        state.adminLoading = false;
-        // 修改：累积数据并去重
-        const newResumes = action.payload.data || [];
-        if (newResumes.length > 0) {
-            // 去重逻辑：基于 resumeId
-            const existingIds = new Set(state.resumes.map(r => r.resumeId));
-            const uniqueNewResumes = newResumes.filter(r => !existingIds.has(r.resumeId));
-            state.resumes = [...state.resumes, ...uniqueNewResumes];
-        }
-        // 不在此处清除 adminError，因为可能还有其他请求在进行
-        // state.adminError = null;
-      })
+      // 在 resumeSlice.js 的 fetchResumes.fulfilled 中修改：
+.addCase(fetchResumes.fulfilled, (state, action) => {
+  state.adminLoading = false;
+  const { data, total, page, size, params } = action.payload;
+  // 更新简历列表和分页信息
+  state.resumes = data || [];
+  // 修复：安全地访问 params 对象，避免空指针错误
+  let requestedPage = 1; // 默认第一页
+  let requestedSize = 9; // 默认每页大小
+  if (params && params.size !== undefined && params.size !== null) {
+    // 优先使用请求参数中的 size
+    requestedSize = parseInt(params.size);
+  } else if (size !== undefined && size !== null) {
+    // 其次使用后端返回的 size
+    requestedSize = parseInt(size);
+  }
+  if (params && params.page !== undefined && params.page !== null) {
+    // 使用请求参数中的页码
+    requestedPage = parseInt(params.page) + 1;
+  } else if (page !== undefined && page !== null) {
+    // 使用后端返回的页码
+    requestedPage = parseInt(page) + 1;
+  }
+  state.pagination = {
+    current: requestedPage, // 使用正确的页码
+    pageSize: requestedSize, // 使用正确的每页大小
+    total: total || 0
+  };
+  state.adminError = null;
+})
       .addCase(fetchResumes.rejected, (state, action) => {
         state.adminLoading = false;
-        // 修改：累积或更新错误信息，而不是覆盖
-        // 这里简单地更新为最后一个错误，或者可以拼接错误信息
         state.adminError = action.payload;
-        // 不清空 resumes，因为可能是部分失败
-        // state.resumes = [];
+        state.resumes = [];
+        state.pagination.total = 0;
       })
       // Fetch Resume Detail
       .addCase(fetchResumeById.pending, (state) => {
@@ -574,6 +615,7 @@ const resumeSlice = createSlice({
       // --- ---
   },
 });
+
 export const {
   setFieldValue,
   setFieldDefinitions,
@@ -587,6 +629,7 @@ export const {
   clearCurrentResume,
   resetAdminError,
   resetDetailError,
+  setPagination, 
   clearResumesAndErrors // 导出新 action
 } = resumeSlice.actions;
 
@@ -601,7 +644,7 @@ export const resumeActions = {
   fetchResumes,        
   fetchResumeById,     
   updateResumeStatus,  
-  downloadResumePDF,   
+  downloadResumePDF,   // --- 新增 ---
   // --- 注意：这里不再导出 batchUpdateResumeStatus ---
   // --- ---
   setFieldValue,
@@ -615,7 +658,9 @@ export const resumeActions = {
   clearFieldValues,
   clearCurrentResume,  
   resetAdminError,     
-  resetDetailError,    
+  resetDetailError, 
+   setPagination,    
   clearResumesAndErrors 
 };
+
 export default resumeSlice.reducer;

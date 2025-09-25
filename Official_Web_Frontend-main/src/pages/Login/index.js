@@ -3,19 +3,22 @@ import { Card, Form, Input, Button, Checkbox, message } from 'antd';
 import { MailOutlined, LockOutlined, SafetyCertificateOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
 import './index.scss';
 import { useNavigate } from 'react-router-dom';
-import { request } from '@/utils/request';
-
+import { useDispatch, useSelector } from 'react-redux';
+import { userActions } from '@/store/modules/user'; // 导入 Redux actions
+import { request } from '@/utils/request'; // 导入封装的请求函数
 const { Item } = Form;
 
 const AuthCard = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector(state => state.user); // 从 Redux 获取状态
+  
   const [form] = Form.useForm();
   const [authType, setAuthType] = useState('email-password');
   const [countdown, setCountdown] = useState(0);
   const [showRegister, setShowRegister] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
-  const [loading, setLoading] = useState(false);
-
+  const [localLoading, setLocalLoading] = useState(false); // 本地加载状态
   // 发送验证码
   const sendVerificationCode = async () => {
     if (countdown > 0) return;
@@ -30,7 +33,7 @@ const AuthCard = () => {
     }
     
     try {
-      setLoading(true);
+      setLocalLoading(true);
       await request.post('/api/auth/send-email-code', { email });
       
       setCountdown(60);
@@ -49,7 +52,7 @@ const AuthCard = () => {
       message.error(errorMessage);
       console.error('验证码发送错误:', error);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
@@ -60,35 +63,74 @@ const AuthCard = () => {
     form.resetFields(['verify']);
   };
 
+  // 监听 Redux 错误状态的变化
+  React.useEffect(() => {
+    if (error && !showRegister && !showForgot) {
+      let errorMessage = error;
+      
+      // 特殊处理登录错误
+      if (errorMessage.toLowerCase().includes('password') || 
+          errorMessage.includes('密码') || 
+          errorMessage.includes('credentials')) {
+        errorMessage = '邮箱或密码错误';
+      } else if (errorMessage.includes('验证码') || 
+                errorMessage.toLowerCase().includes('code') || 
+                errorMessage.toLowerCase().includes('verification')) {
+        errorMessage = '验证码错误或已过期';
+      } else if (errorMessage.includes('邮箱') || 
+                errorMessage.toLowerCase().includes('email')) {
+        errorMessage = '邮箱格式错误或不存在';
+      }
+      
+      message.error(errorMessage);
+      
+      // 清空错误状态
+      dispatch(userActions.resetError());
+      
+      // 清空密码字段
+      if (authType === 'email-password') {
+        form.setFieldsValue({ password: '' });
+      } else {
+        form.setFieldsValue({ code: '' });
+      }
+    }
+  }, [error, showRegister, showForgot, authType, dispatch, form]);
+
   // 提交表单
   const onFinish = async (values) => {
     try {
-      setLoading(true);
+      setLocalLoading(true);
       
       if (!showRegister && !showForgot) {
-        // 登录逻辑
+        // 登录逻辑 - 使用 Redux thunk
         const loginData = {
           auth_type: authType,
           auth_id: values.auth_id,
           verify: values[authType === 'email-password' ? 'password' : 'code']
         };
         
-        const res = await request.post('/api/auth/login', loginData);
+        // 使用 Redux thunk 进行登录
+        const resultAction = await dispatch(userActions.fetchLogin(loginData));
         
-        // 关键修改：根据后端实际响应结构获取token
-        const token = res.data?.data?.token || res.data?.token;
-        if (!token) {
-          console.error('Token未返回，完整响应:', res);
-          throw new Error('登录成功但未获取到token');
+        if (userActions.fetchLogin.fulfilled.match(resultAction)) {
+          // 登录成功
+          const token = resultAction.payload.token;
+          if (token) {
+            localStorage.setItem('token', token);
+            message.success('登录成功');
+            navigate('/main/dashboard');
+          } else {
+            throw new Error('登录成功但未获取到token');
+          }
+        } else {
+          // 登录失败，错误信息已经在 useEffect 中处理
+          console.log('登录失败，错误已处理');
         }
         
-        localStorage.setItem('token', token);
-        message.success('登录成功');
-        navigate('/main/dashboard');
       } else if (showRegister) {
-        // 直接注册，验证码比对已在后端完成
+        // 注册逻辑（保持不变）
         const res = await request.post('/api/auth/register', {
-          username: values.email.split('@')[0], // 使用邮箱前缀作为用户名
+          username: values.email.split('@')[0],
           password: values.password,
           confirmPassword: values.confirmPassword,
           name: values.name,
@@ -102,11 +144,10 @@ const AuthCard = () => {
           setShowRegister(false);
           form.resetFields();
         } else {
-          // 只有当注册失败时才抛出错误
           throw new Error(res.message || '注册失败');
         }
       } else if (showForgot) {
-        // 重置密码
+        // 重置密码（保持不变）
         await request.post('/api/auth/reset-password', {
           identifier: values.email,
           code: values.code,
@@ -117,44 +158,33 @@ const AuthCard = () => {
         form.resetFields();
       }
     } catch (error) {
-      console.error('操作失败:', error);
+      console.error('操作失败详情:', error);
       
-      // 改进的错误处理逻辑
-      let errorMessage = '操作失败，请检查输入';
-      
-      // 处理不同的错误响应格式
-      if (error.response?.data) {
-        const responseData = error.response.data;
+      // 处理非登录操作的错误
+      if (showRegister || showForgot) {
+        let errorMessage = '操作失败，请检查输入';
         
-        if (typeof responseData === 'string') {
-          errorMessage = responseData;
-        } else if (typeof responseData === 'object') {
-          // 处理常见的错误字段
-          errorMessage = responseData.message || 
-                        responseData.error || 
-                        responseData.msg || 
-                        JSON.stringify(responseData);
+        if (error.response?.data) {
+          const responseData = error.response.data;
+          if (typeof responseData === 'string') {
+            errorMessage = responseData;
+          } else if (typeof responseData === 'object') {
+            errorMessage = responseData.message || 
+                          responseData.error || 
+                          responseData.msg || 
+                          '操作失败';
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
         }
-      } else if (error.message) {
-        errorMessage = error.message;
+        
+        message.error(errorMessage);
       }
-      
-      // 特殊处理登录错误
-      if (!showRegister && !showForgot) {
-        if (errorMessage.includes('密码') || errorMessage.includes('password')) {
-          errorMessage = '邮箱或密码错误';
-        } else if (errorMessage.includes('验证码') || errorMessage.includes('code')) {
-          errorMessage = '验证码错误或已过期';
-        } else if (errorMessage.includes('邮箱') || errorMessage.includes('email')) {
-          errorMessage = '邮箱格式错误或不存在';
-        }
-      }
-      
-      message.error(errorMessage);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
+
 
   // 邮箱验证规则
   const emailValidator = (_, value) => {

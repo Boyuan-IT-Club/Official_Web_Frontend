@@ -23,6 +23,48 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     border-radius: 4px;
     margin-bottom: 24px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+
+    // --- 新增：Flexbox 容器样式 ---
+    .controls-flex-container {
+      display: flex;
+      align-items: center;
+      gap: 16px; // 设置组件间的间距
+      flex-wrap: wrap; // 允许换行
+
+      .control-item {
+        min-width: 120px; // 设置最小宽度
+        flex: 1 1 auto; // 可增长可收缩
+
+        // 为搜索框、下拉框等输入组件设置样式
+        &.search-box,
+        &.search-type-select,
+        &.department-filter-select,
+        &.status-filter-select {
+          min-width: 140px; // 可以根据需要调整最小宽度
+        }
+
+        // "开始审核"按钮不伸缩
+        &.start-review-button {
+          flex: 0 0 auto;
+          min-width: auto;
+        }
+
+        // 结果信息占据剩余空间并允许换行
+        &.results-info-wrapper {
+          flex: 1 1 auto; // 可增长可收缩
+          min-width: 100px; // 设置一个合理的最小宽度
+          text-align: right; // 文字右对齐
+
+          .results-info {
+            word-break: break-all; // 强制换行
+            white-space: normal; // 允许换行
+            font-size: 14px;
+            color: #666;
+          }
+        }
+      }
+    }
+    // --- ---
   }
 
   .list-header {
@@ -232,6 +274,22 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
        // 卡片在移动端的调整（如果需要）
     }
   }
+
+  // --- 针对列表页控制栏的响应式 ---
+  .resume-list-container {
+    .list-controls {
+      .controls-flex-container {
+        flex-direction: column; // 在小屏幕上垂直排列
+        align-items: stretch; // 拉伸子元素宽度
+
+        .control-item {
+          &.results-info-wrapper {
+            text-align: left; // 换行后，文字左对齐更合适
+          }
+        }
+      }
+    }
+  }
 }
 
 @media (max-width: 576px) {
@@ -239,4 +297,3 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     padding: 12px; // 与 Publish 一致
   }
 }
-// --- ---
