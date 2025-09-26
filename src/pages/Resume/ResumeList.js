@@ -1,4 +1,3 @@
-// src/pages/Resume/ResumeList.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
@@ -77,8 +76,8 @@ const ResumeList = ({
   onApprove, 
   onReject, 
   onDownload,
-  currentPage,        // 新增：接收当前页码
-  onPageChange        // 新增：接收页码变化回调
+  currentPage,        // 接收当前页码
+  onPageChange        // 接收页码变化回调
 }) => {
   const dispatch = useDispatch();
   // 从 Redux 获取分页相关状态
@@ -89,21 +88,24 @@ const ResumeList = ({
   // 添加 ref 来跟踪搜索参数是否变化
   const searchParamsRef = useRef({
     searchText: '',
-    searchType: 'name', // 新增：搜索类型
-    expectedDepartment: '', // 新增：部门筛选
+    searchType: 'name', // 搜索类型
+    expectedDepartment: '', // 部门筛选
     statusFilter: '2,3,4,5',
-    sortBy: 'time',
-    sortOrder: 'desc'
+    sortBy: 'submitted_at', // 对应接口参数
+    sortOrder: 'DESC'       // 对应接口参数
   });
 
-  // 搜索和筛选状态
+  // 搜索、筛选、排序状态
   const [searchText, setSearchText] = useState('');
-  const [searchType, setSearchType] = useState('name'); // 新增：搜索类型
-  const [expectedDepartment, setExpectedDepartment] = useState(''); // 新增：部门筛选
-  const [sortBy, setSortBy] = useState('time');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [searchType, setSearchType] = useState('name');
+  const [expectedDepartment, setExpectedDepartment] = useState('');
+  const [sortBy, setSortBy] = useState('submitted_at'); // 默认按提交时间倒序
+  const [sortOrder, setSortOrder] = useState('DESC');    // 默认倒序
   const [statusFilter, setStatusFilter] = useState('2,3,4,5'); // 默认只显示已提交及之后的简历
   const [isStartingReview, setIsStartingReview] = useState(false);
+
+  // 用于高亮显示当前排序方式
+  const [currentSortKey, setCurrentSortKey] = useState('time_desc');
 
   // 使用从父组件传递的 currentPage 作为初始值
   const [localCurrentPage, setLocalCurrentPage] = useState(currentPage || 1);
@@ -114,15 +116,15 @@ const ResumeList = ({
       console.log("父组件页码变化，更新本地页码:", currentPage);
       setLocalCurrentPage(currentPage);
       isReturningFromDetail.current = true; // 标记为从详情页返回
-      // 如果页码变化，重新加载数据
+      // 如果页码变化，重新加载数据，使用当前的排序和筛选参数
       loadResumes(currentPage, pagination.pageSize, true);
     }
-  }, [currentPage]);
+  }, [currentPage, pagination.pageSize]); // 添加 pageSize 依赖
 
   // 组件挂载时获取当前页码的数据
   useEffect(() => {
     loadResumes(localCurrentPage, pagination.pageSize);
-  }, []);
+  }, [dispatch]); // 添加 dispatch 依赖
 
   // 检查搜索参数是否真正变化
   const hasSearchParamsChanged = () => {
@@ -154,7 +156,6 @@ const ResumeList = ({
       page: page - 1, // 后端页码从0开始
       size: size,
     };
-
     // 添加搜索条件
     if (searchText) {
         // 根据 searchType 选择对应的参数
@@ -164,24 +165,20 @@ const ResumeList = ({
             params.major = searchText;
         }
     }
-
     // 添加部门筛选
     if (expectedDepartment) {
         params.expectedDepartment = expectedDepartment;
     }
-
     // 添加状态筛选
     if (statusFilter) {
       params.status = statusFilter;
     }
-
-    // 添加排序
-    if (sortBy === 'time') {
-      params.sort = `submittedAt,${sortOrder}`;
-    } else if (sortBy === 'name') {
-      params.sort = `name,${sortOrder}`;
+    // 添加排序 - 使用接口文档中的参数名
+    if (sortBy && sortOrder) {
+      params.sortBy = sortBy;
+      params.sortOrder = sortOrder;
     }
-
+    console.log("Dispatching fetchResumes with params:", params);
     dispatch(resumeActions.fetchResumes(params));
     // 更新搜索参数引用
     updateSearchParamsRef();
@@ -192,6 +189,7 @@ const ResumeList = ({
   };
 
   // 搜索、筛选、排序变化时重新加载数据（重置到第一页）
+  // 注意：这个 useEffect 只响应排序和筛选参数的变化，不响应 currentPage 的变化
   useEffect(() => {
     // 检查是否是从详情页返回，如果是则跳过重置逻辑
     if (isReturningFromDetail.current) {
@@ -200,14 +198,14 @@ const ResumeList = ({
     }
     // 检查搜索参数是否真正变化
     if (hasSearchParamsChanged()) {
-      console.log("搜索/筛选条件变化，重置到第一页");
+      console.log("搜索/筛选/排序条件变化，重置到第一页");
       setLocalCurrentPage(1);
       if (onPageChange) {
         onPageChange(1);
       }
       loadResumes(1, pagination.pageSize);
     }
-  }, [searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder]);
+  }, [searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder, onPageChange]); // 移除 currentPage
 
   // 获取状态信息
   const getStatusInfo = (status) => {
@@ -269,9 +267,10 @@ const ResumeList = ({
   };
 
   // 处理排序变化
-  const handleSortChange = (newSortBy, newSortOrder) => {
+  const handleSortChange = (newSortBy, newSortOrder, key) => {
     setSortBy(newSortBy);
     setSortOrder(newSortOrder);
+    setCurrentSortKey(key); // 更新当前排序方式的key
   };
 
   // 分页变化时加载数据
@@ -313,7 +312,6 @@ const ResumeList = ({
           const updatePromises = resumeIdsToReview.map(resumeId =>
             dispatch(resumeActions.updateResumeStatus({ resumeId, status: 3 })).unwrap()
           );
-
           await Promise.all(updatePromises);
           message.success(`已开始审核，成功将 ${resumeIdsToReview.length} 份"已提交"的简历状态更新为"评审中"`);
           // 刷新当前页数据
@@ -329,19 +327,33 @@ const ResumeList = ({
     });
   }, [dispatch, resumes, localCurrentPage, pagination.pageSize]);
 
-  // 排序菜单
+  // 排序菜单 - 添加 selectedKeys
   const sortMenu = (
-    <Menu>
-      <Menu.Item key="time_desc" icon={<SortDescendingOutlined />} onClick={() => handleSortChange('time', 'desc')}>
+    <Menu
+      selectedKeys={[currentSortKey]} // 高亮显示当前排序
+      onClick={({ key }) => {
+        // 根据菜单项的 key 来设置排序
+        if (key === 'time_desc') {
+          handleSortChange('submitted_at', 'DESC', 'time_desc');
+        } else if (key === 'time_asc') {
+          handleSortChange('submitted_at', 'ASC', 'time_asc');
+        } else if (key === 'name_asc') {
+          handleSortChange('name', 'ASC', 'name_asc');
+        } else if (key === 'name_desc') {
+          handleSortChange('name', 'DESC', 'name_desc');
+        }
+      }}
+    >
+      <Menu.Item key="time_desc" icon={<SortDescendingOutlined />}>
         按时间倒序
       </Menu.Item>
-      <Menu.Item key="time_asc" icon={<SortAscendingOutlined />} onClick={() => handleSortChange('time', 'asc')}>
+      <Menu.Item key="time_asc" icon={<SortAscendingOutlined />}>
         按时间正序
       </Menu.Item>
-      <Menu.Item key="name_asc" icon={<SortAscendingOutlined />} onClick={() => handleSortChange('name', 'asc')}>
+      <Menu.Item key="name_asc" icon={<SortAscendingOutlined />}>
         按姓名正序
       </Menu.Item>
-      <Menu.Item key="name_desc" icon={<SortDescendingOutlined />} onClick={() => handleSortChange('name', 'desc')}>
+      <Menu.Item key="name_desc" icon={<SortDescendingOutlined />}>
         按姓名倒序
       </Menu.Item>
     </Menu>
@@ -458,9 +470,8 @@ const ResumeList = ({
                 const rawDeptValue = getFieldValueFromResume(resume, "期望部门"); // 获取原始值
                 const parsedDept = parseExpectedDepartments(rawDeptValue); // 解析
                 const email = getFieldValueFromResume(resume, "邮箱");
-
                 return (
-                  <List.Item>
+                  <List.Item key={resume.resumeId}> {/* 添加 key */}
                     <Card
                       hoverable
                       className="resume-card"
