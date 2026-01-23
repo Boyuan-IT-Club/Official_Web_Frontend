@@ -1,6 +1,7 @@
-// pages/Publish/components/ResumeDisplay.js
+// pages/Publish/components/ResumeDisplay.tsx
 import React from "react";
 import { Card, Row, Col, Typography, Divider, Image, Tag, Space } from "antd";
+import type { TypographyProps } from "antd";
 import {
   UserOutlined,
   IdcardOutlined,
@@ -15,14 +16,39 @@ import {
 
 const { Title, Text, Paragraph } = Typography;
 
-const ResumeDisplay = ({
+export interface FieldValueItem {
+  fieldId: string; // 如果你实际是 number，就改成 number，并同步改 fieldIdMapping
+  fieldValue: string;
+}
+
+export interface Departments {
+  first: string;
+  second: string;
+}
+
+export interface InterviewTimes {
+  first: string;
+  second: string;
+  canAttend: "yes" | "no";
+  customTime: string;
+}
+
+export interface ResumeDisplayProps {
+  fieldValues?: FieldValueItem[];
+  fieldIdMapping?: Record<string, string>;
+  photoBase64?: string;
+  departments?: Departments;
+  techStackItems?: string[];
+}
+
+const ResumeDisplay: React.FC<ResumeDisplayProps> = ({
   fieldValues = [],
   fieldIdMapping = {},
   photoBase64 = "",
   departments = { first: "", second: "" },
   techStackItems = [],
 }) => {
-  const getFieldValue = (fieldKey) => {
+  const getFieldValue = (fieldKey: string): string => {
     const fieldId = fieldIdMapping[fieldKey];
     if (!fieldId) return "";
 
@@ -30,7 +56,12 @@ const ResumeDisplay = ({
     return fieldValue ? fieldValue.fieldValue : "";
   };
 
-  const renderField = (icon, label, value, isRequired = false) => {
+  const renderField = (
+    icon: React.ComponentType<any>,
+    label: string,
+    value: string,
+    isRequired: boolean = false,
+  ): React.ReactNode => {
     if (!value && !isRequired) return null;
 
     return (
@@ -44,7 +75,10 @@ const ResumeDisplay = ({
     );
   };
 
-  const renderInterviewTime = (label, value) => {
+  const renderInterviewTime = (
+    label: string,
+    value: string,
+  ): React.ReactNode => {
     if (!value || value === "无") return null;
     return (
       <div style={{ marginBottom: 12 }}>
@@ -57,8 +91,8 @@ const ResumeDisplay = ({
     );
   };
 
-  const renderDepartment = (label, value) => {
-    if (!value || value === "无") return null; // 添加对"无"值的检查
+  const renderDepartment = (label: string, value: string): React.ReactNode => {
+    if (!value || value === "无") return null;
 
     return (
       <div style={{ marginBottom: 12 }}>
@@ -71,32 +105,33 @@ const ResumeDisplay = ({
     );
   };
 
-  const parseInterviewTimes = () => {
+  const parseInterviewTimes = (): InterviewTimes => {
     try {
       const interviewTimeField = fieldValues.find(
-        (f) => f.fieldId === fieldIdMapping["expected_interview_time"]
+        (f) => f.fieldId === fieldIdMapping["expected_interview_time"],
       );
 
-      if (interviewTimeField && interviewTimeField.fieldValue) {
-        const timesData = JSON.parse(interviewTimeField.fieldValue);
+      if (interviewTimeField?.fieldValue) {
+        const timesData = JSON.parse(
+          interviewTimeField.fieldValue,
+        ) as Partial<InterviewTimes>;
         return {
           first: timesData.first || "",
           second: timesData.second || "",
-          canAttend: timesData.canAttend || "yes",
+          canAttend: timesData.canAttend === "no" ? "no" : "yes",
           customTime: timesData.customTime || "",
         };
       }
     } catch (e) {
+      // eslint-disable-next-line no-console
       console.error("解析面试时间失败", e);
     }
     return { first: "", second: "", canAttend: "yes", customTime: "" };
   };
 
-  // 使用解析后的面试时间数据
   const interviewTimes = parseInterviewTimes();
 
-  // 确保 techStackItems 是数组且过滤空值
-  const validTechStackItems = Array.isArray(techStackItems)
+  const validTechStackItems: string[] = Array.isArray(techStackItems)
     ? techStackItems.filter((item) => item && item.trim())
     : [];
 
@@ -129,16 +164,18 @@ const ResumeDisplay = ({
               </div>
             )}
           </Col>
+
           <Col xs={24} md={18}>
             <Title level={2} style={{ marginBottom: 8 }}>
               {getFieldValue("name") || "未填写姓名"}
             </Title>
+
             <Space direction="vertical" size="small">
               {renderField(
                 IdcardOutlined,
                 "学号",
                 getFieldValue("student_id"),
-                true
+                true,
               )}
               {renderField(UserOutlined, "性别", getFieldValue("gender"), true)}
               {renderField(BookOutlined, "专业", getFieldValue("major"), true)}
@@ -162,6 +199,7 @@ const ResumeDisplay = ({
           <Title level={4}>志愿信息</Title>
           {renderDepartment("第一志愿", departments.first)}
           {renderDepartment("第二志愿", departments.second)}
+
           {interviewTimes.canAttend === "yes" ? (
             <>
               {renderInterviewTime("第一面试时间", interviewTimes.first)}
@@ -176,9 +214,10 @@ const ResumeDisplay = ({
               <Text style={{ marginLeft: 8 }}>线上面试（时间待通知）</Text>
             </div>
           )}
+
           {renderInterviewTime(
             "是否能参加线下面试",
-            interviewTimes.canAttend === "yes" ? "能参加" : "不能参加"
+            interviewTimes.canAttend === "yes" ? "能参加" : "不能参加",
           )}
         </Col>
       </Row>
@@ -188,6 +227,7 @@ const ResumeDisplay = ({
       <Row gutter={24}>
         <Col xs={24}>
           <Title level={4}>技术能力</Title>
+
           {validTechStackItems.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <Text strong>
@@ -223,6 +263,7 @@ const ResumeDisplay = ({
       <Row gutter={24}>
         <Col xs={24}>
           <Title level={4}>自我介绍</Title>
+
           {getFieldValue("introduction") && (
             <div style={{ marginBottom: 16 }}>
               <Text strong>

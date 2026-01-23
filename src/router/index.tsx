@@ -1,14 +1,17 @@
-// src/router/index.js
-import { createBrowserRouter } from "react-router-dom";
+// src/router/index.tsx
+import React from "react";
+import { Navigate, createBrowserRouter, type Router } from "react-router-dom";
+
 import Layout from "../pages/Layout";
 import Login from "../pages/Login";
 import Land from "../pages/Land";
 import Dashboard from "../pages/Dashboard";
-import { AuthRoute } from "@/components/AuthRoute";
-import { Navigate } from "react-router-dom";
+
 import Publish from "@/pages/Publish";
 import Person from "@/pages/User";
 import Resume from "@/pages/Resume";
+
+import { AuthRoute } from "@/components/AuthRoute";
 
 // 路由配置实例
 const router = createBrowserRouter([
@@ -18,26 +21,30 @@ const router = createBrowserRouter([
   },
   {
     path: "/main",
-    element: <AuthRoute><Layout /></AuthRoute>, // 需要登录的路由放在/main下
+    element: (
+      <AuthRoute>
+        <Layout />
+      </AuthRoute>
+    ), // 需要登录的路由放在/main下
     children: [
       {
         index: true,
         element: <Navigate to="/main/dashboard" replace />,
       },
       {
-        path: 'dashboard',
+        path: "dashboard",
         element: <Dashboard />,
       },
       {
-        path: 'publish',
+        path: "publish",
         element: <Publish />,
       },
       {
-        path: 'person',
+        path: "person",
         element: <Person />,
       },
       {
-        path:'resume',
+        path: "resume",
         element: <Resume />,
       },
     ],
