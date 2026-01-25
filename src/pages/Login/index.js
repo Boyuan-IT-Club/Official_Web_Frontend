@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, Form, Input, Button, Checkbox, message } from "antd";
 import {
   MailOutlined,
@@ -78,7 +78,7 @@ const AuthCard = () => {
   };
 
   // 监听 Redux 错误状态的变化
-  React.useEffect(() => {
+  useEffect(() => {
     // 登录错误已经在 onFinish 中处理，这里直接跳过
     if (!showRegister && !showForgot) return;
 
@@ -157,7 +157,7 @@ const AuthCard = () => {
 
           let errorMessage = String(errMsg);
 
-          // 你原来的“友好提示”逻辑保留
+          // 你原来的"友好提示"逻辑保留
           if (
             errorMessage.toLowerCase().includes("password") ||
             errorMessage.includes("密码") ||
@@ -242,20 +242,42 @@ const AuthCard = () => {
 
   // 邮箱验证规则
   const emailValidator = (_, value) => {
-    if (value && !value.endsWith("@stu.ecnu.edu.cn")) {
+    if (!value) {
+      return Promise.reject(new Error("请输入学号"));
+    }
+
+    // 检查是否是纯数字（学号）
+    const numberPart = value.split('@')[0];
+    if (!/^\d+$/.test(numberPart)) {
+      return Promise.reject(new Error("学号必须是数字"));
+    }
+
+    if (!value.endsWith("@stu.ecnu.edu.cn")) {
       return Promise.reject(new Error("必须使用@stu.ecnu.edu.cn邮箱"));
     }
+
     return Promise.resolve();
   };
 
-  //自动加入邮箱后缀
-  const handleIdBlur = (e) => {
+  // 处理邮箱输入框的 blur 事件
+  const handleEmailBlur = (e) => {
     const value = e.target.value.trim();
-    if (value && /^\d{11}$/.test(value)) {
-      // 检查是否是11位数字
-      form.setFieldsValue({
-        auth_id: `${value}@stu.ecnu.edu.cn`,
-      });
+    if (!value) return;
+
+    // 如果用户只输入了数字，自动添加后缀
+    if (/^\d+$/.test(value)) {
+      const emailValue = `${value}@stu.ecnu.edu.cn`;
+      form.setFieldsValue({ auth_id: emailValue });
+
+      // 触发验证
+      setTimeout(() => {
+        form.validateFields(['auth_id']);
+      }, 0);
+    } else if (value.includes('@')) {
+      // 如果用户已经输入了邮箱，直接验证
+      setTimeout(() => {
+        form.validateFields(['auth_id']);
+      }, 0);
     }
   };
 
@@ -273,15 +295,21 @@ const AuthCard = () => {
             <Item
               name="auth_id"
               rules={[
-                { required: true, message: "请输入邮箱" },
+
                 { validator: emailValidator },
               ]}
             >
-              <Input
-                prefix={<MailOutlined />}
-                placeholder="请输入@stu.ecnu.edu.cn邮箱"
-                onBlur={handleIdBlur}
-              />
+              <div className="email-field">
+                <MailOutlined className="email-icon" />
+
+                <input
+                  className="email-input"
+                  placeholder="请输入学号"
+                  onBlur={handleEmailBlur}
+                />
+
+                <span className="email-suffix">@stu.ecnu.edu.cn</span>
+              </div>
             </Item>
 
             {authType === "email-password" ? (
@@ -307,7 +335,7 @@ const AuthCard = () => {
                       type="link"
                       onClick={sendVerificationCode}
                       disabled={countdown > 0 || loading}
-                      loading={loading}
+                      loading={localLoading}
                     >
                       {countdown > 0 ? `${countdown}秒后重试` : "获取验证码"}
                     </Button>
@@ -323,7 +351,7 @@ const AuthCard = () => {
             </Item>
 
             <Item>
-              <Button type="primary" htmlType="submit" block loading={loading}>
+              <Button type="primary" htmlType="submit" block loading={localLoading || loading}>
                 登录
               </Button>
             </Item>
@@ -399,7 +427,7 @@ const AuthCard = () => {
                     type="link"
                     onClick={sendVerificationCode}
                     disabled={countdown > 0 || loading}
-                    loading={loading}
+                    loading={localLoading}
                   >
                     {countdown > 0 ? `${countdown}秒后重试` : "获取验证码"}
                   </Button>
@@ -439,7 +467,7 @@ const AuthCard = () => {
             </Item>
 
             <Item>
-              <Button type="primary" htmlType="submit" block loading={loading}>
+              <Button type="primary" htmlType="submit" block loading={localLoading || loading}>
                 注册
               </Button>
             </Item>
@@ -483,7 +511,7 @@ const AuthCard = () => {
                     type="link"
                     onClick={sendVerificationCode}
                     disabled={countdown > 0 || loading}
-                    loading={loading}
+                    loading={localLoading}
                   >
                     {countdown > 0 ? `${countdown}秒后重试` : "获取验证码"}
                   </Button>
@@ -523,7 +551,7 @@ const AuthCard = () => {
             </Item>
 
             <Item>
-              <Button type="primary" htmlType="submit" block loading={loading}>
+              <Button type="primary" htmlType="submit" block loading={localLoading || loading}>
                 重置密码
               </Button>
             </Item>
