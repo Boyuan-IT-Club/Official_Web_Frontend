@@ -1,207 +1,243 @@
-// src/pages/Land/index.js
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, Button, Row, Col, Typography, Space } from 'antd';
-import { RocketOutlined, TeamOutlined, CodeOutlined, CalendarOutlined, UserOutlined, LoginOutlined, FileTextOutlined } from '@ant-design/icons';
-import logo from '../../assets/SingleLogo.png'; // 导入logo图片
+import React, { useState, useEffect, useRef } from 'react';
+import { LogIn, ArrowRight } from 'lucide-react';
 import './index.scss';
+<main className="main-content">
+  {/* 背景分区 */}
+  <div className="section-bg section-bg-1" style={{height: '400px'}}></div>
+  <div className="section-bg section-bg-2" style={{height: '400px'}}></div>
+  <div className="section-bg section-bg-3" style={{height: '400px'}}></div>
+  <div className="section-bg section-bg-4" style={{height: '400px'}}></div>
 
-const { Title, Text, Paragraph } = Typography;
+  <div className="container">
+    {/* 你的 card 内容 */}
+  </div>
+</main>
 
-const Land = () => {
-  const navigate = useNavigate();
+const Index: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('intro');
+  const isClickScrolling = useRef(false); // 点击滚动锁
 
-  const handleApplyClick = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      navigate('/main/publish');
-    } else {
-      navigate('/login');
-    }
-  };
-
-  const handleLoginClick = () => {
-    navigate('/login');
-  };
-
-  const handleExploreClick = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      navigate('/main/dashboard');
-    } else {
-      navigate('/login');
-    }
-  };
-
-  const featureItems = [
-    {
-      icon: <CodeOutlined />,
-      title: '技术学习',
-      description: '前沿技术，项目实践'
-    },
-    {
-      icon: <TeamOutlined />,
-      title: '团队协作',
-      description: '志同道合，共同成长'
-    },
-    {
-      icon: <RocketOutlined />,
-      title: '实践机会',
-      description: '校企合作，真实项目'
-    },
-    {
-      icon: <CalendarOutlined />,
-      title: '丰富活动',
-      description: '技术分享，竞赛指导'
-    }
+  const navItems = [
+    { id: 'intro', label: '社团简介' },
+    { id: 'recruit', label: '社团招新' },
+    { id: 'resume', label: '简历投递' },
+    { id: 'share', label: '技术分享' },
   ];
 
+  // 点击导航滚动
+  const scrollToSection = (id: string) => {
+    const section = document.getElementById(id);
+    if (!section) return;
+
+    const card = section.querySelector('.card');
+    if (!card) return;
+
+    const rect = card.getBoundingClientRect();
+    const cardCenter = rect.top + window.scrollY + rect.height / 2;
+    const viewportCenter = window.innerHeight / 2;
+    const targetScrollTop = cardCenter - viewportCenter;
+
+    isClickScrolling.current = true;
+    window.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+
+    setActiveTab(id);
+
+    // 1 秒后解锁，让自动高亮生效
+    setTimeout(() => { isClickScrolling.current = false; }, 1000);
+  };
+
+  // 自动高亮
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isClickScrolling.current) return;
+
+      const scrollPos = window.scrollY + 200;
+      for (let i = navItems.length - 1; i >= 0; i--) {
+        const item = navItems[i];
+        const section = document.getElementById(item.id);
+        if (!section) continue;
+
+        if (scrollPos >= section.offsetTop) {
+          setActiveTab(item.id);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // 吸顶导航
+  useEffect(() => {
+    const nav = document.querySelector('.js-sticky-nav');
+    if (!nav) return;
+    const navTop = nav.getBoundingClientRect().top + window.scrollY;
+
+    const onScroll = () => {
+      if (window.scrollY >= navTop) {
+        nav.classList.add('is-fixed');
+      } else {
+        nav.classList.remove('is-fixed');
+      }
+    };
+
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <div className="land-page">
-      {/* 顶部导航栏 */}
-      <header className="land-header">
-        <div className="header-container">
-          <div className="logo-container" onClick={() => navigate('/')}>
-            <img src={logo} alt="博远信息技术社" className="header-logo" />
-            <span className="logo-text">博远信息技术社</span>
+    <div className="page-container">
+      {/* Header */}
+      <header className="top-header">
+        <div className="container">
+          <div className="logo-area">
+            <img 
+              src={require('../../assets/SingleLogo.png')} 
+              className="logo-placeholder" 
+              alt="logo" 
+            />
+            <div className="logo-text">
+              <h1>Boyuan Club</h1>
+              <p>卓越技术 · 绝佳创意 · 实践平台</p>
+            </div>
           </div>
-          <Space>
-            <Button 
-              type="primary"
-              size="middle"
-              icon={<LoginOutlined />}
-              onClick={handleLoginClick}
-              className="login-button"
-            >
-              登录/注册
-            </Button>
-          </Space>
+          <button className="login-btn">
+            <LogIn size={18} />
+            <span>登录 / 注册</span>
+          </button>
         </div>
       </header>
 
-      {/* 背景装饰元素 */}
-      <div className="background-elements">
-        <div className="bg-circle bg-circle-1"></div>
-        <div className="bg-circle bg-circle-2"></div>
-        <div className="bg-circle bg-circle-3"></div>
-        <div className="bg-dots"></div>
-      </div>
-
-      {/* 主内容区域 */}
-      <main className="land-content">
-        <Row justify="space-between" align="middle" className="main-content">
-          <Col xs={24} lg={10} className="welcome-section">
-            <div className="welcome-content">
-              <div className="title-wrapper">
-                <Title level={1} className="main-title">
-                  博远信息
-                  <span className="title-accent">技术社</span>
-                </Title>
-              </div>
-              <Paragraph className="subtitle">
-                卓越技术 · 绝佳创意 · 实践平台
-              </Paragraph>
-              <Text className="description">
-                博远信息技术社，是为卓越技术与绝佳创意量身打造的实践沃土。在这里，无论你来自哪个专业，只要对IT抱有好奇与热爱，都能找到志同道合的伙伴，一起学习，共同成长。
-                <span className="highlight">聚集有热情、有想法的伙伴，建立最温馨、能传承的社团</span>。
-                社团的发展根基是唐博远学姐（现为学校教师）牵头创立的博远工作室，社团与学校各级组织及多家社会企业保持着紧密联动，从校内信息化项目开发到企业真实业务案例实训，为社员提供了多元而宝贵的实践机会。
-                <span className="highlight">培养会技术、敢创造的社员，打造重实践、促成长的平台</span>。
-              </Text>
-              <div className="stats-container">
-                <div className="stat-item">
-                  <div className="stat-number">8年</div>
-                  <div className="stat-label">深厚积淀</div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-number">100+</div>
-                  <div className="stat-label">优秀社员</div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-number">众多</div>
-                  <div className="stat-label">合作资源</div>
-                </div>
-              </div>
-              <div className="action-buttons">
-                <Button 
-                  type="primary" 
-                  size="large" 
-                  className="explore-button"
-                  onClick={handleExploreClick}
-                >
-                  <RocketOutlined />
-                    探索更多
-                </Button>
-              </div>
-            </div>
-          </Col>
-          
-          <Col xs={24} lg={12} className="card-section">
-            <div className="card-wrapper">
-              <Card className="application-card">
-                <div className="card-header">
-                  <div className="card-icon">
-                    <UserOutlined />
-                  </div>
-                  <Title level={3} className="card-title">加入博远</Title>
-                  <Text className="card-subtitle">
-                    开启技术成长之旅
-                  </Text>
-                </div>
-                
-                <div className="card-features">
-                  <Row gutter={[12, 12]}>
-                    {featureItems.map((item, index) => (
-                      <Col xs={12} key={index}>
-                        <div className="feature-item">
-                          <span className="feature-icon">{item.icon}</span>
-                          <div className="feature-content">
-                            <Text strong className="feature-title">{item.title}</Text>
-                            <Text type="secondary" className="feature-desc">{item.description}</Text>
-                          </div>
-                        </div>
-                      </Col>
-                    ))}
-                  </Row>
-                </div>
-
-                <div className="card-actions">
-                  <Button 
-                    type="primary" 
-                    size="large" 
-                    className="card-apply-button"
-                    onClick={handleApplyClick}
-                    block
-                  >
-                    <FileTextOutlined />
-                    投递简历
-                  </Button>
-                  <div className="apply-hint">
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </Col>
-        </Row>
-      </main>
-
-      {/* 联系信息 */}
-      <section className="contact-section">
-        <div className="contact-content">
-          <Title level={4} className="contact-title">了解更多</Title>
-          <div className="contact-items">
-            <div className="contact-item">
-              <span className="contact-label">答疑QQ群：</span>
-              <span className="contact-value">765667302</span>
-            </div>
-            <div className="contact-item">
-              <span className="contact-label">官方公众号：</span>
-              <span className="contact-value">ECNUCoder</span>
-            </div>
-          </div>
+      {/* Hero */}
+      <section className="hero-banner">
+        <div className="hero-content">
+          <h1>欢迎来到博远信息技术社</h1>
+          <p> 在这里你将获得技术提升、项目实践、团队协作和职业发展的全方位成长。</p>
         </div>
       </section>
+
+      {/* Sticky Nav */}
+      <nav className="sticky-nav js-sticky-nav">
+        <div className="container">
+          <ul className="nav-list">
+            {navItems.map(item => (
+              <li
+                key={item.id}
+                className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                onClick={() => scrollToSection(item.id)}
+              >
+                {item.label}
+                <div className="active-bar"></div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <main className="main-content">
+        <div className="container">
+
+          {/* Intro */}
+          <section className="content-section left-align" id="intro">
+            <div className="card info-card">
+              <div className="card-image placeholder-blue">
+                <span className="placeholder-text">社团活动展示</span>
+              </div>
+              <div className="card-body">
+                <h2>了解我们</h2>
+                <p>不知道写啥。</p>
+                <button className="card-btn">查看详情</button>
+              </div>
+            </div>
+          </section>
+
+          {/* Recruit */}
+          <section className="content-section right-align" id="recruit">
+            <div className="card feature-card">
+              <div className="card-body">
+                <h2>寻找未来的合伙人</h2>
+                <p>无论你是代码大神还是设计新星，只要你对技术充满热情，这里就是你的舞台。</p>
+                <button className="card-btn">
+                  立即申请 <ArrowRight size={14} style={{ marginLeft: 4 }} />
+                </button>
+              </div>
+              <div className="card-image placeholder-green">
+                <span className="placeholder-text">招新计划启动</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Resume */}
+          <section className="content-section left-align" id="resume">
+            <div className="card info-card">
+              <div className="card-image placeholder-purple">
+                <span className="placeholder-text">简历投递通道</span>
+              </div>
+              <div className="card-body">
+                <h2>展现你的才华</h2>
+                <p>和上一个好像有点重合了，没关系先这样吧</p>
+                <button className="card-btn">上传简历</button>
+              </div>
+            </div>
+          </section>
+
+          {/* Share */}
+          <section className="content-section right-align" id="share">
+            <div className="card feature-card">
+              <div className="card-body">
+                <h2>技术分享回顾</h2>
+                <p>技术扫盲回放</p>
+                <button className="card-btn outline">往期视频</button>
+              </div>
+              <div className="card-image placeholder-gray">
+                <span className="placeholder-text">技术分享现场</span>
+              </div>
+            </div>
+          </section>
+
+          {/* 页面底部空白 */}
+          <div style={{ height: 300 }}></div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <foo className="site-footer">
+        <div className="container">
+          <div className="footer-grid">
+            <div>
+              <h3>关于我们</h3>
+              <li>博远信息技术社 </li>
+              <p className="footer-desc">无论你是技术小白还是编程高手，只要对IT技术充满热情，都欢迎加入我们！ </p>
+              
+            </div>
+            <div>
+              <h3>联系我们</h3>
+              <ul>
+                <li>邮箱: 有吗</li>
+                
+                <li>地址: ？</li>
+              </ul>
+            </div>
+            <div>
+              <h3>关注我们</h3>
+              <ul>
+                <li>答疑QQ群：765667302</li>
+                
+                <li>官方公众号：ECNUCoder</li>
+              </ul>
+            </div>
+          </div>
+          <div className="footer-bottom">
+            &copy; 这里一般写什么来着
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
 
-export default Land;
+export default Index;
