@@ -1,20 +1,33 @@
-// components/TechStackInput.js
+// pages/Publish/components/TechStackInput.tsx
 import React from 'react';
-import { Input, Button, Space } from 'antd';
+import { Input, Button } from 'antd';
 import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
 
-const TechStackInput = ({
+type Props = {
+  items?: string[];
+  onChange: (index: number, value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  disabled?: boolean;
+  placeholder?: string;
+};
+
+const TechStackInput: React.FC<Props> = ({
   items = [''],
   onChange,
   onAdd,
   onRemove,
   disabled = false,
-  placeholder = "请输入技术栈"
+  placeholder = '请输入技术栈',
 }) => {
   return (
     <div className="tech-stack-container">
       {items.map((item, index) => (
-        <div key={index} className="tech-stack-item" style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+        <div
+          key={index}
+          className="tech-stack-item"
+          style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}
+        >
           <Input
             placeholder={placeholder}
             value={item}
@@ -22,6 +35,7 @@ const TechStackInput = ({
             disabled={disabled}
             style={{ marginRight: 8 }}
           />
+
           {items.length > 1 && (
             <Button
               type="text"
@@ -31,6 +45,7 @@ const TechStackInput = ({
               style={{ color: '#ff4d4f', marginRight: 8 }}
             />
           )}
+
           {index === items.length - 1 && (
             <Button
               type="primary"

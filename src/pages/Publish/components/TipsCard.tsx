@@ -1,30 +1,42 @@
-// pages/Publish/components/TipsCard.js
+// pages/Publish/components/TipsCard.tsx
 import React from 'react';
 import { Card, Button } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 
-const TipsCard = ({ 
-  tips = [], 
-  title = "填写注意事项",
+type TipItem = {
+  title: string;
+  content: string;
+};
+
+type Props = {
+  tips?: TipItem[];
+  title?: string;
+  showTips: boolean;
+  onToggleTips: () => void;
+};
+
+const TipsCard: React.FC<Props> = ({
+  tips = [],
+  title = '填写注意事项',
   showTips,
-  onToggleTips 
+  onToggleTips,
 }) => {
   return (
     <div className="tips-section">
-      <Button 
-        type="default" 
-        icon={<InfoCircleOutlined />} 
+      <Button
+        type="default"
+        icon={<InfoCircleOutlined />}
         onClick={onToggleTips}
         style={{ marginBottom: 16, width: '100%' }}
       >
         {showTips ? '收起提示' : '填写提示'}
       </Button>
-      
+
       {showTips && (
-        <Card 
-          size="small" 
-          title={title} 
-          className="tips-card" 
+        <Card
+          size="small"
+          title={title}
+          className="tips-card"
           headStyle={{ color: '#1f3a60', borderBottom: '1px solid #d9d9d9' }}
         >
           <div className="tips-content">

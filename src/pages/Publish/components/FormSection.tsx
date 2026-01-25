@@ -1,14 +1,17 @@
+// pages/Publish/components/FormSection.tsx
 import React from 'react';
 import { Typography } from 'antd';
 
 const { Title } = Typography;
 
-const FormSection = ({ 
-  title, 
-  icon, 
-  children, 
-  className = '' 
-}) => {
+type Props = {
+  title: React.ReactNode;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+};
+
+const FormSection: React.FC<Props> = ({ title, icon, children, className = '' }) => {
   return (
     <div className={`form-section ${className}`}>
       <Title level={4} className="section-title">
