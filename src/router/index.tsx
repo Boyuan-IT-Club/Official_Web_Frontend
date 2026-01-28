@@ -10,6 +10,7 @@ import Dashboard from "../pages/Dashboard";
 import Publish from "@/pages/Publish";
 import Person from "@/pages/User";
 import Resume from "@/pages/Resume";
+import Management from "@/pages/Management";
 
 import { AuthRoute } from "@/components/AuthRoute";
 
@@ -46,6 +47,10 @@ const router = createBrowserRouter([
       {
         path: "resume",
         element: <Resume />,
+      },
+      {
+        path: "manage",
+        element: <Management />,
       },
     ],
   },
