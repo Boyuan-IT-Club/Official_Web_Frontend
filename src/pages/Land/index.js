@@ -205,7 +205,7 @@ const Index: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <foo className="site-footer">
+      <footer className="site-footer">
         <div className="container">
           <div className="footer-grid">
             <div>
@@ -219,7 +219,7 @@ const Index: React.FC = () => {
               <ul>
                 <li>邮箱: 有吗</li>
                 
-                <li>地址: ？</li>
+                <li>地址: 上海市中山北路3663号</li>
               </ul>
             </div>
             <div>

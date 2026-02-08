@@ -26,7 +26,7 @@ body {
 
 .page-container {
   display: block;
-  min-height: 100vh;
+  min-height: auto;
 }
 
 .page-container {
@@ -100,8 +100,9 @@ body {
 /* Hero Banner */
 .hero-banner {
   background: linear-gradient(120deg, #d4eeff 0%, #a7d8ff 100%);
-  height: 360px;
-  display: flex; align-items: center; justify-content: center;
+  height: calc(100vh - 72px - 60px);
+  align-items: center;
+  display: flex;  justify-content: center;
   position: relative; overflow: hidden;
 
   &::before {
@@ -111,9 +112,10 @@ body {
   }
 
   .hero-content {
+     transform: translateY(-40px);
     text-align: center; color: $primary-blue; z-index: 1;
-    h1 { font-size: 2.8rem; font-weight: 800; margin-bottom: 12px; text-shadow: 0 2px 10px rgba(255,255,255,0.6); }
-    p { font-size: 1.1rem; opacity: 0.85; letter-spacing: 3px; text-transform: uppercase; }
+    h1 { font-size: 5.0rem; font-weight: 700; margin-bottom: 12px; text-shadow: 0 2px 10px rgba(255,255,255,0.6); }
+    p { font-size: 1.3rem; opacity: 0.85; letter-spacing: 3px; text-transform: uppercase; }
   }
 }
 
@@ -185,7 +187,7 @@ body {
 
 /* Main Content Area */
 .main-content {
-  padding: 80px 0; /* 整体 padding 增加 */
+  padding: 40px 0; /* 整体 padding 增加 */
   flex: 1;
 .main-content {
   overflow: visible !important;
@@ -193,7 +195,7 @@ body {
 
   .content-section {
     /*卡片行距 */
-    margin-bottom: 280px; 
+    margin-bottom: 90px; 
     display: flex;
     
     &.left-align { justify-content: flex-start; }
@@ -201,7 +203,7 @@ body {
     &.right-align { 
       justify-content: flex-end; 
       /* 核心修改：为了配合大间距，稍微加深一点错落感，或者保持不变 */
-      margin-top: -100px; 
+      
     }
   }
 
@@ -218,13 +220,13 @@ body {
     &.feature-card { flex-direction: row; }
 
     .card-image {
-      flex: 1; min-height: 300px; /* 图片高度微调 */
+      flex: 1; min-height: 60px; /* 图片高度微调 */
       display: flex; align-items: center; justify-content: center;
 
       /* 不同的卡片颜色 */
       &.placeholder-blue { background: linear-gradient(135deg, $light-blue-bg, #bae7ff); color: $primary-blue; }
-      &.placeholder-gray { background: #f0f2f5; color: #999; }
-      &.placeholder-green { background: linear-gradient(135deg, #e6ffec, #b7eb8f); color: #52c41a; } /* 新增 */
+      &.placeholder-gray { background: #f0f2f5; color: #7490ab; }
+      &.placeholder-green { background: linear-gradient(135deg, #e6ffec, #978feb); color: #1a50c4; } /* 新增 */
       &.placeholder-purple { background: linear-gradient(135deg, #f9f0ff, #d3adf7); color: #722ed1; } /* 新增 */
       
       .placeholder-text { font-weight: bold; opacity: 0.7; font-size: 1.1rem; }
@@ -270,9 +272,22 @@ body {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-  .hero-banner { height: 250px; }
+  .hero-banner { height: calc(100vh - 60px - 52px); }
   .main-content .card { width: 100%; flex-direction: column !important; }
   .content-section { margin-bottom: 60px; } /* 移动端间距还原，否则太空 */
   .content-section.right-align { margin-top: 0; }
+  
+  .hero-content {
+    
+    h1 {
+      font-size: 2.2rem;
+    }
+    p {
+      font-size: 1rem;
+      letter-spacing: 2px;
+    }
+  }
+
+
   .site-footer .footer-grid { grid-template-columns: 1fr; gap: 40px; }
 }
