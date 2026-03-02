@@ -108,6 +108,54 @@
         }
       }
 
+      // 填写提示列表样式
+      .prompts-list {
+        .prompt-item {
+          padding: 16px;
+          border: 1px solid $border-color;
+          border-radius: 8px;
+          margin-bottom: 12px;
+          background-color: #fafafa;
+
+          &:last-child {
+            margin-bottom: 0;
+          }
+
+          .prompt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+
+            .ant-space {
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+          }
+
+          .prompt-content {
+            padding: 12px;
+            background-color: white;
+            border-radius: 6px;
+            font-size: 14px;
+            color: $text-gray;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            border-left: 3px solid $primary-blue;
+          }
+        }
+
+        .empty-prompt {
+          text-align: center;
+          padding: 32px;
+          color: $text-gray;
+          font-size: 14px;
+          background-color: #fafafa;
+          border-radius: 8px;
+          border: 1px dashed $border-color;
+        }
+      }
+
       .system-info-item {
         display: flex;
         align-items: center;
@@ -134,6 +182,47 @@
 
       .ant-card-body {
         padding: 12px;
+      }
+    }
+  }
+
+  // 提示编辑器样式
+  .prompts-editor {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 8px;
+
+    .ant-card {
+      .ant-card-head {
+        padding: 0 12px;
+        min-height: 40px;
+
+        .ant-card-head-title {
+          padding: 8px 0;
+        }
+      }
+
+      .ant-card-body {
+        padding: 12px;
+      }
+    }
+
+    // 自定义滚动条
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f0f0f0;
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 3px;
+
+      &:hover {
+        background: #999;
       }
     }
   }
@@ -165,6 +254,14 @@
         flex-direction: column;
         align-items: flex-start !important;
         gap: 8px;
+      }
+
+      .prompt-item {
+        .prompt-header {
+          flex-direction: column;
+          align-items: flex-start !important;
+          gap: 8px;
+        }
       }
     }
   }

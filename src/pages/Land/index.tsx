@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LogIn, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import './index.scss';
 <main className="main-content">
   {/* 背景分区 */}
-  <div className="section-bg section-bg-1" style={{height: '400px'}}></div>
-  <div className="section-bg section-bg-2" style={{height: '400px'}}></div>
-  <div className="section-bg section-bg-3" style={{height: '400px'}}></div>
-  <div className="section-bg section-bg-4" style={{height: '400px'}}></div>
+  <div className="section-bg section-bg-1" style={{ height: '400px' }}></div>
+  <div className="section-bg section-bg-2" style={{ height: '400px' }}></div>
+  <div className="section-bg section-bg-3" style={{ height: '400px' }}></div>
+  <div className="section-bg section-bg-4" style={{ height: '400px' }}></div>
 
   <div className="container">
     {/* 你的 card 内容 */}
@@ -15,6 +16,7 @@ import './index.scss';
 
 const Index: React.FC = () => {
   const [activeTab, setActiveTab] = useState('intro');
+  const navigate = useNavigate();
   const isClickScrolling = useRef(false); // 点击滚动锁
 
   const navItems = [
@@ -94,20 +96,27 @@ const Index: React.FC = () => {
       <header className="top-header">
         <div className="container">
           <div className="logo-area">
-            <img 
-              src={require('../../assets/SingleLogo.png')} 
-              className="logo-placeholder" 
-              alt="logo" 
+            <img
+              src={require('../../assets/SingleLogo.png')}
+              className="logo-placeholder"
+              alt="logo"
             />
             <div className="logo-text">
               <h1>Boyuan Club</h1>
               <p>卓越技术 · 绝佳创意 · 实践平台</p>
             </div>
           </div>
-          <button className="login-btn">
-            <LogIn size={18} />
-            <span>登录 / 注册</span>
-          </button>
+          <div className="auth-btn-group">
+            <button className="login-btn" onClick={() => navigate('/login')}>
+              <LogIn size={18} />
+              <span>登录 / 注册</span>
+            </button>
+
+            <button className="login-btn admin-btn" onClick={() => navigate('/adminstratorLogin')}>
+              <LogIn size={18} />
+              <span>管理员入口</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -205,28 +214,28 @@ const Index: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <foo className="site-footer">
+      <footer className="site-footer">
         <div className="container">
           <div className="footer-grid">
             <div>
               <h3>关于我们</h3>
               <li>博远信息技术社 </li>
               <p className="footer-desc">无论你是技术小白还是编程高手，只要对IT技术充满热情，都欢迎加入我们！ </p>
-              
+
             </div>
             <div>
               <h3>联系我们</h3>
               <ul>
                 <li>邮箱: 有吗</li>
-                
-                <li>地址: ？</li>
+
+                <li>地址: 上海市中山北路3663号</li>
               </ul>
             </div>
             <div>
               <h3>关注我们</h3>
               <ul>
                 <li>答疑QQ群：765667302</li>
-                
+
                 <li>官方公众号：ECNUCoder</li>
               </ul>
             </div>
