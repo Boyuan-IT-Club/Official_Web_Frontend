@@ -1,0 +1,171 @@
+// src/pages/Management/index.scss
+@import '../../pages/Dashboard/index.scss';
+
+.management-page {
+  padding: 24px;
+
+  .page-header {
+    margin-bottom: 32px;
+
+    h2 {
+      margin-bottom: 8px;
+      color: $text-dark;
+    }
+  }
+
+  .stats-row {
+    margin-bottom: 24px;
+
+    .stat-card {
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border: 1px solid $border-color;
+      text-align: center;
+      transition: all 0.3s;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+      }
+
+      .stat-content {
+        .stat-value {
+          font-size: 1.8rem;
+          font-weight: 700;
+          color: $text-dark;
+          margin-bottom: 4px;
+        }
+
+        .stat-title {
+          color: $text-gray;
+          font-size: 0.9rem;
+        }
+      }
+    }
+  }
+
+  .main-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid $border-color;
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid $border-color;
+    }
+
+    .table-container {
+      .ant-table {
+        border-radius: 8px;
+        overflow: hidden;
+
+        .ant-table-thead>tr>th {
+          background-color: $background-blue;
+          font-weight: 600;
+          color: $text-dark;
+        }
+
+        .ant-table-tbody>tr:hover>td {
+          background-color: rgba($primary-blue, 0.05);
+        }
+      }
+    }
+
+    .settings-section {
+      .fields-list {
+        .field-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px;
+          border: 1px solid $border-color;
+          border-radius: 8px;
+          margin-bottom: 8px;
+
+          .field-info {
+            display: flex;
+            align-items: center;
+          }
+
+          .field-status {
+            display: flex;
+            gap: 8px;
+          }
+        }
+      }
+
+      .system-info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+
+        strong {
+          margin-right: 8px;
+          min-width: 80px;
+        }
+      }
+    }
+  }
+
+  .fields-editor {
+    .ant-card {
+      .ant-card-head {
+        padding: 0 12px;
+        min-height: 40px;
+
+        .ant-card-head-title {
+          padding: 8px 0;
+        }
+      }
+
+      .ant-card-body {
+        padding: 12px;
+      }
+    }
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .management-page {
+    padding: 16px;
+
+    .toolbar {
+      flex-direction: column;
+      gap: 16px;
+      align-items: stretch;
+
+      >* {
+        width: 100%;
+      }
+    }
+
+    .stats-row {
+      .ant-col {
+        margin-bottom: 16px;
+      }
+    }
+
+    .settings-section {
+      .field-item {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 8px;
+      }
+    }
+  }
+}

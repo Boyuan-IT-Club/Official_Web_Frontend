@@ -118,13 +118,13 @@ const AuthCard: FC = () => {
   };
 
   // 切换登录方式
-const onAuthTypeChange = (): void => {
-  const newType: AuthType = authType === 'email-password' ? 'email-code' : 'email-password';
-  setAuthType(newType);
+  const onAuthTypeChange = (): void => {
+    const newType: AuthType = authType === 'email-password' ? 'email-code' : 'email-password';
+    setAuthType(newType);
 
-  // 清空对应字段
-  form.resetFields([newType === 'email-password' ? 'password' : 'code']);
-};
+    // 清空对应字段
+    form.resetFields([newType === 'email-password' ? 'password' : 'code']);
+  };
 
 
   // 监听 Redux 错误状态的变化（保持原逻辑不改）
@@ -167,12 +167,12 @@ const onAuthTypeChange = (): void => {
   }, [error, showRegister, showForgot, authType, dispatch, form]);
 
   type LoginForm = {
-  auth_type: AuthType;
-  auth_id: string;
-  verify?: string;
-  password: string;
-  code?: string;
-};
+    auth_type: AuthType;
+    auth_id: string;
+    verify?: string;
+    password: string;
+    code?: string;
+  };
 
   // 提交表单
   const onFinish = async (values: AnyAuthFormValues): Promise<void> => {
@@ -192,7 +192,7 @@ const onAuthTypeChange = (): void => {
           code: authType === 'email-code' ? verifyValue : undefined,
         };
 
-  const resultAction = await dispatch(userActions.fetchLogin(loginData));
+        const resultAction = await dispatch(userActions.fetchLogin(loginData));
 
 
         if (userActions.fetchLogin.fulfilled.match(resultAction)) {
@@ -312,8 +312,8 @@ const onAuthTypeChange = (): void => {
       return Promise.reject(new Error('学号必须是数字'));
     }
 
-    if (!str.endsWith('@stu.ecnu.edu.cn')) {
-      return Promise.reject(new Error('必须使用@stu.ecnu.edu.cn邮箱'));
+    if (numberPart.length !== 11) {
+      return Promise.reject(new Error('请输入11位学号'));
     }
 
     return Promise.resolve();

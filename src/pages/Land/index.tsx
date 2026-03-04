@@ -239,7 +239,8 @@ const Index: React.FC = () => {
               <h3>联系我们</h3>
               <ul>
                 <li>邮箱: 有吗</li>
-                <li>地址: ？</li>
+                
+                <li>地址: 上海市中山北路3663号</li>
               </ul>
             </div>
             <div>
