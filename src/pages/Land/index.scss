@@ -248,6 +248,10 @@ body {
     overflow: visible !important;
   }
 
+.main-content {
+  padding: 80px 0; /* 整体 padding 增加 */
+  flex: 1;
+
   .content-section {
     /*卡片行距 */
     margin-bottom: 90px;
