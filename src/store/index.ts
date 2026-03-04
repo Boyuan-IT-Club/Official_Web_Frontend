@@ -4,11 +4,13 @@
 import { configureStore } from "@reduxjs/toolkit";
 import userReducer from "./modules/user";
 import resumeReducer from "./modules/resume";
+import resumeFieldsReducer from './modules/resumeFields';
 
 export const store = configureStore({
   reducer: {
     user: userReducer,
     resume: resumeReducer,
+    resumeFields: resumeFieldsReducer,
   },
 });
 

@@ -1,40 +1,33 @@
-// src/pages/Land/index.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { LogIn, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { LoginOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import './index.scss';
-import SingleLogo from '../../assets/SingleLogo.png';
+<main className="main-content">
+  {/* 背景分区 */}
+  <div className="section-bg section-bg-1" style={{ height: '400px' }}></div>
+  <div className="section-bg section-bg-2" style={{ height: '400px' }}></div>
+  <div className="section-bg section-bg-3" style={{ height: '400px' }}></div>
+  <div className="section-bg section-bg-4" style={{ height: '400px' }}></div>
 
-type NavItem = {
-  id: 'intro' | 'recruit' | 'resume' | 'share';
-  label: string;
-};
+  <div className="container">
+    {/* 你的 card 内容 */}
+  </div>
+</main>
 
 const Index: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('intro');
   const navigate = useNavigate();
+  const isClickScrolling = useRef(false); // 点击滚动锁
 
-  const [activeTab, setActiveTab] = useState<NavItem['id']>('intro');
-  const isClickScrolling = useRef<boolean>(false); // 点击滚动锁
-
-  const navItems: NavItem[] = [
+  const navItems = [
     { id: 'intro', label: '社团简介' },
     { id: 'recruit', label: '社团招新' },
     { id: 'resume', label: '简历投递' },
     { id: 'share', label: '技术分享' },
   ];
 
-  // ========== 旧版行为：页面跳转 ==========
-  const handleLoginClick = (): void => {
-    navigate('/login');
-  };
-
-  const handleLogoClick = (): void => {
-    navigate('/');
-  };
-  // =======================================
-
   // 点击导航滚动
-  const scrollToSection = (id: NavItem['id']): void => {
+  const scrollToSection = (id: string) => {
     const section = document.getElementById(id);
     if (!section) return;
 
@@ -52,14 +45,12 @@ const Index: React.FC = () => {
     setActiveTab(id);
 
     // 1 秒后解锁，让自动高亮生效
-    window.setTimeout(() => {
-      isClickScrolling.current = false;
-    }, 1000);
+    setTimeout(() => { isClickScrolling.current = false; }, 1000);
   };
 
   // 自动高亮
   useEffect(() => {
-    const handleScroll = (): void => {
+    const handleScroll = () => {
       if (isClickScrolling.current) return;
 
       const scrollPos = window.scrollY + 200;
@@ -79,17 +70,15 @@ const Index: React.FC = () => {
     handleScroll();
 
     return () => window.removeEventListener('scroll', handleScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 吸顶导航
   useEffect(() => {
-    const nav = document.querySelector('.js-sticky-nav') as HTMLElement | null;
+    const nav = document.querySelector('.js-sticky-nav');
     if (!nav) return;
-
     const navTop = nav.getBoundingClientRect().top + window.scrollY;
 
-    const onScroll = (): void => {
+    const onScroll = () => {
       if (window.scrollY >= navTop) {
         nav.classList.add('is-fixed');
       } else {
@@ -106,29 +95,28 @@ const Index: React.FC = () => {
       {/* Header */}
       <header className="top-header">
         <div className="container">
-          {/* logo 点击回首页 */}
-          <div
-            className="logo-area"
-            onClick={handleLogoClick}
-            style={{ cursor: 'pointer' }}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') handleLogoClick();
-            }}
-          >
-            <img src={SingleLogo} className="logo-placeholder" alt="logo" />
+          <div className="logo-area">
+            <img
+              src={require('../../assets/SingleLogo.png')}
+              className="logo-placeholder"
+              alt="logo"
+            />
             <div className="logo-text">
               <h1>Boyuan Club</h1>
               <p>卓越技术 · 绝佳创意 · 实践平台</p>
             </div>
           </div>
+          <div className="auth-btn-group">
+            <button className="login-btn" onClick={() => navigate('/login')}>
+              <LogIn size={18} />
+              <span>登录 / 注册</span>
+            </button>
 
-          {/* 登录按钮跳转 */}
-          <button className="login-btn" onClick={handleLoginClick}>
-            <LoginOutlined style={{ fontSize: 18 }} />
-            <span>登录 / 注册</span>
-          </button>
+            <button className="login-btn admin-btn" onClick={() => navigate('/adminstratorLogin')}>
+              <LogIn size={18} />
+              <span>管理员入口</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -144,7 +132,7 @@ const Index: React.FC = () => {
       <nav className="sticky-nav js-sticky-nav">
         <div className="container">
           <ul className="nav-list">
-            {navItems.map((item) => (
+            {navItems.map(item => (
               <li
                 key={item.id}
                 className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
@@ -161,6 +149,7 @@ const Index: React.FC = () => {
       {/* Main */}
       <main className="main-content">
         <div className="container">
+
           {/* Intro */}
           <section className="content-section left-align" id="intro">
             <div className="card info-card">
@@ -182,7 +171,7 @@ const Index: React.FC = () => {
                 <h2>寻找未来的合伙人</h2>
                 <p>无论你是代码大神还是设计新星，只要你对技术充满热情，这里就是你的舞台。</p>
                 <button className="card-btn">
-                  立即申请 <ArrowRightOutlined style={{ fontSize: 14, marginLeft: 4 }} />
+                  立即申请 <ArrowRight size={14} style={{ marginLeft: 4 }} />
                 </button>
               </div>
               <div className="card-image placeholder-green">
@@ -231,15 +220,14 @@ const Index: React.FC = () => {
             <div>
               <h3>关于我们</h3>
               <li>博远信息技术社 </li>
-              <p className="footer-desc">
-                无论你是技术小白还是编程高手，只要对IT技术充满热情，都欢迎加入我们！
-              </p>
+              <p className="footer-desc">无论你是技术小白还是编程高手，只要对IT技术充满热情，都欢迎加入我们！ </p>
+
             </div>
             <div>
               <h3>联系我们</h3>
               <ul>
                 <li>邮箱: 有吗</li>
-                
+
                 <li>地址: 上海市中山北路3663号</li>
               </ul>
             </div>
@@ -247,11 +235,14 @@ const Index: React.FC = () => {
               <h3>关注我们</h3>
               <ul>
                 <li>答疑QQ群：765667302</li>
+
                 <li>官方公众号：ECNUCoder</li>
               </ul>
             </div>
           </div>
-          <div className="footer-bottom">&copy; 这里一般写什么来着</div>
+          <div className="footer-bottom">
+            &copy; 这里一般写什么来着
+          </div>
         </div>
       </footer>
     </div>

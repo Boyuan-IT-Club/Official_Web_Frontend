@@ -61,23 +61,18 @@ const MainLayout = () => {
       icon: <UserOutlined />,
       label: "个人主页",
     },
+    {
+      key: "/main/resume", // 确保路由配置中已添加此路径
+      icon: <FolderOpenOutlined />, // 使用合适的图标
+      label: "简历查看",
+    },
+    {
+      key: "/main/manage",
+      icon: <ControlOutlined />,
+      label: "管理",
+    },
   ];
 
-  // 如果用户角色是 ADMIN，则添加简历查看菜单项
-  if (userInfo?.role === "ADMIN") {
-    menuItems.push(
-      {
-        key: "/main/resume", // 确保路由配置中已添加此路径
-        icon: <FolderOpenOutlined />, // 使用合适的图标
-        label: "简历查看",
-      },
-      {
-        key: "/main/manage",
-        icon: <ControlOutlined />,
-        label: "管理",
-      },
-    );
-  }
   const handleMenuClick = ({ key }) => {
     navigate(key);
   };

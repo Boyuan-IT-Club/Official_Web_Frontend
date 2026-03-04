@@ -4,6 +4,7 @@ import { Navigate, createBrowserRouter, type Router } from "react-router-dom";
 
 import Layout from "../pages/Layout";
 import Login from "../pages/Login";
+import AdministratorLogin from "../pages/AdministratorLogin";
 import Land from "../pages/Land";
 import Dashboard from "../pages/Dashboard";
 
@@ -57,6 +58,10 @@ const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/adminstratorLogin",
+    element: <AdministratorLogin />
   },
   {
     path: "*",
