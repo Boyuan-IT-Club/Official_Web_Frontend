@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Table, Space, Button, Tooltip, Tag, Avatar, Modal, Select, message } from 'antd';
 import { EyeOutlined, SettingOutlined, LockOutlined, UnlockOutlined, CheckOutlined, UserOutlined } from '@ant-design/icons';
-import { assignRoleToUser } from '@/api/manage';
+import { assignRoleToUser } from '@/api/manage/userRole';
 
 const { Option } = Select;
 
