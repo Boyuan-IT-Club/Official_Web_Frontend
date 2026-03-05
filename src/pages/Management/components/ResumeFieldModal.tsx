@@ -1,8 +1,19 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Card, Row, Col, Input, Select, Switch, Button, Space } from 'antd';
-import type { ResumeField } from '@/store/modules/resumeFields';
+import type { FormInstance } from 'antd';
 
 const { Option } = Select;
+
+export interface ResumeField {
+  key: string;
+  label: string;
+  type: 'input' | 'textarea' | 'radio' | 'checkbox' | 'select' | 'custom';
+  required: boolean;
+  enabled: boolean;
+  placeholder?: string;
+  options?: string[];
+  order?: number;
+}
 
 interface ResumeFieldModalProps {
   visible: boolean;
@@ -23,27 +34,34 @@ const emptyField: ResumeField = {
   options: [],
 };
 
-const ResumeFieldModal: React.FC<ResumeFieldModalProps> = ({ visible, onCancel, onSave, fields, fieldTypeOptions, loading = false }) => {
+const ResumeFieldModal: React.FC<ResumeFieldModalProps> = ({
+  visible,
+  onCancel,
+  onSave,
+  fields,
+  fieldTypeOptions,
+  loading = false,
+}) => {
   const [form] = Form.useForm<{ fields: ResumeField[] }>();
 
   useEffect(() => {
     form.setFieldsValue({ fields });
   }, [fields, form]);
 
-  const handleAddField = () => {
+  const addField = () => {
     const newFields = [...(form.getFieldValue('fields') || []), { ...emptyField, key: `field_${Date.now()}` }];
     form.setFieldsValue({ fields: newFields });
   };
 
-  const handleDeleteField = (index: number) => {
+  const insertFieldAfter = (index: number) => {
     const newFields = [...(form.getFieldValue('fields') || [])];
-    newFields.splice(index, 1);
+    newFields.splice(index + 1, 0, { ...emptyField, key: `field_${Date.now()}` });
     form.setFieldsValue({ fields: newFields });
   };
 
-  const handleInsertAfter = (index: number) => {
+  const deleteField = (index: number) => {
     const newFields = [...(form.getFieldValue('fields') || [])];
-    newFields.splice(index + 1, 0, { ...emptyField, key: `field_${Date.now()}` });
+    newFields.splice(index, 1);
     form.setFieldsValue({ fields: newFields });
   };
 
@@ -51,23 +69,23 @@ const ResumeFieldModal: React.FC<ResumeFieldModalProps> = ({ visible, onCancel, 
     try {
       await form.validateFields();
       onSave(form.getFieldValue('fields'));
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
     }
   };
 
   return (
     <Modal
-      title="编辑简历表字段"
+      title="编辑简历字段"
       open={visible}
       onCancel={onCancel}
       onOk={handleOk}
       width={800}
-      okText="保存配置"
+      okText="保存"
       cancelText="取消"
       confirmLoading={loading}
     >
-      <Form form={form} layout="vertical" name="resumeForm">
+      <Form form={form} layout="vertical">
         {(form.getFieldValue('fields') || []).map((field, index) => (
           <Card
             key={field.key || index}
@@ -82,8 +100,8 @@ const ResumeFieldModal: React.FC<ResumeFieldModalProps> = ({ visible, onCancel, 
                 <Form.Item name={['fields', index, 'enabled']} valuePropName="checked" noStyle>
                   <Switch checkedChildren="启用" unCheckedChildren="停用" size="small" />
                 </Form.Item>
-                <Button type="primary" size="small" onClick={() => handleInsertAfter(index)}>＋</Button>
-                <Button danger size="small" onClick={() => handleDeleteField(index)}>删除</Button>
+                <Button type="primary" size="small" onClick={() => insertFieldAfter(index)}>＋</Button>
+                <Button danger size="small" onClick={() => deleteField(index)}>删除</Button>
               </Space>
             }
           >
@@ -100,16 +118,17 @@ const ResumeFieldModal: React.FC<ResumeFieldModalProps> = ({ visible, onCancel, 
               <Col span={12}>
                 <Form.Item
                   name={['fields', index, 'type']}
-                  label="字段格式"
-                  rules={[{ required: true, message: '请选择字段格式' }]}
+                  label="字段类型"
+                  rules={[{ required: true, message: '请选择字段类型' }]}
                 >
-                  <Select placeholder="请选择字段格式">
+                  <Select placeholder="请选择字段类型">
                     {fieldTypeOptions.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
                   </Select>
                 </Form.Item>
               </Col>
             </Row>
 
+            {/* 动态表单 */}
             <Form.Item
               noStyle
               shouldUpdate={(prev, cur) => prev.fields?.[index]?.type !== cur.fields?.[index]?.type}
@@ -127,7 +146,7 @@ const ResumeFieldModal: React.FC<ResumeFieldModalProps> = ({ visible, onCancel, 
                   return (
                     <Form.List name={['fields', index, 'options']}>
                       {(optionFields, { add, remove }) => (
-                        <Form.Item label="选项内容">
+                        <Form.Item label="选项">
                           {optionFields.map((opt, optIndex) => (
                             <Space key={opt.key} style={{ display: 'flex', marginBottom: 8 }}>
                               <Form.Item {...opt} noStyle rules={[{ required: true, message: '请输入选项内容' }]}>
@@ -147,7 +166,7 @@ const ResumeFieldModal: React.FC<ResumeFieldModalProps> = ({ visible, onCancel, 
             </Form.Item>
           </Card>
         ))}
-        <Button type="primary" block onClick={handleAddField}>+ 添加字段</Button>
+        <Button type="primary" block onClick={addField}>+ 添加字段</Button>
       </Form>
     </Modal>
   );
