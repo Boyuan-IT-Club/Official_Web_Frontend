@@ -1,0 +1,147 @@
+[33mcommit 8bdc25aa88051bb669194bb315865c31cd13aa91[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32m2.0[m[33m)[m
+Merge: deeabba 300f181
+Author: little_laptop <jackiichen0119@gmail.com>
+Date:   Wed Mar 4 17:07:35 2026 +0800
+
+    Merge branch '2.0' of https://github.com/Boyuan-IT-Club/Official_Web_Frontend into 2.0
+
+[33mcommit 300f1818364c8fac970d1ef266421fbad62800d8[m
+Merge: bdef540 b0cae97
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Sun Feb 8 15:31:13 2026 +0800
+
+    Merge pull request #7 from Boyuan-IT-Club/2.2.1
+
+[33mcommit b0cae9768aafe79a7c75637397e8d98234be3089[m
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Sun Feb 8 15:27:03 2026 +0800
+
+    邮箱输入样式修正
+
+[33mcommit bdef5405543e55810477ac24982e317d297ce131[m
+Merge: eed78de b77f0a3
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Sun Feb 8 15:23:27 2026 +0800
+
+    Merge pull request #6 from Boyuan-IT-Club/wrf-3
+
+[33mcommit eed78de118abadad545962c2a419e4112011b9e3[m
+Merge: 4176b8f f5100e1
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Sat Feb 7 17:16:58 2026 +0800
+
+    Merge pull request #5 from Boyuan-IT-Club/2.2.1
+    
+    2.2.1
+
+[33mcommit b77f0a3c7ca66df2f6ebf05adbe616b3de23dd91[m[33m ([m[1;31morigin/wrf-3[m[33m)[m
+Author: Aoba <208214141@qq.com>
+Date:   Mon Feb 2 02:11:45 2026 +0800
+
+    fix: 将首页的图片宽度进行更改，修改了卡片间距
+
+[33mcommit f5100e1e2ca6ab62ee7eb0cd92e8c82ec77029a8[m
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Wed Jan 28 08:45:39 2026 +0800
+
+    管理页面初稿
+
+[33mcommit 25857171804fe9b0c2888a61a618c7b77099d07e[m
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Wed Jan 28 08:25:19 2026 +0800
+
+    侧栏增加管理
+
+[33mcommit c41cffc36239d89f50f7da51e5181e0fbe352f60[m
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Tue Jan 27 23:56:36 2026 +0800
+
+    修复邮箱后缀提示功能漏洞
+
+[33mcommit deeabba2da2d49a47083c5069f0ff9858a6a8040[m
+Author: little_laptop <jackiichen0119@gmail.com>
+Date:   Mon Jan 26 02:53:38 2026 +0800
+
+    整合land界面
+
+[33mcommit 4176b8fad4e14af7287daf4dd8bb26d4fd182756[m
+Merge: c17531c 95417db
+Author: Jiaqi Chen <1251365126@qq.com>
+Date:   Mon Jan 26 01:46:25 2026 +0800
+
+    Merge pull request #4 from Boyuan-IT-Club/wrf-3
+
+[33mcommit 95417dbbb7f52fea3c816e031726753bf089408b[m[33m ([m[1;32mwrf-3[m[33m)[m
+Author: Aoba <208214141@qq.com>
+Date:   Sun Jan 25 21:01:59 2026 +0800
+
+    更改了首页，但是没有全部改完和原来的页面合并，后续还要改
+
+[33mcommit c17531c1c554f5e5bbfc64ec85ee581436772997[m
+Author: little_laptop <jackiichen0119@gmail.com>
+Date:   Mon Jan 26 01:29:16 2026 +0800
+
+    pages剩下layout, land, dashboard
+
+[33mcommit 47f602cfba2c58ebf93112710a10c050991a352e[m
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Sun Jan 25 20:09:00 2026 +0800
+
+    增加了邮箱后缀自动补全提示
+
+[33mcommit bae7d933b0b8a0e8184841fbb9d4186bb22cee64[m
+Author: Pluviophile869 <tany38349@gmail.com>
+Date:   Sun Jan 25 20:04:37 2026 +0800
+
+    增加了邮箱后缀自动补全提示
+
+[33mcommit b9b0f7b326f1157ed88de2ac7cb85d7bda2ee1b7[m
+Merge: 0a65536 41771fe
+Author: Jiaqi Chen <1251365126@qq.com>
+Date:   Fri Jan 23 17:55:59 2026 +0800
+
+    Merge pull request #3 from Boyuan-IT-Club/cjq
+    
+    除pages之外改为ts，实现密码错误提示和登录跳转
+
+[33mcommit 41771fe80f83122a2d4bbe10dc0fc7375257c2bc[m
+Author: little_laptop <jackiichen0119@gmail.com>
+Date:   Fri Jan 23 17:43:21 2026 +0800
+
+    除pages之外改为ts，实现密码错误提示和登录跳转
+
+[33mcommit 0a65536c9eb520863931b5228aaffacc422dadac[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m
+Merge: 237ae70 ec481e4
+Author: Yang Chengyu <18136171178@163.com>
+Date:   Fri Sep 26 10:10:10 2025 +0800
+
+    Merge pull request #2 from Boyuan-IT-Club/feature/adminsearch
+    
+    修改排序
+
+[33mcommit ec481e4f329590b0546f0ba55315e3e492c850d5[m[33m ([m[1;31morigin/feature/adminsearch[m[33m)[m
+Author: YU-S3 <10245101437@stu.ecnu.edu.cn>
+Date:   Fri Sep 26 10:03:33 2025 +0800
+
+    修改排序
+
+[33mcommit 237ae70205145c8f6674de450e3d396785b9b2b7[m
+Merge: 8447868 1480c71
+Author: Yang Chengyu <18136171178@163.com>
+Date:   Thu Sep 25 18:10:39 2025 +0800
+
+    Merge pull request #1 from Boyuan-IT-Club/feature/adminsearch
+    
+    修改搜索和下载
+
+[33mcommit 1480c715ba339c4537cbf8bfd4212ca1330afba8[m
+Author: YU-S3 <10245101437@stu.ecnu.edu.cn>
+Date:   Thu Sep 25 18:04:25 2025 +0800
+
+    修改搜索和下载
+
+[33mcommit 84478687637b1bf579671aa7e24635d8fd4fa709[m[33m ([m[1;31morigin/dhy[m[33m)[m
+Author: wangwang <2368691796@qq.com>
+Date:   Tue Sep 23 20:06:26 2025 +0800
+
+    管理员简历查看及分页功能
