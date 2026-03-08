@@ -3,6 +3,14 @@
 //import {assignRoleToUser,addRoleToUser, removeRoleFromUser, getUserRoles,getUserRoles_me,getUsersByRole} from '@/api/manage';
 import { request } from '@/utils/request';
 
+// get: 获取用户信息
+export const getAllUsers = () => {
+  return request({
+    url: `/api/admin/users`,
+    method: 'get',
+  });
+}
+
 // post：为用户分配角色
 export const assignRoleToUser = (userId: number, roleIds: number[]) => {
   return request({
@@ -56,5 +64,37 @@ export const assignRoleToUsers = (roleIds: number[], userIds: number[]) => {
   return request({
     url: `/api/user-roles/roles/${roleIds}/users/${userIds}`,
     method: 'post',
+  });
+};
+
+// get： 获取所有启用的角色
+export const getActiveRoles = () => {
+    return request({
+        url: '/api/roles/available', 
+        method: 'get',
+    });
+}
+
+//  put: 冻结用户
+export const freezeUser = (userId: number) => {
+  return request({
+    url: `/api/admin/users/${userId}/freeze`,
+    method: 'put',
+  });
+}
+
+// put: 解冻用户
+export const unfreezeUser = (userId: number) => {
+  return request({
+    url: `/api/admin/users/${userId}/unfreeze`,
+    method: 'put',
+  });
+}
+
+// delete: 删除用户
+export const deleteUser = (userId: number) => {
+  return request({
+    url: `/api/admin/users/${userId}`,
+    method: 'delete',
   });
 }
