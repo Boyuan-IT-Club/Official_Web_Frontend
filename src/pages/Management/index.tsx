@@ -139,7 +139,7 @@ const debouncedDept   = useDebounce(selectedDept);
   // FIXME 太复杂了，准备封装一下
     fetchUsers(1, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, selectedStatus]);
+  }, [debouncedSearch, selectedStatus, selectedRole, debouncedDept]);
 
   // ── 翻页/改 pageSize（跳过首次渲染，避免与上面 effect 重复请求） ──────────
   const isFirstRender = useRef(true);
@@ -197,7 +197,7 @@ const debouncedDept   = useDebounce(selectedDept);
       cancelText: '取消',
       async onOk() {
         try {
-          await batchAdmitAsMember(true,targets.map((u) => u.userId));
+          await batchAdmitAsMember(true, targets.map((u) => u.userId));
           message.success(`成功录取 ${targets.length} 名社员`);
           setSelectedRows([]);
           fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept);

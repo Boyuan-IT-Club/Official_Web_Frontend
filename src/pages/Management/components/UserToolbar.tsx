@@ -1,5 +1,5 @@
 // src/pages/components/UserToolbar.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Space, Input, Select, Button, Badge, Dropdown,
   Modal, message,
@@ -12,11 +12,12 @@ import {
 } from '@ant-design/icons';
 
 import {
-  batchAdmitAsMember, assignRoleToUsers,
+  batchAdmitAsMember, batchDismissMember, assignRoleToUsers,
   batchFreezeUsers, batchUnfreezeUsers,
-  batchUpdateUserDept, deleteUser,
-  batchDismissMember
+  batchUpdateUserDept, deleteUser
 } from '@/api/manage/userApis';
+
+import{getValidDept} from '@/api/manage/deptManage';
 
 import { User } from './UserTable';
 
@@ -67,6 +68,27 @@ const Toolbar: React.FC<ToolbarProps> = ({
   selectedRowIds, selectedRowsCount, selectedRows,
   roleOptions, onClearSelection, refreshUsers,
 }) => {
+
+  // ── 部门选项 ────────────────────────────────────────────────────────────
+  const [deptOptions, setDeptOptions] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const res: any = await getValidDept();
+        const list = res?.data || res || [];
+        setDeptOptions(
+          (Array.isArray(list) ? list : []).map((d: any) => ({
+            value: String(d.name ?? d),
+            label: String(d.name ?? d),
+          })),
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchDepts();
+  }, []);
 
   // ── 批量分配角色弹窗 ────────────────────────────────────────────────────
   const [roleModalOpen, setRoleModalOpen] = useState(false);
@@ -135,7 +157,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
       cancelText: '取消',
       async onOk() {
         try {
-          await batchAdmitAsMember(true,targets.map((u) => u.userId));
+          await batchAdmitAsMember(true, targets.map((u) => u.userId));
           message.success(`成功录取 ${targets.length} 名社员`);
           onClearSelection();
           refreshUsers();
@@ -147,17 +169,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
     });
   };
 
-  // ── 批量开除社员（在此处过滤已不是社员的行） ──────────────────────────────
-   const handleBatchDismiss = () => {
+  // ── 批量开除社员 ────────────────────────────────────────────────────────
+  const handleBatchDismiss = () => {
     const targets = selectedRows.filter((u) => u.isMember);
- 
+
     if (targets.length === 0) {
       message.warning('所选用户中没有社员，无需操作');
       return;
     }
- 
+
     const skipped = selectedRowsCount - targets.length;
- 
+
     confirm({
       title: '确认批量开除社员？',
       icon: <ExclamationCircleOutlined />,
@@ -188,7 +210,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     });
   };
 
-  // ── 批量冻结 ────────────────────────────────────────────────────────────
+
   const handleBatchFreeze = () => {
     confirm({
       title: '确认批量冻结所选用户？',
@@ -222,8 +244,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
     });
   };
 
-  
-
   // ── 批量删除 ────────────────────────────────────────────────────────────
   const handleBatchDelete = () => {
     confirm({
@@ -244,14 +264,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
   // ── 下拉菜单项 ──────────────────────────────────────────────────────────
   const batchMenuItems: MenuProps['items'] = [
     { key: 'admit',    icon: <CheckOutlined />,     label: '录取为社员', onClick: handleBatchAdmit },
+    { key: 'dismiss',  icon: <CheckOutlined />,     label: <span style={{ color: '#ff4d4f' }}>开除社员</span>, onClick: handleBatchDismiss },
     { key: 'role',     icon: <TeamOutlined />,      label: '分配角色',   onClick: () => setRoleModalOpen(true) },
     { key: 'dept',     icon: <ApartmentOutlined />, label: '修改部门',   onClick: () => setDeptModalOpen(true) },
-    {
-      key: 'dismiss',
-      icon: <DeleteOutlined />,
-      label: <span style={{ color: '#ff4d4f' }}>开除社员</span>,
-      onClick: handleBatchDismiss,
-    },
     { type: 'divider' },
     { key: 'freeze',   icon: <LockOutlined />,      label: '冻结账户',   onClick: handleBatchFreeze },
     { key: 'unfreeze', icon: <UnlockOutlined />,    label: '解冻账户',   onClick: handleBatchUnfreeze },
@@ -262,7 +277,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
       label: <span style={{ color: '#ff4d4f' }}>删除用户</span>,
       onClick: handleBatchDelete,
     },
-    
   ];
 
   // ─── 渲染 ─────────────────────────────────────────────────────────────────
@@ -305,13 +319,18 @@ const Toolbar: React.FC<ToolbarProps> = ({
               <Option key={r.value} value={r.value}>{r.label}</Option>
             ))}
           </Select>
-          <Input
+          <Select
             placeholder="部门"
             style={{ width: 110 }}
-            value={selectedDept}
-            onChange={(e) => onDeptChange(e.target.value)}
+            value={selectedDept || undefined}
+            onChange={(v) => onDeptChange(v ?? '')}
             allowClear
-          />
+            onClear={() => onDeptChange('')}
+          >
+            {deptOptions.map((d) => (
+              <Option key={d.value} value={d.value}>{d.label}</Option>
+            ))}
+          </Select>
         </Space>
 
         {/* 右侧：批量操作 */}
