@@ -1,14 +1,16 @@
 // src/pages/index.tsx
-import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Tabs, message } from 'antd';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Row, Col, Card, Tabs, Modal, message } from 'antd';
 import {
   TeamOutlined,
   LockOutlined,
   CheckOutlined,
   AppstoreOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
+
 import StatsCard from './components/StatsCard';
-import Toolbar from './components/Toolbar';
+import Toolbar from './components/UserToolbar';
 import UserTable, { User } from './components/UserTable';
 import ResumeFieldPanel from './components/ResumeFieldPanel';
 import RoleManager from './components/RoleManager';
@@ -17,37 +19,103 @@ import PromptPanel from './components/PromptPanel';
 import {
   getAllUsers,
   getActiveRoles,
-} from '@/api/manage/userRole';
+  batchAdmitAsMember,
+} from '@/api/manage/userApis';
 
-// 角色选项类型
+const { confirm } = Modal;
+
+// ─── 类型 ─────────────────────────────────────────────────────────────────────
+
 export interface RoleOption {
   value: string;
   label: string;
   color?: string;
 }
 
+// ─── 常量 ─────────────────────────────────────────────────────────────────────
+
+const STATUS_OPTIONS = [
+  { value: '',       label: '全部状态' },
+  { value: 'active', label: '正常'     },
+  { value: 'frozen', label: '冻结'     },
+];
+
+// ─── 防抖 Hook ────────────────────────────────────────────────────────────────
+
+function useDebounce<T>(value: T, delay = 400): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
+// ─── 页面组件 ─────────────────────────────────────────────────────────────────
+
 const Management: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab]             = useState('users');
   const [activeConfigTab, setActiveConfigTab] = useState('resume');
 
-  const [users, setUsers] = useState<User[]>([]);
+  // ── 用户列表 ──────────────────────────────────────────────────────────────
+  const [users, setUsers]     = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // ── 统计数据（全量，仅用于 StatsCard，独立于分页列表） ─────────────────────
+  const [stats, setStats] = useState({
+    total: 0,
+    frozen: 0,
+    nonMember: 0,
+    member: 0,
+  });
+
+  // ── 分页 ──────────────────────────────────────────────────────────────────
+  const [page, setPage]         = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal]       = useState(0);
+
+  // ── Toolbar 状态 ──────────────────────────────────────────────────────────
+  const [searchText, setSearchText]         = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const debouncedSearch = useDebounce(searchText);
+
+  // ── 选中行 / 角色 ─────────────────────────────────────────────────────────
   const [selectedRows, setSelectedRows] = useState<User[]>([]);
-  const [loading, setLoading] = useState<boolean>(false); // 统一管理 loading 状态
+  const [roleOptions, setRoleOptions]   = useState<RoleOption[]>([]);
 
+  // ── 简历 / 提示词（保持原有结构） ─────────────────────────────────────────
   const [resumeFields, setResumeFields] = useState<any[]>([]);
-  const [formPrompts, setFormPrompts] = useState<any[]>([]);
-  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
+  const [formPrompts, setFormPrompts]   = useState<any[]>([]);
 
-  /** 拉取用户列表 */
-  const fetchUsers = async () => {
+  // ── 核心请求：分页列表 ────────────────────────────────────────────────────
+  const fetchUsers = useCallback(async (
+    currentPage: number,
+    currentPageSize: number,
+    keyword: string,
+    status: string,
+  ) => {
     setLoading(true);
     try {
-      
-      const res: any = await getAllUsers();
-      console.log('【1. 后端返回的用户原始数据】:', res);
-      const list = res?.data?.content || (Array.isArray(res?.data) ? res.data : []);
+      const res: any = await getAllUsers({
+        page: String(currentPage),      
+        pageSize: String(currentPageSize), 
+        status: status || undefined,
+      });
+      const data = res?.data;
+      console.log('接口返回:', res);
+      setUsers(res?.data?.content ?? []);     
+      setTotal(res?.data?.totalElements ?? 0);
 
-      setUsers(list);
+      // 利用首次请求或全量数据更新统计卡片
+      // 如果后端有专门的统计接口，可以替换这里
+      if (currentPage === 1 && !keyword && !status) {
+        setStats({
+          total:     data?.totalElement  ?? 0,
+          frozen:    data?.frozenCount  ?? 0,  // 若后端有额外字段则直接用
+          nonMember: data?.nonMemberCount ?? 0,
+          member:    data?.memberCount  ?? 0,
+        });
+      }
     } catch (e) {
       console.error(e);
       message.error('获取用户列表失败');
@@ -55,16 +123,32 @@ const Management: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  /** 拉取可分配角色列表 */
+  // ── 搜索/状态变化 → 回到第 1 页 ──────────────────────────────────────────
+  useEffect(() => {
+    setPage(1);
+    setSelectedRows([]);
+    fetchUsers(1, pageSize, debouncedSearch, selectedStatus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, selectedStatus]);
+
+  // ── 翻页/改 pageSize（跳过首次渲染，避免与上面 effect 重复请求） ──────────
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    fetchUsers(page, pageSize, debouncedSearch, selectedStatus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize]);
+
+  // ── 角色列表 ──────────────────────────────────────────────────────────────
   const fetchRoleOptions = async () => {
     try {
       const res: any = await getActiveRoles();
       const serverRoles = res?.data || res || [];
       const options: RoleOption[] = (Array.isArray(serverRoles) ? serverRoles : []).map(
         (r: any): RoleOption => ({
-          value: String(r.id), // 根据你的后端实际字段可能是 r.roleId
+          value: String(r.id),
           label: r.name,
         }),
       );
@@ -72,28 +156,66 @@ const Management: React.FC = () => {
     } catch (e) {
       console.error(e);
       message.error('获取角色列表失败');
-      setRoleOptions([]);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
     fetchRoleOptions();
   }, []);
 
-  /** 查看用户详情 */
+  // ── 翻页回调 ──────────────────────────────────────────────────────────────
+  const handlePageChange = (newPage: number, newPageSize: number) => {
+    setSelectedRows([]);
+    setPageSize(newPageSize);
+    setPage(newPage);
+  };
+
+  // ── 批量录取为社员 ────────────────────────────────────────────────────────
+  const handleBatchAdmit = () => {
+    const targets = selectedRows.filter((u) => !u.isMember);
+    if (targets.length === 0) {
+      message.warning('所选用户均已是社员，无需重复操作');
+      return;
+    }
+    confirm({
+      title: '确认批量录取为社员？',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <span>
+          将 <b>{targets.length}</b> 名用户录取为社员，此操作不可撤销，是否继续？
+        </span>
+      ),
+      okText: '确认录取',
+      cancelText: '取消',
+      async onOk() {
+        try {
+          await batchAdmitAsMember(targets.map((u) => u.userId));
+          message.success(`成功录取 ${targets.length} 名社员`);
+          setSelectedRows([]);
+          fetchUsers(page, pageSize, debouncedSearch, selectedStatus);
+        } catch (e) {
+          console.error(e);
+          message.error('批量录取失败，请稍后重试');
+        }
+      },
+    });
+  };
+
+  // ── 查看详情 ──────────────────────────────────────────────────────────────
   const handleViewUser = (user: User) => {
+    // TODO: 打开详情 Drawer / Modal
     console.log('查看用户详情', user);
   };
 
+  // ─── 渲染 ─────────────────────────────────────────────────────────────────
   return (
     <div className="management-page">
-      {/* 统计卡片：修复了判定逻辑，完全基于你的 User 接口 */}
+      {/* 统计卡片 */}
       <Row gutter={[24, 24]} className="stats-row">
         <Col xs={24} sm={12} md={6}>
           <StatsCard
             icon={<TeamOutlined style={{ fontSize: 24 }} />}
-            value={users.length}
+            value={stats.total}
             title="总用户数"
             bgColor="rgba(77,166,255,0.1)"
           />
@@ -101,7 +223,7 @@ const Management: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <StatsCard
             icon={<LockOutlined style={{ fontSize: 24 }} />}
-            value={users.filter((u) => u.status === false).length} // 修正：false 代表冻结
+            value={stats.frozen}
             title="冻结账户"
             bgColor="rgba(255,77,79,0.1)"
           />
@@ -109,7 +231,7 @@ const Management: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <StatsCard
             icon={<CheckOutlined style={{ fontSize: 24 }} />}
-            value={users.filter((u) => u.isMember === false).length} // 修正：假设 isMember 为 false 是待审核/非社员
+            value={stats.nonMember}
             title="非社员/待审核"
             bgColor="rgba(82,196,26,0.1)"
           />
@@ -117,7 +239,7 @@ const Management: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <StatsCard
             icon={<AppstoreOutlined style={{ fontSize: 24 }} />}
-            value={users.filter((u) => u.isMember === true).length} // 修正：基于 isMember 统计社员
+            value={stats.member}
             title="社员人数"
             bgColor="rgba(250,140,22,0.1)"
           />
@@ -135,16 +257,17 @@ const Management: React.FC = () => {
               children: (
                 <>
                   <Toolbar
-                    searchText=""
-                    onSearchChange={() => {}}
-                    selectedStatus="all"
-                    onStatusChange={() => {}}
-                    statusOptions={[]}
+                    searchText={searchText}
+                    onSearchChange={setSearchText}
+                    selectedStatus={selectedStatus}
+                    onStatusChange={setSelectedStatus}
+                    statusOptions={STATUS_OPTIONS}
                     selectedRowsCount={selectedRows.length}
-                    onBatchAdmit={() => {}}
                     onClearSelection={() => setSelectedRows([])}
+                    roleOptions={roleOptions}
+                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus)}
+                    selectedRowIds={selectedRows.map((u) => u.userId)}
                   />
-                  {/* 将数据和刷新方法直接传给子组件 */}
                   <UserTable
                     users={users}
                     loading={loading}
@@ -152,7 +275,13 @@ const Management: React.FC = () => {
                     selectedRows={selectedRows}
                     onSelectionChange={setSelectedRows}
                     onView={handleViewUser}
-                    refreshUsers={fetchUsers} 
+                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus)}
+                    pagination={{
+                      current: page,
+                      pageSize,
+                      total,
+                      onChange: handlePageChange,
+                    }}
                   />
                 </>
               ),
@@ -166,9 +295,7 @@ const Management: React.FC = () => {
               key: 'resume',
               label: '简历设置',
               children: (
-
                 <Tabs
-
                   activeKey={activeConfigTab}
                   onChange={setActiveConfigTab}
                   items={[
@@ -180,12 +307,12 @@ const Management: React.FC = () => {
                           fields={resumeFields}
                           onSave={setResumeFields}
                           fieldTypeOptions={[
-                            { value: 'input', label: '文本框' },
+                            { value: 'input',    label: '文本框'   },
                             { value: 'textarea', label: '多行文本' },
-                            { value: 'radio', label: '单选' },
-                            { value: 'checkbox', label: '多选' },
-                            { value: 'select', label: '下拉选择' },
-                            { value: 'custom', label: '照片' },
+                            { value: 'radio',    label: '单选'     },
+                            { value: 'checkbox', label: '多选'     },
+                            { value: 'select',   label: '下拉选择' },
+                            { value: 'custom',   label: '照片'     },
                           ]}
                         />
                       ),

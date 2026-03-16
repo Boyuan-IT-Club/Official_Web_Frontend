@@ -3,14 +3,23 @@
 //import {assignRoleToUser,addRoleToUser, removeRoleFromUser, getUserRoles,getUserRoles_me,getUsersByRole} from '@/api/manage';
 import { request } from '@/utils/request';
 
-// get: 获取用户信息
-export const getAllUsers = () => {
+// get: 获取用户信息列表
+export interface GetUsersParams {
+  dept?: string;
+  page?: string;
+  pageSize?: string;
+  role?: string;
+  status?: string;
+  [property: string]: any;
+}
+
+export const getAllUsers = (params?: GetUsersParams) => {
   return request({
     url: `/api/admin/users`,
     method: 'get',
+    params,
   });
 }
-
 // post：为用户分配角色
 export const assignRoleToUser = (userId: number, roleIds: number[]) => {
   return request({
@@ -96,5 +105,41 @@ export const deleteUser = (userId: number) => {
   return request({
     url: `/api/admin/users/${userId}`,
     method: 'delete',
+  });
+}
+
+// put: 批量冻结用户
+export const batchFreezeUsers = (userIds: number[]) => {
+  return request({
+    url: `/api/admin/users/batch-status`,
+    method: 'put',
+    data: { userIds },
+  });
+}
+
+// put: 批量解冻用户
+export const batchUnfreezeUsers = (userIds: number[]) => {
+  return request({
+    url: `/api/admin/users/batch-status`,
+    method: 'put',
+    data: { userIds },
+  });
+}
+
+// put: 批量修改用户部门
+export const batchUpdateUserDept = (userIds: number[], dept: string) => {
+  return request({
+    url: `/api/admin/users/batch-dept`,
+    method: 'put',
+    data: { userIds, dept },
+  });
+} 
+
+// put : 批量录取为社员
+export const batchAdmitAsMember = (userIds: number[]) => {
+  return request({
+    url: `/api/admin/users/batch-membership`,  
+    method: 'put',
+    data: { userIds },
   });
 }

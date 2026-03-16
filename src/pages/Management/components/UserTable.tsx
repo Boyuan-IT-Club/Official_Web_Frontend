@@ -25,7 +25,7 @@ import {
   freezeUser,
   unfreezeUser,
   deleteUser,
-} from '@/api/manage/userRole';
+} from '@/api/manage/userApis';
 
 const { Option } = Select;
 const { confirm } = Modal;
@@ -60,14 +60,24 @@ interface UserTableProps {
   onSelectionChange: (selected: User[]) => void;
   onView: (user: User) => void;
   refreshUsers: () => void;   // 调用父组件的方法重新拉取数据
+  // 服务端分页
+  pagination: {
+    current: number;
+    pageSize: number;
+    total: number;
+    onChange: (page: number, pageSize: number) => void;
+  };
 }
 
 const UserManage: React.FC<UserTableProps> = ({
   users,
   loading,
   roleOptions,
+  selectedRows,
+  onSelectionChange,
   onView,
   refreshUsers,
+  pagination,
 }) => {
 
   /** 修改角色 */
@@ -275,15 +285,31 @@ const UserManage: React.FC<UserTableProps> = ({
     },
   ];
 
+  const rowSelection = {
+    selectedRowKeys: selectedRows.map((u) => u.userId),
+    onChange: (_: React.Key[], rows: User[]) => onSelectionChange(rows),
+    getCheckboxProps: (record: User) => ({
+      // 已是社员的行置灰，无需再次录取
+      disabled: record.isMember,
+      title: record.isMember ? '已是社员' : '',
+    }),
+  };
+
   return (
     <Table<User>
+      rowSelection={rowSelection}
       columns={columns}
       dataSource={users}
-      rowKey="userId" 
+      rowKey="userId"
       loading={loading}
-      pagination={{ 
-        pageSize: 10,
-        showTotal: (total) => `共 ${total} 条数据` 
+      pagination={{
+        current: pagination.current,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        onChange: pagination.onChange,
+        showSizeChanger: true,
+        pageSizeOptions: ['10', '20', '50'],
+        showTotal: (total) => `共 ${total} 条数据`,
       }}
       locale={{ emptyText: '暂无用户数据' }}
     />
