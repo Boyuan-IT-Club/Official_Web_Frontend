@@ -3,8 +3,8 @@
 //import {assignRoleToUser,addRoleToUser, removeRoleFromUser, getUserRoles,getUserRoles_me,getUsersByRole} from '@/api/manage';
 import { request } from '@/utils/request';
 
-// get: 获取用户信息列表
-export interface GetUsersParams {
+// get: 获取用户信息列表——分页
+interface GetUsersParams {
   dept?: string;
   page?: string;
   pageSize?: string;
@@ -136,10 +136,36 @@ export const batchUpdateUserDept = (userIds: number[], dept: string) => {
 } 
 
 // put : 批量录取为社员
-export const batchAdmitAsMember = (userIds: number[]) => {
+export const batchAdmitAsMember = (ismenber:boolean,userIds: number[]) => {
   return request({
     url: `/api/admin/users/batch-membership`,  
     method: 'put',
-    data: { userIds },
+    data: { ismenber,userIds },
+  });
+}
+
+// put：批量开除社员
+export const batchDismissMember = (ismenber:boolean,userIds: number[]) => {
+  return request({
+    url: `/api/admin/users/batch-membership`,  
+    method: 'put',
+    data: { ismenber,userIds },
+  });
+}
+
+// get: 全局查询（配合搜索栏）
+interface globalUsersParams {
+  keyword?: string;
+  page?: number;
+  searchType?: string;
+  size?: number;
+  [property: string]: any;
+}
+
+export const globalSearch = (params?: globalUsersParams)=>{
+  return request({
+    url: `/api/search/global`,
+    method: 'get',
+    params,
   });
 }

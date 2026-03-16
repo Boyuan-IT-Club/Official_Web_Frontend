@@ -69,15 +69,18 @@ const Management: React.FC = () => {
     member: 0,
   });
 
-  // ── 分页 ──────────────────────────────────────────────────────────────────
+  //  分页 ──────────────────────────────────────────────────────────────────
   const [page, setPage]         = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal]       = useState(0);
 
   // ── Toolbar 状态 ──────────────────────────────────────────────────────────
-  const [searchText, setSearchText]         = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const debouncedSearch = useDebounce(searchText);
+const [searchText, setSearchText]         = useState('');
+const [selectedStatus, setSelectedStatus] = useState('');
+const [selectedRole, setSelectedRole]     = useState(''); 
+const [selectedDept, setSelectedDept]     = useState('');   
+const debouncedSearch = useDebounce(searchText);
+const debouncedDept   = useDebounce(selectedDept);          
 
   // ── 选中行 / 角色 ─────────────────────────────────────────────────────────
   const [selectedRows, setSelectedRows] = useState<User[]>([]);
@@ -93,16 +96,20 @@ const Management: React.FC = () => {
     currentPageSize: number,
     keyword: string,
     status: string,
+    role: string,
+    dept: string
   ) => {
     setLoading(true);
     try {
       const res: any = await getAllUsers({
-        page: String(currentPage),      
+        page: String((currentPage-1)* currentPageSize),      
         pageSize: String(currentPageSize), 
+        keyword: keyword || undefined,
         status: status || undefined,
+        role: role || undefined, 
+        dept:dept.trim() || undefined,  
       });
       const data = res?.data;
-      console.log('接口返回:', res);
       setUsers(res?.data?.content ?? []);     
       setTotal(res?.data?.totalElements ?? 0);
 
@@ -110,7 +117,7 @@ const Management: React.FC = () => {
       // 如果后端有专门的统计接口，可以替换这里
       if (currentPage === 1 && !keyword && !status) {
         setStats({
-          total:     data?.totalElement  ?? 0,
+          total:     data?.totalElements  ?? 0,
           frozen:    data?.frozenCount  ?? 0,  // 若后端有额外字段则直接用
           nonMember: data?.nonMemberCount ?? 0,
           member:    data?.memberCount  ?? 0,
@@ -129,7 +136,8 @@ const Management: React.FC = () => {
   useEffect(() => {
     setPage(1);
     setSelectedRows([]);
-    fetchUsers(1, pageSize, debouncedSearch, selectedStatus);
+  // FIXME 太复杂了，准备封装一下
+    fetchUsers(1, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, selectedStatus]);
 
@@ -137,7 +145,7 @@ const Management: React.FC = () => {
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
-    fetchUsers(page, pageSize, debouncedSearch, selectedStatus);
+    fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize]);
 
@@ -189,10 +197,10 @@ const Management: React.FC = () => {
       cancelText: '取消',
       async onOk() {
         try {
-          await batchAdmitAsMember(targets.map((u) => u.userId));
+          await batchAdmitAsMember(true,targets.map((u) => u.userId));
           message.success(`成功录取 ${targets.length} 名社员`);
           setSelectedRows([]);
-          fetchUsers(page, pageSize, debouncedSearch, selectedStatus);
+          fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept);
         } catch (e) {
           console.error(e);
           message.error('批量录取失败，请稍后重试');
@@ -260,13 +268,18 @@ const Management: React.FC = () => {
                     searchText={searchText}
                     onSearchChange={setSearchText}
                     selectedStatus={selectedStatus}
+                    selectedRole={selectedRole}       
+                    onRoleChange={setSelectedRole}        
+                    selectedDept={selectedDept}           
+                    onDeptChange={setSelectedDept}       
                     onStatusChange={setSelectedStatus}
                     statusOptions={STATUS_OPTIONS}
                     selectedRowsCount={selectedRows.length}
+                     selectedRows={selectedRows}         
+  selectedRowIds={selectedRows.map((u) => u.userId)}      
                     onClearSelection={() => setSelectedRows([])}
                     roleOptions={roleOptions}
-                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus)}
-                    selectedRowIds={selectedRows.map((u) => u.userId)}
+                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept)}
                   />
                   <UserTable
                     users={users}
@@ -275,7 +288,7 @@ const Management: React.FC = () => {
                     selectedRows={selectedRows}
                     onSelectionChange={setSelectedRows}
                     onView={handleViewUser}
-                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus)}
+                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept)}
                     pagination={{
                       current: page,
                       pageSize,
