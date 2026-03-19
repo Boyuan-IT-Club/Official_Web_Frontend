@@ -6,6 +6,10 @@ import Layout from "../pages/Layout";
 import Login from "../pages/Login";
 import Land from "../pages/Land";
 import Dashboard from "../pages/Dashboard";
+import ClubIntro from "../pages/ClubIntro";// 新增社团简介页面
+import Lessons from "../pages/Lessons";//回放
+import Activities from "../pages/Activities";//社团活动分享
+import Experience from "../pages/Experience";
 
 import Publish from "@/pages/Publish";
 import Person from "@/pages/User";
@@ -50,6 +54,25 @@ const router = createBrowserRouter([
     ],
   },
   {
+    path: "/club-intro",
+    element: <ClubIntro />,
+  },
+
+{
+    path: "/Lessons",          
+    element: <Lessons />,     
+  },
+
+  {
+    path:"/Activities",
+    element:<Activities />,
+  },
+
+  {
+  path: "/Experience", 
+  element: <Experience />,
+},
+  {
     path: "/login",
     element: <Login />,
   },
@@ -57,6 +80,7 @@ const router = createBrowserRouter([
     path: "*",
     element: <Navigate to="/" replace />,
   },
+
 ]);
 
 export default router;

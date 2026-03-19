@@ -1,0 +1,204 @@
+// 变量定义 - 保持原有名称不动
+$bg-color: #ffffff;       // 原本的背景蓝变量值为白，现作为内部主框架的底色（白）
+$card-bg: #ffffff;        // 卡片白
+$primary-color: #2980b9;  // 主色调深蓝
+$text-color: #333333;
+$action-color: #4c5886;   // 活动按钮深灰蓝
+$border-radius: 12px;     // 圆角弧度
+
+// 新增：最外层满屏淡蓝色的变量
+$outer-bg: #e3f2fd;       // 柔和的淡蓝色
+
+// 混合宏 - 复用卡片样式 (保持完全不动)
+@mixin card-style {
+  background: $card-bg;
+  border: 3px solid $text-color; 
+  border-radius: $border-radius;
+  position: relative;
+  margin-bottom: 3rem; 
+  padding: 2.5rem 1.5rem 1.5rem 1.5rem; 
+  box-shadow: 6px 6px 0px rgba($text-color, 0.15); 
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 8px 8px 0px rgba($text-color, 0.2);
+  }
+}
+
+// ---------------- 新增：最外层背景框架 ----------------
+.page-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  background-color: $outer-bg; // 撑满屏幕的淡蓝色
+  display: flex;
+  justify-content: center;     // 让内部框架居中
+  align-items: flex-start;     // 顶部对齐
+  padding: 3rem 0;             // 给页面上下留出呼吸空间
+  font-family: "Comic Sans MS", "Microsoft YaHei", sans-serif;
+}
+
+// ---------------- 原有框架（现改造为变窄的内部画板） ----------------
+.boyuan-container {
+  background-color: $bg-color; // 内部底色设为白色，与外层蓝形成对比
+  padding: 2rem 3.5rem;        // 调整内边距，让内容更聚拢
+  color: $text-color;
+  width: 90%;                  // 保证移动端不贴边
+  max-width: 1000px;           // 最大宽度从 1400px 调小到 1000px，实现“变窄”效果
+  border-radius: 24px;         // 给内部框架加个大圆角
+  box-shadow: 0 15px 35px rgba($primary-color, 0.1); // 加一层柔和的阴影，像一张悬浮的白纸
+  
+  display: flex;
+  flex-direction: column; 
+    
+  // --- 顶部导航 (以下内部内容样式保持完全不变) ---
+  .header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 3rem; 
+    padding: 1rem 1.5rem;
+    gap: 15px; 
+    background: rgba($card-bg, 0.6); 
+    border-radius: $border-radius;
+    border: 2px solid rgba($text-color, 0.1);
+
+    .app-logo {
+      width: 48px;       
+      height: 48px;      
+      border-radius: 50%; 
+      border: 2px solid $primary-color; 
+      object-fit: cover;
+    }
+
+    .app-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: $primary-color; 
+      letter-spacing: 1px;
+    }
+
+    .header-actions {
+      margin-left: auto; 
+      display: flex;
+      gap: 12px;
+
+      .action-btn1, .action-btn2 {
+        background-color: $action-color;
+        color: #fff;
+        border: 2px solid transparent;
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+
+        &:hover {
+          background-color: darken($action-color, 8%);
+          transform: translateY(-2px);
+          box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
+        }
+      }
+    }
+  }
+
+  // --- 通用标题样式 ---
+  .section-title-wrapper {
+    position: absolute;
+    top: -18px; 
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: $card-bg; 
+    border: 3px solid $text-color; 
+    border-radius: 20px;
+    padding: 4px 24px;
+    z-index: 1;
+    box-shadow: 3px 3px 0px rgba($text-color, 0.1);
+
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: $primary-color;
+      letter-spacing: 1px;
+    }
+  }
+
+  // --- 社团简介区域 ---
+  .intro-section {
+    @include card-style;
+
+    .intro-content {
+      border: 2px dashed rgba($text-color, 0.3);
+      // 因为外层变成白色了，这里稍微加一点灰蓝底色让框内更突出
+      background-color: rgba($primary-color, 0.05); 
+      min-height: 180px; 
+      border-radius: $border-radius;
+      padding: 2rem;
+      font-size: 1.05rem;
+      line-height: 1.8; 
+    }
+  }
+
+  // --- 部门介绍区域 ---
+  .dept-section {
+    @include card-style;
+
+    .dept-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+      gap: 30px; // 之前的 gap: 90px 太大了，缩小一点适应变窄后的容器
+
+      .dept-card {
+        border: 2px solid rgba($text-color, 0.15);
+        border-radius: $border-radius;
+        padding: 30px 40px;
+        display: flex;
+        align-items: center; 
+        gap: 25px;
+        background: $card-bg;
+        transition: all 0.3s ease;
+
+        &:hover {
+          border-color: $primary-color;
+          background-color: rgba($primary-color, 0.05);
+          transform: scale(1.02);
+        }
+
+        .dept-icon {
+          width: 48px;
+          height: 48px;
+          background-color: lighten($primary-color, 45%); 
+          border: 2px solid $primary-color; 
+          border-radius: 12px; 
+          flex-shrink: 0; 
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: $primary-color;
+          font-weight: bold;
+          font-size: 1.2rem;
+        }
+
+        .dept-info {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+
+          h3 {
+            margin: 0 0 6px 0;
+            font-size: 1.1rem;
+            color: $text-color;
+          }
+          
+          p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: lighten($text-color, 30%);
+            line-height: 1.4;
+          }
+        }
+      }
+    }
+  }
+}
