@@ -66,6 +66,8 @@ body {
     p { font-size: 12px; color: $text-sub; margin-top: 2px; }
   }
 
+
+
   .login-btn {
     display: flex; align-items: center; gap: 6px;
     background-color: $primary-blue; color: $white; 
@@ -79,6 +81,17 @@ body {
       box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
     }
   }
+   .action-btn-admin {
+         background-color: $primary-blue; color: $white;
+        border: 2px solid $text-main;
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        // 配合你原本的手绘硬阴影风格
+        box-shadow: 2px 2px 0px rgba(0,0,0,0.1); 
+   }
 }
 
 /* Hero Banner */
@@ -143,7 +156,9 @@ body {
 /* Main Content Area */
 .main-content {
   padding: 40px 0; flex: 1; overflow: visible !important;
-
+  position: relative; // 确保有这个
+  background-image: radial-gradient(rgba($primary-blue, 0.08) 3px, transparent 3px);
+  background-size: 40px 40px; // 网点的间距大小
   .content-section {
     margin-bottom: 90px; display: flex;
     &.left-align { justify-content: flex-start; }
@@ -292,4 +307,88 @@ body {
   }
 
   .site-footer .footer-grid { grid-template-columns: 1fr; gap: 40px; }
+}
+
+
+//背景
+/* ==========================================
+   背景装饰：动态手绘飘动泡泡
+========================================== */
+.main-content {
+  position: relative; // 确保相对定位，用来限制泡泡的范围
+  // ... (保留你原有的 .main-content 样式)
+}
+
+.floating-bubbles-bg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+
+  span {
+    position: absolute;
+    top: -120px; // 从上面开始
+    border-radius: 50%;
+    background: rgba($light-blue-bg, 0.35);
+    border: 2px solid rgba($primary-blue, 0.3);
+
+    // ✨ 改成更自然的动画
+    animation: floatDown ease-in infinite;
+  }
+
+  @for $i from 1 through 12 {
+    span:nth-child(#{$i}) {
+
+      $size: random(60) + 20 + px;
+      width: $size;
+      height: $size;
+
+      left: random(100) * 1%;
+
+      // ✨ 不同速度（更真实）
+      animation-duration: random(10) + 15 + s;
+
+      // ✨ 随机延迟（避免一起出现）
+      animation-delay: random(10) + s;
+
+      // ✨ 每个泡泡不同摆动幅度
+      --drift: #{random(60) - 30}px;
+      --scale: #{random(20) / 100 + 0.9};
+      --rotate: #{random(60) - 30}deg;
+    }
+  }
+}
+@keyframes floatDown {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.9) rotate(0deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  30% {
+    transform: translateY(30vh)
+      translateX(calc(var(--drift) * 0.5))
+      scale(var(--scale))
+      rotate(calc(var(--rotate) * 0.5));
+  }
+
+  60% {
+    transform: translateY(70vh)
+      translateX(calc(var(--drift)))
+      scale(1.1)
+      rotate(var(--rotate));
+  }
+
+  100% {
+    transform: translateY(120vh)
+      translateX(calc(var(--drift) * -0.5))
+      scale(0.95)
+      rotate(calc(var(--rotate) * -1));
+    opacity: 0;
+  }
 }

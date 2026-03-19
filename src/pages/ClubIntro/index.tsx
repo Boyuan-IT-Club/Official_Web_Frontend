@@ -33,7 +33,9 @@ const ClubIntro: React.FC = () => {
         <img src={logoImg} alt="社团Logo" className="app-logo" />
         <div className="app-title">Boyuan Club</div>
         <div className="header-actions">
-          
+              <button className="action-btn-admin" onClick={() => navigate('/admin')}>
+              管理员入口
+              </button>
             <button className="action-btn1" onClick={() => navigate('/')}>返回首页</button>
           
             <button className="action-btn2" onClick={() => navigate('/login')}>登录/注册</button>

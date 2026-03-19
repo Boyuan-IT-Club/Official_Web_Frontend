@@ -45,10 +45,10 @@ const pastActivitiesData: PastActivity[] = [
   },
   {
     id: 2,
-    title: "--",
+    title: "Owner-Pro 项目工坊",
     date: "2023年10月",
     
-    summary: "-"
+    summary: "从前端到后端，从设计到部署，系统学习网站制作全流程，打造属于自己的数字作品"
   },
 
 ];
@@ -73,7 +73,7 @@ const Activities: React.FC = () => {
         {/* --- 第一部分：活动公告 --- */}
         <section className="section-block">
           <div className="section-title-wrapper">
-            <h2>📢 最新公告</h2>
+            <h2>最新公告</h2>
           </div>
           
           <div className="announcement-list">
@@ -101,7 +101,7 @@ const Activities: React.FC = () => {
         {/* --- 第二部分：往期回顾 --- */}
         <section className="section-block">
           <div className="section-title-wrapper">
-            <h2>📸 往期精彩瞬间</h2>
+            <h2>往期精彩瞬间</h2>
           </div>
           
           <div className="past-grid">

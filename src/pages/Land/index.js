@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LogIn, Users, Rocket, Trophy, Globe } from 'lucide-react';
 import './index.scss';
 import { useNavigate } from 'react-router-dom';//添加路由
+import singleLogo from '../../assets/SingleLogo.png';
 
 const Land: React.FC = () => {
   const [activeTab, setActiveTab] = useState('intro');
@@ -76,7 +77,7 @@ const Land: React.FC = () => {
         <div className="container">
           <div className="logo-area">
             <img 
-              src={require('../../assets/SingleLogo.png')} 
+              src={singleLogo} 
               className="logo-placeholder" 
               alt="logo" 
             />
@@ -85,6 +86,7 @@ const Land: React.FC = () => {
               <p>卓越技术 · 绝佳创意 · 实践平台</p>
             </div>
           </div>
+          
           <button
             className="login-btn"
             onClick={() => navigate('/login')}
@@ -92,8 +94,9 @@ const Land: React.FC = () => {
             <LogIn size={18} />
             <span>登录 / 注册</span>
           </button>
-
-        </div>
+          
+  </div>
+        
       </header>
 
       {/* Hero Section */}
@@ -124,8 +127,16 @@ const Land: React.FC = () => {
 
       {/* Main Content */}
       <main className="main-content">
+
+
+        <div className="floating-bubbles-bg">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+         </div>
         {/* 1. 传统的卡片布局容器 */}
         <div className="container">
+
           {/* Intro Section */}
           <section className="content-section left-align" id="intro">
             <div className="card info-card">

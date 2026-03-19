@@ -28,7 +28,7 @@ $outer-bg: #e3f2fd;       // 淡蓝外背景
   color: $text-color;
   width: 90%;                  
   max-width: 1000px;           
-  border-radius: 24px;         
+  border-radius: 0;         
   border: 3px solid $text-color; // 手绘风粗边框
   box-shadow: 12px 12px 0px rgba($text-color, 0.1); 
   
@@ -69,10 +69,7 @@ $outer-bg: #e3f2fd;       // 淡蓝外背景
       cursor: pointer;
       transition: all 0.2s;
       
-      &:hover {
-        background-color: rgba($text-color, 0.05);
-        transform: translateX(-3px);
-      }
+
     }
   }
 
@@ -120,10 +117,7 @@ $outer-bg: #e3f2fd;       // 淡蓝外背景
       padding: 1.5rem;
       transition: transform 0.3s ease;
 
-      &:hover {
-        transform: translateY(-3px);
-        box-shadow: 6px 6px 0px rgba($primary-color, 0.1);
-      }
+     
 
       .card-header {
         display: flex;
@@ -214,11 +208,9 @@ $outer-bg: #e3f2fd;       // 淡蓝外背景
       transition: all 0.3s ease;
 
       &:hover {
-        transform: translateY(-5px);
+       
         box-shadow: 8px 8px 0px rgba($text-color, 0.2);
-        .image-box img {
-          transform: scale(1.05);
-        }
+       
       }
 
       .image-box {
