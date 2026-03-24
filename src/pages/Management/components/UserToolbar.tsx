@@ -1,4 +1,5 @@
 // src/pages/components/UserToolbar.tsx
+// NOTE UserManage的子组件，用于搜索/筛选/批量操作
 import React, { useState, useEffect } from 'react';
 import {
   Space, Input, Select, Button, Badge, Dropdown,
@@ -111,15 +112,15 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
   // ── 批量修改部门弹窗 ────────────────────────────────────────────────────
   const [deptModalOpen, setDeptModalOpen] = useState(false);
-  const [deptValue, setDeptValue] = useState('');
+  const [selectedDeptId, setSelectedDeptId] = useState('');
 
   const handleBatchUpdateDept = async () => {
-    if (!deptValue.trim()) { message.warning('请输入部门名称'); return; }
+    if (!selectedDeptId.trim()) { message.warning('请输入部门名称'); return; }
     try {
-      await batchUpdateUserDept(selectedRowIds, deptValue.trim());
+      await batchUpdateUserDept(selectedRowIds, selectedDeptId.trim());
       message.success(`已更新 ${selectedRowsCount} 名用户的部门`);
       setDeptModalOpen(false);
-      setDeptValue('');
+      setSelectedDeptId('');
       onClearSelection();
       refreshUsers();
     } catch (e) {
@@ -293,16 +294,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
             onChange={(e) => onSearchChange(e.target.value)}
             allowClear
           />
+          {/*状态筛选 */}
           <Select
             placeholder="账号状态"
-            style={{ width: 100 }}
-            value={selectedStatus || undefined}
+            style={{ width: 120 }}
+            value={selectedStatus}
             onChange={(v) => onStatusChange(v ?? '')}
             allowClear
             onClear={() => onStatusChange('')}
           >
             {statusOptions
-              .filter((o) => o.value !== '')
               .map((opt) => (
                 <Option key={opt.value} value={opt.value}>{opt.label}</Option>
               ))}
@@ -367,11 +368,13 @@ const Toolbar: React.FC<ToolbarProps> = ({
         title="批量修改部门"
         open={deptModalOpen}
         onOk={handleBatchUpdateDept}
-        onCancel={() => { setDeptModalOpen(false); setDeptValue(''); }}
+        onCancel={() => { setDeptModalOpen(false); setSelectedDeptId('undefined'); }}
         okText="确认修改" cancelText="取消"
       >
         <p>为已选 <b>{selectedRowsCount}</b> 名用户设置部门：</p>
-        <Input placeholder="请输入部门名称" value={deptValue} onChange={(e) => setDeptValue(e.target.value)} />
+        <Select style={{ width: '100%' }} placeholder="请选择部门" value={selectedDeptId} onChange={setSelectedDeptId}>
+          {deptOptions.map((r) => <Option key={r.value} value={r.value}>{r.label}</Option>)}
+        </Select>
       </Modal>
     </>
   );

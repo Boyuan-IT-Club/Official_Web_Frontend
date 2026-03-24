@@ -26,7 +26,7 @@ export interface User {
   password: string;
   phone: null | string;
   role: string;
-  status: boolean;   // true = 正常，false = 冻结
+  status: boolean;   // True = 正常，False = 冻结
   userId: number;
   username: string;
   [property: string]: any;

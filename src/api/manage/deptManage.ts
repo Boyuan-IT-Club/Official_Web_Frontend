@@ -1,61 +1,61 @@
 // 部门管理相关
-import {request} from '@/utils/request';
+import { request } from '@/utils/request';
 
-// post: 创建部门
-interface deptData {
-    deptCode: string;
-    deptId?: number;
-    deptName: string;
-    description?: string;
-    status?: number;
-    [property: string]: any;
+export interface DeptData {
+  deptCode: string;
+  deptId?: number;
+  deptName: string;
+  description?: string;
+  status?: number;
+  [property: string]: any;
 }
 
-export const createDept = (params?:deptData) => {
+// POST: 创建部门
+export const createDept = (data?: DeptData) => {
   return request({
     url: '/api/departments',
     method: 'post',
-    params
+    data,                          // ✅ 修复：POST 用 data，不是 params
   });
-}
+};
 
-// get: 获取部门列表
-export const getDept = ()=>{
+// GET: 获取部门列表
+export const getDept = () => {
   return request({
-    url: `/api/departments`,
+    url: '/api/departments',
     method: 'get',
   });
-}
+};
 
-// put: 更新部门
-export const updateDept= (deptId: number) => {
+// PUT: 更新部门
+export const updateDept = (deptId: number, data: DeptData) => {
   return request({
-    url: `/api/admin/users/batch-status`,
+    url: `/api/departments/${deptId}`,  // ✅ 修复：URL 写错了
     method: 'put',
-    data: deptId
+    data,                               // ✅ 修复：补上 data 参数
   });
-}
+};
 
-// delete： 删除部门
+// DELETE: 删除部门
 export const deleteDept = (deptId: number) => {
   return request({
-    url: `/api/admin/users/${deptId}`,
+    url: `/api/departments/${deptId}`,  // ✅ 修复：URL 写错了
     method: 'delete',
   });
-}
+};
 
-// get：获取部门详情
-export const getDeptInfo = (deptId: number)=>{
+// GET: 获取部门详情
+export const getDeptInfo = (deptId: number) => {
   return request({
     url: `/api/departments/${deptId}`,
     method: 'get',
   });
-}
+};
 
-// get: 获取启用部门
-export const getValidDept = ()=>{
+// GET: 获取启用部门
+export const getValidDept = () => {
   return request({
-    url: `/api/departments/enabled`,
+    url: '/api/departments/enabled',
     method: 'get',
   });
-}
+};

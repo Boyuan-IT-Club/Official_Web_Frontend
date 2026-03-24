@@ -136,20 +136,19 @@ export const batchUpdateUserDept = (userIds: number[], dept: string) => {
 } 
 
 // put : 批量录取为社员
-export const batchAdmitAsMember = (ismenber:boolean,userIds: number[]) => {
+export const batchAdmitAsMember = (isMember: boolean, userIds: number[]) => {
   return request({
-    url: `/api/admin/users/batch-membership`,  
+    url: `/api/admin/users/batch-membership`,
     method: 'put',
-    data: { ismenber,userIds },
+    data: { isMember, userIds },
   });
 }
-
 // put：批量开除社员
-export const batchDismissMember = (ismenber:boolean,userIds: number[]) => {
+export const batchDismissMember = (isMember:boolean,userIds: number[]) => {
   return request({
     url: `/api/admin/users/batch-membership`,  
     method: 'put',
-    data: { ismenber,userIds },
+    data: { isMember,userIds },
   });
 }
 

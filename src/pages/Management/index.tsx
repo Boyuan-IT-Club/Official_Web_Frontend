@@ -15,6 +15,7 @@ import UserTable, { User } from './components/UserTable';
 import ResumeFieldPanel from './components/ResumeFieldPanel';
 import RoleManager from './components/RoleManager';
 import PromptPanel from './components/PromptPanel';
+import DeptManage from './components/DeptManage'
 
 import {
   getAllUsers,
@@ -344,6 +345,11 @@ const debouncedDept   = useDebounce(selectedDept);
                 />
               ),
             },
+            {
+              key: 'dept',
+              label: '部门管理',
+              children: <DeptManage />,
+            }
           ]}
         />
       </Card>
