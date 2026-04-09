@@ -13,6 +13,7 @@ $white: #ffffff;
 $text-main: #333333;
 $text-sub: #666666;
 $border-color: #333333;    
+$primary-light-blue:#175cf1;
 $shadow-sm: 6px 6px 0px rgba(51, 51, 51, 0.15); 
 $shadow-md: 8px 8px 0px rgba(51, 51, 51, 0.2); 
 
@@ -111,8 +112,11 @@ body {
   .hero-content {
     transform: translateY(-40px);
     text-align: center; color: $text-main; z-index: 1;
-    h1 { font-size: 5.0rem; font-weight: 800; margin-bottom: 12px; color: $primary-blue; text-shadow: 3px 3px 0px rgba($text-main, 0.1); }
-    p { font-size: 1.3rem; opacity: 0.85; letter-spacing: 3px; font-weight: bold; }
+    h1 { font-size: 5.0rem; font-weight: 800; margin-bottom: 12px; 
+      color: $primary-light-blue; 
+      text-shadow: 3px 3px 0px rgba($text-main, 0.1); }
+    p { font-size: 1.3rem; opacity: 0.85; 
+      letter-spacing: 3px; font-weight: bold; }
   }
 }
 
