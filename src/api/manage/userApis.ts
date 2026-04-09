@@ -3,14 +3,23 @@
 //import {assignRoleToUser,addRoleToUser, removeRoleFromUser, getUserRoles,getUserRoles_me,getUsersByRole} from '@/api/manage';
 import { request } from '@/utils/request';
 
-// get: 获取用户信息
-export const getAllUsers = () => {
+// get: 获取用户信息列表——分页
+interface GetUsersParams {
+  dept?: string;
+  page?: string;
+  pageSize?: string;
+  role?: string;
+  status?: string;
+  [property: string]: any;
+}
+
+export const getAllUsers = (params?: GetUsersParams) => {
   return request({
     url: `/api/admin/users`,
     method: 'get',
+    params,
   });
 }
-
 // post：为用户分配角色
 export const assignRoleToUser = (userId: number, roleIds: number[]) => {
   return request({
@@ -96,5 +105,66 @@ export const deleteUser = (userId: number) => {
   return request({
     url: `/api/admin/users/${userId}`,
     method: 'delete',
+  });
+}
+
+// put: 批量冻结用户
+export const batchFreezeUsers = (userIds: number[]) => {
+  return request({
+    url: `/api/admin/users/batch-status`,
+    method: 'put',
+    data: { userIds },
+  });
+}
+
+// put: 批量解冻用户
+export const batchUnfreezeUsers = (userIds: number[]) => {
+  return request({
+    url: `/api/admin/users/batch-status`,
+    method: 'put',
+    data: { userIds },
+  });
+}
+
+// put: 批量修改用户部门
+export const batchUpdateUserDept = (userIds: number[], dept: string) => {
+  return request({
+    url: `/api/admin/users/batch-dept`,
+    method: 'put',
+    data: { userIds, dept },
+  });
+} 
+
+// put : 批量录取为社员
+export const batchAdmitAsMember = (isMember: boolean, userIds: number[]) => {
+  return request({
+    url: `/api/admin/users/batch-membership`,
+    method: 'put',
+    data: { isMember, userIds },
+  });
+}
+// put：批量开除社员
+export const batchDismissMember = (isMember:boolean,userIds: number[]) => {
+  return request({
+    url: `/api/admin/users/batch-membership`,  
+    method: 'put',
+    data: { isMember,userIds },
+  });
+}
+
+// get: 全局查询（配合搜索栏）
+interface globalUsersParams {
+  keyword?: string;
+  page?: number;
+  searchType?: string;
+  size?: number;
+  [property: string]: any;
+}
+
+export const globalSearch = (params?: globalUsersParams)=>{
+  return request({
+    url: `/api/search/global`,
+    method: 'get',
+    params,
   });
 }
