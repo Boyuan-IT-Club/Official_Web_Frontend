@@ -121,7 +121,7 @@ const UserManagePage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [globalSearch, getAllUsers, setLoading, setUsers, setTotal, message]);
+  }, []);
 
   // ── 初始化：获取角色选项 ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -178,7 +178,7 @@ useEffect(() => {
     // 筛选条件未变化，正常获取数据（分页变化时）
     fetchUsers(page, pageSize, filterParams);
   }
-}, [fetchUsers, page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept]);
+}, [page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept]);
 
 // ── 翻页回调 ──────────────────────────────────────────────────────────────
 const handlePageChange = useCallback((newPage: number, newPageSize: number) => {
