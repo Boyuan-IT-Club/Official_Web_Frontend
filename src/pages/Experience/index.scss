@@ -1,0 +1,284 @@
+// 文件位置：src/pages/Experiences/Experiences.scss
+
+$bg-color: #ffffff;       
+$card-bg: #ffffff;        
+$primary-color: #2980b9;  
+$text-color: #333333;
+$action-color: #4c5886;   
+$border-radius: 12px;     
+$outer-bg: #e3f2fd;       
+
+.page-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  background-color: $outer-bg; 
+  display: flex;
+  justify-content: center;     
+  align-items: flex-start;     
+  padding: 3rem 0;             
+  font-family: "Comic Sans MS", "Microsoft YaHei", sans-serif;
+}
+
+.experiences-container {
+  background-color: $bg-color; 
+  padding: 3rem 3.5rem;        
+  color: $text-color;
+  width: 90%;                  
+  max-width: 1000px;           
+  border-radius: 24px;         
+  border: 3px solid $text-color; 
+  box-shadow: 12px 12px 0px rgba($text-color, 0.1); 
+  display: flex;
+  flex-direction: column; 
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px dashed rgba($text-color, 0.2); 
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+
+    .title-area {
+      h1 {
+        color: $primary-color;
+        margin: 0 0 8px 0;
+        font-size: 2rem;
+        font-weight: 900;
+        letter-spacing: 1px;
+      }
+      p {
+        margin: 0;
+        color: lighten($text-color, 20%);
+        font-size: 1rem;
+      }
+    }
+
+    .back-btn {
+      background-color: transparent;
+      color: $text-color;
+      border: 2px solid $text-color;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      
+      &:hover {
+        background-color: rgba($text-color, 0.05);
+        transform: translateX(-3px);
+      }
+    }
+  }
+
+  // --- 控制栏（搜索与排序） ---
+  .controls-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: $bg-color;
+      border: 3px solid $text-color; // 手绘风粗边框
+      border-radius: 20px;
+      padding: 8px 16px;
+      flex-grow: 1;
+      max-width: 400px;
+      box-shadow: 4px 4px 0px rgba($text-color, 0.1);
+      transition: all 0.3s ease;
+
+      &:focus-within {
+        transform: translateY(-2px);
+        box-shadow: 6px 6px 0px rgba($primary-color, 0.2);
+        border-color: $primary-color;
+      }
+
+      .search-icon {
+        font-size: 1.2rem;
+        margin-right: 10px;
+      }
+
+      input {
+        border: none;
+        outline: none;
+        width: 100%;
+        font-size: 1rem;
+        background: transparent;
+        color: $text-color;
+        font-family: inherit;
+
+        &::placeholder {
+          color: lighten($text-color, 40%);
+        }
+      }
+    }
+
+    .sort-btn {
+      background-color: rgba($primary-color, 0.1);
+      color: $primary-color;
+      border: 2px dashed $primary-color;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+
+    }
+  }
+
+  // --- 经验卡片列表 ---
+  .experience-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+
+    .experience-card {
+      display: flex;
+      background: $card-bg;
+      border: 3px solid $text-color;
+      border-radius: $border-radius;
+      padding: 2rem;
+      box-shadow: 6px 6px 0px rgba($text-color, 0.15);
+      transition: transform 0.3s ease;
+      gap: 2rem;
+
+      &:hover {
+        transform: translateY(-4px);
+        box-shadow: 8px 8px 0px rgba($primary-color, 0.15);
+        border-color: $primary-color;
+      }
+
+      // 左侧头像区
+      .card-left {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 100px;
+        flex-shrink: 0;
+
+        .avatar {
+          width: 70px;
+          height: 70px;
+          border-radius: 50%;
+          border: 3px solid $text-color;
+          background-color: #f1f2f6; // 头像底色
+          margin-bottom: 10px;
+          box-shadow: 3px 3px 0px rgba($text-color, 0.1);
+        }
+
+        .senior-name {
+          font-weight: 900;
+          color: $text-color;
+          font-size: 1.05rem;
+          text-align: center;
+        }
+      }
+
+      // 右侧内容区
+      .card-right {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+
+        .info-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 1rem;
+          gap: 1rem;
+
+          .topic {
+            margin: 0;
+            font-size: 1.3rem;
+            color: $primary-color;
+            line-height: 1.4;
+          }
+
+          .date-badge {
+            background-color: $text-color;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            white-space: nowrap; // 防止日期换行
+          }
+        }
+
+        // 留言框样式的总结区域
+        .summary-box {
+          position: relative;
+          background-color: rgba($action-color, 0.04);
+          border-radius: 8px;
+          padding: 1.2rem;
+          border-left: 4px solid $action-color;
+
+          .quote-mark {
+            position: absolute;
+            top: -10px;
+            left: 5px;
+            font-size: 2.5rem;
+            color: rgba($action-color, 0.2);
+            font-family: serif;
+          }
+
+          p {
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: lighten($text-color, 10%);
+            position: relative;
+            z-index: 1;
+          }
+        }
+      }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem;
+      color: lighten($text-color, 40%);
+      font-size: 1.1rem;
+      font-weight: bold;
+      border: 2px dashed rgba($text-color, 0.2);
+      border-radius: $border-radius;
+      background-color: rgba($bg-color, 0.5);
+    }
+  }
+}
+
+// 移动端简单适配
+@media (max-width: 768px) {
+  .experiences-container {
+    padding: 2rem 1.5rem;
+
+    .controls-section {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .experience-card {
+      flex-direction: column; // 手机端改为上下布局
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+
+      .card-right {
+        .info-header {
+          flex-direction: column;
+          align-items: center;
+        }
+        
+        .summary-box {
+          text-align: left; // 详情内容保持左对齐
+        }
+      }
+    }
+  }
+}
