@@ -1,6 +1,21 @@
 // 角色控制模块
 import {request} from '@/utils/request';
 
+ 
+//NOTE - 类型
+export interface RoleData {
+  roleName: string;
+  roleCode: string;
+  description?: string;
+  status?: number;
+}
+ 
+export interface Role extends RoleData {
+  roleId: number;
+}
+ 
+
+//NOTE - 接口
 // post: 创建角色
 export const createRole = (roleData) => {
   return request({
