@@ -1,4 +1,4 @@
-// src/pages/index.tsx
+// src/pages/Management/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Row, Col, Card, Tabs, Modal, message } from 'antd';
 import {
@@ -15,7 +15,7 @@ import UserTable, { User } from './components/UserTable';
 import ResumeFieldPanel from './components/ResumeFieldPanel';
 import RoleManager from './components/RoleManager';
 import PromptPanel from './components/PromptPanel';
-import DeptManage from './components/DeptManage'
+import DeptManage from './components/DeptManage';
 
 // 导入API
 import {
@@ -23,6 +23,15 @@ import {
   getActiveRoles,
   batchAdmitAsMember,
 } from '@/api/manage/userApis';
+
+import {
+  getResumeFields,
+  batchUpdateResumeFields,
+  initResumeFields,
+  DEFAULT_RESUME_FIELDS,
+} from '@/api/manage/resumeEntry';
+
+import type { ResumeFieldUI } from '@/api/manage/resumeEntry';
 
 const { confirm } = Modal;
 
@@ -41,6 +50,9 @@ const STATUS_OPTIONS = [
   { value: 'active', label: '正常'     },
   { value: 'frozen', label: '冻结'     },
 ];
+
+// 当前招新周期 ID，可根据实际情况改为从接口/store 获取
+const CURRENT_CYCLE_ID = 1;
 
 // ─── 防抖 Hook ────────────────────────────────────────────────────────────────
 
@@ -71,25 +83,25 @@ const Management: React.FC = () => {
     member: 0,
   });
 
-  //  分页 ──────────────────────────────────────────────────────────────────
+  // ── 分页 ──────────────────────────────────────────────────────────────────
   const [page, setPage]         = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal]       = useState(0);
 
   // ── Toolbar 状态 ──────────────────────────────────────────────────────────
-const [searchText, setSearchText]         = useState('');
-const [selectedStatus, setSelectedStatus] = useState('');
-const [selectedRole, setSelectedRole]     = useState(''); 
-const [selectedDept, setSelectedDept]     = useState('');   
-const debouncedSearch = useDebounce(searchText);
-const debouncedDept   = useDebounce(selectedDept);          
+  const [searchText, setSearchText]         = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedRole, setSelectedRole]     = useState('');
+  const [selectedDept, setSelectedDept]     = useState('');
+  const debouncedSearch = useDebounce(searchText);
+  const debouncedDept   = useDebounce(selectedDept);
 
   // ── 选中行 / 角色 ─────────────────────────────────────────────────────────
   const [selectedRows, setSelectedRows] = useState<User[]>([]);
   const [roleOptions, setRoleOptions]   = useState<RoleOption[]>([]);
 
-  // ── 简历 / 提示词（保持原有结构） ─────────────────────────────────────────
-  const [resumeFields, setResumeFields] = useState<any[]>([]);
+  // ── 简历 / 提示词 ─────────────────────────────────────────────────────────
+  const [resumeFields, setResumeFields] = useState<ResumeFieldUI[]>([]);
   const [formPrompts, setFormPrompts]   = useState<any[]>([]);
 
   // ── 核心请求：分页列表 ────────────────────────────────────────────────────
@@ -99,30 +111,28 @@ const debouncedDept   = useDebounce(selectedDept);
     keyword: string,
     status: string,
     role: string,
-    dept: string
+    dept: string,
   ) => {
     setLoading(true);
     try {
       const res: any = await getAllUsers({
-        page: String((currentPage-1)* currentPageSize),      
-        pageSize: String(currentPageSize), 
-        keyword: keyword || undefined,
-        status: status || undefined,
-        role: role || undefined, 
-        dept:dept.trim() || undefined,  
+        page:     String((currentPage - 1) * currentPageSize),
+        pageSize: String(currentPageSize),
+        keyword:  keyword || undefined,
+        status:   status  || undefined,
+        role:     role    || undefined,
+        dept:     dept.trim() || undefined,
       });
       const data = res?.data;
-      setUsers(res?.data?.content ?? []);     
-      setTotal(res?.data?.totalElements ?? 0);
+      setUsers(data?.content ?? []);
+      setTotal(data?.totalElements ?? 0);
 
-      // 利用首次请求或全量数据更新统计卡片
-      // 如果后端有专门的统计接口，可以替换这里
       if (currentPage === 1 && !keyword && !status) {
         setStats({
           total:     data?.totalElements  ?? 0,
-          frozen:    data?.frozenCount  ?? 0,  // 若后端有额外字段则直接用
+          frozen:    data?.frozenCount    ?? 0,
           nonMember: data?.nonMemberCount ?? 0,
-          member:    data?.memberCount  ?? 0,
+          member:    data?.memberCount    ?? 0,
         });
       }
     } catch (e) {
@@ -138,16 +148,15 @@ const debouncedDept   = useDebounce(selectedDept);
   useEffect(() => {
     setPage(1);
     setSelectedRows([]);
-  // FIXME 太复杂了，准备封装一下
-    fetchUsers(1, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept);
+    fetchUsers(1, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, selectedStatus, selectedRole, debouncedDept]);
 
-  // ── 翻页/改 pageSize（跳过首次渲染，避免与上面 effect 重复请求） ──────────
+  // ── 翻页/改 pageSize ──────────────────────────────────────────────────────
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
-    fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept);
+    fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize]);
 
@@ -169,9 +178,41 @@ const debouncedDept   = useDebounce(selectedDept);
     }
   };
 
+  // ── 简历字段 ──────────────────────────────────────────────────────────────
+  const fetchResumeFields = useCallback(async () => {
+    try {
+      const res: any = await getResumeFields(CURRENT_CYCLE_ID);
+      setResumeFields(res?.data ?? []);
+    } catch (e) {
+      console.error(e);
+      message.error('获取简历字段失败');
+    }
+  }, []);
+
+  const handleSaveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> => {
+    await batchUpdateResumeFields(fields);
+    await fetchResumeFields();
+  };
+
+  const handleResetToDefault = async () => {
+    try {
+      // 用默认字段初始化到后端，再重新拉取
+      await initResumeFields(CURRENT_CYCLE_ID);
+      await fetchResumeFields();
+      message.success('已加载默认配置');
+    } catch (e) {
+      console.error(e);
+      // 接口失败时直接用本地默认值兜底
+      setResumeFields(DEFAULT_RESUME_FIELDS);
+      message.warning('后端初始化失败，已加载本地默认配置');
+    }
+  };
+
+  // ── 初始化 ────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchRoleOptions();
-    fetchResumeFields(); // 初始化时获取简历字段
+    fetchResumeFields();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchResumeFields]);
 
   // ── 翻页回调 ──────────────────────────────────────────────────────────────
@@ -203,7 +244,7 @@ const debouncedDept   = useDebounce(selectedDept);
           await batchAdmitAsMember(true, targets.map((u) => u.userId));
           message.success(`成功录取 ${targets.length} 名社员`);
           setSelectedRows([]);
-          fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept);
+          fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept);
         } catch (e) {
           console.error(e);
           message.error('批量录取失败，请稍后重试');
@@ -271,18 +312,18 @@ const debouncedDept   = useDebounce(selectedDept);
                     searchText={searchText}
                     onSearchChange={setSearchText}
                     selectedStatus={selectedStatus}
-                    selectedRole={selectedRole}       
-                    onRoleChange={setSelectedRole}        
-                    selectedDept={selectedDept}           
-                    onDeptChange={setSelectedDept}       
+                    selectedRole={selectedRole}
+                    onRoleChange={setSelectedRole}
+                    selectedDept={selectedDept}
+                    onDeptChange={setSelectedDept}
                     onStatusChange={setSelectedStatus}
                     statusOptions={STATUS_OPTIONS}
                     selectedRowsCount={selectedRows.length}
-                     selectedRows={selectedRows}         
-  selectedRowIds={selectedRows.map((u) => u.userId)}      
+                    selectedRows={selectedRows}
+                    selectedRowIds={selectedRows.map((u) => u.userId)}
                     onClearSelection={() => setSelectedRows([])}
                     roleOptions={roleOptions}
-                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept)}
+                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept)}
                   />
                   <UserTable
                     users={users}
@@ -291,7 +332,7 @@ const debouncedDept   = useDebounce(selectedDept);
                     selectedRows={selectedRows}
                     onSelectionChange={setSelectedRows}
                     onView={handleViewUser}
-                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus,selectedRole,debouncedDept)}
+                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept)}
                     pagination={{
                       current: page,
                       pageSize,
@@ -354,7 +395,7 @@ const debouncedDept   = useDebounce(selectedDept);
               key: 'dept',
               label: '部门管理',
               children: <DeptManage />,
-            }
+            },
           ]}
         />
       </Card>
