@@ -75,7 +75,7 @@ const Activities: React.FC = () => {
           <div className="section-title-wrapper">
             <h2>最新公告</h2>
           </div>
-          
+          <p className="section-description">了解更多动态:关注公众号ECNUCoder</p>
           <div className="announcement-list">
             {announcementsData.map(item => (
               <div className="announcement-card" key={item.id}>

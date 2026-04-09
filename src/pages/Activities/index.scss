@@ -80,6 +80,22 @@ $outer-bg: #e3f2fd;       // 淡蓝外背景
     border-radius: $border-radius;
     padding: 3rem 2rem 2rem 2rem; // 顶部留出空间给徽章标题
     background: rgba($primary-color, 0.02); // 极淡的底色区分区块
+     .section-description {
+      text-align: center;
+      margin-top: -0.5rem;   // 向上微调，靠近标题
+      margin-bottom: 2rem;    // 与下方内容保持距离
+      color: lighten($text-color, 25%);
+      font-size: 0.95rem;
+      font-style: italic;     // 可选：斜体增加区分度
+      
+      // 如果你想让它更有“手绘感”，可以加个淡背景
+      display: block;
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+      border-bottom: 1px dashed rgba($text-color, 0.3);
+      padding-bottom: 4px;
+    }
 
     // 徽章样式的标题
     .section-title-wrapper {

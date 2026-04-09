@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LogIn, Users, Rocket, Trophy, Globe } from 'lucide-react';
 import './index.scss';
-import { useNavigate } from 'react-router-dom';//添加路由
+import { useNavigate } from 'react-router-dom';
 import singleLogo from '../../assets/SingleLogo.png';
 
 const Land: React.FC = () => {
   const [activeTab, setActiveTab] = useState('intro');
   const isClickScrolling = useRef(false);
-  const navigate = useNavigate();//能夠跳轉
-
+  const navigate = useNavigate();
 
   const navItems = [
     { id: 'intro', label: '关于我们' },
@@ -17,25 +16,20 @@ const Land: React.FC = () => {
     { id: 'share', label: '技术分享' },
   ];
 
-  // 点击导航滚动逻辑
   const scrollToSection = (id: string) => {
     const section = document.getElementById(id);
     if (!section) return;
-
     const card = section.querySelector('.card');
     const rect = card ? card.getBoundingClientRect() : section.getBoundingClientRect();
     const cardCenter = rect.top + window.scrollY + rect.height / 2;
     const viewportCenter = window.innerHeight / 2;
     const targetScrollTop = cardCenter - viewportCenter;
-
     isClickScrolling.current = true;
     window.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
     setActiveTab(id);
-
     setTimeout(() => { isClickScrolling.current = false; }, 1000);
   };
 
-  // 自动高亮导航项
   useEffect(() => {
     const handleScroll = () => {
       if (isClickScrolling.current) return;
@@ -53,12 +47,10 @@ const Land: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 吸顶导航逻辑
   useEffect(() => {
     const nav = document.querySelector('.js-sticky-nav');
     if (!nav) return;
     const navTop = nav.getBoundingClientRect().top + window.scrollY;
-
     const onScroll = () => {
       if (window.scrollY >= navTop) {
         nav.classList.add('is-fixed');
@@ -72,34 +64,29 @@ const Land: React.FC = () => {
 
   return (
     <div className="page-container">
-      {/* Header */}
+      {/* --- 修改后的 Header 部分 --- */}
       <header className="top-header">
         <div className="container">
           <div className="logo-area">
-            <img 
-              src={singleLogo} 
-              className="logo-placeholder" 
-              alt="logo" 
-            />
+            <img src={singleLogo} className="logo-placeholder" alt="logo" />
             <div className="logo-text">
               <h1>Boyuan It Club</h1>
               <p>卓越技术 · 绝佳创意 · 实践平台</p>
             </div>
           </div>
           
-          <button
-            className="login-btn"
-            onClick={() => navigate('/login')}
-            >
-            <LogIn size={18} />
-            <span>登录 / 注册</span>
-          </button>
-          
-  </div>
-        
+          <div className="header-actions">
+            <button className="login-btn" onClick={() => navigate('/admin')}>
+              管理员入口
+            </button>
+            <button className="login-btn" onClick={() => navigate('/login')}>
+              登录 / 注册
+            </button>
+          </div>
+        </div>
       </header>
+      {/* --- Header 修改结束 --- */}
 
-      {/* Hero Section */}
       <section className="hero-banner">
         <div className="hero-content">
           <h1>欢迎来到博远信息技术社</h1>
@@ -107,7 +94,6 @@ const Land: React.FC = () => {
         </div>
       </section>
 
-      {/* Sticky Nav */}
       <nav className="sticky-nav js-sticky-nav">
         <div className="container">
           <ul className="nav-list">
@@ -125,19 +111,13 @@ const Land: React.FC = () => {
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="main-content">
-
-
         <div className="floating-bubbles-bg">
             <span></span><span></span><span></span><span></span><span></span>
             <span></span><span></span><span></span><span></span><span></span>
             <span></span><span></span><span></span><span></span><span></span>
          </div>
-        {/* 1. 传统的卡片布局容器 */}
         <div className="container">
-
-          {/* Intro Section */}
           <section className="content-section left-align" id="intro">
             <div className="card info-card">
               <div className="card-image placeholder-blue">
@@ -146,24 +126,17 @@ const Land: React.FC = () => {
               <div className="card-body">
                 <h2>社团成就</h2>
                 <p>八年积淀，硕果累累。我们致力于打造校园内最专业的技术交流社区。</p>
-                <button className="card-btn"
-                  onClick={() => navigate('/club-intro')}
-                >
-                  查看详情</button>
+                <button className="card-btn" onClick={() => navigate('/club-intro')}>查看详情</button>
               </div>
             </div>
           </section>
 
-          {/* Recruit Section */}
           <section className="content-section right-align" id="recruit">
             <div className="card feature-card">
               <div className="card-body">
                 <h2>社团活动</h2>
                 <p>从技术交流分享到部门团建，丰富多彩的活动等你来参加。</p>
-                <button className="card-btn"
-                  onClick={() => navigate('/Activities')}
-                >
-                  查看详情</button>
+                <button className="card-btn" onClick={() => navigate('/Activities')}>查看详情</button>
               </div>
               <div className="card-image placeholder-green">
                 <span className="placeholder-text">活动展示</span>
@@ -171,7 +144,6 @@ const Land: React.FC = () => {
             </div>
           </section>
 
-          {/* Resume Section */}
           <section className="content-section left-align" id="resume">
             <div className="card info-card">
               <div className="card-image placeholder-purple">
@@ -179,22 +151,17 @@ const Land: React.FC = () => {
               </div>
               <div className="card-body">
                 <h2>展现经验与成长</h2>
-                <p>优秀学长将在这里分享他们的学习经历与项目实践，一起交流技术、分享经验。点击下方链接了解更多内容。</p>
-                <button className="card-btn"
-                  onClick={() => navigate('/Experience')}
-                >
-                  查看详情</button>
+                <p>优秀学长将在这里分享他们的学习经历与项目实践，一起交流技术、分享经验。</p>
+                <button className="card-btn" onClick={() => navigate('/Experience')}>查看详情</button>
               </div>
             </div>
           </section>
 
-          {/* Share Section */}
           <section className="content-section right-align" id="share">
             <div className="card feature-card">
               <div className="card-body">
                 <h2>技术分享回顾</h2>
                 <p>错过了现场直播？没关系，这里有往期所有干货视频的汇总。</p>
-               { /*<button className="card-btn outline">往期视频</button>*/}
                 <button className="card-btn" onClick={() => navigate('/Lessons')}>往期视频</button>
               </div>
               <div className="card-image placeholder-gray">
@@ -204,7 +171,6 @@ const Land: React.FC = () => {
           </section>
         </div>
 
-        {/* 2. 新增的全宽长方形统计框架 (跳出 container) */}
         <section className="full-width-stats">
           <div className="stats-inner">
             <div className="stat-item">
@@ -230,11 +196,9 @@ const Land: React.FC = () => {
           </div>
         </section>
 
-        {/* 底部额外留白 */}
         <div style={{ height: 100 }}></div>
       </main>
 
-      {/* Footer */}
       <footer className="site-footer">
         <div className="container">
           <div className="footer-grid">

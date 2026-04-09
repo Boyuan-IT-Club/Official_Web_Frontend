@@ -5,24 +5,20 @@ html, body {
   overflow-y: visible;
 }
 
-// ==========================================
-// 1. 变量区 (保持变量名绝对不变，只修改了值来匹配 ClubIntro 风格)
-// ==========================================
-$primary-blue: #2980b9;    // 替换为 ClubIntro 的主色调深蓝
-$primary-dark: #333333;    // 配合手绘风，深色背景改为深灰黑
-$light-blue-bg: #bde0f5;   // 替换为 ClubIntro 的背景蓝
+// 变量定义
+$primary-blue: #2980b9;    
+$primary-dark: #333333;    
+$light-blue-bg: #bde0f5;   
 $white: #ffffff;
 $text-main: #333333;
 $text-sub: #666666;
-$border-color: #333333;    // 【核心】边框颜色改为深色，模拟手绘线
-// 【灵魂修改】将软阴影全部替换为 ClubIntro 的手绘“硬阴影”
+$border-color: #333333;    
 $shadow-sm: 6px 6px 0px rgba(51, 51, 51, 0.15); 
 $shadow-md: 8px 8px 0px rgba(51, 51, 51, 0.2); 
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  // 增加手绘漫画字体，背景改为纯白
   font-family: "Comic Sans MS", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: $white; 
   color: $text-main;
@@ -46,17 +42,26 @@ body {
   background-color: $white;
   padding: 16px 0;
   
+  .container { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+  }
   
-  .container { display: flex; justify-content: space-between; align-items: center; }
-  
+  // 新增：让两个按钮靠近排列
+  .header-actions {
+    display: flex;
+    gap: 12px; // 两个按钮之间的距离
+  }
+
   .logo-area {
     display: flex; align-items: center; gap: 12px;
   }
 
   .logo-placeholder {
     width: 48px; height: 48px; object-fit: cover;
-    border-radius: 50%; // Logo 改成圆形更可爱
-    border: 2px solid $primary-blue; // 加个小边框
+    border-radius: 50%;
+    border: 2px solid $primary-blue;
     flex-shrink: 0;
   }
 
@@ -66,48 +71,41 @@ body {
     p { font-size: 12px; color: $text-sub; margin-top: 2px; }
   }
 
-
-
+  // 统一的按钮样式
   .login-btn {
-    display: flex; align-items: center; gap: 6px;
+    display: flex; align-items: center; justify-content: center;
     background-color: $primary-blue; color: $white; 
-    border: 2px solid $text-main; // 按钮加粗边框
+    border: 2px solid $text-main; 
     padding: 8px 20px; border-radius: 8px; cursor: pointer; transition: all 0.3s;
     font-weight: bold;
-    box-shadow: 2px 2px 0px rgba(0,0,0,0.1); // 按钮小阴影
+    font-size: 14px; // 统一字体大小
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.1); 
+    
     &:hover { 
       background-color: darken($primary-blue, 8%); 
       transform: translateY(-2px);
       box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
     }
+    &:active {
+      transform: translateY(0);
+      box-shadow: 1px 1px 0px rgba(0,0,0,0.1);
+    }
   }
-   .action-btn-admin {
-         background-color: $primary-blue; color: $white;
-        border: 2px solid $text-main;
-        padding: 8px 20px;
-        border-radius: 8px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        // 配合你原本的手绘硬阴影风格
-        box-shadow: 2px 2px 0px rgba(0,0,0,0.1); 
-   }
 }
 
 /* Hero Banner */
 .hero-banner {
-  // 调整为清新明快的手绘色调
   background: linear-gradient(120deg, $light-blue-bg 0%, #ffffff 100%);
   height: calc(100vh - 72px - 60px);
   align-items: center; display: flex; justify-content: center;
   position: relative; overflow: hidden;
-  border-bottom: 3px solid $text-main; // 加个底部分界线
+  border-bottom: 3px solid $text-main;
 
   &::before {
     content: ''; position: absolute; width: 400px; height: 400px;
     background: rgba(255,255,255,0.4); border-radius: 50%;
     top: -100px; right: -50px;
-    border: 2px dashed rgba($text-main, 0.1); // 手绘感虚线圈
+    border: 2px dashed rgba($text-main, 0.1);
   }
 
   .hero-content {
@@ -118,7 +116,7 @@ body {
   }
 }
 
-/* Sticky Nav (四等分) */
+/* Sticky Nav */
 .sticky-nav.is-fixed {
   position: fixed; top: 0; left: 0; width: 100%; z-index: 999;
 }
@@ -127,7 +125,6 @@ body {
   z-index: 9999; display: block; width: 100%;
   background-color: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
-  
   box-shadow: 0 4px 0px rgba($text-main, 0.05);
 
   .nav-list {
@@ -139,7 +136,7 @@ body {
 
       .active-bar {
         position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%);
-        width: 0%; height: 5px; // 加粗线条更可爱
+        width: 0%; height: 5px; 
         background-color: $primary-blue; transition: width 0.3s ease-in-out;
         border-radius: 5px 5px 0 0;
       }
@@ -156,34 +153,33 @@ body {
 /* Main Content Area */
 .main-content {
   padding: 40px 0; flex: 1; overflow: visible !important;
-  position: relative; // 确保有这个
+  position: relative; 
   background-image: radial-gradient(rgba($primary-blue, 0.08) 3px, transparent 3px);
-  background-size: 40px 40px; // 网点的间距大小
+  background-size: 40px 40px; 
+  
   .content-section {
     margin-bottom: 90px; display: flex;
     &.left-align { justify-content: flex-start; }
     &.right-align { justify-content: flex-end; }
   }
 
-  /* 【核心改造：卡片变手绘风】 */
   .card {
     background: $white; 
     border-radius: 16px;
-    border: 3px solid $border-color; // 粗边框
-    box-shadow: $shadow-sm; // 硬阴影
+    border: 3px solid $border-color; 
+    box-shadow: $shadow-sm; 
     width: 65%; display: flex; overflow: hidden; transition: all 0.3s ease;
 
     &:hover { 
-      
-      box-shadow: $shadow-md; // 悬浮硬阴影
-      border-color: $primary-blue; // 悬浮边框变色
+      box-shadow: $shadow-md; 
+      border-color: $primary-blue; 
     }
 
     &.info-card, &.feature-card { flex-direction: row; }
 
     .card-image {
       flex: 1; min-height: 60px; display: flex; align-items: center; justify-content: center;
-      border-right: 2px dashed rgba($text-main, 0.2); // 中间加一道虚线分隔，像漫画分镜
+      border-right: 2px dashed rgba($text-main, 0.2);
 
       &.placeholder-blue { background: rgba($light-blue-bg, 0.3); color: $primary-blue; }
       &.placeholder-gray { background: rgba($text-sub, 0.1); color: $text-sub; }
@@ -195,23 +191,16 @@ body {
 
     .card-body {
       flex: 1.2; padding: 48px; display: flex; flex-direction: column; justify-content: center;
-
       h2 { font-size: 26px; margin-bottom: 16px; color: $primary-blue; font-weight: bold; }
       p { color: $text-sub; line-height: 1.8; margin-bottom: 30px; font-size: 15px; }
       
       .card-btn {
         align-self: flex-start; padding: 10px 28px;
-        border-radius: 12px; // 改成稍微方正的圆角，不要纯圆
-        border: 2px solid $text-main; // 按钮粗边框
+        border-radius: 12px;
+        border: 2px solid $text-main;
         cursor: pointer; background: $primary-blue; color: $white;
-        
-        box-shadow: 2px 2px 0px rgba($text-main, 0.15); // 按钮硬阴影
-        
-        &.outline { 
-          background: $white; color: $text-main; 
-          &:hover { background: rgba($light-blue-bg, 0.5); } 
-        }
-        &:hover:not(.outline) { 
+        box-shadow: 2px 2px 0px rgba($text-main, 0.15);
+        &:hover { 
           background: darken($primary-blue, 5%); 
           transform: translateY(-2px);
           box-shadow: 4px 4px 0px rgba($text-main, 0.2);
@@ -224,45 +213,19 @@ body {
 /* 数据统计区块 */
 .full-width-stats {
   width: 100%; padding: 60px 0; display: flex; justify-content: center; background-color: transparent;
-
   .stats-inner {
     width: 90%; max-width: 1200px;
     background-color: $white; padding: 40px 20px;
     border-radius: 20px; 
-    border: 3px solid $border-color; // 粗边框
-    box-shadow: $shadow-sm; // 硬阴影
-   display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 30px;
-  }
-
-  .stat-item {
-    
-
-    &:hover { transform: translateY(-5px) scale(1.05); }
-
-    svg { color: $primary-blue; margin-bottom: 16px; width: 40px; height: 40px; }
-
-    .count { display: block; font-size: 38px; font-weight: 800; color: $primary-blue; line-height: 1; margin-bottom: 8px; text-shadow: 2px 2px 0px rgba($text-main, 0.1); }
-    .label { font-size: 15px; color: $text-main; font-weight: bold; letter-spacing: 1px; }
-  }
-}
-
-/* 全宽长方形框架部分 */
-.full-width-banner {
-  width: 100%; padding: 60px 0; margin: 40px 0 80px; 
-  background-color: rgba($light-blue-bg, 0.2); // 淡淡的底色
-  border-top: 3px solid $border-color; // 上下粗边框
-  border-bottom: 3px solid $border-color;
-  box-shadow: 0 4px 0px rgba($text-main, 0.05);
-
-  .banner-inner {
-    max-width: 1200px; margin: 0 auto; padding: 0 20px;
+    border: 3px solid $border-color; 
+    box-shadow: $shadow-sm; 
     display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 30px;
   }
-
   .stat-item {
-    text-align: center; flex: 1; min-width: 200px;
-    .stat-number { display: block; font-size: 36px; font-weight: 800; color: $primary-blue; margin-bottom: 8px; text-shadow: 2px 2px 0px rgba($text-main, 0.1); }
-    .stat-label { font-size: 14px; color: $text-main; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+    &:hover { transform: translateY(-5px) scale(1.05); }
+    svg { color: $primary-blue; margin-bottom: 16px; width: 40px; height: 40px; }
+    .count { display: block; font-size: 38px; font-weight: 800; color: $primary-blue; line-height: 1; margin-bottom: 8px; text-shadow: 2px 2px 0px rgba($text-main, 0.1); }
+    .label { font-size: 15px; color: $text-main; font-weight: bold; letter-spacing: 1px; }
   }
 }
 
@@ -270,125 +233,48 @@ body {
 .site-footer {
   background-color: $primary-dark; color: rgba(255, 255, 255, 0.9);
   padding: 70px 0 24px; margin-top: auto;
-  border-top: 4px solid $primary-blue; // 加一条亮色的分界线
-
+  border-top: 4px solid $primary-blue;
   .footer-grid {
     display: grid; grid-template-columns: 2fr 1fr 1.5fr; gap: 40px; margin-bottom: 50px;
     h3 { color: $white; font-size: 22px; margin-bottom: 16px; font-weight: bold; }
-    h4 { color: $white; font-size: 16px; margin-bottom: 24px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
-    .footer-desc { font-size: 14px; line-height: 1.8; color: rgba(255,255,255,0.7); margin-bottom: 24px; max-width: 320px; }
-    .social-icons { display: flex; gap: 16px; a { color: rgba(255,255,255,0.7); &:hover { color: $light-blue-bg; transform: translateY(-2px); display: block; } } }
-    ul { list-style: none; li { margin-bottom: 14px; a { color: rgba(255,255,255,0.7); text-decoration: none; font-weight: bold; &:hover { color: $light-blue-bg; } } } }
-    .contact-info .contact-item { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: rgba(255,255,255,0.7); font-size: 14px; svg { color: $light-blue-bg; } }
+    .footer-desc { font-size: 14px; line-height: 1.8; color: rgba(255,255,255,0.7); margin-bottom: 24px; }
+    ul { list-style: none; li { margin-bottom: 14px; color: rgba(255,255,255,0.7); font-weight: bold; } }
   }
   .footer-bottom { border-top: 2px dashed rgba(255,255,255,0.2); padding-top: 24px; text-align: center; font-size: 13px; font-weight: bold; color: rgba(255,255,255,0.5); }
 }
 
-/* 移动端适配 */
-@media (max-width: 768px) {
-  .hero-banner { height: calc(100vh - 60px - 52px); }
-  
-  .main-content .card { 
-    width: 100%; flex-direction: column !important; 
-    .card-image { border-right: none; border-bottom: 2px dashed rgba($text-main, 0.2); } // 移动端虚线改到底部
-  }
-  
-  .content-section { margin-bottom: 60px; } 
-  .content-section.right-align { margin-top: 0; }
-  
-  .hero-content {
-    h1 { font-size: 2.5rem; } // 手机端文字稍微放大一点点
-    p { font-size: 1rem; letter-spacing: 1px; }
-  }
-
-  .full-width-stats {
-    padding: 30px 10px;
-    .stats-inner { padding: 30px 10px; gap: 30px; .stat-item { min-width: 40%; .count { font-size: 28px; } } }
-  }
-
-  .site-footer .footer-grid { grid-template-columns: 1fr; gap: 40px; }
-}
-
-
-//背景
-/* ==========================================
-   背景装饰：动态手绘飘动泡泡
-========================================== */
-.main-content {
-  position: relative; // 确保相对定位，用来限制泡泡的范围
-  // ... (保留你原有的 .main-content 样式)
-}
-
+/* 背景动画泡泡 */
 .floating-bubbles-bg {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  overflow: hidden;
-  z-index: -1;
-  pointer-events: none;
-
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: -1; pointer-events: none;
   span {
-    position: absolute;
-    top: -120px; // 从上面开始
-    border-radius: 50%;
-    background: rgba($light-blue-bg, 0.35);
-    border: 2px solid rgba($primary-blue, 0.3);
-
-    // ✨ 改成更自然的动画
+    position: absolute; top: -120px; border-radius: 50%;
+    background: rgba($light-blue-bg, 0.35); border: 2px solid rgba($primary-blue, 0.3);
     animation: floatDown ease-in infinite;
   }
-
-  @for $i from 1 through 12 {
+  @for $i from 1 through 15 {
     span:nth-child(#{$i}) {
-
       $size: random(60) + 20 + px;
-      width: $size;
-      height: $size;
-
+      width: $size; height: $size;
       left: random(100) * 1%;
-
-      // ✨ 不同速度（更真实）
       animation-duration: random(10) + 15 + s;
-
-      // ✨ 随机延迟（避免一起出现）
       animation-delay: random(10) + s;
-
-      // ✨ 每个泡泡不同摆动幅度
       --drift: #{random(60) - 30}px;
       --scale: #{random(20) / 100 + 0.9};
       --rotate: #{random(60) - 30}deg;
     }
   }
 }
+
 @keyframes floatDown {
-  0% {
-    transform: translateY(0) translateX(0) scale(0.9) rotate(0deg);
-    opacity: 0;
-  }
+  0% { transform: translateY(0) translateX(0) scale(0.9) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(120vh) translateX(var(--drift)) scale(var(--scale)) rotate(var(--rotate)); opacity: 0; }
+}
 
-  10% {
-    opacity: 1;
-  }
-
-  30% {
-    transform: translateY(30vh)
-      translateX(calc(var(--drift) * 0.5))
-      scale(var(--scale))
-      rotate(calc(var(--rotate) * 0.5));
-  }
-
-  60% {
-    transform: translateY(70vh)
-      translateX(calc(var(--drift)))
-      scale(1.1)
-      rotate(var(--rotate));
-  }
-
-  100% {
-    transform: translateY(120vh)
-      translateX(calc(var(--drift) * -0.5))
-      scale(0.95)
-      rotate(calc(var(--rotate) * -1));
-    opacity: 0;
-  }
+@media (max-width: 768px) {
+  .hero-banner { height: calc(100vh - 60px - 52px); }
+  .main-content .card { width: 100%; flex-direction: column !important; }
+  .hero-content h1 { font-size: 2.5rem; }
+  .full-width-stats .stats-inner { gap: 30px; }
+  .site-footer .footer-grid { grid-template-columns: 1fr; }
 }
