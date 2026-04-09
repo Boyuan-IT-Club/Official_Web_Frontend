@@ -1,36 +1,22 @@
 // src/pages/components/UserTable.tsx
 import React from 'react';
 import {
-  Table,
-  Space,
-  Button,
-  Tooltip,
-  Tag,
-  Avatar,
-  Modal,
-  Select,
-  message,
+  Table, Space, Button, Tooltip, Tag, Avatar, Modal, Select, message,
 } from 'antd';
 import {
-  EyeOutlined,
-  LockOutlined,
-  UnlockOutlined,
-  UserOutlined,
-  ExclamationCircleOutlined,
-  DeleteOutlined,
+  EyeOutlined, LockOutlined, UnlockOutlined,
+  UserOutlined, ExclamationCircleOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 
 import {
-  assignRoleToUser,
-  freezeUser,
-  unfreezeUser,
-  deleteUser,
-} from '@/api/manage/userRole';
+  assignRoleToUser, freezeUser, unfreezeUser, deleteUser,
+} from '@/api/manage/userApis';
 
 const { Option } = Select;
 const { confirm } = Modal;
 
-// 确认这是你后端准确的结构
+// ─── 类型 ────────────────────────────────────────────────────────────────────
+
 export interface User {
   createTime: string;
   dept: null | string;
@@ -40,8 +26,8 @@ export interface User {
   password: string;
   phone: null | string;
   role: string;
-  status: boolean; //  冻结（false）或正常（true）
-  userId: number;   
+  status: boolean;   // True = 正常，False = 冻结
+  userId: number;
   username: string;
   [property: string]: any;
 }
@@ -53,29 +39,33 @@ interface RoleOption {
 }
 
 interface UserTableProps {
-  users: User[];              // 父组件传来的用户列表
-  loading: boolean;           // 父组件传来的加载状态
-  roleOptions: RoleOption[];  // 父组件传来的角色列表
+  users: User[];
+  loading: boolean;
+  roleOptions: RoleOption[];
   selectedRows: User[];
   onSelectionChange: (selected: User[]) => void;
   onView: (user: User) => void;
-  refreshUsers: () => void;   // 调用父组件的方法重新拉取数据
+  refreshUsers: () => void;
+  pagination: {
+    current: number;
+    pageSize: number;
+    total: number;
+    onChange: (page: number, pageSize: number) => void;
+  };
 }
 
-const UserManage: React.FC<UserTableProps> = ({
-  users,
-  loading,
-  roleOptions,
-  onView,
-  refreshUsers,
+// ─── 组件 ────────────────────────────────────────────────────────────────────
+
+const UserTable: React.FC<UserTableProps> = ({
+  users, loading, roleOptions,
+  selectedRows, onSelectionChange,
+  onView, refreshUsers, pagination,
 }) => {
 
   /** 修改角色 */
   const handleChangeRole = (user: User, newRole: string) => {
     if (newRole === user.role) return;
-
-    const newRoleConf = roleOptions.find((r) => r.value === newRole);
-    const newRoleLabel = newRoleConf?.label || newRole;
+    const newRoleLabel = roleOptions.find((r) => r.value === newRole)?.label ?? newRole;
 
     confirm({
       title: '确认修改角色？',
@@ -85,17 +75,15 @@ const UserManage: React.FC<UserTableProps> = ({
           确认将 <b>{user.name || user.username}</b> 的角色修改为 <b>{newRoleLabel}</b> 吗？
         </span>
       ),
-      okText: '确认',
-      cancelText: '取消',
+      okText: '确认', cancelText: '取消',
       async onOk() {
         try {
-          // 注意：如果后端报错，检查这里的参数是不是需要数字，或者数组
-          await assignRoleToUser(user.userId, [Number(newRole)]); 
+          await assignRoleToUser(user.userId, [Number(newRole)]);
           message.success(`${user.name || user.username} 的角色已更新`);
-          refreshUsers(); // 操作成功，通知父组件刷新表格！
+          refreshUsers();
         } catch (e) {
           console.error(e);
-          message.error('分配角色失败，请检查后端报错');
+          message.error('分配角色失败');
         }
       },
     });
@@ -103,28 +91,19 @@ const UserManage: React.FC<UserTableProps> = ({
 
   /** 冻结 / 解冻 */
   const handleToggleFreeze = (user: User) => {
-    const isFrozen = user.status === false;  // status 为 false 表示冻结
-    
+    const isFrozen = user.status === false;
     confirm({
       title: isFrozen ? '确认解冻该用户？' : '确认冻结该用户？',
       icon: <ExclamationCircleOutlined />,
-      content: (
-        <span>
-          用户：<b>{user.name || user.username}</b>（账号：{user.username}）
-        </span>
-      ),
+      content: <span>用户：<b>{user.name || user.username}</b>（{user.username}）</span>,
       okText: isFrozen ? '解冻' : '冻结',
       okType: isFrozen ? 'primary' : 'danger',
       cancelText: '取消',
       async onOk() {
         try {
-          if (isFrozen) {
-            await unfreezeUser(user.userId);
-          } else {
-            await freezeUser(user.userId);
-          }
+          isFrozen ? await unfreezeUser(user.userId) : await freezeUser(user.userId);
           message.success(`${user.name || user.username} 操作成功`);
-          refreshUsers(); // 操作成功，通知父组件刷新表格！
+          refreshUsers();
         } catch (e) {
           console.error(e);
           message.error('操作失败，请稍后重试');
@@ -138,19 +117,13 @@ const UserManage: React.FC<UserTableProps> = ({
     confirm({
       title: '确认删除该用户？',
       icon: <ExclamationCircleOutlined />,
-      content: (
-        <span>
-          此操作不可恢复，确认要删除 <b>{user.name || user.username}</b> 吗？
-        </span>
-      ),
-      okText: '删除',
-      okType: 'danger',
-      cancelText: '取消',
+      content: <span>此操作不可恢复，确认删除 <b>{user.name || user.username}</b> 吗？</span>,
+      okText: '删除', okType: 'danger', cancelText: '取消',
       async onOk() {
         try {
-          await deleteUser(user.userId); 
+          await deleteUser(user.userId);
           message.success('删除成功');
-          refreshUsers(); // 操作成功，通知父组件刷新表格！
+          refreshUsers();
         } catch (e) {
           console.error(e);
           message.error('删除失败，请稍后重试');
@@ -159,6 +132,8 @@ const UserManage: React.FC<UserTableProps> = ({
     });
   };
 
+  // ─── 列定义 ───────────────────────────────────────────────────────────────
+
   const columns = [
     {
       title: '用户信息',
@@ -166,7 +141,7 @@ const UserManage: React.FC<UserTableProps> = ({
       key: 'name',
       render: (text: string, record: User) => (
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#4da6ff' }} />
+          <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#4da6ff', flexShrink: 0 }} />
           <div style={{ marginLeft: 12 }}>
             <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center' }}>
               {text || record.username || '未知昵称'}
@@ -176,9 +151,7 @@ const UserManage: React.FC<UserTableProps> = ({
                 </Tooltip>
               )}
             </div>
-            <div style={{ fontSize: 12, color: '#8c8c8c' }}>
-              {record.username}
-            </div>
+            <div style={{ fontSize: 12, color: '#8c8c8c' }}>{record.username}</div>
           </div>
         </div>
       ),
@@ -191,14 +164,12 @@ const UserManage: React.FC<UserTableProps> = ({
         <Select
           size="small"
           style={{ minWidth: 120 }}
-          value={role ? String(role) : undefined} // 确保匹配字符串类型
+          value={role ? String(role) : undefined}
           onChange={(value: string) => handleChangeRole(record, value)}
           placeholder="暂无角色"
         >
           {roleOptions.map((r) => (
-            <Option key={r.value} value={r.value}>
-              {r.label}
-            </Option>
+            <Option key={r.value} value={r.value}>{r.label}</Option>
           ))}
         </Select>
       ),
@@ -208,20 +179,20 @@ const UserManage: React.FC<UserTableProps> = ({
       dataIndex: 'status',
       key: 'status',
       render: (status: boolean) => (
-        <Tag color={status ? 'green' : 'red'}>
-          {status ? '正常' : '冻结'}
-        </Tag>
+        <Tag color={status ? 'green' : 'red'}>{status ? '正常' : '冻结'}</Tag>
       ),
     },
     {
-      title: '社员状态',
-      dataIndex: 'isMember',
-      key: 'isMember',
-      render: (isMember: boolean) => (
-        <Tag color={isMember ? 'blue' : 'default'}>
-          {isMember ? '社员' : '非社员'}
-        </Tag>
-      ),
+      title: '部门',
+      key: 'memberDept',
+      render: (_: any, record: User) => {
+        if (!record.isMember) {
+          return <Tag color="default">非社员</Tag>;
+        }
+        return record.dept
+          ? <Tag color="blue" style={{ borderRadius: 4 }}>{record.dept}</Tag>
+          : <Tag color="blue">社员</Tag>;
+      },
     },
     {
       title: '联系方式',
@@ -243,14 +214,8 @@ const UserManage: React.FC<UserTableProps> = ({
       render: (_: any, record: User) => (
         <Space size="small">
           <Tooltip title="查看详情">
-            <Button
-              type="text"
-              icon={<EyeOutlined />}
-              size="small"
-              onClick={() => onView(record)}
-            />
+            <Button type="text" icon={<EyeOutlined />} size="small" onClick={() => onView(record)} />
           </Tooltip>
-
           <Tooltip title={record.status === false ? '解冻账户' : '冻结账户'}>
             <Button
               type="text"
@@ -260,34 +225,39 @@ const UserManage: React.FC<UserTableProps> = ({
               onClick={() => handleToggleFreeze(record)}
             />
           </Tooltip>
-
           <Tooltip title="删除用户">
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-              size="small"
-              onClick={() => handleDelete(record)}
-            />
+            <Button type="text" danger icon={<DeleteOutlined />} size="small" onClick={() => handleDelete(record)} />
           </Tooltip>
         </Space>
       ),
     },
   ];
 
+  // ─── 渲染 ─────────────────────────────────────────────────────────────────
+
   return (
     <Table<User>
+      rowSelection={{
+        selectedRowKeys: selectedRows.map((u) => u.userId),
+        onChange: (_: React.Key[], rows: User[]) => onSelectionChange(rows),
+      }}
       columns={columns}
       dataSource={users}
-      rowKey="userId" 
+      rowKey="userId"
       loading={loading}
-      pagination={{ 
-        pageSize: 10,
-        showTotal: (total) => `共 ${total} 条数据` 
+      pagination={{
+        current:         pagination.current,
+        pageSize:        pagination.pageSize,
+        total:           pagination.total,
+        onChange:        pagination.onChange,
+        showSizeChanger: true,
+        pageSizeOptions: ['10', '20', '50'],
+        showTotal:       (t) => `共 ${t} 条数据`,
       }}
       locale={{ emptyText: '暂无用户数据' }}
+      scroll={{ x: 'max-content' }}
     />
   );
 };
 
-export default UserManage;
+export default UserTable;
