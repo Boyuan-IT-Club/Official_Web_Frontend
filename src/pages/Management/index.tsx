@@ -17,6 +17,7 @@ import RoleManager from './components/RoleManager';
 import PromptPanel from './components/PromptPanel';
 import DeptManage from './components/DeptManage'
 
+// 导入API
 import {
   getAllUsers,
   getActiveRoles,
@@ -170,7 +171,8 @@ const debouncedDept   = useDebounce(selectedDept);
 
   useEffect(() => {
     fetchRoleOptions();
-  }, []);
+    fetchResumeFields(); // 初始化时获取简历字段
+  }, [fetchResumeFields]);
 
   // ── 翻页回调 ──────────────────────────────────────────────────────────────
   const handlePageChange = (newPage: number, newPageSize: number) => {
@@ -318,8 +320,11 @@ const debouncedDept   = useDebounce(selectedDept);
                       label: '简历字段',
                       children: (
                         <ResumeFieldPanel
+                          cycleId={CURRENT_CYCLE_ID}
                           fields={resumeFields}
-                          onSave={setResumeFields}
+                          onSave={handleSaveResumeFields}
+                          onFieldsChange={setResumeFields}
+                          onResetToDefault={handleResetToDefault}
                           fieldTypeOptions={[
                             { value: 'input',    label: '文本框'   },
                             { value: 'textarea', label: '多行文本' },

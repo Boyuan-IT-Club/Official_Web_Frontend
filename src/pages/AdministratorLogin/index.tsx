@@ -1,4 +1,4 @@
-// src/pages/Login/index.tsx (or AuthCard.tsx)
+// src/pages/Login/index.tsx (完整修改版)
 import React, { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { Card, Form, Input, Button, Checkbox, message } from 'antd';
@@ -195,18 +195,47 @@ const AuthCard: FC = () => {
         const resultAction = await dispatch(userActions.fetchLogin(loginData));
 
         if (userActions.fetchLogin.fulfilled.match(resultAction)) {
-          const token = (resultAction.payload as any)?.token;
-          const userRole = (resultAction.payload as any)?.role; // 假设返回数据中包含用户角色
+          // 从登录返回的数据中获取token和用户信息
+          const payload = resultAction.payload as any;
+          const token = payload?.token;
 
-          // 检查是否为管理员
-          // 根据你的实际角色字段和值来调整这个判断条件
-          const isAdmin = userRole === 'admin' || userRole === 'administrator' || userRole === 1;
+          // 根据您的数据库结构，用户信息可能在不同位置
+          // 尝试从不同路径获取用户信息
+          const userInfo = payload?.userInfo || payload?.user || payload;
 
+          // 从用户信息中获取角色字段
+          const userRole = userInfo?.role; // 可能是"管理员"或其他值
+
+          // 判断是否为管理员
+          // 
+          const isAdmin = userRole === '管理员' ||
+            userRole === 'ADMIN' ||
+            userRole === 1; // 如果role是数字，1可能代表管理员
+
+          console.log('登录返回数据:', payload);
+          console.log('用户信息:', userInfo);
+          console.log('用户角色:', userRole);
+          console.log('是否为管理员:', isAdmin);
+
+          // 保存用户信息到localStorage
+          if (userInfo) {
+            localStorage.setItem('userInfo', JSON.stringify(userInfo));
+            localStorage.setItem('userRole', String(userRole || ''));
+            localStorage.setItem('isAdmin', String(isAdmin));
+          }
+
+          // 如果不是管理员，阻止登录并提示
           if (!isAdmin) {
-            // 如果不是管理员，清除token并提示
-            message.error('非管理员，请切换登录入口');
-            localStorage.removeItem('token');
-            // 可以清空密码字段
+            message.error('非管理员用户，请使用管理员账号登录');
+            // 清除可能已经保存的token
+            if (token) {
+              localStorage.removeItem('token');
+            }
+            localStorage.removeItem('userInfo');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('isAdmin');
+
+            // 清空密码/验证码字段
             form.setFieldsValue({
               password: '',
               code: ''
@@ -215,10 +244,17 @@ const AuthCard: FC = () => {
             return;
           }
 
+          // 管理员登录成功
           if (token) {
             localStorage.setItem('token', String(token));
-            message.success('登录成功');
+            message.success('管理员登录成功');
 
+            // 可以针对不同类型的管理员做不同提示
+            if (userRole === '管理员') {
+              message.info('欢迎管理员');
+            }
+
+            // 跳转到之前尝试访问的页面或默认仪表盘
             const from =
               (location.state as any)?.from?.pathname || '/main/dashboard';
             navigate(from, { replace: true });
@@ -226,6 +262,7 @@ const AuthCard: FC = () => {
             throw new Error('登录成功但未获取到token');
           }
         } else {
+          // 登录失败处理
           const errMsg =
             (resultAction as any).payload ||
             (resultAction as any).error?.message ||
