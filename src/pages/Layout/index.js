@@ -45,33 +45,46 @@ const MainLayout = () => {
     return userInfo.avatar;
   };
   // 根据用户角色动态生成菜单项
-  const menuItems = [
-    {
-      key: "/main/dashboard",
-      icon: <HomeOutlined />,
-      label: "首页",
-    },
-    {
-      key: "/main/publish",
-      icon: <FileTextOutlined />,
-      label: "简历投递",
-    },
-    {
-      key: "/main/person",
-      icon: <UserOutlined />,
-      label: "个人主页",
-    },
-    {
-      key: "/main/resume", // 确保路由配置中已添加此路径
-      icon: <FolderOpenOutlined />, // 使用合适的图标
-      label: "简历查看",
-    },
-    {
-      key: "/main/manage",
-      icon: <ControlOutlined />,
-      label: "管理",
-    },
-  ];
+// 删掉原来的 menuItems 数组，替换成下面这段
+const role = userInfo?.role;
+
+const allMenuItems = [
+  {
+    key: "/main/dashboard",
+    icon: <HomeOutlined />,
+    label: "首页",
+    roles: ["user", "admin"],
+  },
+  {
+    key: "/main/publish",
+    icon: <FileTextOutlined />,
+    label: "简历投递",
+    roles: ["user", "admin"],
+  },
+  {
+    key: "/main/person",
+    icon: <UserOutlined />,
+    label: "个人主页",
+    roles: ["user", "admin"],
+  },
+  {
+    key: "/main/resume",
+    icon: <FolderOpenOutlined />,
+    label: "简历查看",
+    roles: ["admin"],          // 🔒 仅管理员
+  },
+  {
+    key: "/main/manage",
+    icon: <ControlOutlined />,
+    label: "管理",
+    roles: ["admin"],          // 🔒 仅管理员
+  },
+];
+
+// role 未加载完成时先展示所有，加载完成后按角色过滤
+const menuItems = allMenuItems
+  .filter(item => !role || item.roles.includes(role))
+  .map(({ roles, ...rest }) => rest); // 去掉 roles 字段，Antd 不需要它
 
   const handleMenuClick = ({ key }) => {
     navigate(key);

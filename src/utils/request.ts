@@ -11,7 +11,7 @@ import { getToken, removeToken } from "./token";
 let isInterceptorSet = false;
 
 const request: AxiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://43.143.27.198:8080",
+  baseURL: process.env.REACT_APP_API_URL || "",
   timeout: 10000,
 });
 
