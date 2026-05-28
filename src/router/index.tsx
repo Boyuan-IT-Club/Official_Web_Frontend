@@ -15,6 +15,8 @@ import Publish from "@/pages/Publish";
 import Person from "@/pages/User";
 import Resume from "@/pages/Resume";
 
+import Admin from "@/pages/admin/Admin";//这个没写完后面还要改！！！
+
 import { AuthRoute } from "@/components/AuthRoute";
 
 // 路由配置实例
@@ -80,6 +82,10 @@ const router = createBrowserRouter([
     path: "*",
     element: <Navigate to="/" replace />,
   },
+  {
+  path: "/admin",
+  element: <Admin />,
+},//这个没写完呢要改的要改的要改的！！1
 
 ]);
 
