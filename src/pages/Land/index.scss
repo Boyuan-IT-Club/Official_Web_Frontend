@@ -1,5 +1,6 @@
 /* index.scss */
-html, body {
+html,
+body {
   height: auto;
   overflow-x: hidden;
   overflow-y: visible;
@@ -17,7 +18,11 @@ $primary-light-blue:#175cf1;
 $shadow-sm: 6px 6px 0px rgba(51, 51, 51, 0.15); 
 $shadow-md: 8px 8px 0px rgba(51, 51, 51, 0.2); 
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
   font-family: "Comic Sans MS", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;

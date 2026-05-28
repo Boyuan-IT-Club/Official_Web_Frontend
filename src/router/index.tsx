@@ -4,6 +4,7 @@ import { Navigate, createBrowserRouter, type Router } from "react-router-dom";
 
 import Layout from "../pages/Layout";
 import Login from "../pages/Login";
+import AdministratorLogin from "../pages/AdministratorLogin";
 import Land from "../pages/Land";
 import Dashboard from "../pages/Dashboard";
 import ClubIntro from "../pages/ClubIntro";// 新增社团简介页面
@@ -14,6 +15,7 @@ import Experience from "../pages/Experience";
 import Publish from "@/pages/Publish";
 import Person from "@/pages/User";
 import Resume from "@/pages/Resume";
+import Management from "@/pages/Management";
 
 import Admin from "@/pages/admin/Admin";//这个没写完后面还要改！！！
 
@@ -53,6 +55,10 @@ const router = createBrowserRouter([
         path: "resume",
         element: <Resume />,
       },
+      {
+        path: "manage",
+        element: <Management />,
+      },
     ],
   },
   {
@@ -77,6 +83,10 @@ const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/adminstratorLogin",
+    element: <AdministratorLogin />
   },
   {
     path: "*",

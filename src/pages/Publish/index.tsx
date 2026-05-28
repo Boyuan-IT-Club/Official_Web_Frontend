@@ -1,4 +1,4 @@
-// src/pages/Publish/index.tsx
+// src/pages/Publish/index.tsx (完整修改后的文件)
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
@@ -12,9 +12,7 @@ import {
   Row,
   Col,
   Modal,
-  Collapse,
 } from 'antd';
-import type { FormInstance } from 'antd';
 import {
   SendOutlined,
   EditOutlined,
@@ -53,10 +51,10 @@ import {
   fetchFieldValues,
   clearFieldValues,
 } from '@/store/modules/resume';
+import { fetchResumeFieldsConfig, ResumeField } from '@/store/modules/resumeFields';
 import './index.scss';
 
 const { Title, Text } = Typography;
-const { Panel } = Collapse;
 
 /** 不改后端结构：只做“最宽松且安全”的类型约束 */
 type OptionItem = { value: string; label: string };
@@ -107,8 +105,15 @@ type ResumeSliceState = {
   [key: string]: any;
 };
 
+type ResumeFieldsSliceState = {
+  fields: ResumeField[];
+  loading: boolean;
+  error: string | null;
+};
+
 type RootStateLike = {
   resume: ResumeSliceState;
+  resumeFields: ResumeFieldsSliceState;
 };
 
 type DepartmentsState = { first: string; second: string };
@@ -165,54 +170,56 @@ const Publish: React.FC = () => {
     error,
   } = useSelector((state: RootStateLike) => state.resume);
 
-  // 配置常量
-  const FIRST_DEPARTMENT_OPTIONS: OptionItem[] = [
+  const { fields: configFields, loading: configLoading } = useSelector(
+    (state: RootStateLike) => state.resumeFields
+  );
+
+  // 配置常量 - 从配置文件读取或使用默认值
+  const [FIRST_DEPARTMENT_OPTIONS, setFirstDepartmentOptions] = useState<OptionItem[]>([
     { value: '技术部', label: '技术部' },
     { value: '媒体部', label: '媒体部' },
     { value: '项目部', label: '项目部' },
     { value: '综合部', label: '综合部' },
-  ];
+  ]);
 
-  const SECOND_DEPARTMENT_OPTIONS: OptionItem[] = [
+  const [SECOND_DEPARTMENT_OPTIONS, setSecondDepartmentOptions] = useState<OptionItem[]>([
     { value: '无', label: '无' },
     { value: '技术部', label: '技术部' },
     { value: '媒体部', label: '媒体部' },
     { value: '项目部', label: '项目部' },
     { value: '综合部', label: '综合部' },
-  ];
+  ]);
 
-  const GRADE_OPTIONS: OptionItem[] = [
+  const [GRADE_OPTIONS, setGradeOptions] = useState<OptionItem[]>([
     { value: '大一', label: '大一' },
     { value: '大二', label: '大二' },
     { value: '大三', label: '大三' },
     { value: '大四', label: '大四' },
     { value: '研究生', label: '研究生' },
-  ];
+  ]);
 
-  const GENDER_OPTIONS: OptionItem[] = [
+  const [GENDER_OPTIONS, setGenderOptions] = useState<OptionItem[]>([
     { value: '男', label: '男' },
     { value: '女', label: '女' },
-  ];
+  ]);
 
-  // 第一面试时间选项（不包含"无"）
-  const FIRST_INTERVIEW_TIME_OPTIONS: OptionItem[] = [
+  const [FIRST_INTERVIEW_TIME_OPTIONS, setFirstInterviewTimeOptions] = useState<OptionItem[]>([
     { value: 'Day 1 上午', label: 'Day 1 上午' },
     { value: 'Day 1 下午', label: 'Day 1 下午' },
     { value: 'Day 1 晚上', label: 'Day 1 晚上' },
-  ];
+  ]);
 
-  // 第二面试时间选项（包含"无"）
-  const SECOND_INTERVIEW_TIME_OPTIONS: OptionItem[] = [
+  const [SECOND_INTERVIEW_TIME_OPTIONS, setSecondInterviewTimeOptions] = useState<OptionItem[]>([
     { value: '无', label: '无' },
     { value: 'Day 1 上午', label: 'Day 1 上午' },
     { value: 'Day 1 下午', label: 'Day 1 下午' },
     { value: 'Day 1 晚上', label: 'Day 1 晚上' },
-  ];
+  ]);
 
-  const CAN_ATTEND_OPTIONS: OptionItem[] = [
+  const [CAN_ATTEND_OPTIONS, setCanAttendOptions] = useState<OptionItem[]>([
     { value: 'yes', label: '能参加' },
     { value: 'no', label: '不能参加' },
-  ];
+  ]);
 
   const TIPS_CONTENT: Array<{ title: string; content: string }> = [
     {
@@ -304,10 +311,57 @@ const Publish: React.FC = () => {
     return fv ? fv.fieldValue : '';
   };
 
+  // 从配置字段中获取选项
+  const getOptionsFromConfig = (fieldKey: string): OptionItem[] => {
+    const configField = configFields.find(f => f.key === fieldKey);
+    if (configField && configField.options && configField.options.length > 0) {
+      return configField.options.map(opt => ({ value: opt, label: opt }));
+    }
+    return [];
+  };
+
+  // 检查字段是否启用
+  const isFieldEnabled = (fieldKey: string): boolean => {
+    const configField = configFields.find(f => f.key === fieldKey);
+    return configField ? configField.enabled !== false : true;
+  };
+
+  // 检查字段是否必填
+  const isFieldRequired = (fieldKey: string): boolean => {
+    const configField = configFields.find(f => f.key === fieldKey);
+    return configField ? configField.required : true;
+  };
+
+  // 获取字段标签
+  const getFieldLabel = (fieldKey: string, defaultLabel: string): string => {
+    const configField = configFields.find(f => f.key === fieldKey);
+    return configField ? configField.label : defaultLabel;
+  };
+
+  // 获取字段占位符
+  const getFieldPlaceholder = (fieldKey: string, defaultPlaceholder: string): string => {
+    const configField = configFields.find(f => f.key === fieldKey);
+    return configField?.placeholder || defaultPlaceholder;
+  };
+
+  // 初始化加载字段配置
+  const initConfig = async (): Promise<void> => {
+    if (cycleId) {
+      try {
+        await dispatch(fetchResumeFieldsConfig(cycleId)).unwrap();
+      } catch (error) {
+        console.error('加载字段配置失败:', error);
+      }
+    }
+  };
+
   // 初始化数据
   const initData = async (): Promise<void> => {
     try {
       setIsInitializing(true);
+
+      // 0. 先加载字段配置
+      await initConfig();
 
       // 1. 获取字段定义
       const fieldsResult = await dispatch(fetchResumeFields(cycleId)).unwrap();
@@ -344,7 +398,6 @@ const Publish: React.FC = () => {
             const techStack = JSON.parse(techStackField.fieldValue);
             setTechStackItems(Array.isArray(techStack) ? techStack : ['']);
           } catch (e) {
-            // eslint-disable-next-line no-console
             console.error('解析技术栈失败', e);
             setTechStackItems(['']);
           }
@@ -364,7 +417,6 @@ const Publish: React.FC = () => {
               second: (deptArray?.[1] as string) || '',
             });
           } catch (e) {
-            // eslint-disable-next-line no-console
             console.error('解析部门志愿失败', e);
             setDepartments({ first: '', second: '' });
           }
@@ -386,7 +438,6 @@ const Publish: React.FC = () => {
               customTime: timesData.customTime || '',
             });
           } catch (e) {
-            // eslint-disable-next-line no-console
             console.error('解析面试时间失败', e);
             setInterviewTimes({
               first: '',
@@ -411,8 +462,10 @@ const Publish: React.FC = () => {
           setIsEditing(false);
         }
       }
+
+      // 根据配置更新选项
+      updateOptionsFromConfig();
     } catch (err: unknown) {
-      // eslint-disable-next-line no-console
       console.error('初始化数据失败:', err);
 
       const msg =
@@ -433,6 +486,41 @@ const Publish: React.FC = () => {
     }
   };
 
+  // 从配置更新选项
+  const updateOptionsFromConfig = (): void => {
+    // 更新部门选项
+    const deptOptions = getOptionsFromConfig('first_department');
+    if (deptOptions.length > 0) {
+      setFirstDepartmentOptions(deptOptions);
+      setSecondDepartmentOptions([{ value: '无', label: '无' }, ...deptOptions]);
+    }
+
+    // 更新年级选项
+    const gradeOpts = getOptionsFromConfig('grade');
+    if (gradeOpts.length > 0) {
+      setGradeOptions(gradeOpts);
+    }
+
+    // 更新性别选项
+    const genderOpts = getOptionsFromConfig('gender');
+    if (genderOpts.length > 0) {
+      setGenderOptions(genderOpts);
+    }
+
+    // 更新面试时间选项
+    const firstTimeOpts = getOptionsFromConfig('first_interview_time');
+    if (firstTimeOpts.length > 0) {
+      setFirstInterviewTimeOptions(firstTimeOpts);
+      setSecondInterviewTimeOptions([{ value: '无', label: '无' }, ...firstTimeOpts]);
+    }
+
+    // 更新能否参加面试选项
+    const attendOpts = getOptionsFromConfig('can_attend_interview');
+    if (attendOpts.length > 0) {
+      setCanAttendOptions(attendOpts);
+    }
+  };
+
   useEffect(() => {
     void initData();
     return () => {
@@ -440,6 +528,14 @@ const Publish: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, cycleId]);
+
+  // 当配置字段变化时更新选项
+  useEffect(() => {
+    if (configFields.length > 0) {
+      updateOptionsFromConfig();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configFields]);
 
   // 错误处理 useEffect
   useEffect(() => {
@@ -454,9 +550,11 @@ const Publish: React.FC = () => {
     if (fieldValues.length > 0 && isEditing) {
       const formValues: Record<string, any> = {};
       Object.keys(fieldIdMapping).forEach((key) => {
-        const v = getFieldValue(key);
-        if (v !== undefined && v !== null) {
-          formValues[key] = v;
+        if (isFieldEnabled(key)) {
+          const v = getFieldValue(key);
+          if (v !== undefined && v !== null) {
+            formValues[key] = v;
+          }
         }
       });
 
@@ -467,7 +565,7 @@ const Publish: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldValues, isEditing, fieldIdMapping]);
+  }, [fieldValues, isEditing, fieldIdMapping, configFields]);
 
   const handleDepartmentChange = (type: keyof DepartmentsState, value: string): void => {
     const newDepartments: DepartmentsState = { ...departments, [type]: value };
@@ -595,23 +693,9 @@ const Publish: React.FC = () => {
 
       const fieldValuesToUpdate: any[] = [];
 
-      const fieldsToUpdate = [
-        'name',
-        'student_id',
-        'gender',
-        'major',
-        'email',
-        'phone',
-        'grade',
-        'expected_departments',
-        'self_introduction',
-        'tech_stack',
-        'project_experience',
-        'expected_interview_time',
-        'personal_photo',
-        'reason',
-        'github',
-      ] as const;
+      const fieldsToUpdate = configFields
+        .filter(f => f.enabled !== false)
+        .map(f => f.key);
 
       fieldsToUpdate.forEach((fieldKey) => {
         const fieldId = fieldIdMapping[fieldKey];
@@ -628,7 +712,6 @@ const Publish: React.FC = () => {
         }
       });
 
-      // eslint-disable-next-line no-console
       console.log('更新简历字段值:', fieldValuesToUpdate);
 
       await dispatch(
@@ -646,7 +729,6 @@ const Publish: React.FC = () => {
       await dispatch(fetchOrCreateResume(cycleId));
       setIsEditing(false);
     } catch (err: unknown) {
-      // eslint-disable-next-line no-console
       console.error('更新简历错误:', err);
 
       if (isValidationError(err) && Array.isArray(err.errorFields) && err.errorFields.length > 0) {
@@ -687,23 +769,9 @@ const Publish: React.FC = () => {
 
       const fieldValuesToSave: any[] = [];
 
-      const fieldsToSave = [
-        'name',
-        'student_id',
-        'gender',
-        'major',
-        'email',
-        'phone',
-        'grade',
-        'expected_departments',
-        'self_introduction',
-        'tech_stack',
-        'project_experience',
-        'expected_interview_time',
-        'personal_photo',
-        'reason',
-        'github',
-      ] as const;
+      const fieldsToSave = configFields
+        .filter(f => f.enabled !== false)
+        .map(f => f.key);
 
       fieldsToSave.forEach((fieldKey) => {
         const fieldId = fieldIdMapping[fieldKey];
@@ -741,7 +809,6 @@ const Publish: React.FC = () => {
       await dispatch(fetchOrCreateResume(cycleId));
       setIsEditing(false);
     } catch (err: unknown) {
-      // eslint-disable-next-line no-console
       console.error('提交错误:', err);
 
       if (isValidationError(err) && Array.isArray(err.errorFields) && err.errorFields.length > 0) {
@@ -749,7 +816,7 @@ const Publish: React.FC = () => {
         return;
       }
 
-      // 保留你原来的字符串 includes 判断（TS 下需要先判断 err 是否字符串）
+      // 保留你原来的字符串 includes 判断
       if (typeof err === 'string' && err.includes('已经提交过简历')) {
         message.warning(err);
         await dispatch(fetchOrCreateResume(cycleId));
@@ -782,7 +849,6 @@ const Publish: React.FC = () => {
             const techStack = JSON.parse(String(techStackField.fieldValue));
             setTechStackItems(Array.isArray(techStack) ? techStack : ['']);
           } catch (e) {
-            // eslint-disable-next-line no-console
             console.error('解析技术栈失败', e);
             setTechStackItems(['']);
           }
@@ -801,7 +867,6 @@ const Publish: React.FC = () => {
               second: (deptArray?.[1] as string) || '',
             });
           } catch (e) {
-            // eslint-disable-next-line no-console
             console.error('解析部门志愿失败', e);
             setDepartments({ first: '', second: '' });
           }
@@ -822,7 +887,6 @@ const Publish: React.FC = () => {
               customTime: timesData.customTime || '',
             });
           } catch (e) {
-            // eslint-disable-next-line no-console
             console.error('解析面试时间失败', e);
             setInterviewTimes({
               first: '',
@@ -843,7 +907,6 @@ const Publish: React.FC = () => {
 
       setIsEditing(true);
     } catch (err: unknown) {
-      // eslint-disable-next-line no-console
       console.error('进入编辑模式失败:', err);
       message.error('加载简历数据失败，请刷新页面重试');
     }
@@ -854,9 +917,11 @@ const Publish: React.FC = () => {
     if (fieldValues.length > 0 && isEditing) {
       const formValues: Record<string, any> = {};
       Object.keys(fieldIdMapping).forEach((key) => {
-        const v = getFieldValue(key);
-        if (v !== undefined && v !== null) {
-          formValues[key] = v;
+        if (isFieldEnabled(key)) {
+          const v = getFieldValue(key);
+          if (v !== undefined && v !== null) {
+            formValues[key] = v;
+          }
         }
       });
 
@@ -879,7 +944,7 @@ const Publish: React.FC = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldValues, isEditing, fieldIdMapping, departments, interviewTimes]);
+  }, [fieldValues, isEditing, fieldIdMapping, departments, interviewTimes, configFields]);
 
   const handleCancelEdit = async (): Promise<void> => {
     try {
@@ -971,14 +1036,13 @@ const Publish: React.FC = () => {
       setIsEditing(false);
     } catch (err: unknown) {
       message.destroy();
-      // eslint-disable-next-line no-console
       console.error('取消修改失败:', err);
       message.error('取消修改失败，请刷新页面');
     }
   };
 
   // 初始化完成前显示加载状态
-  if (isInitializing) {
+  if (isInitializing || configLoading) {
     return (
       <div className="publish-loading">
         <Spin size="large" />
@@ -999,21 +1063,19 @@ const Publish: React.FC = () => {
 
             <Alert
               message="简历信息"
-              description={`您的简历状态：${
-                resume?.status === 2
+              description={`您的简历状态：${resume?.status === 2
                   ? '已提交（可修改）'
                   : resume?.status === 3
-                  ? '评审中（不可修改）'
-                  : resume?.status === 4
-                  ? '通过（不可修改）'
-                  : resume?.status === 5
-                  ? '未通过（不可修改）'
-                  : '草稿'
-              }。${
-                resume?.status === 2
+                    ? '评审中（不可修改）'
+                    : resume?.status === 4
+                      ? '通过（不可修改）'
+                      : resume?.status === 5
+                        ? '未通过（不可修改）'
+                        : '草稿'
+                }。${resume?.status === 2
                   ? '在审核开始前您可以修改简历。'
                   : '当前状态无法修改，如需修改请联系管理员。'
-              }`}
+                }`}
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
@@ -1157,286 +1219,352 @@ const Publish: React.FC = () => {
               >
                 <Row gutter={24}>
                   <Col xs={24}>
-                    <FormSection title="基本信息" icon={<IdcardOutlined />}>
-                      <Row gutter={24}>
-                        <Col xs={24} md={16}>
-                          <Row gutter={16}>
-                            <Col xs={24} md={12}>
-                              <TextInputField
-                                label="姓名"
-                                name="name"
-                                placeholder="请输入您的姓名"
-                                value={getFieldValue('name')}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                  handleFieldChange('name', e.target.value)
-                                }
-                                disabled={!canEdit}
-                                required
-                                className="compact-input"
-                              />
+                    {/* 基本信息部分 */}
+                    {isFieldEnabled('name') || isFieldEnabled('student_id') || isFieldEnabled('gender') ||
+                      isFieldEnabled('grade') || isFieldEnabled('major') || isFieldEnabled('email') ||
+                      isFieldEnabled('phone') || isFieldEnabled('github') || isFieldEnabled('personal_photo') ? (
+                      <FormSection title="基本信息" icon={<IdcardOutlined />}>
+                        <Row gutter={24}>
+                          <Col xs={24} md={16}>
+                            <Row gutter={16}>
+                              {isFieldEnabled('name') && (
+                                <Col xs={24} md={12}>
+                                  <TextInputField
+                                    label={getFieldLabel('name', '姓名')}
+                                    name="name"
+                                    placeholder={getFieldPlaceholder('name', '请输入您的姓名')}
+                                    value={getFieldValue('name')}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      handleFieldChange('name', e.target.value)
+                                    }
+                                    disabled={!canEdit}
+                                    required={isFieldRequired('name')}
+                                    className="compact-input"
+                                  />
+                                </Col>
+                              )}
+
+                              {isFieldEnabled('student_id') && (
+                                <Col xs={24} md={12}>
+                                  <TextInputField
+                                    label={getFieldLabel('student_id', '学号')}
+                                    name="student_id"
+                                    placeholder={getFieldPlaceholder('student_id', '请输入您的学号')}
+                                    value={getFieldValue('student_id')}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      handleFieldChange('student_id', e.target.value)
+                                    }
+                                    disabled={!canEdit}
+                                    required={isFieldRequired('student_id')}
+                                    className="compact-input"
+                                  />
+                                </Col>
+                              )}
+                            </Row>
+
+                            <Row gutter={16}>
+                              {isFieldEnabled('gender') && (
+                                <Col xs={24} md={12}>
+                                  <RadioGroupField
+                                    label={getFieldLabel('gender', '性别')}
+                                    name="gender"
+                                    value={getFieldValue('gender')}
+                                    onChange={(e: any) => handleFieldChange('gender', e.target.value)}
+                                    options={GENDER_OPTIONS}
+                                    disabled={!canEdit}
+                                    required={isFieldRequired('gender')}
+                                  />
+                                </Col>
+                              )}
+
+                              {isFieldEnabled('grade') && (
+                                <Col xs={24} md={12}>
+                                  <SelectField
+                                    label={getFieldLabel('grade', '年级')}
+                                    name="grade"
+                                    placeholder={getFieldPlaceholder('grade', '请选择年级')}
+                                    value={getFieldValue('grade')}
+                                    onChange={(value: string) => handleFieldChange('grade', value)}
+                                    options={GRADE_OPTIONS}
+                                    disabled={!canEdit}
+                                    required={isFieldRequired('grade')}
+                                    className="compact-input"
+                                  />
+                                </Col>
+                              )}
+                            </Row>
+
+                            <Row gutter={16}>
+                              {isFieldEnabled('major') && (
+                                <Col xs={24} md={12}>
+                                  <TextInputField
+                                    label={getFieldLabel('major', '专业')}
+                                    name="major"
+                                    placeholder={getFieldPlaceholder('major', '请输入您的专业')}
+                                    value={getFieldValue('major')}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      handleFieldChange('major', e.target.value)
+                                    }
+                                    disabled={!canEdit}
+                                    required={isFieldRequired('major')}
+                                    className="compact-input"
+                                  />
+                                </Col>
+                              )}
+
+                              {isFieldEnabled('email') && (
+                                <Col xs={24} md={12}>
+                                  <TextInputField
+                                    label={getFieldLabel('email', '邮箱')}
+                                    name="email"
+                                    placeholder={getFieldPlaceholder('email', '请输入您的邮箱')}
+                                    value={getFieldValue('email')}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      handleFieldChange('email', e.target.value)
+                                    }
+                                    disabled={!canEdit}
+                                    required={isFieldRequired('email')}
+                                    className="compact-input"
+                                  />
+                                </Col>
+                              )}
+                            </Row>
+
+                            <Row gutter={16}>
+                              {isFieldEnabled('phone') && (
+                                <Col xs={24} md={12}>
+                                  <TextInputField
+                                    label={getFieldLabel('phone', '手机号')}
+                                    name="phone"
+                                    placeholder={getFieldPlaceholder('phone', '请输入您的手机号')}
+                                    value={getFieldValue('phone')}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      handleFieldChange('phone', e.target.value)
+                                    }
+                                    disabled={!canEdit}
+                                    required={isFieldRequired('phone')}
+                                    className="compact-input"
+                                  />
+                                </Col>
+                              )}
+
+                              {isFieldEnabled('github') && (
+                                <Col xs={24} md={12}>
+                                  <TextInputField
+                                    label={getFieldLabel('github', 'GitHub主页')}
+                                    name="github"
+                                    placeholder={getFieldPlaceholder('github', '请输入您的GitHub主页（选填）')}
+                                    value={getFieldValue('github')}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      handleFieldChange('github', e.target.value)
+                                    }
+                                    disabled={!canEdit}
+                                    required={isFieldRequired('github')}
+                                    className="compact-input"
+                                  />
+                                </Col>
+                              )}
+                            </Row>
+                          </Col>
+
+                          {isFieldEnabled('personal_photo') && (
+                            <Col xs={24} md={8}>
+                              <div className="photo-container">
+                                <PhotoUpload
+                                  photoBase64={photoBase64}
+                                  onUpload={handlePhotoUpload}
+                                  isCompressing={isPhotoCompressing}
+                                  disabled={!canEdit}
+                                  required={isFieldRequired('personal_photo')}
+                                  label={getFieldLabel('personal_photo', '个人照片')}
+                                />
+                              </div>
                             </Col>
-                            <Col xs={24} md={12}>
-                              <TextInputField
-                                label="学号"
-                                name="student_id"
-                                placeholder="请输入您的学号"
-                                value={getFieldValue('student_id')}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                  handleFieldChange('student_id', e.target.value)
-                                }
-                                disabled={!canEdit}
-                                required
-                                className="compact-input"
-                              />
-                            </Col>
-                          </Row>
+                          )}
+                        </Row>
+                      </FormSection>
+                    ) : null}
 
-                          <Row gutter={16}>
-                            <Col xs={24} md={12}>
-                              <RadioGroupField
-                                label="性别"
-                                name="gender"
-                                value={getFieldValue('gender')}
-                                onChange={(e: any) => handleFieldChange('gender', e.target.value)}
-                                options={GENDER_OPTIONS}
-                                disabled={!canEdit}
-                                required
-                              />
-                            </Col>
-                            <Col xs={24} md={12}>
-                              <SelectField
-                                label="年级"
-                                name="grade"
-                                placeholder="请选择年级"
-                                value={getFieldValue('grade')}
-                                onChange={(value: string) => handleFieldChange('grade', value)}
-                                options={GRADE_OPTIONS}
-                                disabled={!canEdit}
-                                required
-                                className="compact-input"
-                              />
-                            </Col>
-                          </Row>
+                    {/* 自我介绍部分 */}
+                    {isFieldEnabled('self_introduction') || isFieldEnabled('reason') ? (
+                      <FormSection title="自我介绍" icon={<CommentOutlined />}>
+                        {isFieldEnabled('self_introduction') && (
+                          <TextAreaField
+                            label={getFieldLabel('self_introduction', '自我介绍')}
+                            name="self_introduction"
+                            placeholder={getFieldPlaceholder('self_introduction', '请介绍一下您的个人特点、兴趣爱好、技能特长等...')}
+                            value={getFieldValue('self_introduction')}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                              handleFieldChange('self_introduction', e.target.value)
+                            }
+                            disabled={!canEdit}
+                            required={isFieldRequired('self_introduction')}
+                            rows={4}
+                          />
+                        )}
 
-                          <Row gutter={16}>
-                            <Col xs={24} md={12}>
-                              <TextInputField
-                                label="专业"
-                                name="major"
-                                placeholder="请输入您的专业"
-                                value={getFieldValue('major')}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                  handleFieldChange('major', e.target.value)
-                                }
-                                disabled={!canEdit}
-                                required
-                                className="compact-input"
-                              />
-                            </Col>
-                            <Col xs={24} md={12}>
-                              <TextInputField
-                                label="邮箱"
-                                name="email"
-                                placeholder="请输入您的邮箱"
-                                value={getFieldValue('email')}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                  handleFieldChange('email', e.target.value)
-                                }
-                                disabled={!canEdit}
-                                required
-                                className="compact-input"
-                              />
-                            </Col>
-                          </Row>
+                        {isFieldEnabled('reason') && (
+                          <TextAreaField
+                            label={getFieldLabel('reason', '加入理由')}
+                            name="reason"
+                            placeholder={getFieldPlaceholder('reason', '为什么想加入我们社团？您期望获得什么？...')}
+                            value={getFieldValue('reason')}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                              handleFieldChange('reason', e.target.value)
+                            }
+                            disabled={!canEdit}
+                            required={isFieldRequired('reason')}
+                            rows={4}
+                          />
+                        )}
+                      </FormSection>
+                    ) : null}
 
-                          <Row gutter={16}>
-                            <Col xs={24} md={12}>
-                              <TextInputField
-                                label="手机号"
-                                name="phone"
-                                placeholder="请输入您的手机号"
-                                value={getFieldValue('phone')}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                  handleFieldChange('phone', e.target.value)
-                                }
-                                disabled={!canEdit}
-                                required
-                                className="compact-input"
-                              />
-                            </Col>
-                            <Col xs={24} md={12}>
-                              <TextInputField
-                                label="GitHub主页"
-                                name="github"
-                                placeholder="请输入您的GitHub主页（选填）"
-                                value={getFieldValue('github')}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                  handleFieldChange('github', e.target.value)
-                                }
-                                disabled={!canEdit}
-                                className="compact-input"
-                              />
-                            </Col>
-                          </Row>
-                        </Col>
-
-                        <Col xs={24} md={8}>
-                          <div className="photo-container">
-                            <PhotoUpload
-                              photoBase64={photoBase64}
-                              onUpload={handlePhotoUpload}
-                              isCompressing={isPhotoCompressing}
-                              disabled={!canEdit}
-                              required
-                              label="个人照片"
-                            />
-                          </div>
-                        </Col>
-                      </Row>
-                    </FormSection>
-
-                    <FormSection title="自我介绍" icon={<CommentOutlined />}>
-                      <TextAreaField
-                        label="自我介绍"
-                        name="self_introduction"
-                        placeholder="请介绍一下您的个人特点、兴趣爱好、技能特长等..."
-                        value={getFieldValue('self_introduction')}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                          handleFieldChange('self_introduction', e.target.value)
-                        }
-                        disabled={!canEdit}
-                        required
-                        rows={4}
-                      />
-
-                      <TextAreaField
-                        label="加入理由"
-                        name="reason"
-                        placeholder="为什么想加入我们社团？您期望获得什么？..."
-                        value={getFieldValue('reason')}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                          handleFieldChange('reason', e.target.value)
-                        }
-                        disabled={!canEdit}
-                        required
-                        rows={4}
-                      />
-                    </FormSection>
-
-                    <FormSection title="志愿选择" icon={<TeamOutlined />}>
-                      <SelectField
-                        label="第一志愿"
-                        name="first_department"
-                        placeholder="请选择您想加入的第一志愿部门"
-                        value={departments.first}
-                        onChange={(value: string) => {
-                          handleDepartmentChange('first', value);
-                          if (value === departments.second) {
-                            handleDepartmentChange('second', '');
-                          }
-                        }}
-                        options={FIRST_DEPARTMENT_OPTIONS}
-                        disabled={!canEdit}
-                        required
-                        className="compact-input"
-                      />
-
-                      <SelectField
-                        label="第二志愿"
-                        name="second_department"
-                        placeholder="请选择您想加入的第二志愿部门"
-                        value={departments.second}
-                        onChange={(value: string) => handleDepartmentChange('second', value)}
-                        options={SECOND_DEPARTMENT_OPTIONS}
-                        disabled={!canEdit}
-                        disabledOptions={getDisabledSecondDepartments()}
-                        className="compact-input"
-                      />
-                    </FormSection>
-
-                    <FormSection title="面试时间安排" icon={<TeamOutlined />}>
-                      <RadioGroupField
-                        label="是否能参加线下面试"
-                        name="can_attend_interview"
-                        value={interviewTimes.canAttend}
-                        onChange={(e: any) => handleInterviewTimeChange('canAttend', e.target.value)}
-                        options={CAN_ATTEND_OPTIONS}
-                        disabled={!canEdit}
-                        required
-                      />
-
-                      {interviewTimes.canAttend === 'yes' ? (
-                        <>
+                    {/* 志愿选择部分 */}
+                    {isFieldEnabled('first_department') || isFieldEnabled('second_department') ? (
+                      <FormSection title="志愿选择" icon={<TeamOutlined />}>
+                        {isFieldEnabled('first_department') && (
                           <SelectField
-                            label="第一面试时间"
-                            name="first_interview_time"
-                            placeholder="请选择第一面试时间"
-                            value={interviewTimes.first}
+                            label={getFieldLabel('first_department', '第一志愿')}
+                            name="first_department"
+                            placeholder={getFieldPlaceholder('first_department', '请选择您想加入的第一志愿部门')}
+                            value={departments.first}
                             onChange={(value: string) => {
-                              handleInterviewTimeChange('first', value);
-                              if (value === interviewTimes.second) {
-                                handleInterviewTimeChange('second', '');
+                              handleDepartmentChange('first', value);
+                              if (value === departments.second) {
+                                handleDepartmentChange('second', '');
                               }
                             }}
-                            options={FIRST_INTERVIEW_TIME_OPTIONS}
-                            disabled={!canEdit || interviewTimes.canAttend !== 'yes'}
-                            required
+                            options={FIRST_DEPARTMENT_OPTIONS}
+                            disabled={!canEdit}
+                            required={isFieldRequired('first_department')}
                             className="compact-input"
                           />
+                        )}
 
+                        {isFieldEnabled('second_department') && (
                           <SelectField
-                            label="第二面试时间"
-                            name="second_interview_time"
-                            placeholder="请选择第二面试时间"
-                            value={interviewTimes.second}
-                            onChange={(value: string) => handleInterviewTimeChange('second', value)}
-                            options={SECOND_INTERVIEW_TIME_OPTIONS}
-                            disabled={!canEdit || interviewTimes.canAttend !== 'yes'}
-                            disabledOptions={getDisabledSecondInterviewTimes()}
+                            label={getFieldLabel('second_department', '第二志愿')}
+                            name="second_department"
+                            placeholder={getFieldPlaceholder('second_department', '请选择您想加入的第二志愿部门')}
+                            value={departments.second}
+                            onChange={(value: string) => handleDepartmentChange('second', value)}
+                            options={SECOND_DEPARTMENT_OPTIONS}
+                            disabled={!canEdit}
+                            required={isFieldRequired('second_department')}
+                            disabledOptions={getDisabledSecondDepartments()}
                             className="compact-input"
                           />
-                        </>
-                      ) : (
-                        <div
-                          style={{
-                            backgroundColor: '#f9f9f9',
-                            padding: '12px',
-                            borderRadius: '4px',
-                            border: '1px solid #e8e8e8',
-                            marginTop: '8px',
-                          }}
-                        >
-                          <Text type="secondary">
-                            若不能参加线下面试，请联系管理员安排线上面试时间。面试时间将由管理员另行通知。
-                          </Text>
-                        </div>
-                      )}
-                    </FormSection>
+                        )}
+                      </FormSection>
+                    ) : null}
 
-                    <FormSection title="技术能力" icon={<CodeOutlined />}>
-                      <Form.Item label="技术栈" name="tech_stack">
-                        <TechStackInput
-                          items={techStackItems}
-                          onChange={handleTechStackChange}
-                          onAdd={addTechStackItem}
-                          onRemove={removeTechStackItem}
-                          disabled={!canEdit}
-                          placeholder="请输入技术栈"
-                        />
-                      </Form.Item>
+                    {/* 面试时间安排部分 */}
+                    {isFieldEnabled('can_attend_interview') || isFieldEnabled('first_interview_time') ||
+                      isFieldEnabled('second_interview_time') ? (
+                      <FormSection title="面试时间安排" icon={<TeamOutlined />}>
+                        {isFieldEnabled('can_attend_interview') && (
+                          <RadioGroupField
+                            label={getFieldLabel('can_attend_interview', '是否能参加线下面试')}
+                            name="can_attend_interview"
+                            value={interviewTimes.canAttend}
+                            onChange={(e: any) => handleInterviewTimeChange('canAttend', e.target.value)}
+                            options={CAN_ATTEND_OPTIONS}
+                            disabled={!canEdit}
+                            required={isFieldRequired('can_attend_interview')}
+                          />
+                        )}
 
-                      <TextAreaField
-                        label="项目经验"
-                        name="project_experience"
-                        placeholder="请描述您参与过的项目，包括项目角色、使用的技术、取得的成果等..."
-                        value={getFieldValue('project_experience')}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                          handleFieldChange('project_experience', e.target.value)
-                        }
-                        disabled={!canEdit}
-                        rows={4}
-                      />
-                    </FormSection>
+                        {interviewTimes.canAttend === 'yes' ? (
+                          <>
+                            {isFieldEnabled('first_interview_time') && (
+                              <SelectField
+                                label={getFieldLabel('first_interview_time', '第一面试时间')}
+                                name="first_interview_time"
+                                placeholder={getFieldPlaceholder('first_interview_time', '请选择第一面试时间')}
+                                value={interviewTimes.first}
+                                onChange={(value: string) => {
+                                  handleInterviewTimeChange('first', value);
+                                  if (value === interviewTimes.second) {
+                                    handleInterviewTimeChange('second', '');
+                                  }
+                                }}
+                                options={FIRST_INTERVIEW_TIME_OPTIONS}
+                                disabled={!canEdit || interviewTimes.canAttend !== 'yes'}
+                                required={isFieldRequired('first_interview_time')}
+                                className="compact-input"
+                              />
+                            )}
+
+                            {isFieldEnabled('second_interview_time') && (
+                              <SelectField
+                                label={getFieldLabel('second_interview_time', '第二面试时间')}
+                                name="second_interview_time"
+                                placeholder={getFieldPlaceholder('second_interview_time', '请选择第二面试时间')}
+                                value={interviewTimes.second}
+                                onChange={(value: string) => handleInterviewTimeChange('second', value)}
+                                options={SECOND_INTERVIEW_TIME_OPTIONS}
+                                disabled={!canEdit || interviewTimes.canAttend !== 'yes'}
+                                required={isFieldRequired('second_interview_time')}
+                                disabledOptions={getDisabledSecondInterviewTimes()}
+                                className="compact-input"
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <div
+                            style={{
+                              backgroundColor: '#f9f9f9',
+                              padding: '12px',
+                              borderRadius: '4px',
+                              border: '1px solid #e8e8e8',
+                              marginTop: '8px',
+                            }}
+                          >
+                            <Text type="secondary">
+                              若不能参加线下面试，请联系管理员安排线上面试时间。面试时间将由管理员另行通知。
+                            </Text>
+                          </div>
+                        )}
+                      </FormSection>
+                    ) : null}
+
+                    {/* 技术能力部分 */}
+                    {isFieldEnabled('tech_stack') || isFieldEnabled('project_experience') ? (
+                      <FormSection title="技术能力" icon={<CodeOutlined />}>
+                        {isFieldEnabled('tech_stack') && (
+                          <Form.Item
+                            label={getFieldLabel('tech_stack', '技术栈')}
+                            name="tech_stack"
+                            required={isFieldRequired('tech_stack')}
+                          >
+                            <TechStackInput
+                              items={techStackItems}
+                              onChange={handleTechStackChange}
+                              onAdd={addTechStackItem}
+                              onRemove={removeTechStackItem}
+                              disabled={!canEdit}
+                              placeholder={getFieldPlaceholder('tech_stack', '请输入技术栈')}
+                            />
+                          </Form.Item>
+                        )}
+
+                        {isFieldEnabled('project_experience') && (
+                          <TextAreaField
+                            label={getFieldLabel('project_experience', '项目经验')}
+                            name="project_experience"
+                            placeholder={getFieldPlaceholder('project_experience', '请描述您参与过的项目，包括项目角色、使用的技术、取得的成果等...')}
+                            value={getFieldValue('project_experience')}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                              handleFieldChange('project_experience', e.target.value)
+                            }
+                            disabled={!canEdit}
+                            required={isFieldRequired('project_experience')}
+                            rows={4}
+                          />
+                        )}
+                      </FormSection>
+                    ) : null}
 
                     <div className="form-actions">
                       <Space>

@@ -12,6 +12,7 @@ type Props = {
   isCompressing?: boolean;
   disabled?: boolean;
   label?: string;
+  required?: boolean;  // 添加 required 属性
 };
 
 const PhotoUpload: React.FC<Props> = ({

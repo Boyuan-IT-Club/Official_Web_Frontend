@@ -11,7 +11,7 @@ import { getToken, removeToken } from "./token";
 let isInterceptorSet = false;
 
 const request: AxiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "https://official.boyuan.club",
+  baseURL: process.env.REACT_APP_API_URL || "http://43.143.27.198:8080",
   timeout: 10000,
 });
 
