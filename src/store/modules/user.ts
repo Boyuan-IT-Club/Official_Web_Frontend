@@ -39,6 +39,7 @@ export interface UserInfo {
   phone?: string;
   major?: string | null;
   avatar?: string;
+  role?: "admin" | "user";
   [key: string]: unknown;
 }
 

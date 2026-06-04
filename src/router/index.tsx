@@ -20,6 +20,7 @@ import Management from "@/pages/Management";
 import Admin from "@/pages/admin/Admin";//这个没写完后面还要改！！！
 
 import { AuthRoute } from "@/components/AuthRoute";
+import { AdminRoute } from "@/components/AdminRoute";
 
 // 路由配置实例
 const router = createBrowserRouter([
@@ -53,11 +54,11 @@ const router = createBrowserRouter([
       },
       {
         path: "resume",
-        element: <Resume />,
+        element: <AdminRoute><Resume /></AdminRoute>,
       },
       {
         path: "manage",
-        element: <Management />,
+        element: <AdminRoute><Management /></AdminRoute>,
       },
     ],
   },

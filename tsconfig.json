@@ -18,7 +18,9 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+
+    "types": ["node"],
   },
   "include": ["src"]
 }
