@@ -44,8 +44,8 @@ const MainLayout = () => {
     }
     return userInfo.avatar;
   };
-  // 根据用户角色动态生成菜单项
-// 删掉原来的 menuItems 数组，替换成下面这段
+ 
+
 const role = userInfo?.role;
 
 const allMenuItems = [
@@ -53,12 +53,6 @@ const allMenuItems = [
     key: "/main/dashboard",
     icon: <HomeOutlined />,
     label: "首页",
-    roles: ["user", "admin"],
-  },
-  {
-    key: "/main/publish",
-    icon: <FileTextOutlined />,
-    label: "简历投递",
     roles: ["user", "admin"],
   },
   {
@@ -81,10 +75,10 @@ const allMenuItems = [
   },
 ];
 
-// role 未加载完成时先展示所有，加载完成后按角色过滤
+// role 未加载完成时先展示公共菜单，加载后按角色过滤
 const menuItems = allMenuItems
   .filter(item => !role || item.roles.includes(role))
-  .map(({ roles, ...rest }) => rest); // 去掉 roles 字段，Antd 不需要它
+  .map(({ roles, ...rest }) => rest);
 
   const handleMenuClick = ({ key }) => {
     navigate(key);
