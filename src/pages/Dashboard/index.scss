@@ -198,6 +198,20 @@ $border-color: #e2e8f0;
           }
         }
       }
+       .resume-button {
+          margin-top: 16px;
+          padding: 12px 32px;
+          font-size: 1rem;
+          font-weight: 600;
+          color: $text-light;
+          background: linear-gradient(135deg, $primary-blue 0%, $tech-purple 100%); // 呼应你的Banner渐变色
+          border: none;
+          border-radius: 30px; // 圆角药丸形状，更现代化
+          cursor: pointer;
+          box-shadow: 0 4px 15px rgba($primary-blue, 0.3); // 柔和的发光阴影
+          transition: all 0.3s ease; // 平滑的过渡动画
+          letter-spacing: 1px;
+       }
     }
   }
 }

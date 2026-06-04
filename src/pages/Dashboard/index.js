@@ -1,5 +1,6 @@
 // src/pages/Dashboard/index.js
 import React from 'react';
+import { useNavigate } from 'react-router-dom'; // 1. 【必须新增】引入路由跳转钩子
 import { Row, Col, Card, Typography, Divider, Avatar, List } from 'antd';
 import { 
   CodeOutlined, 
@@ -76,6 +77,8 @@ const achievements = [
 ];
 
 const Dashboard = () => {
+  const navigate = useNavigate(); // 2. 【必须新增】初始化 navigate
+
   return (
     <div className="dashboard-page">
       {/* 欢迎横幅 */}
@@ -213,6 +216,12 @@ const Dashboard = () => {
                 <Text strong>官方公众号：</Text>
                 <Text>ECNUCoder</Text>
               </div>
+            </div>
+            
+            <div style={{ marginTop: '24px' }}>
+              <button className="resume-button" onClick={() => navigate('/main/publish')}>
+                投递简历，加入我们 ➔
+              </button>
             </div>
           </div>
         </Card>
