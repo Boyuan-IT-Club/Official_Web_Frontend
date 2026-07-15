@@ -1,41 +1,30 @@
-name: Frontend Deploy
+name: Deploy Frontend
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
-      - run: npm ci
-      - run: npm run build
+      - name: Install & Build
         env:
-          # 根据分支自动选择环境变量
-          VITE_API_BASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.API_URL_PROD || secrets.API_URL_DEV }}
-
-      # 上传构建产物供后续步骤使用
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
+          CI: false
+        run: |
+          npm ci
+          npm run build
 
       - name: Setup SSH
         run: |
@@ -48,4 +37,9 @@ jobs:
         run: |
           rsync -avz --delete \
             dist/ \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/boyuan-frontend/dist/
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/boyuan-web-frontend/dist/
+
+      - name: Verify
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "ls -la /var/www/boyuan-web-frontend/dist/ && echo 'Deploy OK'"
