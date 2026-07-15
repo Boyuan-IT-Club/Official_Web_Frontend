@@ -44,3 +44,14 @@ jobs:
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
             "ls -la /var/www/boyuan-web-frontend/dist/ && echo 'Deploy OK'"
+
+      - name: Debug SSH
+        run: |
+          echo "=== Keys in agent ==="
+          ssh-add -l || echo "No keys loaded"
+          echo "=== Key fingerprint ==="
+          ssh-add -L 2>/dev/null | head -1 || echo "Cannot list key"
+          echo "=== Server host ==="
+          echo "${{ secrets.SERVER_HOST }}"
+          echo "=== Server user ==="
+          echo "${{ secrets.SERVER_USER }}"
