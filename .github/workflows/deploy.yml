@@ -32,9 +32,7 @@ jobs:
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/boyuan_rsa
           chmod 600 ~/.ssh/boyuan_rsa
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/boyuan_rsa
-          
+
       - name: Install rsync
         run: |
           sudo apt-get update
