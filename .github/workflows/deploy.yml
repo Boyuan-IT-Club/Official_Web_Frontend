@@ -1,52 +1,35 @@
-name: Deploy Frontend
+name: Deploy to Server
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [main] 
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: 20
 
-      - name: Install & Build
-        env:
-          CI: false
-        run: |
-          npm ci
-          npm run build
+      - name: Install dependencies
+        run: npm install
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/boyuan_rsa
-          chmod 600 ~/.ssh/boyuan_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      - name: Build the project
+        run: npm run build
+        # GitHub Actions 的 runner 内存充足，不会 OOM ✅
 
-      - name: Install rsync
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rsync
-
-      - name: Deploy to Server
-        run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/boyuan_rsa" \
-            build/ \                                # ← 关键改这里！
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/boyuan-web-frontend/dist/
-
-      - name: Verify
-        run: |
-          ssh -i ~/.ssh/boyuan_rsa \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "ls -la /var/www/boyuan-web-frontend/dist/ && echo 'Deploy OK'"
+      - name: Deploy to Server via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 8.159.153.140
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "build/*"
+          target: "/var/www/boyuan-web-frontend/"
+          strip_components: 1
+          rm: true
