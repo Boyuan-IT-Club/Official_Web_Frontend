@@ -21,6 +21,8 @@ jobs:
 
       - name: Build the project
         run: npm run build
+        env:
+          CI: false 
         # GitHub Actions 的 runner 内存充足，不会 OOM ✅
 
       - name: Deploy to Server via SCP
