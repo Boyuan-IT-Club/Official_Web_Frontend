@@ -1,0 +1,187 @@
+.interview-appointment-page {
+  padding: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+
+  .appointment-header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .appointment-card {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .appointment-steps {
+    margin-bottom: 20px;
+    padding: 0 10px;
+  }
+
+  // ========== 部门选择 ==========
+  .department-select {
+    &__title {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+  }
+
+  .department-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .department-card {
+    text-align: center;
+    border-radius: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+
+    &:hover {
+      transform: translateY(-2px);
+    }
+
+    &__icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    &__name {
+      font-size: 16px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    &__desc {
+      font-size: 12px;
+      display: block;
+    }
+  }
+
+  // ========== 已选部门提示条 ==========
+  .selected-dept-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 10px 16px;
+    background: #f6f9ff;
+    border-radius: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  // ========== 时间段列表 ==========
+  .slot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .slot-empty {
+    text-align: center;
+    padding: 32px 0;
+  }
+
+  .slot-card {
+    border-radius: 6px;
+    transition: box-shadow 0.2s;
+
+    &:hover {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    &--full {
+      background-color: #fff7f7;
+      border-color: #ffccc7;
+    }
+
+    &--booked {
+      background-color: #f6ffed;
+      border-color: #b7eb8f;
+    }
+
+    .slot-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .slot-time {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 180px;
+
+      .slot-icon {
+        font-size: 18px;
+        color: #1890ff;
+        flex-shrink: 0;
+      }
+
+      .slot-label {
+        font-size: 15px;
+        display: block;
+      }
+
+      .slot-range {
+        font-size: 12px;
+        display: block;
+      }
+    }
+
+    .slot-quota {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      max-width: 320px;
+
+      .slot-progress {
+        flex: 1;
+        max-width: 100px;
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  .appointment-actions {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .interview-appointment-page {
+    padding: 16px;
+
+    .department-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .selected-dept-bar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .slot-card .slot-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .slot-card .slot-quota {
+      max-width: 100%;
+    }
+
+    .slot-card .slot-time {
+      min-width: unset;
+    }
+  }
+}

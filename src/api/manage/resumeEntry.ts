@@ -3,28 +3,173 @@
 import { request } from '@/utils/request';
 
 /**
- * ✅ 后端字段类型
+ * ✅ 后端字段类型（与接口 JSON 一致）
  */
 export interface BackendResumeField {
-  fieldId: number;
+  fieldId?: number;
   cycleId: number;
   fieldKey: string;
   fieldLabel: string;
+  fieldType: string;
+  placeholder?: string;
   isRequired: boolean;
   sortOrder: number;
   isActive: boolean;
+  /** select / radio / checkbox 的选项列表 */
+  options?: string[];
 }
 
 /**
  * ✅ 前端 UI 类型（可以扩展）
  * ❗ 不参与后端提交
  */
-export interface ResumeFieldUI extends BackendResumeField {
-  fieldType?: 'input' | 'textarea' | 'radio' | 'checkbox' | 'select' | 'custom' | 'flie';
-  placeholder?: string;
+/** 后端支持的 fieldType（与接口文档一致） */
+export type BackendFieldType =
+  | 'text'
+  | 'textarea'
+  | 'select'
+  | 'radio'
+  | 'checkbox'
+  | 'file';
+
+/** 前端表单用类型（兼容历史 input/custom） */
+export type ResumeFieldType = BackendFieldType | 'input' | 'custom';
+
+/** 已废弃字段，批量保存时过滤（面试预约走独立接口） */
+export const DEPRECATED_RESUME_FIELD_KEYS = [
+  'expected_interview_time',
+] as const;
+
+export interface ResumeFieldUI extends Omit<BackendResumeField, 'fieldType'> {
+  fieldId: number;
+  fieldType?: ResumeFieldType;
   options?: string[];
-  category:number;
+  category: number;
 }
+
+/** fieldKey → 表单分类（后端无 category 时用于 UI 分组） */
+export const FIELD_KEY_CATEGORY_MAP: Record<string, number> = {
+  name: 1,
+  student_id: 1,
+  gender: 1,
+  grade: 1,
+  major: 1,
+  email: 1,
+  phone: 1,
+  github: 1,
+  personal_photo: 1,
+  self_introduction: 2,
+  introduction: 2,
+  reason: 2,
+  first_choice: 3,
+  second_choice: 3,
+  first_department: 3,
+  second_department: 3,
+  expected_departments: 3,
+  can_attend_offline_interview: 4,
+  can_attend_interview: 4,
+  expected_interview_time: 4,
+  second_interview_time: 4,
+  first_interview_time: 4,
+  tech_stack: 5,
+  project_experience: 5,
+};
+
+/** 当前招新周期（与后端、默认配置保持一致） */
+export const RESUME_CYCLE_ID = 2;
+
+export const DEFAULT_FIELD_TYPE: BackendFieldType = 'text';
+
+/** 后端 fieldType 别名 → 前端表单枚举 */
+const FIELD_TYPE_ALIASES: Record<string, BackendFieldType> = {
+  input: 'text',
+  text: 'text',
+  文本框: 'text',
+  单行输入: 'text',
+  单行文本: 'text',
+  textarea: 'textarea',
+  多行文本: 'textarea',
+  select: 'select',
+  下拉选择: 'select',
+  radio: 'radio',
+  单选: 'radio',
+  checkbox: 'checkbox',
+  多选: 'checkbox',
+  file: 'file',
+  flie: 'file',
+  文件上传: 'file',
+  custom: 'text',
+  自定义: 'text',
+};
+
+export const normalizeFieldType = (raw?: string): BackendFieldType =>
+  FIELD_TYPE_ALIASES[raw ?? ''] ??
+  FIELD_TYPE_ALIASES[String(raw ?? '').toLowerCase()] ??
+  DEFAULT_FIELD_TYPE;
+
+/** UI/历史值 → 提交给后端的 fieldType */
+export const toBackendFieldType = (raw?: string): BackendFieldType =>
+  normalizeFieldType(raw);
+
+/**
+ * 解析 GET 字段列表响应（兼容多种后端包装）
+ */
+export const unwrapResumeFieldsResponse = (res: unknown): BackendResumeField[] => {
+  if (!res) return [];
+  if (Array.isArray(res)) return res as BackendResumeField[];
+
+  const body = res as Record<string, unknown>;
+  if (typeof body.code === 'number' && body.code !== 0 && body.code !== 200) {
+    throw new Error(String(body.message || '获取简历字段失败'));
+  }
+
+  if (Array.isArray(body.data)) return body.data as BackendResumeField[];
+  if (body.data && typeof body.data === 'object') {
+    const nested = body.data as Record<string, unknown>;
+    if (Array.isArray(nested.fields)) return nested.fields as BackendResumeField[];
+    if (Array.isArray(nested.list)) return nested.list as BackendResumeField[];
+    if (Array.isArray(nested.content)) return nested.content as BackendResumeField[];
+  }
+  if (Array.isArray(body.fields)) return body.fields as BackendResumeField[];
+
+  return [];
+};
+
+/** 需要配置选项的字段类型 */
+export const FIELD_TYPES_WITH_OPTIONS: BackendFieldType[] = [
+  'select',
+  'radio',
+  'checkbox',
+];
+
+export const fieldTypeNeedsOptions = (fieldType?: string): boolean =>
+  FIELD_TYPES_WITH_OPTIONS.includes(normalizeFieldType(fieldType));
+
+export const parseFieldOptions = (raw: unknown): string[] => {
+  if (Array.isArray(raw)) {
+    return raw.map(String).map((s) => s.trim()).filter(Boolean);
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(String).map((s) => s.trim()).filter(Boolean);
+      }
+    } catch {
+      return raw.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
+
+export const FIELD_TYPE_OPTIONS: { value: BackendFieldType; label: string }[] = [
+  { value: 'text', label: '单行文本' },
+  { value: 'textarea', label: '多行文本' },
+  { value: 'select', label: '下拉选择' },
+  { value: 'radio', label: '单选' },
+  { value: 'checkbox', label: '多选' },
+  { value: 'file', label: '文件上传' },
+];
 
 /**
  * 默认字段
@@ -39,7 +184,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isRequired: true,
     sortOrder: 1,
     isActive: true,
-    fieldType: "input",
+    fieldType: "text",
     placeholder: "请输入您的姓名",
     category: 1, // 基本信息
   },
@@ -51,7 +196,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isRequired: true,
     sortOrder: 2,
     isActive: true,
-    fieldType: "input",
+    fieldType: "text",
     placeholder: "请输入您的学号",
     category: 1, // 基本信息
   },
@@ -87,7 +232,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isRequired: true,
     sortOrder: 5,
     isActive: true,
-    fieldType: "input",
+    fieldType: "text",
     placeholder: "请输入您的专业",
     category: 1, // 基本信息
   },
@@ -100,7 +245,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isRequired: true,
     sortOrder: 6,
     isActive: true,
-    fieldType: "input",
+    fieldType: "text",
     placeholder: "请输入您的邮箱",
     category: 1, 
   },
@@ -112,7 +257,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isRequired: true,
     sortOrder: 7,
     isActive: true,
-    fieldType: "input",
+    fieldType: "text",
     placeholder: "请输入您的手机号",
     category: 1,
   },
@@ -124,7 +269,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isRequired: false,
     sortOrder: 8,
     isActive: true,
-    fieldType: "input",
+    fieldType: "text",
     placeholder: "请输入您的GitHub主页（选填）",
     category: 1,
   },
@@ -137,7 +282,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isRequired: false,
     sortOrder: 9,
     isActive: true,
-    fieldType: "flie",
+    fieldType: "file",
     placeholder: "请上传您的个人照片（选填）",
     category: 1,
   },
@@ -165,6 +310,18 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isActive: true,
     fieldType: "textarea",
     placeholder: "为什么想加入我们社团？您期望获得什么？...",
+    category: 2,
+  },
+  {
+    fieldId: 17,
+    cycleId: 2,
+    fieldKey: "introduction",
+    fieldLabel: "个人简介",
+    isRequired: true,
+    sortOrder: 13,
+    isActive: true,
+    fieldType: "textarea",
+    placeholder: "请提供个人简介",
     category: 2,
   },
 
@@ -238,19 +395,19 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
 
   // ==================== 分类5：技术能力 ====================
   {
-    fieldId: 17,
+    fieldId: 18,
     cycleId: 2,
     fieldKey: "tech_stack",
     fieldLabel: "技术栈",
     isRequired: true,
     sortOrder: 17,
     isActive: true,
-    fieldType: "input",
+    fieldType: "text",
     placeholder: "请输入技术栈",
     category: 5, // 技术能力
   },
   {
-    fieldId: 18,
+    fieldId: 19,
     cycleId: 2,
     fieldKey: "project_experience",
     fieldLabel: "项目经验",
@@ -264,49 +421,129 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
 ];
 
 /**
- * ✅ 工具函数：UI → Backend（核心）
+ * UI → 单条后端字段（新增/更新）
  */
-export const toBackendFields = (fields: ResumeFieldUI[]): BackendResumeField[] => {
-  return fields.map(f => ({
-    fieldId: f.fieldId,
-    cycleId: f.cycleId,
-    fieldKey: f.fieldKey,
-    fieldLabel: f.fieldLabel,
-    isRequired: f.isRequired,
-    isActive: f.isActive,
-    sortOrder: f.sortOrder,
-  }));
+export const toBackendField = (f: ResumeFieldUI): BackendResumeField => {
+  const fieldId = Number(f.fieldId) || 0;
+  const sortOrder = Number(f.sortOrder) || 0;
+  const payload: BackendResumeField = {
+    cycleId: Number(f.cycleId) || RESUME_CYCLE_ID,
+    fieldKey: String(f.fieldKey || '').trim(),
+    fieldLabel: String(f.fieldLabel || '').trim(),
+    fieldType: toBackendFieldType(f.fieldType),
+    isRequired: Boolean(f.isRequired),
+    isActive: f.isActive !== false,
+    sortOrder: sortOrder > 0 ? sortOrder : 1,
+  };
+
+  const placeholder = String(f.placeholder ?? '').trim();
+  if (placeholder) {
+    payload.placeholder = placeholder;
+  }
+
+  if (fieldId > 0) {
+    payload.fieldId = fieldId;
+  }
+
+  if (fieldTypeNeedsOptions(payload.fieldType)) {
+    const opts = parseFieldOptions(f.options);
+    if (opts.length > 0) {
+      payload.options = opts;
+    }
+  }
+
+  return payload;
 };
 
 /**
- * ✅ 批量更新
+ * 后端 → UI（补全分类与扩展字段）
  */
+export const fromBackendField = (
+  f: BackendResumeField,
+  fallbackCategory = 1,
+): ResumeFieldUI => {
+  const category =
+    FIELD_KEY_CATEGORY_MAP[f.fieldKey] ?? fallbackCategory;
+
+  return {
+    fieldId: f.fieldId ?? 0,
+    cycleId: f.cycleId,
+    fieldKey: f.fieldKey,
+    fieldLabel: f.fieldLabel,
+    fieldType: normalizeFieldType(f.fieldType),
+    placeholder: f.placeholder ?? '',
+    isRequired: Boolean(f.isRequired),
+    isActive: f.isActive !== false,
+    sortOrder: f.sortOrder,
+    category,
+    options: fieldTypeNeedsOptions(f.fieldType)
+      ? parseFieldOptions((f as BackendResumeField).options)
+      : undefined,
+  };
+};
+
+export const fromBackendFields = (fields: BackendResumeField[]): ResumeFieldUI[] =>
+  fields
+    .filter(
+      (f) =>
+        !DEPRECATED_RESUME_FIELD_KEYS.includes(
+          f.fieldKey as (typeof DEPRECATED_RESUME_FIELD_KEYS)[number],
+        ),
+    )
+    .map((f) => fromBackendField(f));
+
+/**
+ * UI → Backend 批量提交
+ */
+export const toBackendFields = (fields: ResumeFieldUI[]): BackendResumeField[] =>
+  fields.map(toBackendField);
+
+/**
+ * ✅ 批量更新（仅已存在 fieldId > 0 的字段）
+ */
+/** 批量更新：请求体为字段数组（PUT /api/resumes/fields/batch） */
 export const batchUpdateResumeFields = (fields: ResumeFieldUI[]) => {
+  const payload = toBackendFields(
+    fields.filter(
+      (f) =>
+        !DEPRECATED_RESUME_FIELD_KEYS.includes(
+          f.fieldKey as (typeof DEPRECATED_RESUME_FIELD_KEYS)[number],
+        ),
+    ),
+  );
+  if (payload.length === 0) {
+    return Promise.resolve(null);
+  }
   return request({
     url: '/api/resumes/fields/batch',
     method: 'put',
-    data: toBackendFields(fields),
+    data: payload,
   });
 };
 
 /**
  * ✅ 获取字段列表
  */
-export const getResumeFields = (cycleId: number) => {
-  return request<BackendResumeField[]>({
+export const getResumeFields = async (cycleId: number): Promise<BackendResumeField[]> => {
+  const res = await request({
     url: `/api/resumes/fields/${cycleId}`,
     method: 'get',
   });
+  return unwrapResumeFieldsResponse(res);
 };
 
 /**
  * ✅ 初始化字段
  */
 export const initResumeFields = (cycleId: number) => {
+  const fields = DEFAULT_RESUME_FIELDS.map((f) => ({
+    ...f,
+    cycleId,
+  }));
   return request({
     url: `/api/resumes/fields/${cycleId}/init`,
     method: 'post',
-    data: toBackendFields(DEFAULT_RESUME_FIELDS),
+    data: toBackendFields(fields),
   });
 };
 
@@ -319,6 +556,38 @@ export const createResumeField = (data: Omit<BackendResumeField, 'fieldId'>) => 
     method: 'post',
     data,
   });
+};
+
+/**
+ * 保存全部字段：统一走批量 PUT（新增可省略 fieldId）
+ */
+export const saveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> => {
+  const normalized = fields
+    .filter(
+      (f) =>
+        !DEPRECATED_RESUME_FIELD_KEYS.includes(
+          f.fieldKey as (typeof DEPRECATED_RESUME_FIELD_KEYS)[number],
+        ),
+    )
+    .map((f) => ({
+      ...f,
+      cycleId: Number(f.cycleId) || RESUME_CYCLE_ID,
+      fieldId: Number(f.fieldId) || 0,
+      fieldType: normalizeFieldType(f.fieldType),
+    }));
+
+  if (normalized.length === 0) {
+    throw new Error('没有可保存的字段');
+  }
+
+  try {
+    await batchUpdateResumeFields(normalized);
+  } catch (e: any) {
+    throw {
+      ...e,
+      message: `批量更新失败（${normalized.length} 项）: ${e?.message || '系统异常'}`,
+    };
+  }
 };
 
 export const updateResumeField = (fieldId: number, data: Partial<BackendResumeField>) => {

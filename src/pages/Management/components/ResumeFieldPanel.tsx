@@ -1,8 +1,15 @@
 // ResumeFieldPanel.tsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Popconfirm, Typography, InputNumber, Badge, Collapse } from 'antd';
-import { DeleteOutlined, PlusOutlined, ReloadOutlined, MenuOutlined, PlusCircleOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Popconfirm, Typography, InputNumber, Badge, Select } from 'antd';
+import { DeleteOutlined, PlusOutlined, ReloadOutlined, MenuOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import type { ResumeFieldUI } from '@/api/manage/resumeEntry';
+import {
+  FIELD_TYPE_OPTIONS,
+  DEFAULT_FIELD_TYPE,
+  FIELD_KEY_CATEGORY_MAP,
+  fieldTypeNeedsOptions,
+  parseFieldOptions,
+} from '@/api/manage/resumeEntry';
 
 // 拖拽排序相关库
 import {
@@ -24,6 +31,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { IdcardOutlined, CommentOutlined, TeamOutlined, CodeOutlined } from '@ant-design/icons';
+import './ResumeFieldPanel.scss';
 
 const { Text } = Typography;
 
@@ -46,6 +54,42 @@ const CATEGORY_CONFIG: Record<number, { name: string; icon: React.ReactNode; col
   5: { name: '技术能力', icon: <CodeOutlined style={{ color: '#1473cc' }} />, color: '#000000' },
 };
 
+/** 选项列表编辑（用于 select / radio / checkbox） */
+const FieldOptionsEditor: React.FC<{ listName: number }> = ({ listName }) => (
+  <div className="field-options-editor">
+    <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+      选项配置（投递页将按顺序展示）
+    </Text>
+    <Form.List name={[listName, 'options']}>
+      {(optionFields, { add, remove }) => (
+        <>
+          {optionFields.map(({ key, name: optIndex }) => (
+            <Space key={key} align="start" style={{ display: 'flex', marginBottom: 8, width: '100%' }}>
+              <Form.Item
+                name={optIndex}
+                rules={[{ required: true, whitespace: true, message: '请输入选项内容' }]}
+                style={{ flex: 1, marginBottom: 0 }}
+              >
+                <Input placeholder={`选项 ${optIndex + 1}`} />
+              </Form.Item>
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                disabled={optionFields.length <= 1}
+                onClick={() => remove(optIndex)}
+              />
+            </Space>
+          ))}
+          <Button type="dashed" onClick={() => add('')} icon={<PlusOutlined />} block>
+            添加选项
+          </Button>
+        </>
+      )}
+    </Form.List>
+  </div>
+);
+
 // 可拖拽的卡片组件（保持原来的样式不变）
 const SortableItem: React.FC<{
   id: string;
@@ -55,7 +99,8 @@ const SortableItem: React.FC<{
   name: number;
   onDelete: (index: number) => void;
   onSortOrderChange: (value: number | null, index: number) => void;
-}> = ({ id, field, index, form, name, onDelete, onSortOrderChange }) => {
+  fieldTypeOptions: { value: string; label: string }[];
+}> = ({ id, field, index, form, name, onDelete, onSortOrderChange, fieldTypeOptions }) => {
   const {
     attributes,
     listeners,
@@ -77,6 +122,16 @@ const SortableItem: React.FC<{
 
   const fieldLabel = form.getFieldValue(['fields', name, 'fieldLabel']) || '字段';
   const sortOrder = form.getFieldValue(['fields', name, 'sortOrder']) || index + 1;
+  const fieldType = Form.useWatch(['fields', name, 'fieldType'], form);
+  const showOptionsEditor = fieldTypeNeedsOptions(fieldType);
+
+  const handleFieldTypeChange = (value: string): void => {
+    if (!fieldTypeNeedsOptions(value)) return;
+    const currentOptions = form.getFieldValue(['fields', name, 'options']);
+    if (!Array.isArray(currentOptions) || currentOptions.length === 0) {
+      form.setFieldValue(['fields', name, 'options'], ['']);
+    }
+  };
 
   return (
     <div ref={setNodeRef} style={style}>
@@ -120,6 +175,9 @@ const SortableItem: React.FC<{
         }
         extra={
           <Space>
+            <Form.Item name={[name, 'isActive']} valuePropName="checked" noStyle>
+              <Switch checkedChildren="启用" unCheckedChildren="停用" />
+            </Form.Item>
             <Form.Item name={[name, 'isRequired']} valuePropName="checked" noStyle>
               <Switch checkedChildren="必填" unCheckedChildren="选填" />
             </Form.Item>
@@ -136,6 +194,16 @@ const SortableItem: React.FC<{
           </Space>
         }
       >
+        <Form.Item name={[name, 'fieldId']} hidden>
+          <InputNumber style={{ display: 'none' }} />
+        </Form.Item>
+        <Form.Item name={[name, 'cycleId']} hidden>
+          <InputNumber style={{ display: 'none' }} />
+        </Form.Item>
+        <Form.Item name={[name, 'category']} hidden>
+          <InputNumber style={{ display: 'none' }} />
+        </Form.Item>
+
         <Row gutter={16} align="middle">
           <Col span={12}>
             <Form.Item
@@ -143,7 +211,7 @@ const SortableItem: React.FC<{
               label="字段名称"
               rules={[{ required: true, message: '请输入字段名称' }]}
             >
-              <Input placeholder="如：姓名、邮箱" />
+              <Input placeholder="如：个人简介" />
             </Form.Item>
           </Col>
           <Col span={12}>
@@ -152,10 +220,37 @@ const SortableItem: React.FC<{
               label="字段标识"
               rules={[{ required: true, message: '请输入字段标识' }]}
             >
-              <Input placeholder="如：name、email" />
+              <Input placeholder="如：introduction" />
             </Form.Item>
           </Col>
         </Row>
+
+        <Row gutter={16} align="middle">
+          <Col span={12}>
+            <Form.Item
+              name={[name, 'fieldType']}
+              label="字段类型"
+              rules={[{ required: true, message: '请选择字段类型' }]}
+            >
+              <Select
+                placeholder="选择类型"
+                options={fieldTypeOptions.length ? fieldTypeOptions : FIELD_TYPE_OPTIONS}
+                onChange={handleFieldTypeChange}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name={[name, 'placeholder']} label="占位提示">
+              <Input placeholder="如：请提供个人简介" />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        {showOptionsEditor && (
+          <div style={{ marginTop: 8 }}>
+            <FieldOptionsEditor listName={name} />
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -170,6 +265,7 @@ const CategoryCard: React.FC<{
   onDelete: (index: number) => void;
   onSortOrderChange: (value: number | null, index: number) => void;
   onAddFieldToCategory: (category: number) => void;
+  fieldTypeOptions: { value: string; label: string }[];
 }> = ({
   category,
   fields,
@@ -177,7 +273,8 @@ const CategoryCard: React.FC<{
   form,
   onDelete,
   onSortOrderChange,
-  onAddFieldToCategory
+  onAddFieldToCategory,
+  fieldTypeOptions,
 }) => {
   const config = CATEGORY_CONFIG[category];
   
@@ -281,6 +378,7 @@ const CategoryCard: React.FC<{
               name={meta.name}
               onDelete={onDelete}
               onSortOrderChange={onSortOrderChange}
+              fieldTypeOptions={fieldTypeOptions}
             />
           ))}
         </SortableContext>
@@ -331,11 +429,12 @@ const ResumeFieldPanel: React.FC<Props> = ({
       cycleId,
       fieldKey: `field_${Date.now()}`,
       fieldLabel: '新字段',
+      fieldType: DEFAULT_FIELD_TYPE,
+      placeholder: '',
       isRequired: true,
       isActive: true,
       sortOrder: maxSortOrder + 1,
-      fieldType: 'input',
-      category: category,
+      category,
     };
 
     const newFields = [...current, newField];
@@ -416,22 +515,68 @@ const ResumeFieldPanel: React.FC<Props> = ({
     }
   };
 
+  const mergeFormFieldsForSave = (raw: ResumeFieldUI[]): ResumeFieldUI[] =>
+    raw.map((item, index) => {
+      const itemFieldId = Number(item.fieldId);
+      const orig =
+        (itemFieldId > 0
+          ? fields.find((f) => Number(f.fieldId) === itemFieldId)
+          : undefined) ||
+        fields.find((f) => f.fieldKey && f.fieldKey === item.fieldKey) ||
+        fields[index];
+      const fieldKey = String(item.fieldKey || orig?.fieldKey || '').trim();
+      const resolvedFieldId = itemFieldId > 0 ? itemFieldId : Number(orig?.fieldId) || 0;
+      return {
+        ...orig,
+        ...item,
+        fieldId: resolvedFieldId,
+        cycleId: Number(item.cycleId) || Number(orig?.cycleId) || cycleId,
+        category:
+          Number(item.category) ||
+          orig?.category ||
+          FIELD_KEY_CATEGORY_MAP[fieldKey] ||
+          1,
+        fieldKey,
+        fieldLabel: String(item.fieldLabel || orig?.fieldLabel || '').trim(),
+        fieldType: item.fieldType || orig?.fieldType,
+        isRequired: Boolean(item.isRequired),
+        isActive: item.isActive !== false,
+        sortOrder: Number(item.sortOrder) || orig?.sortOrder || index + 1,
+        options: fieldTypeNeedsOptions(item.fieldType || orig?.fieldType)
+          ? parseFieldOptions(item.options ?? orig?.options)
+          : undefined,
+      };
+    });
+
   const handleSave = async () => {
     try {
       await form.validateFields();
       setSaving(true);
 
-      const formFields = form.getFieldValue('fields') || [];
+      const raw = form.getFieldValue('fields') || [];
+      const formFields = mergeFormFieldsForSave(raw);
 
       if (!formFields.length) {
         message.warning('至少需要有一个字段');
         return;
       }
 
+      const missingOptions = formFields.find(
+        (f) => fieldTypeNeedsOptions(f.fieldType) && !(f.options && f.options.length > 0),
+      );
+      if (missingOptions) {
+        message.warning(`「${missingOptions.fieldLabel || missingOptions.fieldKey}」请至少配置一个选项`);
+        return;
+      }
+
       await onSave(formFields);
       message.success('保存成功');
-    } catch {
-      message.error('保存失败，请检查字段信息');
+    } catch (err: any) {
+      if (err?.errorFields?.length) {
+        message.error('请检查表单必填项');
+      } else {
+        message.error(err?.message || '保存失败，请检查字段信息或网络连接');
+      }
     } finally {
       setSaving(false);
     }
@@ -505,6 +650,7 @@ const ResumeFieldPanel: React.FC<Props> = ({
                     onDelete={deleteField}
                     onSortOrderChange={handleSortOrderChange}
                     onAddFieldToCategory={addFieldToCategory}
+                    fieldTypeOptions={fieldTypeOptions}
                   />
                 ))}
               </DndContext>

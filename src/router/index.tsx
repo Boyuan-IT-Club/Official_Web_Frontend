@@ -13,6 +13,7 @@ import Activities from "../pages/Activities";//社团活动分享
 import Experience from "../pages/Experience";
 
 import Publish from "@/pages/Publish";
+import InterviewAppointment from "@/pages/InterviewAppointment";
 import Person from "@/pages/User";
 import Resume from "@/pages/Resume";
 import Management from "@/pages/Management";
@@ -48,6 +49,10 @@ const router = createBrowserRouter([
       {
         path: "person",
         element: <Person />,
+      },
+      {
+        path: "interview-appointment",
+        element: <InterviewAppointment />,
       },
       {
         path: "resume",
