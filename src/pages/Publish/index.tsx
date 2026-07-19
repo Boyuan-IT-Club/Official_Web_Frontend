@@ -26,6 +26,7 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 
 // 导入封装的组件
 import { compressImage } from '@/utils/imageCompress';
@@ -136,6 +137,7 @@ const isValidationError = (err: unknown): err is ValidationErrorLike => {
 
 const Publish: React.FC = () => {
   const dispatch = useDispatch<any>();
+  const navigate = useNavigate();
   const [form] = Form.useForm<any>();
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -803,11 +805,20 @@ const Publish: React.FC = () => {
         })
       ).unwrap();
 
+      const appointmentInfo = {
+        canAttend: interviewTimes.canAttend,
+        firstTime: interviewTimes.first,
+        secondTime: interviewTimes.second,
+        customTime: interviewTimes.customTime,
+      };
+      localStorage.setItem('latestInterviewAppointment', JSON.stringify(appointmentInfo));
+
       message.success('简历提交成功！');
       setShowSubmitConfirm(false);
 
       await dispatch(fetchOrCreateResume(cycleId));
       setIsEditing(false);
+      navigate('/main/interview-appointment', { state: appointmentInfo });
     } catch (err: unknown) {
       console.error('提交错误:', err);
 
@@ -1416,115 +1427,6 @@ const Publish: React.FC = () => {
                             required={isFieldRequired('reason')}
                             rows={4}
                           />
-                        )}
-                      </FormSection>
-                    ) : null}
-
-                    {/* 志愿选择部分 */}
-                    {isFieldEnabled('first_department') || isFieldEnabled('second_department') ? (
-                      <FormSection title="志愿选择" icon={<TeamOutlined />}>
-                        {isFieldEnabled('first_department') && (
-                          <SelectField
-                            label={getFieldLabel('first_department', '第一志愿')}
-                            name="first_department"
-                            placeholder={getFieldPlaceholder('first_department', '请选择您想加入的第一志愿部门')}
-                            value={departments.first}
-                            onChange={(value: string) => {
-                              handleDepartmentChange('first', value);
-                              if (value === departments.second) {
-                                handleDepartmentChange('second', '');
-                              }
-                            }}
-                            options={FIRST_DEPARTMENT_OPTIONS}
-                            disabled={!canEdit}
-                            required={isFieldRequired('first_department')}
-                            className="compact-input"
-                          />
-                        )}
-
-                        {isFieldEnabled('second_department') && (
-                          <SelectField
-                            label={getFieldLabel('second_department', '第二志愿')}
-                            name="second_department"
-                            placeholder={getFieldPlaceholder('second_department', '请选择您想加入的第二志愿部门')}
-                            value={departments.second}
-                            onChange={(value: string) => handleDepartmentChange('second', value)}
-                            options={SECOND_DEPARTMENT_OPTIONS}
-                            disabled={!canEdit}
-                            required={isFieldRequired('second_department')}
-                            disabledOptions={getDisabledSecondDepartments()}
-                            className="compact-input"
-                          />
-                        )}
-                      </FormSection>
-                    ) : null}
-
-                    {/* 面试时间安排部分 */}
-                    {isFieldEnabled('can_attend_interview') || isFieldEnabled('first_interview_time') ||
-                      isFieldEnabled('second_interview_time') ? (
-                      <FormSection title="面试时间安排" icon={<TeamOutlined />}>
-                        {isFieldEnabled('can_attend_interview') && (
-                          <RadioGroupField
-                            label={getFieldLabel('can_attend_interview', '是否能参加线下面试')}
-                            name="can_attend_interview"
-                            value={interviewTimes.canAttend}
-                            onChange={(e: any) => handleInterviewTimeChange('canAttend', e.target.value)}
-                            options={CAN_ATTEND_OPTIONS}
-                            disabled={!canEdit}
-                            required={isFieldRequired('can_attend_interview')}
-                          />
-                        )}
-
-                        {interviewTimes.canAttend === 'yes' ? (
-                          <>
-                            {isFieldEnabled('first_interview_time') && (
-                              <SelectField
-                                label={getFieldLabel('first_interview_time', '第一面试时间')}
-                                name="first_interview_time"
-                                placeholder={getFieldPlaceholder('first_interview_time', '请选择第一面试时间')}
-                                value={interviewTimes.first}
-                                onChange={(value: string) => {
-                                  handleInterviewTimeChange('first', value);
-                                  if (value === interviewTimes.second) {
-                                    handleInterviewTimeChange('second', '');
-                                  }
-                                }}
-                                options={FIRST_INTERVIEW_TIME_OPTIONS}
-                                disabled={!canEdit || interviewTimes.canAttend !== 'yes'}
-                                required={isFieldRequired('first_interview_time')}
-                                className="compact-input"
-                              />
-                            )}
-
-                            {isFieldEnabled('second_interview_time') && (
-                              <SelectField
-                                label={getFieldLabel('second_interview_time', '第二面试时间')}
-                                name="second_interview_time"
-                                placeholder={getFieldPlaceholder('second_interview_time', '请选择第二面试时间')}
-                                value={interviewTimes.second}
-                                onChange={(value: string) => handleInterviewTimeChange('second', value)}
-                                options={SECOND_INTERVIEW_TIME_OPTIONS}
-                                disabled={!canEdit || interviewTimes.canAttend !== 'yes'}
-                                required={isFieldRequired('second_interview_time')}
-                                disabledOptions={getDisabledSecondInterviewTimes()}
-                                className="compact-input"
-                              />
-                            )}
-                          </>
-                        ) : (
-                          <div
-                            style={{
-                              backgroundColor: '#f9f9f9',
-                              padding: '12px',
-                              borderRadius: '4px',
-                              border: '1px solid #e8e8e8',
-                              marginTop: '8px',
-                            }}
-                          >
-                            <Text type="secondary">
-                              若不能参加线下面试，请联系管理员安排线上面试时间。面试时间将由管理员另行通知。
-                            </Text>
-                          </div>
                         )}
                       </FormSection>
                     ) : null}

@@ -11,10 +11,6 @@ export interface AuthRouteProps {
 
 export function AuthRoute({ children }: AuthRouteProps) {
   const routerLocation = useLocation();
-  // 本地开发自动放行，打包上线仍然正常登录校验
-  const isDev = process.env.NODE_ENV === "development";
-  if (isDev) return <>{children}</>;
-
   const token = getToken();
 
   if (token) return <>{children}</>;

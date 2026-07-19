@@ -7,11 +7,25 @@ import axios, {
 } from "axios";
 import { getToken, removeToken } from "./token";
 
+/** 业务码：无权限/认证失败（常见为 400 + 2100，Token 可能仍有效） */
+export const AUTH_FAILED_CODE = 2100;
+
+/** 仅 HTTP 401 表示登录态失效，需要清 Token 并跳转登录 */
+const shouldForceLogout = (status?: number): boolean => status === 401;
+
+const redirectToLogin = (): void => {
+  removeToken();
+  const path = window.location.pathname;
+  if (!path.startsWith("/login") && !path.includes("adminstratorLogin")) {
+    window.location.href = "/login";
+  }
+};
+
 // 是否已设置拦截器
 let isInterceptorSet = false;
 
 const request: AxiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://43.143.27.198:8080",
+  baseURL: process.env.REACT_APP_API_URL || "http://8.159.153.140:8080",
   timeout: 10000,
 });
 
@@ -55,15 +69,19 @@ const setupRequestInterceptor = (): void => {
       return response.data;
     },
     (error: AxiosError) => {
-      if (error.response?.status === 401) {
-        removeToken();
-        window.location.href = "/login";
+      const resData = error.response?.data as Record<string, unknown> | undefined;
+      const bizCode = resData?.code ?? (resData?.data as any)?.code;
+
+      if (shouldForceLogout(error.response?.status)) {
+        redirectToLogin();
       }
 
       return Promise.reject({
         status: error.response?.status,
-        message: (error.response?.data as any)?.message || error.message,
-        code: (error.response?.data as any)?.code,
+        message:
+          String(resData?.message || (resData?.data as any)?.message) ||
+          error.message,
+        code: bizCode,
         data: error.response?.data,
       });
     },

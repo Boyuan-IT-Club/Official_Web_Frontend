@@ -26,10 +26,13 @@ import {
 
 import {
   getResumeFields,
-  batchUpdateResumeFields,
+  saveResumeFields,
   initResumeFields,
   DEFAULT_RESUME_FIELDS,
+  fromBackendFields,
+  RESUME_CYCLE_ID,
 } from '@/api/manage/resumeEntry';
+import { getToken, hasEffectiveJwtRoles } from '@/utils';
 
 import type { ResumeFieldUI } from '@/api/manage/resumeEntry';
 
@@ -51,8 +54,8 @@ const STATUS_OPTIONS = [
   { value: 'frozen', label: '冻结'     },
 ];
 
-// 当前招新周期 ID，可根据实际情况改为从接口/store 获取
-const CURRENT_CYCLE_ID = 1;
+// 当前招新周期 ID（与后端默认配置 cycleId 一致）
+const CURRENT_CYCLE_ID = RESUME_CYCLE_ID;
 
 // ─── 防抖 Hook ────────────────────────────────────────────────────────────────
 
@@ -181,17 +184,38 @@ const Management: React.FC = () => {
   // ── 简历字段 ──────────────────────────────────────────────────────────────
   const fetchResumeFields = useCallback(async () => {
     try {
-      const res: any = await getResumeFields(CURRENT_CYCLE_ID);
-      setResumeFields(res?.data ?? []);
-    } catch (e) {
+      const list = await getResumeFields(CURRENT_CYCLE_ID);
+      const uiFields = fromBackendFields(list);
+      setResumeFields(uiFields);
+      if (uiFields.length === 0) {
+        message.info('当前周期暂无字段，可点击「加载默认配置」初始化');
+      }
+    } catch (e: any) {
       console.error(e);
-      message.error('获取简历字段失败');
+      message.error(e?.message || '获取简历字段失败');
+      setResumeFields([]);
     }
   }, []);
 
   const handleSaveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> => {
-    await batchUpdateResumeFields(fields);
-    await fetchResumeFields();
+    try {
+      await saveResumeFields(fields);
+      await fetchResumeFields();
+    } catch (e: any) {
+      console.error(e);
+      if (Number(e?.code) === 2100) {
+        const noRoles = getToken() && !hasEffectiveJwtRoles(getToken());
+        message.error(
+          noRoles
+            ? '认证失败：Token 内 roles 为空，请让管理员在后台分配「管理员」角色后重新登录'
+            : '认证失败：请使用管理员账号重新登录后再保存',
+          8,
+        );
+      } else {
+        message.error(e?.message || '保存简历字段失败');
+      }
+      throw e;
+    }
   };
 
   const handleResetToDefault = async () => {
@@ -210,6 +234,13 @@ const Management: React.FC = () => {
 
   // ── 初始化 ────────────────────────────────────────────────────────────────
   useEffect(() => {
+    const token = getToken();
+    if (token && !hasEffectiveJwtRoles(token)) {
+      message.warning(
+        '当前登录 Token 中没有有效角色（roles 为空），管理员接口会返回「认证失败」。请在后台为用户分配管理员角色后重新登录。',
+        10,
+      );
+    }
     fetchRoleOptions();
     fetchResumeFields();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -367,12 +398,12 @@ const Management: React.FC = () => {
                           onFieldsChange={setResumeFields}
                           onResetToDefault={handleResetToDefault}
                           fieldTypeOptions={[
-                            { value: 'input',    label: '文本框'   },
+                            { value: 'text', label: '单行文本' },
                             { value: 'textarea', label: '多行文本' },
-                            { value: 'radio',    label: '单选'     },
-                            { value: 'checkbox', label: '多选'     },
-                            { value: 'select',   label: '下拉选择' },
-                            { value: 'custom',   label: '照片'     },
+                            { value: 'select', label: '下拉选择' },
+                            { value: 'radio', label: '单选' },
+                            { value: 'checkbox', label: '多选' },
+                            { value: 'file', label: '文件上传' },
                           ]}
                         />
                       ),

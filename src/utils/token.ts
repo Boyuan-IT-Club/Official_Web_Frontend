@@ -7,9 +7,7 @@ export function setToken(token: string): void {
 
 export function getToken(): string | null {
   try {
-    const token = localStorage.getItem(TOKEN_KEY);
-    console.log("Token value:", token);
-    return token;
+    return localStorage.getItem(TOKEN_KEY);
   } catch (error) {
     console.error("Failed to get token from localStorage:", error);
     return null;
