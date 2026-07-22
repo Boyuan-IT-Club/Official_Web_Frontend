@@ -47,8 +47,9 @@ export interface ResumeFieldUI extends Omit<BackendResumeField, 'fieldType'> {
   category: number;
 }
 
-/** fieldKey → 表单分类（后端无 category 时用于 UI 分组） */
+/** fieldKey → 表单分类（后端无 category 时用于 UI 分组，与 DEFAULT_RESUME_FIELDS 保持一致） */
 export const FIELD_KEY_CATEGORY_MAP: Record<string, number> = {
+  // 分类1：基本信息
   name: 1,
   student_id: 1,
   gender: 1,
@@ -58,19 +59,18 @@ export const FIELD_KEY_CATEGORY_MAP: Record<string, number> = {
   phone: 1,
   github: 1,
   personal_photo: 1,
+  // 分类2：个人陈述
   self_introduction: 2,
   introduction: 2,
   reason: 2,
+  // 分类3：志愿选择
   first_choice: 3,
   second_choice: 3,
-  first_department: 3,
-  second_department: 3,
-  expected_departments: 3,
+  // 分类4：面试安排
   can_attend_offline_interview: 4,
-  can_attend_interview: 4,
   expected_interview_time: 4,
   second_interview_time: 4,
-  first_interview_time: 4,
+  // 分类5：技术能力
   tech_stack: 5,
   project_experience: 5,
 };

@@ -1,18 +1,26 @@
 // src/pages/Dashboard/index.js
 import React from 'react';
-import { Row, Col, Card, Typography, Divider, Avatar, List } from 'antd';
-import { 
-  CodeOutlined, 
-  TeamOutlined, 
-  RocketOutlined, 
+import { Row, Col, Card, Typography, Divider, Button, message } from 'antd';
+import {
+  CodeOutlined,
+  TeamOutlined,
   CalendarOutlined,
   UserOutlined,
   TrophyOutlined,
   ProjectOutlined,
   BookOutlined,
   BulbOutlined,
-  CoffeeOutlined
+  CoffeeOutlined,
+  SendOutlined,
+  SmileOutlined,
+  StarOutlined,
+  IdcardOutlined,
+  FileTextOutlined,
+  ScheduleOutlined,
 } from '@ant-design/icons';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { fetchOrCreateResume } from '@/store/modules/resume';
 import './index.scss';
 
 const { Title, Text, Paragraph } = Typography;
@@ -76,6 +84,38 @@ const achievements = [
 ];
 
 const Dashboard = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const resumeState = useSelector((state) => state.resume);
+
+  // 简历投递
+  const handleGoToResume = () => {
+    navigate('/main/publish');
+  };
+
+  // 我的预约
+  const handleGoToAppointment = async () => {
+    const resume = resumeState?.resume;
+    // 如果 store 中已有已提交的简历，直接跳转
+    if (resume && resume.status >= 2) {
+      navigate('/main/interview-appointment');
+      return;
+    }
+
+    // 尝试从后端获取最新简历状态
+    try {
+      const result = await dispatch(fetchOrCreateResume(2)).unwrap();
+      const resumeData = result?.data || result;
+      if (resumeData && resumeData.status >= 2) {
+        navigate('/main/interview-appointment');
+      } else {
+        message.warning('请先投递简历后再进行面试预约');
+      }
+    } catch (err) {
+      message.warning('请先投递简历后再进行面试预约');
+    }
+  };
+
   return (
     <div className="dashboard-page">
       {/* 欢迎横幅 */}
@@ -89,6 +129,85 @@ const Dashboard = () => {
           </Text>
         </div>
       </div>
+
+      {/* 社团招新 */}
+      <section className="recruitment-section">
+        <div className="section-header">
+          <Title level={2}>社团招新</Title>
+          <Text type="secondary">期待每一个热爱技术的你</Text>
+        </div>
+
+        <Row gutter={[24, 24]} className="recruitment-cards">
+          <Col xs={24} md={8}>
+            <Card className="recruitment-card">
+              <div className="recruitment-icon" style={{ backgroundColor: 'rgba(77, 166, 255, 0.1)', color: '#4da6ff' }}>
+                <SendOutlined />
+              </div>
+              <Title level={4}>招新对象</Title>
+              <Text>面向全校各年级、各专业同学，只要热爱技术、愿意学习，博远信息技术社都欢迎你的加入</Text>
+            </Card>
+          </Col>
+          <Col xs={24} md={8}>
+            <Card className="recruitment-card">
+              <div className="recruitment-icon" style={{ backgroundColor: 'rgba(108, 122, 224, 0.1)', color: '#6c7ae0' }}>
+                <StarOutlined />
+              </div>
+              <Title level={4}>你将收获</Title>
+              <Text>系统的技术培训体系、真实项目实战机会、志同道合的伙伴团队、丰富的竞赛与实践资源</Text>
+            </Card>
+          </Col>
+          <Col xs={24} md={8}>
+            <Card className="recruitment-card">
+              <div className="recruitment-icon" style={{ backgroundColor: 'rgba(255, 156, 110, 0.1)', color: '#ff9c6e' }}>
+                <SmileOutlined />
+              </div>
+              <Title level={4}>招新要求</Title>
+              <Text>零基础也能来！我们更看重你的学习热情和团队精神，这里有完善的培养体系助你成长</Text>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
+          <Col xs={24}>
+            <Card className="recruitment-cta-card">
+              <div className="recruitment-cta-content">
+                <div className="cta-text">
+                  <Title level={3} style={{ color: '#fff', marginBottom: 8 }}>
+                    2026 秋季招新正在进行中
+                  </Title>
+                  <div className="cta-buttons">
+                    <Button
+                      type="primary"
+                      size="large"
+                      icon={<FileTextOutlined />}
+                      onClick={handleGoToResume}
+                      className="cta-btn cta-btn--resume"
+                    >
+                      简历投递
+                    </Button>
+                    <Button
+                      size="large"
+                      icon={<ScheduleOutlined />}
+                      onClick={handleGoToAppointment}
+                      className="cta-btn cta-btn--appointment"
+                    >
+                      我的预约
+                    </Button>
+                  </div>
+                </div>
+                <div className="cta-action">
+                  <div className="cta-qrcode-placeholder">
+                    <IdcardOutlined style={{ fontSize: 48, color: '#fff' }} />
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 4, display: 'block' }}>
+                      ECNUCoder
+                    </Text>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      </section>
 
       {/* 社团成就 */}
       <section className="achievement-section">
