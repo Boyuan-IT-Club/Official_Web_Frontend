@@ -24,8 +24,11 @@ const redirectToLogin = (): void => {
 // 是否已设置拦截器
 let isInterceptorSet = false;
 
+// 生产环境默认走同源相对路径（由 nginx 将 /api 反代到后端集群），
+// 从而彻底规避跨域(CORS)与 http/https 混合内容问题，并复用双机负载均衡。
+// 本地开发可用 .env.development 覆盖 REACT_APP_API_URL 指向后端地址。
 const request: AxiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://8.159.153.140:8080",
+  baseURL: process.env.REACT_APP_API_URL ?? "",
   timeout: 10000,
 });
 
