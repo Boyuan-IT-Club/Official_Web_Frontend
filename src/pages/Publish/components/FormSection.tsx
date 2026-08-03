@@ -11,7 +11,7 @@ type Props = {
   className?: string;
 };
 
-const FormSection: React.FC<Props> = ({ title, icon, children, className = '' }) => {
+const FormSection: React.FC<Props> = React.memo(({ title, icon, children, className = '' }) => {
   return (
     <div className={`form-section ${className}`}>
       <Title level={4} className="section-title">
@@ -20,6 +20,6 @@ const FormSection: React.FC<Props> = ({ title, icon, children, className = '' })
       {children}
     </div>
   );
-};
+});
 
 export default FormSection;

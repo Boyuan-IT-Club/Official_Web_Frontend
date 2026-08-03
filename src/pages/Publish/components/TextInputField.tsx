@@ -14,7 +14,7 @@ type Props = {
   className?: string;
 } & Omit<InputProps, 'value' | 'onChange' | 'disabled' | 'placeholder'>;
 
-const TextInputField: React.FC<Props> = ({
+const TextInputField: React.FC<Props> = React.memo(({
   label,
   name,
   placeholder,
@@ -41,6 +41,6 @@ const TextInputField: React.FC<Props> = ({
       />
     </Form.Item>
   );
-};
+});
 
 export default TextInputField;

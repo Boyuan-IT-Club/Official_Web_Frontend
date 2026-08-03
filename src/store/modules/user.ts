@@ -36,6 +36,8 @@ export interface ResetPasswordForm {
 export interface UserInfo {
   userId?: string | number;
   name?: string;
+  email?: string;
+  studentId?: string;
   phone?: string;
   major?: string | null;
   avatar?: string;

@@ -21,7 +21,7 @@ type Props = {
   disabledOptions?: string[];
 } & Omit<SelectProps<string>, 'options' | 'value' | 'onChange' | 'disabled' | 'placeholder'>;
 
-const SelectField: React.FC<Props> = ({
+const SelectField: React.FC<Props> = React.memo(({
   label,
   name,
   placeholder,
@@ -65,6 +65,6 @@ const SelectField: React.FC<Props> = ({
       </Select>
     </Form.Item>
   );
-};
+});
 
 export default SelectField;

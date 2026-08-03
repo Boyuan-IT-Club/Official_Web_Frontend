@@ -15,7 +15,7 @@ type Props = {
   required?: boolean;  // 添加 required 属性
 };
 
-const PhotoUpload: React.FC<Props> = ({
+const PhotoUpload: React.FC<Props> = React.memo(({
   photoBase64 = '',
   onUpload,
   isCompressing = false,
@@ -65,6 +65,6 @@ const PhotoUpload: React.FC<Props> = ({
       </div>
     </Form.Item>
   );
-};
+});
 
 export default PhotoUpload;

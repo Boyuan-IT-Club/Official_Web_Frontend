@@ -1,24 +1,34 @@
 // src/router/index.tsx
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { Navigate, createBrowserRouter, type Router } from "react-router-dom";
+import { Spin } from "antd";
 
 import Layout from "../pages/Layout";
 import Login from "../pages/Login";
 import AdministratorLogin from "../pages/AdministratorLogin";
 import Land from "../pages/Land";
+import { AuthRoute } from "@/components/AuthRoute";
+
+// 直接导入轻量页面
 import Dashboard from "../pages/Dashboard";
-import ClubIntro from "../pages/ClubIntro";// 新增社团简介页面
-import Lessons from "../pages/Lessons";//回放
-import Activities from "../pages/Activities";//社团活动分享
+import ClubIntro from "../pages/ClubIntro";
+import Lessons from "../pages/Lessons";
+import Activities from "../pages/Activities";
 import Experience from "../pages/Experience";
 
-import Publish from "@/pages/Publish";
-import InterviewAppointment from "@/pages/InterviewAppointment";
-import Person from "@/pages/User";
-import Resume from "@/pages/Resume";
-import Management from "@/pages/Management";
+// 按需懒加载重型页面 — 减少首屏 bundle 体积
+const Publish = lazy(() => import("@/pages/Publish"));
+const InterviewAppointment = lazy(() => import("@/pages/InterviewAppointment"));
+const Person = lazy(() => import("@/pages/User"));
+const Resume = lazy(() => import("@/pages/Resume"));
+const Management = lazy(() => import("@/pages/Management"));
 
-import { AuthRoute } from "@/components/AuthRoute";
+// 懒加载包裹组件
+const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}><Spin size="large" /></div>}>
+    {children}
+  </Suspense>
+);
 
 // 路由配置实例
 const router = createBrowserRouter([
@@ -44,23 +54,23 @@ const router = createBrowserRouter([
       },
       {
         path: "publish",
-        element: <Publish />,
+        element: <LazyLoad><Publish /></LazyLoad>,
       },
       {
         path: "person",
-        element: <Person />,
+        element: <LazyLoad><Person /></LazyLoad>,
       },
       {
         path: "interview-appointment",
-        element: <InterviewAppointment />,
+        element: <LazyLoad><InterviewAppointment /></LazyLoad>,
       },
       {
         path: "resume",
-        element: <Resume />,
+        element: <LazyLoad><Resume /></LazyLoad>,
       },
       {
         path: "manage",
-        element: <Management />,
+        element: <LazyLoad><Management /></LazyLoad>,
       },
     ],
   },

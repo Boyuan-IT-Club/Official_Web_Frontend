@@ -16,7 +16,7 @@ type Props = {
   required?: boolean;
 } & Omit<TextAreaProps, 'value' | 'onChange' | 'rows' | 'disabled' | 'placeholder'>;
 
-const TextAreaField: React.FC<Props> = ({
+const TextAreaField: React.FC<Props> = React.memo(({
   label,
   name,
   placeholder,
@@ -43,6 +43,6 @@ const TextAreaField: React.FC<Props> = ({
       />
     </Form.Item>
   );
-};
+});
 
 export default TextAreaField;

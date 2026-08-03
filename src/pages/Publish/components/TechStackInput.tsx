@@ -12,7 +12,7 @@ type Props = {
   placeholder?: string;
 };
 
-const TechStackInput: React.FC<Props> = ({
+const TechStackInput: React.FC<Props> = React.memo(({
   items = [''],
   onChange,
   onAdd,
@@ -60,6 +60,6 @@ const TechStackInput: React.FC<Props> = ({
       ))}
     </div>
   );
-};
+});
 
 export default TechStackInput;
