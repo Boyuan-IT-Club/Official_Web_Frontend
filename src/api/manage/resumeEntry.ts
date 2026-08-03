@@ -63,14 +63,9 @@ export const FIELD_KEY_CATEGORY_MAP: Record<string, number> = {
   reason: 2,
   first_choice: 3,
   second_choice: 3,
-<<<<<<< HEAD
   first_department: 3,
   second_department: 3,
   expected_departments: 3,
-=======
-  expected_departments: 3,
-  // 分类4：面试安排
->>>>>>> d2f621a (修改面试预约功能，合并到简历页)
   can_attend_offline_interview: 4,
   can_attend_interview: 4,
   expected_interview_time: 4,
