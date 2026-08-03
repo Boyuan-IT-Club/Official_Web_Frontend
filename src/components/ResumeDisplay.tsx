@@ -41,7 +41,7 @@ export interface ResumeDisplayProps {
   techStackItems?: string[];
 }
 
-const ResumeDisplay: React.FC<ResumeDisplayProps> = ({
+const ResumeDisplay: React.FC<ResumeDisplayProps> = React.memo(({
   fieldValues = [],
   fieldIdMapping = {},
   photoBase64 = '',
@@ -294,6 +294,6 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = ({
       </Row>
     </Card>
   );
-};
+});
 
 export default ResumeDisplay;

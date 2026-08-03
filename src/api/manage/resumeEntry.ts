@@ -63,9 +63,14 @@ export const FIELD_KEY_CATEGORY_MAP: Record<string, number> = {
   reason: 2,
   first_choice: 3,
   second_choice: 3,
+<<<<<<< HEAD
   first_department: 3,
   second_department: 3,
   expected_departments: 3,
+=======
+  expected_departments: 3,
+  // 分类4：面试安排
+>>>>>>> d2f621a (修改面试预约功能，合并到简历页)
   can_attend_offline_interview: 4,
   can_attend_interview: 4,
   expected_interview_time: 4,
@@ -350,6 +355,19 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldType: "select",
     placeholder: "请选择您想加入的第二志愿部门（选填）",
     options: ["无", "技术部", "媒体部", "项目部", "综合部"],
+    category: 3, // 志愿选择
+  },
+  {
+    fieldId: 20,
+    cycleId: 2,
+    fieldKey: "expected_departments",
+    fieldLabel: "期望部门",
+    isRequired: true,
+    sortOrder: 14,
+    isActive: true,
+    fieldType: "select",
+    placeholder: "请选择期望加入的部门",
+    options: ["技术部", "媒体部", "项目部", "综合部"],
     category: 3, // 志愿选择
   },
 

@@ -18,7 +18,7 @@ type Props = {
   required?: boolean;
 } & Omit<RadioGroupProps, 'value' | 'onChange' | 'disabled'>;
 
-const RadioGroupField: React.FC<Props> = ({
+const RadioGroupField: React.FC<Props> = React.memo(({
   label,
   name,
   value,
@@ -43,6 +43,6 @@ const RadioGroupField: React.FC<Props> = ({
       </Radio.Group>
     </Form.Item>
   );
-};
+});
 
 export default RadioGroupField;
