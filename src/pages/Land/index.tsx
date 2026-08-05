@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LogIn, Users, Rocket, Trophy, Globe } from 'lucide-react';
+import { Users, Rocket, Trophy, Globe } from 'lucide-react';
 import './index.scss';
 import { useNavigate } from 'react-router-dom';
 import singleLogo from '../../assets/SingleLogo.png';
+
+const navItems = [
+  { id: 'intro', label: '关于我们' },
+  { id: 'recruit', label: '活动分享' },
+  { id: 'resume', label: '优秀学长' },
+  { id: 'share', label: '技术分享' },
+];
 
 const Land: React.FC = () => {
   const [activeTab, setActiveTab] = useState('intro');
   const isClickScrolling = useRef(false);
   const navigate = useNavigate();
-
-  const navItems = [
-    { id: 'intro', label: '关于我们' },
-    { id: 'recruit', label: '活动分享' },
-    { id: 'resume', label: '优秀学长' },
-    { id: 'share', label: '技术分享' },
-  ];
 
   const scrollToSection = (id: string) => {
     const section = document.getElementById(id);

@@ -14,7 +14,7 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { fetchUserInfo, logout } from "@/store/modules/user";
 import logo from "../../assets/SingleLogo.png";
 import "./index.scss";
@@ -31,7 +31,7 @@ const MainLayout = () => {
   useEffect(() => {
     if (userInfo?.role) return;
     dispatch(fetchUserInfo());
-  }, [dispatch]);
+  }, [dispatch, userInfo?.role]);
   const getAvatarUrl = () => {
     if (!userInfo?.avatar) return null;
     if (userInfo.avatar.startsWith("http")) {

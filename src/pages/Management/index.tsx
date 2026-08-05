@@ -1,6 +1,6 @@
 // src/pages/Management/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Row, Col, Card, Tabs, Modal, message } from 'antd';
+import { Row, Col, Card, Tabs, Modal, message, Button } from 'antd';
 import {
   TeamOutlined,
   LockOutlined,
@@ -249,6 +249,8 @@ const Management: React.FC = () => {
   };
 
   // ── 批量录取为社员 ────────────────────────────────────────────────────────
+  // TODO: 入口按钮尚未接入 UI，先保留实现
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleBatchAdmit = () => {
     const targets = selectedRows.filter((u) => !u.isMember);
     if (targets.length === 0) {
@@ -330,9 +332,9 @@ const Management: React.FC = () => {
           onChange={setActiveTab}
           tabBarExtraContent={{
             right: (
-              <a
-                onClick={async (e) => {
-                  e.preventDefault();
+              <Button
+                type="link"
+                onClick={async () => {
                   try {
                     const res: any = await exportUsersExcel();
                     const blob = new Blob([res.data ?? res], {
@@ -350,7 +352,7 @@ const Management: React.FC = () => {
                 }}
               >
                 导出用户 Excel
-              </a>
+              </Button>
             ),
           }}
           items={[

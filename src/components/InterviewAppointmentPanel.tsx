@@ -1,6 +1,6 @@
 // src/components/InterviewAppointmentPanel.tsx
 // 面试预约面板 — 直接用简历中已选的意向部门展示可预约时间段
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Alert, Button, Card, Spin, Typography, message, Progress, Modal } from 'antd';
 import { CalendarOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import {
@@ -26,9 +26,9 @@ interface Props {
 
 const InterviewAppointmentPanel: React.FC<Props> = ({ cycleId, isSubmitted = false, departments }) => {
   // 从简历志愿中提取有效部门，去重
-  const depts: Department[] = [...new Set(
+  const depts: Department[] = useMemo(() => [...new Set(
     [departments.first, departments.second].filter((d): d is Department => !!d && d !== '无' && isDepartment(d))
-  )];
+  )], [departments.first, departments.second]);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [slots, setSlots] = useState<InterviewTimeSlot[]>([]);

@@ -145,15 +145,6 @@ const DEFAULT_GRADE: OptionItem[] = [
 const DEFAULT_GENDER: OptionItem[] = [
   { value: '男', label: '男' }, { value: '女', label: '女' },
 ];
-const DEFAULT_INTERVIEW_TIMES: OptionItem[] = [
-  { value: 'Day 1 上午', label: 'Day 1 上午' },
-  { value: 'Day 1 下午', label: 'Day 1 下午' },
-  { value: 'Day 1 晚上', label: 'Day 1 晚上' },
-];
-const DEFAULT_ATTEND: OptionItem[] = [
-  { value: 'yes', label: '能参加' }, { value: 'no', label: '不能参加' },
-];
-
 const TIPS_CONTENT: Array<{ title: string; content: string }> = [
   { title: '隐私保护', content: '本报名表所提供的所有信息将严格保密，我们承诺对您的个人信息采取必要的保护措施，确保其安全性。所有带红色星号的字段为必填项，其它为选填项。' },
   { title: '邮箱', content: '可填写华东师范大学学生邮箱或其它常用邮箱' },
@@ -239,20 +230,6 @@ const Publish: React.FC = () => {
     if (cf?.options?.length) return cf.options.map(o => ({ value: o, label: o }));
     return DEFAULT_GENDER;
   }, [configFieldMap]);
-  const firstInterviewTimeOptions = useMemo<OptionItem[]>(() => {
-    const cf = configFieldMap.get('first_interview_time');
-    if (cf?.options?.length) return cf.options.map(o => ({ value: o, label: o }));
-    return DEFAULT_INTERVIEW_TIMES;
-  }, [configFieldMap]);
-  const secondInterviewTimeOptions = useMemo<OptionItem[]>(() => {
-    const base = firstInterviewTimeOptions;
-    return [{ value: '无', label: '无' }, ...base];
-  }, [firstInterviewTimeOptions]);
-  const canAttendOptions = useMemo<OptionItem[]>(() => {
-    const cf = configFieldMap.get('can_attend_interview');
-    if (cf?.options?.length) return cf.options.map(o => ({ value: o, label: o }));
-    return DEFAULT_ATTEND;
-  }, [configFieldMap]);
 
   // ---- O(1) 辅助函数 ----
   const getFieldValue = useCallback((fieldKey: string): any => {
@@ -295,20 +272,6 @@ const Publish: React.FC = () => {
       if (next.first && next.first !== '无') deptArray.push(next.first);
       if (next.second && next.second !== '无') deptArray.push(next.second);
       handleFieldChange('expected_departments', JSON.stringify(deptArray));
-      return next;
-    });
-  }, [handleFieldChange]);
-
-  const handleInterviewTimeChange = useCallback((type: keyof InterviewTimesState, value: string): void => {
-    setInterviewTimes(prev => {
-      const next: InterviewTimesState = { ...prev, [type]: value } as any;
-      const timesData = {
-        first: next.canAttend === 'yes' && next.first !== '无' ? next.first : '',
-        second: next.canAttend === 'yes' && next.second !== '无' ? next.second : '',
-        canAttend: next.canAttend,
-        customTime: next.customTime,
-      };
-      handleFieldChange('expected_interview_time', JSON.stringify(timesData));
       return next;
     });
   }, [handleFieldChange]);
@@ -370,18 +333,13 @@ const Publish: React.FC = () => {
     return [departments.first];
   }, [departments.first]);
 
-  const disabledSecondInterviewTimes = useMemo<string[]>(() => {
-    if (!interviewTimes.first || interviewTimes.first === '无') return [];
-    return [interviewTimes.first];
-  }, [interviewTimes.first]);
-
   // ---- 数据初始化（并行API调用） ----
   const initData = useCallback(async (): Promise<void> => {
     try {
       setIsInitializing(true);
 
       // 所有独立请求并行发起，大幅减少首屏加载时间
-      const [configResult, fieldsResult, resumeResult, fieldValuesResult] =
+      const [, fieldsResult, resumeResult, fieldValuesResult] =
         await Promise.all([
           dispatch(fetchResumeFieldsConfig(cycleId)).unwrap().catch((err: any) => {
             console.error('加载字段配置失败:', err); return null;

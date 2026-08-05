@@ -17,7 +17,6 @@ import {
   Alert,
   Modal,
 } from 'antd';
-import type { MenuProps } from 'antd';
 import {
   UserOutlined,
   CalendarOutlined,
@@ -362,6 +361,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
         }
       },
     });
+  // loadResumes 是普通函数（非 useCallback），加入依赖会导致回调每次渲染重建
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, resumes, localCurrentPage, pagination.pageSize]);
 
   // 排序菜单 - 添加 selectedKeys（保持原逻辑不变）

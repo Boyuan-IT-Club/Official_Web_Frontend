@@ -1,5 +1,5 @@
 // ResumeFieldPanel.tsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Popconfirm, Typography, InputNumber, Badge, Select } from 'antd';
 import { DeleteOutlined, PlusOutlined, ReloadOutlined, MenuOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import type { ResumeFieldUI } from '@/api/manage/resumeEntry';
