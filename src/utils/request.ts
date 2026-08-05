@@ -16,7 +16,7 @@ const shouldForceLogout = (status?: number): boolean => status === 401;
 const redirectToLogin = (): void => {
   removeToken();
   const path = window.location.pathname;
-  if (!path.startsWith("/login") && !path.includes("adminstratorLogin")) {
+  if (!path.startsWith("/login")) {
     window.location.href = "/login";
   }
 };

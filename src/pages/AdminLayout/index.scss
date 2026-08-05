@@ -1,0 +1,35 @@
+.admin-layout {
+  .admin-sider-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+
+    .logo-image {
+      height: 32px;
+      width: auto;
+    }
+
+    .logo-text {
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+  }
+
+  .admin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: #001529;
+  }
+
+  .admin-user {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: #fff;
+  }
+}

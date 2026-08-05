@@ -22,6 +22,7 @@ import {
   getAllUsers,
   getActiveRoles,
   batchAdmitAsMember,
+  exportUsersExcel,
 } from '@/api/manage/userApis';
 
 import {
@@ -333,6 +334,31 @@ const Management: React.FC = () => {
         <Tabs
           activeKey={activeTab}
           onChange={setActiveTab}
+          tabBarExtraContent={{
+            right: (
+              <a
+                onClick={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const res: any = await exportUsersExcel();
+                    const blob = new Blob([res.data ?? res], {
+                      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `用户列表_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch (err: any) {
+                    message.error(err?.message || '导出失败');
+                  }
+                }}
+              >
+                导出用户 Excel
+              </a>
+            ),
+          }}
           items={[
             {
               key: 'users',

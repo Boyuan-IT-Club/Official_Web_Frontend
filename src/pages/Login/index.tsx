@@ -199,8 +199,22 @@ const AuthCard: FC = () => {
           const token = (resultAction.payload as any)?.token;
           if (token) {
             localStorage.setItem('token', String(token));
-            message.success('登录成功');
 
+            // 管理端构建：要求账号持有管理类权限（JWT permissionCodes），否则拒绝进入
+            if (process.env.REACT_APP_MODE === 'admin') {
+              const { hasAnyManagePermission } = await import('@/utils/jwt');
+              if (!hasAnyManagePermission(String(token))) {
+                localStorage.removeItem('token');
+                message.error('该账号没有管理权限，请使用管理员账号登录');
+                form.setFieldsValue({ password: '', code: '' });
+                return;
+              }
+              message.success('登录成功');
+              navigate('/manage', { replace: true });
+              return;
+            }
+
+            message.success('登录成功');
             const from =
               (location.state as any)?.from?.pathname || '/main/dashboard';
             navigate(from, { replace: true });

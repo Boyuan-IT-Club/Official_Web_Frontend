@@ -27,3 +27,22 @@ export function getJwtRoles(token: string | null): string[] {
 export function hasEffectiveJwtRoles(token: string | null): boolean {
   return getJwtRoles(token).length > 0;
 }
+
+/** 从 JWT 读取权限码（后端签发时写入 permissionCodes，如 admin:manage / resume:audit） */
+export function getJwtPermissionCodes(token: string | null): string[] {
+  if (!token) return [];
+  const payload = parseJwtPayload(token);
+  const codes = payload?.permissionCodes;
+  if (!Array.isArray(codes)) return [];
+  return codes.map(String).map((c) => c.trim()).filter(Boolean);
+}
+
+/** 是否持有任一管理类权限（管理端准入判断） */
+export function hasAnyManagePermission(token: string | null): boolean {
+  return getJwtPermissionCodes(token).length > 0;
+}
+
+/** 是否持有指定权限码 */
+export function hasPermission(token: string | null, code: string): boolean {
+  return getJwtPermissionCodes(token).includes(code);
+}

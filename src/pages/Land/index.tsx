@@ -76,7 +76,10 @@ const Land: React.FC = () => {
           </div>
           
           <div className="header-actions">
-            <button className="login-btn" onClick={() => navigate('/admin')}>
+            <button
+              className="login-btn"
+              onClick={() => { window.location.href = 'https://admin.boyuan.club'; }}
+            >
               管理员入口
             </button>
             <button className="login-btn" onClick={() => navigate('/login')}>

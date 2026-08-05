@@ -12,8 +12,6 @@ import {
   HomeOutlined,
   FileTextOutlined,
   LogoutOutlined,
-  FolderOpenOutlined,
-  ControlOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -61,16 +59,7 @@ const MainLayout = () => {
       icon: <UserOutlined />,
       label: "个人主页",
     },
-    {
-      key: "/main/resume", // 确保路由配置中已添加此路径
-      icon: <FolderOpenOutlined />, // 使用合适的图标
-      label: "简历查看",
-    },
-    {
-      key: "/main/manage",
-      icon: <ControlOutlined />,
-      label: "管理",
-    },
+    // 管理功能已迁移到独立管理端 admin.boyuan.club（用户端产物不含管理代码）
   ];
 
   const handleMenuClick = ({ key }) => {
