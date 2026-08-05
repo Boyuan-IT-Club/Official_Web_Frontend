@@ -168,3 +168,11 @@ export const globalSearch = (params?: globalUsersParams)=>{
     params,
   });
 }
+// GET: 导出全部用户 Excel（管理员）
+export const exportUsersExcel = () => {
+  return request({
+    url: '/api/user/export/excel',
+    method: 'get',
+    responseType: 'blob',
+  });
+};

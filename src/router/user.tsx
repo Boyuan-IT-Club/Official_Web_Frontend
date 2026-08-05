@@ -1,11 +1,12 @@
-// src/router/index.tsx
+// 用户端路由（official.boyuan.club）
+// 管理端路由在 ./admin.tsx；构建时由 craco 的 @routes 别名按 REACT_APP_MODE 二选一，
+// 管理端页面代码不会进入用户端产物。
 import React, { Suspense, lazy } from "react";
-import { Navigate, createBrowserRouter, type Router } from "react-router-dom";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 import { Spin } from "antd";
 
 import Layout from "../pages/Layout";
 import Login from "../pages/Login";
-import AdministratorLogin from "../pages/AdministratorLogin";
 import Land from "../pages/Land";
 import { AuthRoute } from "@/components/AuthRoute";
 
@@ -20,8 +21,6 @@ import Experience from "../pages/Experience";
 const Publish = lazy(() => import("@/pages/Publish"));
 const InterviewAppointment = lazy(() => import("@/pages/InterviewAppointment"));
 const Person = lazy(() => import("@/pages/User"));
-const Resume = lazy(() => import("@/pages/Resume"));
-const Management = lazy(() => import("@/pages/Management"));
 
 // 懒加载包裹组件
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -64,48 +63,32 @@ const router = createBrowserRouter([
         path: "interview-appointment",
         element: <LazyLoad><InterviewAppointment /></LazyLoad>,
       },
-      {
-        path: "resume",
-        element: <LazyLoad><Resume /></LazyLoad>,
-      },
-      {
-        path: "manage",
-        element: <LazyLoad><Management /></LazyLoad>,
-      },
     ],
   },
   {
     path: "/club-intro",
     element: <ClubIntro />,
   },
-
-{
-    path: "/Lessons",          
-    element: <Lessons />,     
-  },
-
   {
-    path:"/Activities",
-    element:<Activities />,
+    path: "/Lessons",
+    element: <Lessons />,
   },
-
   {
-  path: "/Experience", 
-  element: <Experience />,
-},
+    path: "/Activities",
+    element: <Activities />,
+  },
+  {
+    path: "/Experience",
+    element: <Experience />,
+  },
   {
     path: "/login",
     element: <Login />,
   },
   {
-    path: "/adminstratorLogin",
-    element: <AdministratorLogin />
-  },
-  {
     path: "*",
     element: <Navigate to="/" replace />,
   },
-
 ]);
 
 export default router;

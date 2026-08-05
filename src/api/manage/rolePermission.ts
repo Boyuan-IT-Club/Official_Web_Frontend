@@ -33,6 +33,20 @@ export const getRolesByPermission = (permissionId: number) => {
   });
 };
 
+// GET: 全部权限定义（替代前端硬编码的权限列表）
+export interface PermissionItem {
+  permissionId: number;
+  permissionName: string;
+  permissionCode: string;
+  description?: string;
+}
+export const getAllPermissions = () => {
+  return request({
+    url: '/api/permissions/all',
+    method: 'get',
+  });
+};
+
 // ─── 工具函数：diff 后批量同步权限 ────────────────────────────────────────────
 // 对比旧权限和新权限，增量调用 add / remove
 export const syncRolePermissions = async (

@@ -35,6 +35,7 @@ import {
   RoleData,
 } from '@/api/manage/roleControl';
 import {
+  getAllPermissions,
   getRolePermissionIds,
   syncRolePermissions,
 } from '@/api/manage/rolePermission';
@@ -43,8 +44,8 @@ import {
 
 type ModalMode = 'create' | 'edit' | 'view';
 
-// 权限列表（如有独立接口可替换为动态获取）
-const ALL_PERMISSIONS = [
+// 权限列表：动态从后端获取（/api/permissions/all），加载失败时退回该兜底列表
+const FALLBACK_PERMISSIONS = [
   { label: '查看简历', value: 1 },
   { label: '修改简历', value: 2 },
   { label: '删除简历', value: 3 },
@@ -58,6 +59,7 @@ const ALL_PERMISSIONS = [
 const RoleManagePage: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
+  const [ALL_PERMISSIONS, setAllPermissions] = useState(FALLBACK_PERMISSIONS);
 
   // ── 角色 CRUD 弹窗 ────────────────────────────────────────────────────────
   const [crudModalOpen, setCrudModalOpen] = useState(false);
@@ -95,6 +97,21 @@ const RoleManagePage: React.FC = () => {
 
   useEffect(() => {
     fetchRoles();
+    // 动态加载权限定义
+    (async () => {
+      try {
+        const res: any = await getAllPermissions();
+        const perms = (res?.data ?? [])
+          .map((p: any) => ({
+            label: p.permissionName || p.permissionCode,
+            value: p.permissionId,
+          }))
+          .filter((p: any) => p.value != null);
+        if (perms.length > 0) setAllPermissions(perms);
+      } catch (e) {
+        console.warn('权限列表动态加载失败，使用兜底列表', e);
+      }
+    })();
   }, [fetchRoles]);
 
   // ── CRUD 弹窗操作 ─────────────────────────────────────────────────────────
