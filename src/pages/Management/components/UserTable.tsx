@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 
 import {
-  assignRoleToUser, freezeUser, unfreezeUser, deleteUser,
+  replaceUserRoles, removeRoleFromUser, freezeUser, unfreezeUser, deleteUser,
 } from '@/api/manage/userApis';
 
 const { Option } = Select;
@@ -61,9 +61,9 @@ const UserTable: React.FC<UserTableProps> = ({
   selectedRows, onSelectionChange,
   onView, refreshUsers, pagination,
 }) => {
-  // ── 分配角色弹窗（从「更多」菜单进入，避免在列表中误触） ──
+  // ── 角色管理弹窗（从「更多」菜单进入；多选，保存时整体替换，可增可减） ──
   const [roleModalUser, setRoleModalUser] = React.useState<User | null>(null);
-  const [roleModalValue, setRoleModalValue] = React.useState<string | undefined>();
+  const [roleModalValues, setRoleModalValues] = React.useState<string[]>([]);
   const [roleSaving, setRoleSaving] = React.useState(false);
 
   /** 取用户当前的 RBAC 角色名列表（后端 /api/admin/users 已填充 roles） */
@@ -75,23 +75,38 @@ const UserTable: React.FC<UserTableProps> = ({
     return [];
   };
 
+  const getUserRoleIds = (user: User): string[] => {
+    const roles = (user as any).roles;
+    if (!Array.isArray(roles)) return [];
+    return roles.map((r: any) => r?.roleId).filter((v: any) => v != null).map(String);
+  };
+
   const openRoleModal = (user: User) => {
-    const current = (user as any).roles?.[0]?.roleId;
-    setRoleModalValue(current != null ? String(current) : undefined);
+    setRoleModalValues(getUserRoleIds(user));
     setRoleModalUser(user);
   };
 
-  const handleAssignRole = async () => {
-    if (!roleModalUser || !roleModalValue) return;
+  const handleSaveRoles = async () => {
+    if (!roleModalUser) return;
+    const displayName = roleModalUser.name || roleModalUser.username;
     setRoleSaving(true);
     try {
-      await assignRoleToUser(roleModalUser.userId, [Number(roleModalValue)]);
-      message.success(`${roleModalUser.name || roleModalUser.username} 的角色已更新`);
+      if (roleModalValues.length > 0) {
+        // 替换语义：后端先删旧再插新，一次调用完成增删
+        await replaceUserRoles(roleModalUser.userId, roleModalValues.map(Number));
+      } else {
+        // 清空所有角色：替换接口不接受空列表，逐个删除
+        const currentIds = getUserRoleIds(roleModalUser).map(Number);
+        for (const rid of currentIds) {
+          await removeRoleFromUser(roleModalUser.userId, rid);
+        }
+      }
+      message.success(`${displayName} 的角色已更新`);
       setRoleModalUser(null);
       refreshUsers();
     } catch (e) {
       console.error(e);
-      message.error('分配角色失败');
+      message.error('保存角色失败');
     } finally {
       setRoleSaving(false);
     }
@@ -227,7 +242,7 @@ const UserTable: React.FC<UserTableProps> = ({
                 {
                   key: 'assign-role',
                   icon: <UserOutlined />,
-                  label: '分配角色',
+                  label: '角色管理',
                 },
                 {
                   key: 'freeze',
@@ -261,19 +276,23 @@ const UserTable: React.FC<UserTableProps> = ({
   return (
     <>
     <Modal
-      title={roleModalUser ? `分配角色：${roleModalUser.name || roleModalUser.username}` : ''}
+      title={roleModalUser ? `角色管理：${roleModalUser.name || roleModalUser.username}` : ''}
       open={!!roleModalUser}
-      onOk={handleAssignRole}
-      okButtonProps={{ disabled: !roleModalValue }}
+      onOk={handleSaveRoles}
       confirmLoading={roleSaving}
       onCancel={() => setRoleModalUser(null)}
       destroyOnClose
     >
+      <div style={{ marginBottom: 8, color: '#8c8c8c', fontSize: 12 }}>
+        勾选即持有、取消勾选即移除，保存后整体生效（权限为所选角色的并集）
+      </div>
       <Select
+        mode="multiple"
         style={{ width: '100%' }}
-        placeholder="选择角色"
-        value={roleModalValue}
-        onChange={setRoleModalValue}
+        placeholder="不选择任何角色 = 清空该用户的全部角色"
+        value={roleModalValues}
+        onChange={setRoleModalValues}
+        optionFilterProp="children"
       >
         {roleOptions.map((r) => (
           <Option key={r.value} value={r.value}>{r.label}</Option>
