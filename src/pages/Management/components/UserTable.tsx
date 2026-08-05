@@ -61,32 +61,40 @@ const UserTable: React.FC<UserTableProps> = ({
   selectedRows, onSelectionChange,
   onView, refreshUsers, pagination,
 }) => {
+  // ── 分配角色弹窗（从「更多」菜单进入，避免在列表中误触） ──
+  const [roleModalUser, setRoleModalUser] = React.useState<User | null>(null);
+  const [roleModalValue, setRoleModalValue] = React.useState<string | undefined>();
+  const [roleSaving, setRoleSaving] = React.useState(false);
 
-  /** 修改角色 */
-  const handleChangeRole = (user: User, newRole: string) => {
-    if (newRole === user.role) return;
-    const newRoleLabel = roleOptions.find((r) => r.value === newRole)?.label ?? newRole;
+  /** 取用户当前的 RBAC 角色名列表（后端 /api/admin/users 已填充 roles） */
+  const getUserRoleNames = (user: User): string[] => {
+    const roles = (user as any).roles;
+    if (Array.isArray(roles) && roles.length > 0) {
+      return roles.map((r: any) => r?.roleName).filter(Boolean);
+    }
+    return [];
+  };
 
-    confirm({
-      title: '确认修改角色？',
-      icon: <ExclamationCircleOutlined />,
-      content: (
-        <span>
-          确认将 <b>{user.name || user.username}</b> 的角色修改为 <b>{newRoleLabel}</b> 吗？
-        </span>
-      ),
-      okText: '确认', cancelText: '取消',
-      async onOk() {
-        try {
-          await assignRoleToUser(user.userId, [Number(newRole)]);
-          message.success(`${user.name || user.username} 的角色已更新`);
-          refreshUsers();
-        } catch (e) {
-          console.error(e);
-          message.error('分配角色失败');
-        }
-      },
-    });
+  const openRoleModal = (user: User) => {
+    const current = (user as any).roles?.[0]?.roleId;
+    setRoleModalValue(current != null ? String(current) : undefined);
+    setRoleModalUser(user);
+  };
+
+  const handleAssignRole = async () => {
+    if (!roleModalUser || !roleModalValue) return;
+    setRoleSaving(true);
+    try {
+      await assignRoleToUser(roleModalUser.userId, [Number(roleModalValue)]);
+      message.success(`${roleModalUser.name || roleModalUser.username} 的角色已更新`);
+      setRoleModalUser(null);
+      refreshUsers();
+    } catch (e) {
+      console.error(e);
+      message.error('分配角色失败');
+    } finally {
+      setRoleSaving(false);
+    }
   };
 
   /** 冻结 / 解冻 */
@@ -158,21 +166,16 @@ const UserTable: React.FC<UserTableProps> = ({
     },
     {
       title: '角色',
-      dataIndex: 'role',
       key: 'role',
-      render: (role: string, record: User) => (
-        <Select
-          size="small"
-          style={{ minWidth: 120 }}
-          value={role ? String(role) : undefined}
-          onChange={(value: string) => handleChangeRole(record, value)}
-          placeholder="暂无角色"
-        >
-          {roleOptions.map((r) => (
-            <Option key={r.value} value={r.value}>{r.label}</Option>
-          ))}
-        </Select>
-      ),
+      render: (_: any, record: User) => {
+        const names = getUserRoleNames(record);
+        if (names.length === 0) return <Tag>暂无角色</Tag>;
+        return (
+          <Space size={4} wrap>
+            {names.map((n) => <Tag color="geekblue" key={n}>{n}</Tag>)}
+          </Space>
+        );
+      },
     },
     {
       title: '状态',
@@ -222,6 +225,11 @@ const UserTable: React.FC<UserTableProps> = ({
             menu={{
               items: [
                 {
+                  key: 'assign-role',
+                  icon: <UserOutlined />,
+                  label: '分配角色',
+                },
+                {
                   key: 'freeze',
                   icon: record.status === false ? <UnlockOutlined /> : <LockOutlined />,
                   label: record.status === false ? '解冻账户' : '冻结账户',
@@ -235,6 +243,7 @@ const UserTable: React.FC<UserTableProps> = ({
                 },
               ],
               onClick: ({ key }) => {
+                if (key === 'assign-role') openRoleModal(record);
                 if (key === 'freeze') handleToggleFreeze(record);
                 if (key === 'delete') handleDelete(record);
               },
@@ -250,6 +259,27 @@ const UserTable: React.FC<UserTableProps> = ({
   // ─── 渲染 ─────────────────────────────────────────────────────────────────
 
   return (
+    <>
+    <Modal
+      title={roleModalUser ? `分配角色：${roleModalUser.name || roleModalUser.username}` : ''}
+      open={!!roleModalUser}
+      onOk={handleAssignRole}
+      okButtonProps={{ disabled: !roleModalValue }}
+      confirmLoading={roleSaving}
+      onCancel={() => setRoleModalUser(null)}
+      destroyOnClose
+    >
+      <Select
+        style={{ width: '100%' }}
+        placeholder="选择角色"
+        value={roleModalValue}
+        onChange={setRoleModalValue}
+      >
+        {roleOptions.map((r) => (
+          <Option key={r.value} value={r.value}>{r.label}</Option>
+        ))}
+      </Select>
+    </Modal>
     <Table<User>
       rowSelection={{
         selectedRowKeys: selectedRows.map((u) => u.userId),
@@ -271,6 +301,7 @@ const UserTable: React.FC<UserTableProps> = ({
       locale={{ emptyText: '暂无用户数据' }}
       scroll={{ x: 'max-content' }}
     />
+    </>
   );
 };
 
