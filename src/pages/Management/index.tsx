@@ -1,6 +1,6 @@
 // src/pages/Management/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Row, Col, Card, Tabs, Modal, message } from 'antd';
+import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar } from 'antd';
 import {
   TeamOutlined,
   LockOutlined,
@@ -169,12 +169,15 @@ const Management: React.FC = () => {
     try {
       const res: any = await getActiveRoles();
       const serverRoles = res?.data || res || [];
-      const options: RoleOption[] = (Array.isArray(serverRoles) ? serverRoles : []).map(
-        (r: any): RoleOption => ({
-          value: String(r.id),
-          label: r.name,
-        }),
-      );
+      // 后端 Role 字段为 roleId / roleName（兼容旧的 id / name）
+      const options: RoleOption[] = (Array.isArray(serverRoles) ? serverRoles : [])
+        .map(
+          (r: any): RoleOption => ({
+            value: String(r.roleId ?? r.id ?? ''),
+            label: r.roleName ?? r.name ?? '',
+          }),
+        )
+        .filter((o) => o.value && o.label);
       setRoleOptions(options);
     } catch (e) {
       console.error(e);
@@ -280,10 +283,8 @@ const Management: React.FC = () => {
   };
 
   // ── 查看详情 ──────────────────────────────────────────────────────────────
-  const handleViewUser = (user: User) => {
-    // TODO: 打开详情 Drawer / Modal
-    console.log('查看用户详情', user);
-  };
+  const [viewUser, setViewUser] = useState<User | null>(null);
+  const handleViewUser = (user: User) => setViewUser(user);
 
   // ─── 渲染 ─────────────────────────────────────────────────────────────────
   return (
@@ -450,6 +451,41 @@ const Management: React.FC = () => {
           ]}
         />
       </Card>
+
+      {/* 用户详情抽屉 */}
+      <Drawer
+        title="用户详情"
+        width={420}
+        open={!!viewUser}
+        onClose={() => setViewUser(null)}
+      >
+        {viewUser && (
+          <Descriptions column={1} bordered size="small">
+            <Descriptions.Item label="头像/昵称">
+              <Avatar size="small" style={{ backgroundColor: '#4da6ff', marginRight: 8 }}>
+                {(viewUser.name || viewUser.username || '?').slice(0, 1)}
+              </Avatar>
+              {viewUser.name || '未填写'}
+            </Descriptions.Item>
+            <Descriptions.Item label="用户名/学号">{viewUser.username}</Descriptions.Item>
+            <Descriptions.Item label="用户ID">{viewUser.userId}</Descriptions.Item>
+            <Descriptions.Item label="邮箱">{viewUser.email || '未填写'}</Descriptions.Item>
+            <Descriptions.Item label="手机号">{viewUser.phone || '未填写'}</Descriptions.Item>
+            <Descriptions.Item label="角色">
+              {roleOptions.find((r) => r.value === String(viewUser.role))?.label || viewUser.role || '暂无角色'}
+            </Descriptions.Item>
+            <Descriptions.Item label="社员身份">
+              {viewUser.isMember
+                ? <Tag color="blue">{viewUser.dept ? `社员 · ${viewUser.dept}` : '社员'}</Tag>
+                : <Tag>非社员</Tag>}
+            </Descriptions.Item>
+            <Descriptions.Item label="账户状态">
+              {viewUser.status ? <Tag color="green">正常</Tag> : <Tag color="red">已冻结</Tag>}
+            </Descriptions.Item>
+            <Descriptions.Item label="注册时间">{viewUser.createTime || '-'}</Descriptions.Item>
+          </Descriptions>
+        )}
+      </Drawer>
     </div>
   );
 };

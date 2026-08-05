@@ -1,11 +1,11 @@
 // src/pages/components/UserTable.tsx
 import React from 'react';
 import {
-  Table, Space, Button, Tooltip, Tag, Avatar, Modal, Select, message,
+  Table, Space, Button, Tooltip, Tag, Avatar, Modal, Select, message, Dropdown,
 } from 'antd';
 import {
   EyeOutlined, LockOutlined, UnlockOutlined,
-  UserOutlined, ExclamationCircleOutlined, DeleteOutlined,
+  UserOutlined, ExclamationCircleOutlined, DeleteOutlined, MoreOutlined,
 } from '@ant-design/icons';
 
 import {
@@ -216,18 +216,32 @@ const UserTable: React.FC<UserTableProps> = ({
           <Tooltip title="查看详情">
             <Button type="text" icon={<EyeOutlined />} size="small" onClick={() => onView(record)} />
           </Tooltip>
-          <Tooltip title={record.status === false ? '解冻账户' : '冻结账户'}>
-            <Button
-              type="text"
-              danger={record.status !== false}
-              icon={record.status === false ? <UnlockOutlined /> : <LockOutlined />}
-              size="small"
-              onClick={() => handleToggleFreeze(record)}
-            />
-          </Tooltip>
-          <Tooltip title="删除用户">
-            <Button type="text" danger icon={<DeleteOutlined />} size="small" onClick={() => handleDelete(record)} />
-          </Tooltip>
+          {/* 冻结/删除等危险操作收进「更多」菜单，避免误触 */}
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [
+                {
+                  key: 'freeze',
+                  icon: record.status === false ? <UnlockOutlined /> : <LockOutlined />,
+                  label: record.status === false ? '解冻账户' : '冻结账户',
+                },
+                { type: 'divider' },
+                {
+                  key: 'delete',
+                  icon: <DeleteOutlined />,
+                  label: '删除用户',
+                  danger: true,
+                },
+              ],
+              onClick: ({ key }) => {
+                if (key === 'freeze') handleToggleFreeze(record);
+                if (key === 'delete') handleDelete(record);
+              },
+            }}
+          >
+            <Button type="text" icon={<MoreOutlined />} size="small" />
+          </Dropdown>
         </Space>
       ),
     },
