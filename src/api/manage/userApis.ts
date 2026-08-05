@@ -176,3 +176,12 @@ export const exportUsersExcel = () => {
     responseType: 'blob',
   });
 };
+
+// POST: 替换用户的全部角色（先删旧再插新；roleIds 不可为空）
+export const replaceUserRoles = (userId: number, roleIds: number[]) => {
+  return request({
+    url: '/api/user-roles',
+    method: 'post',
+    params: { userId, roleIds: roleIds.join(',') },
+  });
+};
