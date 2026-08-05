@@ -19,7 +19,8 @@ export function parseJwtPayload(token: string): Record<string, unknown> | null {
 export function getJwtRoles(token: string | null): string[] {
   if (!token) return [];
   const payload = parseJwtPayload(token);
-  const roles = payload?.roles;
+  // 后端实际写入的声明是 roleNames（见 JwtTokenUtil.generateToken）；roles 仅作旧 Token 兼容
+  const roles = payload?.roleNames ?? payload?.roles;
   if (!Array.isArray(roles)) return [];
   return roles.map(String).map((r) => r.trim()).filter(Boolean);
 }

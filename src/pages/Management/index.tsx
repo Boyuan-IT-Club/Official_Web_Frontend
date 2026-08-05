@@ -234,14 +234,8 @@ const Management: React.FC = () => {
   };
 
   // ── 初始化 ────────────────────────────────────────────────────────────────
+  // 注：管理端准入已由 AdminGuard 按 JWT permissionCodes 把关，无需在此重复告警
   useEffect(() => {
-    const token = getToken();
-    if (token && !hasEffectiveJwtRoles(token)) {
-      message.warning(
-        '当前登录 Token 中没有有效角色（roles 为空），管理员接口会返回「认证失败」。请在后台为用户分配管理员角色后重新登录。',
-        10,
-      );
-    }
     fetchRoleOptions();
     fetchResumeFields();
   // eslint-disable-next-line react-hooks/exhaustive-deps
