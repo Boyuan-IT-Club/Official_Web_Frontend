@@ -51,7 +51,7 @@ import {
   fetchFieldValues,
   clearFieldValues,
 } from '@/store/modules/resume';
-import { fetchResumeFieldsConfig, ResumeField } from '@/store/modules/resumeFields';
+import { parseFieldOptions } from '@/api/manage/resumeEntry';
 import type { UserInfo } from '@/store/modules/user';
 import './index.scss';
 
@@ -95,15 +95,18 @@ type ResumeSliceState = {
   [key: string]: any;
 };
 
-type ResumeFieldsSliceState = {
-  fields: ResumeField[];
-  loading: boolean;
-  error: string | null;
+/** 字段配置视图，由 /api/resumes/fields/{cycleId} 返回的字段定义派生 */
+type ConfigField = {
+  key: string;
+  label: string;
+  required: boolean;
+  enabled: boolean;
+  options?: string[];
+  placeholder?: string;
 };
 
 type RootStateLike = {
   resume: ResumeSliceState;
-  resumeFields: ResumeFieldsSliceState;
   user: { userInfo: UserInfo };
 };
 
@@ -190,22 +193,37 @@ const Publish: React.FC = () => {
     cycleId, fieldDefinitions, resume, fieldValues, submitting, updating, error,
   } = useSelector((state: RootStateLike) => state.resume);
 
-  const { fields: configFields, loading: configLoading } = useSelector(
-    (state: RootStateLike) => state.resumeFields
-  );
-
   const userInfo = useSelector((state: RootStateLike) => state.user.userInfo);
+
+  // 字段定义（兼容包装/未包装两种响应形态）
+  const fieldDefinitionList = useMemo<any[]>(() => {
+    const data = Array.isArray(fieldDefinitions)
+      ? fieldDefinitions
+      : (fieldDefinitions as any)?.data;
+    return Array.isArray(data) ? data : [];
+  }, [fieldDefinitions]);
+
+  // 字段配置直接由字段定义派生（旧 /api/resume/fields 单数接口后端不存在，已移除）
+  const configFields = useMemo<ConfigField[]>(() => {
+    return fieldDefinitionList.map((f: any) => ({
+      key: String(f.fieldKey || ''),
+      label: String(f.fieldLabel || ''),
+      required: Boolean(f.isRequired),
+      enabled: f.isActive !== false,
+      options: parseFieldOptions(f.options),
+      placeholder: f.placeholder || undefined,
+    }));
+  }, [fieldDefinitionList]);
 
   // ---- O(1) Map 查找替代 O(n) array.find() ----
   const fieldIdMapping = useMemo<Record<string, number>>(() => {
-    const data = (fieldDefinitions as any)?.data;
-    if (data && Array.isArray(data) && data.length > 0) {
+    if (fieldDefinitionList.length > 0) {
       const mapping: Record<string, number> = {};
-      data.forEach((field: FieldDefinitionItem) => { mapping[field.fieldKey] = field.fieldId; });
+      fieldDefinitionList.forEach((field: FieldDefinitionItem) => { mapping[field.fieldKey] = field.fieldId; });
       return mapping;
     }
     return DEFAULT_FIELD_ID_MAPPING;
-  }, [fieldDefinitions]);
+  }, [fieldDefinitionList]);
 
   const fieldValueMap = useMemo<Map<number, FieldValueLike>>(() => {
     const map = new Map<number, FieldValueLike>();
@@ -213,8 +231,8 @@ const Publish: React.FC = () => {
     return map;
   }, [fieldValues]);
 
-  const configFieldMap = useMemo<Map<string, ResumeField>>(() => {
-    const map = new Map<string, ResumeField>();
+  const configFieldMap = useMemo<Map<string, ConfigField>>(() => {
+    const map = new Map<string, ConfigField>();
     configFields.forEach((f) => { if (f.key) map.set(f.key, f); });
     return map;
   }, [configFields]);
@@ -381,11 +399,8 @@ const Publish: React.FC = () => {
       setIsInitializing(true);
 
       // 所有独立请求并行发起，大幅减少首屏加载时间
-      const [configResult, fieldsResult, resumeResult, fieldValuesResult] =
+      const [fieldsResult, resumeResult, fieldValuesResult] =
         await Promise.all([
-          dispatch(fetchResumeFieldsConfig(cycleId)).unwrap().catch((err: any) => {
-            console.error('加载字段配置失败:', err); return null;
-          }),
           dispatch(fetchResumeFields(cycleId)).unwrap(),
           dispatch(fetchOrCreateResume(cycleId)).unwrap(),
           dispatch(fetchFieldValues(cycleId)).unwrap(),
@@ -495,7 +510,10 @@ const Publish: React.FC = () => {
   // ---- 提交与更新 ----
   const buildFieldValuesForSubmit = useCallback((currentResumeId: any) => {
     const result: any[] = [];
-    const enabledKeys = configFields.filter(f => f.enabled !== false).map(f => f.key);
+    // 字段定义加载失败时退化为默认映射的全部字段，避免提交时丢失已填写的值
+    const enabledKeys = configFields.length > 0
+      ? configFields.filter(f => f.enabled !== false).map(f => f.key)
+      : Object.keys(fieldIdMapping);
     enabledKeys.forEach((fieldKey) => {
       const fieldId = fieldIdMapping[fieldKey];
       if (fieldId) {
@@ -647,7 +665,7 @@ const Publish: React.FC = () => {
   }, [dispatch, cycleId, form]);
 
   // ---- 渲染 ----
-  if (isInitializing || configLoading) {
+  if (isInitializing) {
     return (
       <div className="publish-loading">
         <Spin size="large" />

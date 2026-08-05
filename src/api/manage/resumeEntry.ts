@@ -596,10 +596,10 @@ export const saveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> =
   try {
     await batchUpdateResumeFields(normalized);
   } catch (e: any) {
-    throw {
-      ...e,
-      message: `批量更新失败（${normalized.length} 项）: ${e?.message || '系统异常'}`,
-    };
+    // 保留原错误的业务属性（如 code），但用 Error 实例抛出以满足 no-throw-literal
+    const err: any = Object.assign(new Error(), e);
+    err.message = `批量更新失败（${normalized.length} 项）: ${e?.message || '系统异常'}`;
+    throw err;
   }
 };
 
