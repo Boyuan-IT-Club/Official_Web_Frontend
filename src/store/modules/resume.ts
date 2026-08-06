@@ -110,6 +110,21 @@ export const fetchResumeFields = createAsyncThunk<any, ID, ThunkApiConfig>(
   },
 );
 
+// 获取当前活跃招募周期（周期动态化：不再硬编码 cycleId）
+export const fetchActiveCycle = createAsyncThunk<any, void, ThunkApiConfig>(
+  "resume/fetchActiveCycle",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res: any = await request.get("/api/cycles/active/1");
+      const list = res?.data ?? [];
+      const active = Array.isArray(list) && list.length > 0 ? list[0] : null;
+      return active?.cycleId ?? null;
+    } catch (e: any) {
+      return rejectWithValue(e?.message ?? "获取活跃周期失败");
+    }
+  },
+);
+
 // 获取或创建简历
 export const fetchOrCreateResume = createAsyncThunk<any, ID, ThunkApiConfig>(
   "resume/fetchOrCreateResume",
@@ -521,6 +536,11 @@ const resumeSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(fetchActiveCycle.fulfilled, (state, action) => {
+        if (action.payload != null) {
+          state.cycleId = Number(action.payload);
+        }
+      })
       .addCase(fetchResumeFields.pending, (state) => {
         state.loading = true;
         state.error = null;

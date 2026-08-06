@@ -313,3 +313,33 @@
     padding: 12px;
   }
 }
+
+// ── 移动端适配（招新季大量学生手机填表）──────────────────────────
+@media (max-width: 576px) {
+  .publish-page,
+  .questionnaire-header {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  // 双列表单在窄屏收为单列
+  .ant-row > .ant-col-12 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+  .form-actions {
+    .ant-space {
+      width: 100%;
+      flex-wrap: wrap;
+
+      .ant-btn {
+        width: 100%;
+      }
+
+      .ant-space-item {
+        width: 100%;
+      }
+    }
+  }
+}

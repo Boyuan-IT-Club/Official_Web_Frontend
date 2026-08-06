@@ -58,6 +58,7 @@ import {
   setResumeId,
   fetchFieldValues,
   clearFieldValues,
+  fetchActiveCycle,
 } from '@/store/modules/resume';
 import { fetchResumeFieldsConfig, ResumeField } from '@/store/modules/resumeFields';
 import type { UserInfo } from '@/store/modules/user';
@@ -388,15 +389,19 @@ const Publish: React.FC = () => {
     try {
       setIsInitializing(true);
 
+      // 周期动态化：先解析当前活跃周期，失败时退回 store 中的默认值
+      const activeCid = await dispatch(fetchActiveCycle()).unwrap().catch(() => null);
+      const cid = activeCid ?? cycleId;
+
       // 所有独立请求并行发起，大幅减少首屏加载时间
       const [configResult, fieldsResult, resumeResult, fieldValuesResult] =
         await Promise.all([
-          dispatch(fetchResumeFieldsConfig(cycleId)).unwrap().catch((err: any) => {
+          dispatch(fetchResumeFieldsConfig(cid)).unwrap().catch((err: any) => {
             console.error('加载字段配置失败:', err); return null;
           }),
-          dispatch(fetchResumeFields(cycleId)).unwrap(),
-          dispatch(fetchOrCreateResume(cycleId)).unwrap(),
-          dispatch(fetchFieldValues(cycleId)).unwrap(),
+          dispatch(fetchResumeFields(cid)).unwrap(),
+          dispatch(fetchOrCreateResume(cid)).unwrap(),
+          dispatch(fetchFieldValues(cid)).unwrap(),
         ]);
 
       dispatch(setFieldDefinitions(fieldsResult));

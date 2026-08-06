@@ -59,6 +59,11 @@ const MainLayout = () => {
       icon: <UserOutlined />,
       label: "个人主页",
     },
+    {
+      key: "/main/interview-appointment",
+      icon: <FileTextOutlined />,
+      label: "我的申请",
+    },
     // 管理功能已迁移到独立管理端 admin.boyuan.club（用户端产物不含管理代码）
   ];
 

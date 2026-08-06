@@ -22,6 +22,7 @@ import {
 import { PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
+  AdminRescheduleRequest,
   InterviewSession,
   InterviewTimeSlot,
   SessionAssignmentResult,
@@ -31,7 +32,9 @@ import {
   createTimeSlot,
   deleteSession,
   deleteTimeSlot,
+  handleReschedule,
   listAvailableSessions,
+  listReschedules,
   listSessions,
   listTimeSlots,
   listUnassigned,
@@ -477,6 +480,125 @@ const AssignmentTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   );
 };
 
+// ─── 改期申请 Tab ────────────────────────────────────────────────────────────
+const STATUS_TAG: Record<number, { color: string; text: string }> = {
+  0: { color: "orange", text: "待处理" },
+  1: { color: "green", text: "已同意" },
+  2: { color: "red", text: "已拒绝" },
+};
+
+const RescheduleTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
+  const [list, setList] = useState<AdminRescheduleRequest[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [handling, setHandling] = useState<AdminRescheduleRequest | null>(null);
+  const [handleStatus, setHandleStatus] = useState<1 | 2>(1);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res: any = await listReschedules(cycleId);
+      setList(res?.data ?? []);
+    } catch (e: any) {
+      message.error(e?.message || "加载改期申请失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [cycleId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openHandle = (r: AdminRescheduleRequest, s: 1 | 2) => {
+    setHandling(r);
+    setHandleStatus(s);
+    setNote("");
+  };
+
+  const doHandle = async () => {
+    if (!handling) return;
+    setSaving(true);
+    try {
+      await handleReschedule(handling.requestId, handleStatus, note.trim() || undefined);
+      message.success(handleStatus === 1
+        ? "已同意——请到「分配与调剂」用人工调剂为该候选人重排场次"
+        : "已拒绝");
+      setHandling(null);
+      load();
+    } catch (e: any) {
+      message.error(e?.message || "处理失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message="同意改期后，请在「分配与调剂」Tab 用人工调剂把该候选人改到新场次（按其期望时间窗）。"
+      />
+      <Table
+        rowKey="requestId"
+        size="middle"
+        loading={loading}
+        dataSource={list}
+        pagination={false}
+        locale={{ emptyText: "暂无改期申请" }}
+        columns={[
+          { title: "ID", dataIndex: "requestId", width: 60 },
+          { title: "简历ID", dataIndex: "resumeId", width: 80 },
+          { title: "原因", dataIndex: "reason", ellipsis: true },
+          {
+            title: "期望时间窗",
+            dataIndex: "preferredTimeSlotIds",
+            width: 120,
+            render: (v: string) => v || <span style={{ color: "#bbb" }}>未指定</span>,
+          },
+          { title: "提交时间", dataIndex: "createdAt", width: 150, render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },
+          {
+            title: "状态",
+            dataIndex: "status",
+            width: 90,
+            render: (s: number, r: AdminRescheduleRequest) => (
+              <Tag color={STATUS_TAG[s]?.color}>{STATUS_TAG[s]?.text ?? s}{r.adminNote ? `（${r.adminNote}）` : ""}</Tag>
+            ),
+          },
+          {
+            title: "操作",
+            width: 140,
+            render: (_: unknown, r: AdminRescheduleRequest) => r.status === 0 ? (
+              <Space>
+                <Button type="link" size="small" onClick={() => openHandle(r, 1)}>同意</Button>
+                <Button type="link" size="small" danger onClick={() => openHandle(r, 2)}>拒绝</Button>
+              </Space>
+            ) : null,
+          },
+        ] as any}
+      />
+      <Modal
+        title={handling ? `${handleStatus === 1 ? "同意" : "拒绝"}改期申请 #${handling.requestId}` : ""}
+        open={!!handling}
+        onOk={doHandle}
+        confirmLoading={saving}
+        onCancel={() => setHandling(null)}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 8 }}>原因：{handling?.reason}</div>
+        <Input.TextArea
+          rows={2}
+          maxLength={500}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={handleStatus === 1 ? "备注（可选），如：已改至周日上午场" : "拒绝原因（可选），会展示给学生"}
+        />
+      </Modal>
+    </>
+  );
+};
+
 // ─── 页面主体 ────────────────────────────────────────────────────────────────
 const InterviewManage: React.FC = () => {
   const [cycles, setCycles] = useState<RecruitmentCycle[]>([]);
@@ -534,6 +656,7 @@ const InterviewManage: React.FC = () => {
             { key: "slots", label: "时间段", children: <TimeSlotTab cycleId={cycleId} /> },
             { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} /> },
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} /> },
+            { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} /> },
           ]}
         />
       ) : (

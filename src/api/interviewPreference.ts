@@ -59,3 +59,43 @@ export function getMyPreference(cycleId: number) {
 export function getMySchedule(cycleId: number) {
   return request({ url: '/api/interview/schedule/my', method: 'get', params: { cycleId } });
 }
+
+export interface MyResult {
+  resultId: number;
+  decision: number; // 1=通过 2=未通过
+  decisionAt?: string;
+  assignedDeptId?: number;
+  assignedDeptName?: string;
+}
+
+/** 查询本人面试结果；结果未出时 data 为 null */
+export function getMyResult(cycleId: number) {
+  return request({ url: '/api/interview/schedule/my-result', method: 'get', params: { cycleId } });
+}
+
+export interface RescheduleRequest {
+  requestId: number;
+  scheduleId: number;
+  cycleId: number;
+  reason: string;
+  preferredTimeSlotIds?: string;
+  status: number; // 0待处理 1已同意 2已拒绝
+  adminNote?: string;
+  createdAt?: string;
+  handledAt?: string;
+}
+
+/** 提交面试改期申请（需已分配面试；存在待处理申请时后端会拒绝） */
+export function submitReschedule(data: { cycleId: number; reason: string; preferredTimeSlotIds?: string }) {
+  return request({ url: '/api/interview/reschedule', method: 'post', data });
+}
+
+/** 查询本人最新改期申请；没有时 data 为 null */
+export function getMyReschedule(cycleId: number) {
+  return request({ url: '/api/interview/reschedule/my', method: 'get', params: { cycleId } });
+}
+
+/** 下载本人简历 PDF（返回 blob） */
+export function exportMyResumePdf(resumeId: number) {
+  return request({ url: `/api/resumes/export/pdf/${resumeId}`, method: 'get', responseType: 'blob' });
+}
