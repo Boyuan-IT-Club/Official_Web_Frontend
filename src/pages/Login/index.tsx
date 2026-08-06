@@ -509,7 +509,18 @@ const AuthCard: FC = () => {
               rules={[
                 { required: true, message: '请输入密码' },
                 { min: 8, message: '密码至少8位' },
+                {
+                  validator: (_r: unknown, v: unknown) => {
+                    if (!v) return Promise.resolve();
+                    const str = String(v);
+                    const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^a-zA-Z0-9]/].filter((re) => re.test(str)).length;
+                    return kinds >= 3
+                      ? Promise.resolve()
+                      : Promise.reject(new Error('需包含大写/小写/数字/特殊字符中的至少三种'));
+                  },
+                },
               ]}
+              extra="至少8位，且包含大写字母、小写字母、数字、特殊字符中的至少三种"
             >
               <Input.Password prefix={<LockOutlined />} placeholder="密码" />
             </Item>

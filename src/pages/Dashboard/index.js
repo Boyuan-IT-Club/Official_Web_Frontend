@@ -20,7 +20,7 @@ import {
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchOrCreateResume } from '@/store/modules/resume';
+import { fetchOrCreateResume, fetchActiveCycle } from '@/store/modules/resume';
 import RecruitProgressCard from '@/components/RecruitProgressCard';
 import './index.scss';
 
@@ -89,9 +89,16 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const resumeState = useSelector((state) => state.resume);
 
-  // 进入首页即拉取本周期简历状态（不存在会创建草稿），驱动下方进度卡
+  // 进入首页：解析活跃周期（动态化，不再硬编码），再拉取简历状态驱动进度卡
   useEffect(() => {
-    dispatch(fetchOrCreateResume(2));
+    (async () => {
+      let cid = 2;
+      try {
+        const active = await dispatch(fetchActiveCycle()).unwrap();
+        if (active != null) cid = active;
+      } catch (e) { /* 回退默认周期 */ }
+      dispatch(fetchOrCreateResume(cid));
+    })();
   }, [dispatch]);
 
   // 简历投递
@@ -110,7 +117,7 @@ const Dashboard = () => {
 
     // 尝试从后端获取最新简历状态
     try {
-      const result = await dispatch(fetchOrCreateResume(2)).unwrap();
+      const result = await dispatch(fetchOrCreateResume(resumeState?.cycleId ?? 2)).unwrap();
       const resumeData = result?.data || result;
       if (resumeData && resumeData.status >= 2) {
         navigate('/main/interview-appointment');
@@ -138,7 +145,7 @@ const Dashboard = () => {
 
       {/* 招新进度卡（方案三）：随时知道自己进行到哪一步 */}
       <div style={{ maxWidth: 960, margin: '16px auto 0', padding: '0 16px' }}>
-        <RecruitProgressCard cycleId={2} resumeStatus={resumeState?.resume?.status ?? null} />
+        <RecruitProgressCard cycleId={resumeState?.cycleId ?? 2} resumeStatus={resumeState?.resume?.status ?? null} />
       </div>
 
       {/* 社团招新 */}

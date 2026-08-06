@@ -119,3 +119,35 @@ export function manualAssign(resumeId: number, targetSessionId: number) {
     data: { targetSessionId },
   });
 }
+
+// ---- 改期申请（管理员） ----
+export interface AdminRescheduleRequest {
+  requestId: number;
+  scheduleId: number;
+  resumeId: number;
+  userId: number;
+  cycleId: number;
+  reason: string;
+  preferredTimeSlotIds?: string;
+  status: number; // 0待处理 1已同意 2已拒绝
+  adminNote?: string;
+  createdAt?: string;
+  handledAt?: string;
+}
+
+export function listReschedules(cycleId: number, status?: number) {
+  return request({
+    url: '/api/interview/reschedule/admin/list',
+    method: 'get',
+    params: status != null ? { cycleId, status } : { cycleId },
+  });
+}
+
+/** status: 1同意（随后在「分配与调剂」人工重排）/ 2拒绝 */
+export function handleReschedule(requestId: number, status: 1 | 2, adminNote?: string) {
+  return request({
+    url: `/api/interview/reschedule/admin/${requestId}/handle`,
+    method: 'put',
+    data: { status, adminNote },
+  });
+}
