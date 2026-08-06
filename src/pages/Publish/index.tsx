@@ -16,6 +16,7 @@ import {
 import {
   SendOutlined,
   EditOutlined,
+  SaveOutlined,
   IdcardOutlined,
   CodeOutlined,
   CommentOutlined,
@@ -508,6 +509,30 @@ const Publish: React.FC = () => {
     return result;
   }, [configFields, fieldIdMapping, fieldValueMap]);
 
+  // 保存草稿：只持久化已填字段值，不做必填校验、不提交
+  const [savingDraft, setSavingDraft] = useState(false);
+  const handleSaveDraft = useCallback(async (): Promise<void> => {
+    const currentResumeId = resume?.resume_id || resume?.id;
+    if (!currentResumeId) { message.error('简历ID不存在，请刷新页面重试'); return; }
+    const deptArray: string[] = [];
+    if (departments.first && departments.first !== '无') deptArray.push(departments.first);
+    if (departments.second && departments.second !== '无') deptArray.push(departments.second);
+    const filteredTech = techStackItems.filter(item => item && item.trim());
+    if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
+    if (filteredTech.length > 0) handleFieldChange('tech_stack', JSON.stringify(filteredTech));
+    setSavingDraft(true);
+    try {
+      const fieldValuesToSave = buildFieldValuesForSubmit(currentResumeId);
+      await dispatch(saveFieldValues({ cycleId, fieldValues: fieldValuesToSave, resumeId: currentResumeId })).unwrap();
+      message.success('草稿已保存，下次登录可继续编辑');
+    } catch (err) {
+      console.error('草稿保存失败:', err);
+      message.error('草稿保存失败，请稍后重试');
+    } finally {
+      setSavingDraft(false);
+    }
+  }, [resume, departments, techStackItems, buildFieldValuesForSubmit, cycleId, dispatch]);
+
   const handleSubmit = useCallback(async (): Promise<void> => {
     try {
       await form.validateFields();
@@ -866,6 +891,11 @@ const Publish: React.FC = () => {
 
                     <div className="form-actions">
                       <Space>
+                        {!isSubmitted && (
+                          <Button icon={<SaveOutlined />} loading={savingDraft} onClick={handleSaveDraft} size="large">
+                            保存草稿
+                          </Button>
+                        )}
                         <Button type="primary" icon={isSubmitted ? <EditOutlined /> : <SendOutlined />} loading={submitting || updating} onClick={() => setShowSubmitConfirm(true)} size="large">
                           {isSubmitted ? '更新简历' : '提交申请'}
                         </Button>

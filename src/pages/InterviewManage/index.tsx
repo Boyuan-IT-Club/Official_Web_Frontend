@@ -11,6 +11,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Spin,
   Statistic,
   Table,
   Tabs,
@@ -481,6 +482,8 @@ const InterviewManage: React.FC = () => {
   const [cycles, setCycles] = useState<RecruitmentCycle[]>([]);
   const [cycleId, setCycleId] = useState<number | undefined>();
   const [depts, setDepts] = useState<any[]>([]);
+  // 初始化完成前渲染 loading，避免先闪现「请先创建周期」提示再切换到正文
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -494,6 +497,8 @@ const InterviewManage: React.FC = () => {
         setCycleId(active?.cycleId ?? list[list.length - 1]?.cycleId);
       } catch (e: any) {
         message.error(e?.message || "初始化失败");
+      } finally {
+        setInitializing(false);
       }
     })();
   }, []);
@@ -519,7 +524,11 @@ const InterviewManage: React.FC = () => {
         </Space>
       }
     >
-      {cycleId ? (
+      {initializing ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+          <Spin size="large" />
+        </div>
+      ) : cycleId ? (
         <Tabs
           items={[
             { key: "slots", label: "时间段", children: <TimeSlotTab cycleId={cycleId} /> },

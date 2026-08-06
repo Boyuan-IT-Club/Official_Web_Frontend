@@ -319,6 +319,11 @@ const AuthCard: FC = () => {
       return Promise.reject(new Error('请输入学号'));
     }
 
+    // 管理端存在非学号账号（如 admin），不做数字/长度校验
+    if (process.env.REACT_APP_MODE === 'admin') {
+      return Promise.resolve();
+    }
+
     const str = String(value);
 
     const numberPart = str.split('@')[0];

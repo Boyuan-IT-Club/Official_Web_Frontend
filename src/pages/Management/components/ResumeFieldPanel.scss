@@ -4,3 +4,32 @@
   border: 1px dashed #d9d9d9;
   border-radius: 6px;
 }
+
+// 紧凑化字段编辑表单：默认 antd 尺寸下每个字段卡片过于臃肿
+.resume-field-form {
+  .ant-form-item {
+    margin-bottom: 10px;
+  }
+
+  .ant-form-item-label {
+    padding-bottom: 2px;
+
+    > label {
+      font-size: 12px;
+      color: #8c8c8c;
+    }
+  }
+
+  .ant-card-small {
+    margin-bottom: 10px;
+
+    > .ant-card-body {
+      padding: 10px 14px 2px;
+    }
+
+    > .ant-card-head {
+      min-height: 40px;
+      padding: 0 14px;
+    }
+  }
+}

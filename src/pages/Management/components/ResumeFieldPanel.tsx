@@ -600,7 +600,7 @@ const ResumeFieldPanel: React.FC<Props> = ({
       borderRadius: '8px',
       minHeight: '400px'
     }}>
-      <Form form={form} layout="vertical">
+      <Form form={form} layout="vertical" size="small" className="resume-field-form">
         {/* 按钮行 */}
         <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
           <Text
