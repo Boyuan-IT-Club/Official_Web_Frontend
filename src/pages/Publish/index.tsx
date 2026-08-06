@@ -37,7 +37,14 @@ import TechStackInput from './components/TechStackInput';
 import PhotoUpload from './components/PhotoUpload';
 import FormSection from './components/FormSection';
 import ResumeDisplay from '@/components/ResumeDisplay';
-import InterviewAppointmentPanel from '@/components/InterviewAppointmentPanel';
+import InterviewStatusCard from '@/components/InterviewStatusCard';
+import {
+  PreferenceTimeSlot,
+  getMyPreference,
+  listOpenTimeSlots,
+  submitPreference,
+} from '@/api/interviewPreference';
+import { getValidDept } from '@/api/manage/deptManage';
 
 import {
   fetchResumeFields,
@@ -509,6 +516,55 @@ const Publish: React.FC = () => {
     return result;
   }, [configFields, fieldIdMapping, fieldValueMap]);
 
+  // ---- 面试意向（方案B：志愿部门 + 可接受时间窗，随简历一次提交）----
+  const [openSlots, setOpenSlots] = useState<PreferenceTimeSlot[]>([]);
+  const [selectedSlotIds, setSelectedSlotIds] = useState<number[]>([]);
+  const [deptNameToId, setDeptNameToId] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!cycleId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [slots, depts, mine]: any[] = await Promise.all([
+          listOpenTimeSlots(cycleId).catch(() => null),
+          getValidDept().catch(() => null),
+          getMyPreference(cycleId).catch(() => null),
+        ]);
+        if (cancelled) return;
+        setOpenSlots(slots?.data ?? []);
+        const mapping: Record<string, number> = {};
+        (depts?.data ?? []).forEach((d: any) => { if (d?.deptName) mapping[d.deptName] = d.deptId; });
+        setDeptNameToId(mapping);
+        const accepted = mine?.data?.acceptedTimeSlots;
+        if (Array.isArray(accepted) && accepted.length > 0) {
+          setSelectedSlotIds(accepted.map((s: any) => s.timeSlotId).filter(Boolean));
+        }
+      } catch { /* 意向区加载失败不阻塞简历表单 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [cycleId]);
+
+  /** 简历提交/更新成功后同步提交面试志愿（失败仅提醒，不影响简历） */
+  const savePreferenceBestEffort = useCallback(async () => {
+    const firstDeptId = deptNameToId[departments.first];
+    if (!firstDeptId || selectedSlotIds.length === 0) {
+      message.warning('面试意向未完整填写（志愿部门/可面试时间），可稍后回到本页补填并更新简历');
+      return;
+    }
+    try {
+      await submitPreference({
+        cycleId,
+        firstDeptId,
+        secondDeptId: deptNameToId[departments.second] || undefined,
+        timeSlotIds: selectedSlotIds,
+      });
+    } catch (e: any) {
+      console.error('面试志愿提交失败:', e);
+      message.warning(e?.message || '面试志愿提交失败，可稍后回到本页重新提交');
+    }
+  }, [cycleId, departments, deptNameToId, selectedSlotIds]);
+
   // 保存草稿：只持久化已填字段值，不做必填校验、不提交
   const [savingDraft, setSavingDraft] = useState(false);
   const handleSaveDraft = useCallback(async (): Promise<void> => {
@@ -551,12 +607,9 @@ const Publish: React.FC = () => {
       await dispatch(saveFieldValues({ cycleId, fieldValues: fieldValuesToSave, resumeId: currentResumeId })).unwrap();
       await dispatch(submitResume({ cycleId, resumeId: currentResumeId })).unwrap();
 
-      const appointmentInfo = {
-        canAttend: interviewTimes.canAttend, firstTime: interviewTimes.first,
-        secondTime: interviewTimes.second, customTime: interviewTimes.customTime,
-      };
-      localStorage.setItem('latestInterviewAppointment', JSON.stringify(appointmentInfo));
-      message.success('简历提交成功！请在下方预约面试时间。');
+      // 简历提交成功后，同步提交面试志愿（方案二：一次提交完成两件事）
+      await savePreferenceBestEffort();
+      message.success('简历与面试意向已提交！分配结果将通过邮件通知，也可在首页查看进度。');
       setShowSubmitConfirm(false);
       setIsEditing(false);
     } catch (err: unknown) {
@@ -575,7 +628,7 @@ const Publish: React.FC = () => {
       message.error(`操作失败: ${msg}`);
     }
   }, [form, departments, techStackItems, resume, cycleId, dispatch,
-      interviewTimes, handleFieldChange, buildFieldValuesForSubmit]);
+      handleFieldChange, buildFieldValuesForSubmit, savePreferenceBestEffort]);
 
   const handleUpdateResume = useCallback(async (): Promise<void> => {
     try {
@@ -593,6 +646,8 @@ const Publish: React.FC = () => {
       const fieldValuesToUpdate = buildFieldValuesForSubmit(currentResumeId);
 
       await dispatch(updateResume({ cycleId, fieldValues: fieldValuesToUpdate, resumeId: currentResumeId })).unwrap();
+      // 更新简历时同步覆盖面试志愿（后端允许重复提交覆盖）
+      await savePreferenceBestEffort();
       message.success('简历更新成功！');
       setShowSubmitConfirm(false);
       setIsEditing(false);
@@ -608,7 +663,7 @@ const Publish: React.FC = () => {
       }
     }
   }, [form, departments, techStackItems, resume, cycleId, dispatch,
-      handleFieldChange, buildFieldValuesForSubmit]);
+      handleFieldChange, buildFieldValuesForSubmit, savePreferenceBestEffort]);
 
   const handleEdit = useCallback(async (): Promise<void> => {
     try {
@@ -725,8 +780,10 @@ const Publish: React.FC = () => {
           {resume?.status === 4 && <Alert message="简历已通过" description="恭喜！您的简历已通过审核，无法修改。" type="success" showIcon style={{ marginTop: 24 }} />}
           {resume?.status === 5 && <Alert message="简历未通过" description="很遗憾，您的简历未通过审核，无法修改。" type="error" showIcon style={{ marginTop: 24 }} />}
 
-          {/* 面试时间预约 — 始终可见，方便用户提前了解可选时间段 */}
-          <InterviewAppointmentPanel cycleId={cycleId} isSubmitted={isSubmitted} departments={departments} />
+          {/* 面试安排状态（志愿/分配结果，真实接口） */}
+          <div style={{ marginTop: 24 }}>
+            <InterviewStatusCard cycleId={cycleId} />
+          </div>
         </div>
       ) : (
         <div>
@@ -889,6 +946,39 @@ const Publish: React.FC = () => {
                       </FormSection>
                     )}
 
+                    {/* ── 面试意向（方案二：随简历一次提交）── */}
+                    <Card
+                      size="small"
+                      title="面试意向"
+                      style={{ marginTop: 8, marginBottom: 20 }}
+                    >
+                      <Text type="secondary" style={{ display: 'block', marginBottom: 10 }}>
+                        志愿部门取自上方「期望部门」的选择；请勾选你<b>能到场</b>的面试时间（可多选，选得越多越容易被安排到合适场次）。
+                      </Text>
+                      {openSlots.length === 0 ? (
+                        <Alert type="info" showIcon message="面试时间尚未开放，提交简历后可回到本页补填面试意向" />
+                      ) : (
+                        <Space direction="vertical" size={4}>
+                          {openSlots.map((s) => (
+                            <label key={s.timeSlotId} style={{ cursor: canEdit ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <input
+                                type="checkbox"
+                                disabled={!canEdit}
+                                checked={selectedSlotIds.includes(s.timeSlotId)}
+                                onChange={(e) => {
+                                  setSelectedSlotIds((prev) =>
+                                    e.target.checked
+                                      ? [...prev, s.timeSlotId]
+                                      : prev.filter((id) => id !== s.timeSlotId));
+                                }}
+                              />
+                              <span>{s.slotName}（{s.interviewDate} {String(s.startTime).slice(0, 5)}-{String(s.endTime).slice(0, 5)}）</span>
+                            </label>
+                          ))}
+                        </Space>
+                      )}
+                    </Card>
+
                     <div className="form-actions">
                       <Space>
                         {!isSubmitted && (
@@ -910,10 +1000,7 @@ const Publish: React.FC = () => {
             </Card>
           </div>
 
-          {/* 面试时间预览 — 填表时也可查看 */}
-          {!isSubmitted && (
-            <InterviewAppointmentPanel cycleId={cycleId} isSubmitted={false} departments={departments} />
-          )}
+          {/* 面试意向已并入上方表单（方案二），原独立预约面板移除 */}
         </div>
       )}
 
