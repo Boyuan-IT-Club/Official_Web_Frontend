@@ -1,5 +1,5 @@
 // src/pages/Dashboard/index.js
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Row, Col, Card, Typography, Divider, Button, message } from 'antd';
 import {
   CodeOutlined,
@@ -21,6 +21,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrCreateResume } from '@/store/modules/resume';
+import RecruitProgressCard from '@/components/RecruitProgressCard';
 import './index.scss';
 
 const { Title, Text, Paragraph } = Typography;
@@ -88,6 +89,11 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const resumeState = useSelector((state) => state.resume);
 
+  // 进入首页即拉取本周期简历状态（不存在会创建草稿），驱动下方进度卡
+  useEffect(() => {
+    dispatch(fetchOrCreateResume(2));
+  }, [dispatch]);
+
   // 简历投递
   const handleGoToResume = () => {
     navigate('/main/publish');
@@ -128,6 +134,11 @@ const Dashboard = () => {
             卓越技术 · 绝佳创意 · 实践平台
           </Text>
         </div>
+      </div>
+
+      {/* 招新进度卡（方案三）：随时知道自己进行到哪一步 */}
+      <div style={{ maxWidth: 960, margin: '16px auto 0', padding: '0 16px' }}>
+        <RecruitProgressCard cycleId={2} resumeStatus={resumeState?.resume?.status ?? null} />
       </div>
 
       {/* 社团招新 */}
