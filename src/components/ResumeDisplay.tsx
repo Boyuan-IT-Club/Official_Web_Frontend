@@ -1,4 +1,4 @@
-// pages/Publish/components/ResumeDisplay.tsx
+// src/components/ResumeDisplay.tsx
 import React from 'react';
 import { Card, Row, Col, Typography, Divider, Image, Tag, Space } from 'antd';
 import {
