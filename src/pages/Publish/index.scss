@@ -156,28 +156,8 @@
   }
 }
 
-// 统一下拉框样式（去重合并 3 个重复块为 1 个）
-.ant-select {
-  .ant-select-selector {
-    padding-right: 24px !important;
-  }
-
-  .ant-select-arrow {
-    right: 8px !important;
-    width: 12px;
-    height: 12px;
-    margin-top: -6px;
-    pointer-events: none;
-
-    .ant-select-arrow-icon {
-      display: block;
-      width: 100%;
-      height: 100%;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23666'%3E%3Cpath d='M8 12L2 6h12L8 12z'/%3E%3C/svg%3E") no-repeat center;
-      background-size: contain;
-    }
-  }
-}
+// 注：此处原有一段覆盖 .ant-select-arrow 定位/图标的全局样式（antd v4 时代遗留，
+// 类名在 v5 已不存在），会导致所有下拉框箭头错位，已删除——箭头交给 antd 自身渲染。
 
 .ant-select-item.ant-select-item-option,
 .ant-select-item-option-content {

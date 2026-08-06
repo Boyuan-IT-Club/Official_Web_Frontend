@@ -472,7 +472,14 @@ const Management: React.FC = () => {
             <Descriptions.Item label="邮箱">{viewUser.email || '未填写'}</Descriptions.Item>
             <Descriptions.Item label="手机号">{viewUser.phone || '未填写'}</Descriptions.Item>
             <Descriptions.Item label="角色">
-              {roleOptions.find((r) => r.value === String(viewUser.role))?.label || viewUser.role || '暂无角色'}
+              {(() => {
+                const names = ((viewUser as any).roles ?? [])
+                  .map((r: any) => r?.roleName)
+                  .filter(Boolean);
+                return names.length > 0
+                  ? names.map((n: string) => <Tag color="geekblue" key={n}>{n}</Tag>)
+                  : <Tag>暂无角色</Tag>;
+              })()}
             </Descriptions.Item>
             <Descriptions.Item label="社员身份">
               {viewUser.isMember

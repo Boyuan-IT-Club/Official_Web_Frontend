@@ -5,12 +5,14 @@ import {
 } from 'antd';
 import {
   EyeOutlined, LockOutlined, UnlockOutlined,
-  UserOutlined, ExclamationCircleOutlined, DeleteOutlined, MoreOutlined,
+  UserOutlined, ExclamationCircleOutlined, DeleteOutlined, MoreOutlined, TeamOutlined,
 } from '@ant-design/icons';
 
 import {
   replaceUserRoles, removeRoleFromUser, freezeUser, unfreezeUser, deleteUser,
+  batchUpdateUserDept,
 } from '@/api/manage/userApis';
+import { getValidDept } from '@/api/manage/deptManage';
 
 const { Option } = Select;
 const { confirm } = Modal;
@@ -109,6 +111,44 @@ const UserTable: React.FC<UserTableProps> = ({
       message.error('保存角色失败');
     } finally {
       setRoleSaving(false);
+    }
+  };
+
+  // ── 分配部门弹窗 ──
+  const [deptModalUser, setDeptModalUser] = React.useState<User | null>(null);
+  const [deptModalValue, setDeptModalValue] = React.useState<string | undefined>();
+  const [deptOptions, setDeptOptions] = React.useState<{ value: string; label: string }[]>([]);
+  const [deptSaving, setDeptSaving] = React.useState(false);
+
+  const openDeptModal = async (user: User) => {
+    setDeptModalValue(user.dept || undefined);
+    setDeptModalUser(user);
+    if (deptOptions.length === 0) {
+      try {
+        const res: any = await getValidDept();
+        setDeptOptions(
+          (res?.data ?? []).map((d: any) => ({ value: d.deptName, label: d.deptName })),
+        );
+      } catch (e) {
+        console.error(e);
+        message.error('加载部门列表失败');
+      }
+    }
+  };
+
+  const handleAssignDept = async () => {
+    if (!deptModalUser || !deptModalValue) return;
+    setDeptSaving(true);
+    try {
+      await batchUpdateUserDept([deptModalUser.userId], deptModalValue);
+      message.success(`${deptModalUser.name || deptModalUser.username} 的部门已更新为 ${deptModalValue}`);
+      setDeptModalUser(null);
+      refreshUsers();
+    } catch (e) {
+      console.error(e);
+      message.error('分配部门失败');
+    } finally {
+      setDeptSaving(false);
     }
   };
 
@@ -245,6 +285,11 @@ const UserTable: React.FC<UserTableProps> = ({
                   label: '角色管理',
                 },
                 {
+                  key: 'assign-dept',
+                  icon: <TeamOutlined />,
+                  label: '分配部门',
+                },
+                {
                   key: 'freeze',
                   icon: record.status === false ? <UnlockOutlined /> : <LockOutlined />,
                   label: record.status === false ? '解冻账户' : '冻结账户',
@@ -259,6 +304,7 @@ const UserTable: React.FC<UserTableProps> = ({
               ],
               onClick: ({ key }) => {
                 if (key === 'assign-role') openRoleModal(record);
+                if (key === 'assign-dept') openDeptModal(record);
                 if (key === 'freeze') handleToggleFreeze(record);
                 if (key === 'delete') handleDelete(record);
               },
@@ -298,6 +344,23 @@ const UserTable: React.FC<UserTableProps> = ({
           <Option key={r.value} value={r.value}>{r.label}</Option>
         ))}
       </Select>
+    </Modal>
+    <Modal
+      title={deptModalUser ? `分配部门：${deptModalUser.name || deptModalUser.username}` : ''}
+      open={!!deptModalUser}
+      onOk={handleAssignDept}
+      okButtonProps={{ disabled: !deptModalValue }}
+      confirmLoading={deptSaving}
+      onCancel={() => setDeptModalUser(null)}
+      destroyOnClose
+    >
+      <Select
+        style={{ width: '100%' }}
+        placeholder="选择部门"
+        value={deptModalValue}
+        onChange={setDeptModalValue}
+        options={deptOptions}
+      />
     </Modal>
     <Table<User>
       rowSelection={{
