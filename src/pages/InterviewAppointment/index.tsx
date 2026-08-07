@@ -3,11 +3,11 @@
 // 并提供简历 PDF 下载。数据全部来自真实接口。
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert, Button, Card, Input, Modal, Space, Spin, Tag, Timeline, Typography, message,
+  Alert, Button, Card, Descriptions, Drawer, Input, Modal, Space, Spin, Tag, Timeline, Typography, message,
 } from 'antd';
 import {
   ArrowLeftOutlined, CalendarOutlined, CheckCircleTwoTone, ClockCircleOutlined,
-  DownloadOutlined, FileTextOutlined, FormOutlined, SmileTwoTone, SwapOutlined,
+  DownloadOutlined, EyeOutlined, FileTextOutlined, FormOutlined, SmileTwoTone, SwapOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -28,6 +28,21 @@ const RESUME_STATUS_TEXT: Record<number, string> = {
 
 const fmtDT = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
 
+const renderFieldValue = (v?: string | null): React.ReactNode => {
+  if (!v) return <span style={{ color: '#bbb' }}>未填写</span>;
+  const str = String(v);
+  if (str.startsWith('[')) {
+    try {
+      const arr = JSON.parse(str);
+      if (Array.isArray(arr)) return arr.join('、');
+    } catch { /* 原样展示 */ }
+  }
+  if (str.startsWith('/uploads') || str.startsWith('http')) {
+    return <a href={str.startsWith('/') ? str : str} target="_blank" rel="noreferrer">查看附件</a>;
+  }
+  return <span style={{ whiteSpace: 'pre-wrap' }}>{str}</span>;
+};
+
 const InterviewAppointment: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<any>();
@@ -45,6 +60,9 @@ const InterviewAppointment: React.FC = () => {
   const [schedule, setSchedule] = useState<MySchedule | null>(null);
   const [result, setResult] = useState<MyResult | null>(null);
   const [reschedule, setReschedule] = useState<RescheduleRequest | null>(null);
+
+  // 简历查看抽屉
+  const [resumeOpen, setResumeOpen] = useState(false);
 
   // 改期弹窗
   const [reschedOpen, setReschedOpen] = useState(false);
@@ -279,6 +297,9 @@ const InterviewAppointment: React.FC = () => {
           </div>
         </div>
         <Space wrap className="hero-actions">
+          <Button ghost icon={<EyeOutlined />} onClick={() => setResumeOpen(true)} disabled={status == null}>
+            查看简历
+          </Button>
           <Button ghost icon={<DownloadOutlined />} onClick={handleDownloadPdf} disabled={!submitted}>
             简历 PDF
           </Button>
@@ -299,6 +320,27 @@ const InterviewAppointment: React.FC = () => {
           <Timeline className="progress-timeline" items={items} />
         )}
       </Card>
+
+      <Drawer
+        title={`${cycleName || '本周期'} · 我的简历`}
+        width={480}
+        open={resumeOpen}
+        onClose={() => setResumeOpen(false)}
+      >
+        {Array.isArray(resume?.simpleFields) && resume.simpleFields.length > 0 ? (
+          <Descriptions column={1} size="small" bordered>
+            {resume.simpleFields
+              .filter((f: any) => f.fieldValue != null && String(f.fieldValue).trim() !== '')
+              .map((f: any) => (
+                <Descriptions.Item key={f.fieldId} label={f.fieldLabel || f.fieldKey}>
+                  {renderFieldValue(f.fieldValue)}
+                </Descriptions.Item>
+              ))}
+          </Descriptions>
+        ) : (
+          <Text type="secondary">该周期的简历还没有填写内容</Text>
+        )}
+      </Drawer>
 
       <Modal
         title="申请面试改期"
