@@ -12,6 +12,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchActiveCycle, fetchMyResumeReadonly } from '@/store/modules/resume';
+import InterviewIntentEditor from '@/components/InterviewIntentEditor';
 import {
   MyPreference, MySchedule, MyResult, RescheduleRequest, PreferenceTimeSlot,
   getMyPreference, getMySchedule, getMyResult, getMyReschedule,
@@ -63,6 +64,9 @@ const InterviewAppointment: React.FC = () => {
 
   // 简历查看抽屉
   const [resumeOpen, setResumeOpen] = useState(false);
+
+  // 面试意向编辑
+  const [intentOpen, setIntentOpen] = useState(false);
 
   // 改期弹窗
   const [reschedOpen, setReschedOpen] = useState(false);
@@ -208,7 +212,14 @@ const InterviewAppointment: React.FC = () => {
               <Text type="secondary">提交于 {fmtDT(preference.submittedAt)}</Text>
             </Space>
           ) : (
-            <Text type="secondary">未提交（在简历表单的「面试意向」区填写）</Text>
+            <Text type="secondary">未提交志愿</Text>
+          )}
+          {!result && !schedule?.interviewTime && submitted && (
+            <div style={{ marginTop: 6 }}>
+              <Button size="small" onClick={() => setIntentOpen(true)}>
+                {preference ? '修改面试意向' : '填写面试意向'}
+              </Button>
+            </div>
           )}
         </div>
       </>
@@ -321,25 +332,97 @@ const InterviewAppointment: React.FC = () => {
         )}
       </Card>
 
+      <InterviewIntentEditor
+        open={intentOpen}
+        cycleId={cycleId}
+        resumeId={resume?.resume_id || resume?.id}
+        onClose={() => setIntentOpen(false)}
+        onSaved={() => { dispatch(fetchMyResumeReadonly(cycleId)); loadAll(cycleId); }}
+      />
+
       <Drawer
         title={`${cycleName || '本周期'} · 我的简历`}
-        width={480}
+        width={520}
         open={resumeOpen}
         onClose={() => setResumeOpen(false)}
+        className="resume-drawer"
       >
-        {Array.isArray(resume?.simpleFields) && resume.simpleFields.length > 0 ? (
-          <Descriptions column={1} size="small" bordered>
-            {resume.simpleFields
-              .filter((f: any) => f.fieldValue != null && String(f.fieldValue).trim() !== '')
-              .map((f: any) => (
-                <Descriptions.Item key={f.fieldId} label={f.fieldLabel || f.fieldKey}>
-                  {renderFieldValue(f.fieldValue)}
-                </Descriptions.Item>
+        {(() => {
+          const fields: any[] = Array.isArray(resume?.simpleFields) ? resume.simpleFields : [];
+          const filled = fields.filter((f) => f.fieldValue != null && String(f.fieldValue).trim() !== '');
+          if (filled.length === 0) return <Text type="secondary">该周期的简历还没有填写内容</Text>;
+
+          const byKey: Record<string, any> = {};
+          filled.forEach((f) => { if (f.fieldKey) byKey[f.fieldKey] = f; });
+          const isImg = (v: any) => typeof v === 'string' && v.startsWith('data:image');
+          const photo = filled.find((f) => isImg(f.fieldValue));
+          const asArr = (v: any): string[] => {
+            try { const a = JSON.parse(String(v)); return Array.isArray(a) ? a : []; } catch { return []; }
+          };
+          const BASIC_KEYS = ['student_id', 'email', 'phone', 'grade', 'gender', 'major', 'github'];
+          const LONG_KEYS = [
+            { key: 'self_introduction', title: '个人简介' },
+            { key: 'introduction', title: '个人简介' },
+            { key: 'project_experience', title: '项目经验' },
+            { key: 'reason', title: '加入原因' },
+          ];
+          const usedKeys = new Set(['name', 'personal_photo', 'expected_departments', 'tech_stack',
+            ...BASIC_KEYS, ...LONG_KEYS.map((x) => x.key)]);
+          const seenTitles = new Set<string>();
+
+          return (
+            <div className="resume-view">
+              <div className="rv-head">
+                <div>
+                  <div className="rv-name">{byKey.name?.fieldValue || '未填写姓名'}</div>
+                  <div className="rv-sub">
+                    {asArr(byKey.expected_departments?.fieldValue).map((d) => (
+                      <Tag color="blue" key={d}>{d}</Tag>
+                    ))}
+                  </div>
+                </div>
+                {photo && <img className="rv-photo" src={photo.fieldValue} alt="证件照" />}
+              </div>
+
+              <div className="rv-basics">
+                {BASIC_KEYS.map((k) => byKey[k] && (
+                  <div className="rv-basic-item" key={k}>
+                    <span className="rv-label">{byKey[k].fieldLabel || k}</span>
+                    <span className="rv-value">{String(byKey[k].fieldValue)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {asArr(byKey.tech_stack?.fieldValue).length > 0 && (
+                <div className="rv-section">
+                  <div className="rv-section-title">技术栈</div>
+                  <Space size={4} wrap>
+                    {asArr(byKey.tech_stack.fieldValue).map((t) => <Tag key={t}>{t}</Tag>)}
+                  </Space>
+                </div>
+              )}
+
+              {LONG_KEYS.map(({ key, title }) => {
+                const f = byKey[key];
+                if (!f || seenTitles.has(title)) return null;
+                seenTitles.add(title);
+                return (
+                  <div className="rv-section" key={key}>
+                    <div className="rv-section-title">{title}</div>
+                    <div className="rv-prose">{String(f.fieldValue)}</div>
+                  </div>
+                );
+              })}
+
+              {filled.filter((f) => !usedKeys.has(f.fieldKey) && !isImg(f.fieldValue)).map((f) => (
+                <div className="rv-section" key={f.fieldId}>
+                  <div className="rv-section-title">{f.fieldLabel || f.fieldKey}</div>
+                  <div className="rv-prose">{renderFieldValue(f.fieldValue)}</div>
+                </div>
               ))}
-          </Descriptions>
-        ) : (
-          <Text type="secondary">该周期的简历还没有填写内容</Text>
-        )}
+            </div>
+          );
+        })()}
       </Drawer>
 
       <Modal
