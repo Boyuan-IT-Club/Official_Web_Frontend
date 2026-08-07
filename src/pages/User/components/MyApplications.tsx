@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Empty, List, Tag, Typography } from 'antd';
 import { HistoryOutlined, RightOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
 import { request } from '@/utils';
 
 const { Text } = Typography;
@@ -25,7 +24,6 @@ const STATUS_TAG: Record<number, { color: string; text: string }> = {
 
 /** 我的申请（跨周期）：历届投递列表，点击查看该届完整申请进度 */
 const MyApplications: React.FC = () => {
-  const navigate = useNavigate();
   const [list, setList] = useState<MyResumeItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +55,7 @@ const MyApplications: React.FC = () => {
             return (
               <List.Item
                 style={{ cursor: 'pointer', padding: '8px 4px' }}
-                onClick={() => navigate(`/main/interview-appointment?cycleId=${item.cycleId}`)}
+                onClick={() => window.open(`/main/interview-appointment?cycleId=${item.cycleId}`, '_blank')}
                 actions={[<RightOutlined key="go" style={{ color: '#bbb' }} />]}
               >
                 <List.Item.Meta
