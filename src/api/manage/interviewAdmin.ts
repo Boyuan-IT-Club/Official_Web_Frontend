@@ -174,3 +174,31 @@ export function listSchedulesRoster(cycleId: number, sessionId?: number) {
     params: sessionId != null ? { sessionId } : undefined,
   });
 }
+
+// ---- 飞书同步 ----
+export interface FeishuTaskStatus {
+  taskId: number;
+  taskType?: string;
+  status: string; // PENDING/RUNNING/SUCCESS/PARTIAL_SUCCESS/FAILED
+  importedCount?: number;
+  failedCount?: number;
+  skippedCount?: number;
+  progressPercent?: number;
+  errorMessage?: string;
+  finishedAt?: string;
+}
+
+/** 平台 → 飞书：把面试安排推送到多维表格（异步，返回 taskId） */
+export function pushToFeishu(data: { cycleId: number; slotId?: number; feishuTableUrl?: string; forceUpdate?: boolean }) {
+  return request({ url: '/api/interview/feishu/import', method: 'post', data });
+}
+
+/** 飞书 → 平台：从多维表格拉回录取结果（异步，返回 taskId） */
+export function pullFromFeishu(data: { cycleId: number; feishuTableUrl: string; updateUserDept?: boolean }) {
+  return request({ url: '/api/interview/feishu/import-from-table', method: 'post', data });
+}
+
+/** 查询飞书任务进度 */
+export function getFeishuTask(taskId: number) {
+  return request({ url: `/api/interview/feishu/import/tasks/${taskId}`, method: 'get' });
+}

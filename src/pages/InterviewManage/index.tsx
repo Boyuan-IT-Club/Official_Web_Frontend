@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
+  Progress,
+  Switch,
   Card,
   DatePicker,
   Form,
@@ -23,6 +25,7 @@ import { PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   AdminRescheduleRequest,
+  FeishuTaskStatus,
   ScheduleRosterItem,
   InterviewSession,
   InterviewTimeSlot,
@@ -38,6 +41,9 @@ import {
   listReschedules,
   listSchedulesRoster,
   listSessions,
+  pushToFeishu,
+  pullFromFeishu,
+  getFeishuTask,
   listTimeSlots,
   listUnassigned,
   manualAssign,
@@ -384,6 +390,8 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
             { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: ScheduleRosterItem) => v || r.username || `用户#${r.userId}` },
             { title: "学号", dataIndex: "username", width: 120 },
             { title: "简历", dataIndex: "resumeId", width: 70, render: (v: number) => `#${v}` },
+            { title: "飞书", dataIndex: "syncStatus", width: 70,
+              render: (v: number) => (v === 1 ? <Tag color="green">已同步</Tag> : <Tag>未同步</Tag>) },
             { title: "备注", dataIndex: "notes", ellipsis: true },
           ] as any}
         />
@@ -640,6 +648,121 @@ const RescheduleTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
           placeholder={handleStatus === 1 ? "备注（可选），如：已改至周日上午场" : "拒绝原因（可选），会展示给学生"}
         />
       </Modal>
+    </>
+  );
+};
+
+
+// ─── 飞书同步 Tab ────────────────────────────────────────────────────────────
+const FEISHU_TERMINAL = ["SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
+
+const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
+  const [pushUrl, setPushUrl] = useState("");
+  const [forceUpdate, setForceUpdate] = useState(false);
+  const [pullUrl, setPullUrl] = useState("");
+  const [updateDept, setUpdateDept] = useState(true);
+  const [task, setTask] = useState<FeishuTaskStatus | null>(null);
+  const [running, setRunning] = useState(false);
+
+  const trackTask = useCallback(async (taskId: number) => {
+    setRunning(true);
+    try {
+      // 轮询任务进度直至终态（最多 5 分钟）
+      for (let i = 0; i < 150; i++) {
+        const res: any = await getFeishuTask(taskId);
+        const st: FeishuTaskStatus = res?.data;
+        setTask(st);
+        if (st && FEISHU_TERMINAL.includes(st.status)) {
+          if (st.status === "SUCCESS") message.success("飞书同步完成");
+          else if (st.status === "PARTIAL_SUCCESS") message.warning("飞书同步部分成功，详见结果统计");
+          else message.error(st.errorMessage || "飞书同步失败");
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      message.warning("任务仍在执行，可稍后回到本页查看");
+    } finally {
+      setRunning(false);
+    }
+  }, []);
+
+  const handlePush = async () => {
+    try {
+      const res: any = await pushToFeishu({
+        cycleId,
+        feishuTableUrl: pushUrl.trim() || undefined,
+        forceUpdate,
+      });
+      const taskId = res?.data?.taskId;
+      if (taskId) { message.info(`任务已提交（#${taskId}），正在执行…`); trackTask(taskId); }
+    } catch (e: any) {
+      message.error(e?.message || "提交失败");
+    }
+  };
+
+  const handlePull = async () => {
+    if (!pullUrl.trim()) { message.warning("请填写飞书多维表格链接"); return; }
+    try {
+      const res: any = await pullFromFeishu({ cycleId, feishuTableUrl: pullUrl.trim(), updateUserDept: updateDept });
+      const taskId = res?.data?.taskId;
+      if (taskId) { message.info(`任务已提交（#${taskId}），正在执行…`); trackTask(taskId); }
+    } catch (e: any) {
+      message.error(e?.message || "提交失败");
+    }
+  };
+
+  return (
+    <>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="推送：把本周期的面试安排写入飞书多维表格（面试官在飞书协作打分）；拉回：面试结束后从表格读取录取结果写回平台（列：姓名、录取部门、面试是否通过等）。"
+      />
+      <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <Card size="small" title="① 推送面试安排到飞书" type="inner">
+          <Space direction="vertical" style={{ width: "100%" }} size={8}>
+            <Input
+              placeholder="飞书多维表格链接（留空使用系统配置的默认表格）"
+              value={pushUrl}
+              onChange={(e) => setPushUrl(e.target.value)}
+            />
+            <Space>
+              <Switch checked={forceUpdate} onChange={setForceUpdate} size="small" />
+              <span style={{ fontSize: 13, color: "#666" }}>强制覆盖已同步记录</span>
+              <Button type="primary" onClick={handlePush} loading={running}>推送到飞书</Button>
+            </Space>
+          </Space>
+        </Card>
+        <Card size="small" title="② 从飞书拉回录取结果" type="inner">
+          <Space direction="vertical" style={{ width: "100%" }} size={8}>
+            <Input
+              placeholder="飞书多维表格链接（必填）"
+              value={pullUrl}
+              onChange={(e) => setPullUrl(e.target.value)}
+            />
+            <Space>
+              <Switch checked={updateDept} onChange={setUpdateDept} size="small" />
+              <span style={{ fontSize: 13, color: "#666" }}>录取后同步更新用户部门</span>
+              <Button type="primary" onClick={handlePull} loading={running}>拉回结果</Button>
+            </Space>
+          </Space>
+        </Card>
+        {task && (
+          <Card size="small" title={`任务 #${task.taskId} · ${task.status}`} type="inner">
+            <Progress
+              percent={task.progressPercent ?? (FEISHU_TERMINAL.includes(task.status) ? 100 : 30)}
+              status={task.status === "FAILED" ? "exception" : FEISHU_TERMINAL.includes(task.status) ? "success" : "active"}
+            />
+            <Space size="large" style={{ marginTop: 8 }}>
+              <Statistic title="成功" value={task.importedCount ?? 0} valueStyle={{ fontSize: 18 }} />
+              <Statistic title="失败" value={task.failedCount ?? 0} valueStyle={{ fontSize: 18 }} />
+              <Statistic title="跳过" value={task.skippedCount ?? 0} valueStyle={{ fontSize: 18 }} />
+            </Space>
+            {task.errorMessage && <Alert type="error" style={{ marginTop: 8 }} message={task.errorMessage} />}
+          </Card>
+        )}
+      </Space>
     </>
   );
 };
