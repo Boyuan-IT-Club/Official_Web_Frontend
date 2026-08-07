@@ -9,6 +9,7 @@ import Layout from "../pages/Layout";
 import Login from "../pages/Login";
 import Land from "../pages/Land";
 import { AuthRoute } from "@/components/AuthRoute";
+import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 
 // 直接导入轻量页面
 import Dashboard from "../pages/Dashboard";
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: <Land />, // Land页面独立，不包含Layout
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/main",
@@ -42,6 +44,7 @@ const router = createBrowserRouter([
         <Layout />
       </AuthRoute>
     ), // 需要登录的路由放在/main下
+    errorElement: <RouteErrorBoundary />,
     children: [
       {
         index: true,
