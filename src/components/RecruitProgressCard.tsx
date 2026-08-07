@@ -65,7 +65,7 @@ const RecruitProgressCard: React.FC<Props> = ({ cycleId, resumeStatus }) => {
   if (decided) current = 5;                        // 结果已出
 
   const steps = [
-    { title: '完善简历', description: resumeStatus == null ? '还未开始填写' : '草稿已保存' },
+    { title: '完善简历', description: resumeStatus == null ? '还未开始填写' : (resumeStatus >= 2 ? '已完成' : '填写中，记得提交') },
     { title: '提交简历', description: submitted ? '已提交' : '完成后记得提交' },
     { title: '面试意向', description: hasPreference ? '志愿已提交' : '选志愿部门与可面试时间' },
     {
