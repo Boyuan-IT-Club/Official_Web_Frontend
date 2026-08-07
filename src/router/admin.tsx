@@ -7,6 +7,7 @@ import { Spin } from "antd";
 import Login from "../pages/Login";
 import AdminLayout from "../pages/AdminLayout";
 import { AuthRoute } from "@/components/AuthRoute";
+import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 import { AdminGuard } from "@/components/AdminGuard";
 
 // 管理页面全部懒加载
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
         </AdminGuard>
       </AuthRoute>
     ),
+    errorElement: <RouteErrorBoundary />,
     children: [
       {
         index: true,
