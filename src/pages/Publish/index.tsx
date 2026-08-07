@@ -667,11 +667,15 @@ const Publish: React.FC = () => {
       if (!currentResumeId) { message.error('简历ID不存在，请刷新页面重试'); return; }
 
       const fieldValuesToUpdate = buildFieldValuesForSubmit(currentResumeId);
+      if (fieldValuesToUpdate.length === 0) {
+        message.error('未能收集到任何简历内容，已取消更新（请刷新页面重试，避免清空简历）');
+        return;
+      }
 
       await dispatch(updateResume({ cycleId, fieldValues: fieldValuesToUpdate, resumeId: currentResumeId })).unwrap();
       // 更新简历时同步覆盖面试志愿（后端允许重复提交覆盖）
       await savePreferenceBestEffort();
-      message.success('简历更新成功！');
+      message.success(`简历更新成功（${fieldValuesToUpdate.length} 项）！`);
       setShowSubmitConfirm(false);
       setIsEditing(false);
       await dispatch(fetchOrCreateResume(cycleId));
@@ -690,10 +694,25 @@ const Publish: React.FC = () => {
 
   const handleEdit = useCallback(async (): Promise<void> => {
     try {
+      // 快照内存中的字段值：数据库拉取会整体覆盖 fieldValues，
+      // 若库里缺某字段（如自动补全后尚未保存），刷新后合并回来，避免进入编辑即“清空”
+      const memValues = fieldValues.filter(
+        (fv) => fv.fieldValue != null && String(fv.fieldValue).trim() !== '',
+      );
       const resumeResult = await dispatch(fetchOrCreateResume(cycleId)).unwrap();
       const resumeData: ResumeLike = (resumeResult?.data || resumeResult) as any;
       if (resumeData) {
-        await dispatch(fetchFieldValues(cycleId)).unwrap();
+        const fresh: any[] = (await dispatch(fetchFieldValues(cycleId)).unwrap()) ?? [];
+        const freshIds = new Set(
+          fresh
+            .filter((fv: any) => fv?.fieldValue != null && String(fv.fieldValue).trim() !== '')
+            .map((fv: any) => Number(fv.fieldId)),
+        );
+        memValues.forEach((fv) => {
+          if (!freshIds.has(Number(fv.fieldId))) {
+            dispatch(setFieldValue({ fieldId: fv.fieldId, value: fv.fieldValue }));
+          }
+        });
         const sf = resumeData.simpleFields;
         if (sf) {
           const techFid = DEFAULT_FIELD_ID_MAPPING['tech_stack'];
@@ -712,7 +731,8 @@ const Publish: React.FC = () => {
       console.error('进入编辑模式失败:', err);
       message.error('加载简历数据失败，请刷新页面重试');
     }
-  }, [dispatch, cycleId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, cycleId, fieldValues]);
 
   const handleCancelEdit = useCallback(async (): Promise<void> => {
     try {
