@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
+  Dropdown,
   Progress,
   Switch,
+  Tooltip,
   Card,
   DatePicker,
   Form,
@@ -21,7 +23,7 @@ import {
   TimePicker,
   message,
 } from "antd";
-import { PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   AdminRescheduleRequest,
@@ -147,25 +149,33 @@ const TimeSlotTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
             width: 150,
             render: (_: unknown, r: InterviewTimeSlot) => (
               <Space>
-                <Button type="link" size="small" onClick={() => openEdit(r)}>
+                <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(r)}>
                   编辑
                 </Button>
-                <Popconfirm
-                  title="确认删除该时间段？"
-                  onConfirm={async () => {
-                    try {
-                      await deleteTimeSlot(r.timeSlotId);
-                      message.success("已删除");
-                      load();
-                    } catch (e: any) {
-                      message.error(e?.message || "删除失败（可能已有场次挂靠）");
-                    }
+                <Dropdown
+                  trigger={["click"]}
+                  menu={{
+                    items: [{ key: "del", icon: <DeleteOutlined />, label: "删除时间段", danger: true }],
+                    onClick: () => {
+                      Modal.confirm({
+                        title: "确认删除该时间段？",
+                        content: `${r.slotName}（${r.interviewDate}）`,
+                        okText: "删除", okType: "danger", cancelText: "取消",
+                        async onOk() {
+                          try {
+                            await deleteTimeSlot(r.timeSlotId);
+                            message.success("已删除");
+                            load();
+                          } catch (e: any) {
+                            message.error(e?.message || "删除失败（可能已有场次挂靠）");
+                          }
+                        },
+                      });
+                    },
                   }}
                 >
-                  <Button type="link" size="small" danger>
-                    删除
-                  </Button>
-                </Popconfirm>
+                  <Button type="text" size="small" icon={<MoreOutlined />} />
+                </Dropdown>
               </Space>
             ),
           },
@@ -316,22 +326,30 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
                 <Button type="link" size="small" onClick={() => openEdit(r)}>
                   编辑
                 </Button>
-                <Popconfirm
-                  title="确认删除该场次？"
-                  onConfirm={async () => {
-                    try {
-                      await deleteSession(r.sessionId);
-                      message.success("已删除");
-                      load();
-                    } catch (e: any) {
-                      message.error(e?.message || "删除失败（场次可能已有人分配）");
-                    }
+                <Dropdown
+                  trigger={["click"]}
+                  menu={{
+                    items: [{ key: "del", icon: <DeleteOutlined />, label: "删除场次", danger: true }],
+                    onClick: () => {
+                      Modal.confirm({
+                        title: "确认删除该场次？",
+                        content: `#${r.sessionId} ${r.deptName || ""} @${r.location}`,
+                        okText: "删除", okType: "danger", cancelText: "取消",
+                        async onOk() {
+                          try {
+                            await deleteSession(r.sessionId);
+                            message.success("已删除");
+                            load();
+                          } catch (e: any) {
+                            message.error(e?.message || "删除失败（场次可能已有人分配）");
+                          }
+                        },
+                      });
+                    },
                   }}
                 >
-                  <Button type="link" size="small" danger>
-                    删除
-                  </Button>
-                </Popconfirm>
+                  <Button type="text" size="small" icon={<MoreOutlined />} />
+                </Dropdown>
               </Space>
             ),
           },
@@ -374,7 +392,7 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
         title={rosterSession ? `场次 #${rosterSession.sessionId} 分配名单（${rosterSession.deptName || ''} @${rosterSession.location}）` : ''}
         open={!!rosterSession}
         footer={null}
-        width={640}
+        width={720}
         onCancel={() => setRosterSession(null)}
       >
         <Table
@@ -392,7 +410,13 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
             { title: "简历", dataIndex: "resumeId", width: 70, render: (v: number) => `#${v}` },
             { title: "飞书", dataIndex: "syncStatus", width: 70,
               render: (v: number) => (v === 1 ? <Tag color="green">已同步</Tag> : <Tag>未同步</Tag>) },
-            { title: "备注", dataIndex: "notes", ellipsis: true },
+            { title: "备注", dataIndex: "notes",
+              ellipsis: { showTitle: false },
+              render: (v: string) => (
+                <Tooltip title={v} placement="topLeft">
+                  <span>{v || "-"}</span>
+                </Tooltip>
+              ) },
           ] as any}
         />
       </Modal>
@@ -401,7 +425,7 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
 };
 
 // ─── 分配与调剂 Tab ──────────────────────────────────────────────────────────
-const AssignmentTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
+const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle }> = ({ cycleId, cycle }) => {
   const [unassigned, setUnassigned] = useState<UnassignedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -427,7 +451,7 @@ const AssignmentTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
     loadUnassigned();
   }, [loadUnassigned]);
 
-  const handleAssign = async () => {
+  const doAssign = async () => {
     setAssigning(true);
     try {
       const res: any = await assignSessions(cycleId);
@@ -439,6 +463,22 @@ const AssignmentTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
       message.error(e?.message || "一键分配失败");
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const handleAssign = () => {
+    // 简历提交尚未截止时提醒：现在分配可能漏掉后续提交的同学
+    const today = new Date().toISOString().slice(0, 10);
+    const notEnded = cycle && (!cycle.endDate || cycle.endDate >= today);
+    if (notEnded) {
+      Modal.confirm({
+        title: "简历提交尚未截止",
+        content: `本周期${cycle?.endDate ? `将于 ${cycle.endDate} 截止` : "仍在进行中"}。现在分配只会处理已提交志愿的同学，之后新提交的需要再次点击分配或人工调剂。确定现在分配吗？`,
+        okText: "确定分配", cancelText: "再等等",
+        onOk: doAssign,
+      });
+    } else {
+      doAssign();
     }
   };
 
@@ -823,7 +863,7 @@ const InterviewManage: React.FC = () => {
           items={[
             { key: "slots", label: "时间段", children: <TimeSlotTab cycleId={cycleId} /> },
             { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} /> },
-            { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} /> },
+            { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} /> },
           ]}
         />
