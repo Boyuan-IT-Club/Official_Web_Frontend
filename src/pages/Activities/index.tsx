@@ -1,6 +1,7 @@
 // 文件位置：src/pages/Activities/index.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { listActivities, Activity } from '@/api/manage/activityApis';
 import './index.scss';
 
 // --- 类型定义 ---
@@ -17,43 +18,56 @@ interface PastActivity {
   id: number;
   title: string;
   date: string;
-  imageUrl: string;
+  imageUrl?: string;
   summary: string;
 }
 
-// --- 模拟数据 ---
-// 1. 最新公告数据
-const announcementsData: Announcement[] = [
-  {
-    id: 1,
-    title: " 2025-26技术分享课",
-    time: "------",
-    location: "----",
-    status: "报名中",
-    description: "---"
-  }
-];
+// --- 真实数据映射（/api/activity）---
+const toAnnouncement = (a: Activity): Announcement => {
+  const today = new Date().toISOString().slice(0, 10);
+  let status: Announcement['status'] = '即将开始';
+  if (a.signupStart && a.signupDeadline && a.signupStart <= today && today <= a.signupDeadline) status = '报名中';
+  else if (a.startTime && a.endTime && a.startTime <= today && today <= a.endTime) status = '进行中';
+  return {
+    id: a.activityId,
+    title: a.title,
+    time: a.startTime ? `${a.startTime}${a.endTime && a.endTime !== a.startTime ? ` ~ ${a.endTime}` : ''}` : '时间待定',
+    location: a.location || '地点待定',
+    status,
+    description: a.description || '',
+  };
+};
 
-// 2. 往期活动数据
-const pastActivitiesData: PastActivity[] = [
-  {
-    id: 1,
-    title: "24-25技术分享",
-    date: "2023年12月",
-
-    summary: "--"
-  },
-  {
-    id: 2,
-    title: "Owner-Pro 项目工坊",
-    date: "2023年10月",
-    
-    summary: "从前端到后端，从设计到部署，系统学习网站制作全流程，打造属于自己的数字作品"
-  },
-
-];
+const toPast = (a: Activity): PastActivity => ({
+  id: a.activityId,
+  title: a.title,
+  date: a.startTime ? a.startTime.slice(0, 7).replace('-', '年') + '月' : '',
+  imageUrl: a.coverImage,
+  summary: a.description || '',
+});
 
 const Activities: React.FC = () => {
+  const [announcementsData, setAnnouncements] = useState<Announcement[]>([]);
+  const [pastActivitiesData, setPast] = useState<PastActivity[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listActivities()
+      .then((res: any) => {
+        if (cancelled) return;
+        const all: Activity[] = res?.data ?? [];
+        const today = new Date().toISOString().slice(0, 10);
+        const upcoming = all.filter((a) => !a.endTime || a.endTime >= today);
+        const past = all.filter((a) => a.endTime && a.endTime < today);
+        upcoming.sort((a, b) => String(a.startTime ?? '').localeCompare(String(b.startTime ?? '')));
+        past.sort((a, b) => String(b.startTime ?? '').localeCompare(String(a.startTime ?? '')));
+        setAnnouncements(upcoming.map(toAnnouncement));
+        setPast(past.map(toPast));
+      })
+      .catch(() => { /* 加载失败时页面显示空态 */ });
+    return () => { cancelled = true; };
+  }, []);
+
   // 必须写在组件最顶层
   const navigate = useNavigate();
 
