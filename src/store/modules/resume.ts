@@ -125,6 +125,21 @@ export const fetchActiveCycle = createAsyncThunk<any, void, ThunkApiConfig>(
   },
 );
 
+// 只读查询本人简历（不存在时不自动创建草稿，data 为 null）——供首页进度卡/申请进度页使用
+export const fetchMyResumeReadonly = createAsyncThunk<any, ID, ThunkApiConfig>(
+  "resume/fetchMyResumeReadonly",
+  async (cycleId, { rejectWithValue }) => {
+    try {
+      const res: any = await request.get(`/api/resumes/cycle/${cycleId}`, {
+        params: { autoCreate: false },
+      });
+      return res;
+    } catch (e: any) {
+      return rejectWithValue(e?.message ?? "查询简历失败");
+    }
+  },
+);
+
 // 获取或创建简历
 export const fetchOrCreateResume = createAsyncThunk<any, ID, ThunkApiConfig>(
   "resume/fetchOrCreateResume",
@@ -558,6 +573,19 @@ const resumeSlice = createSlice({
       .addCase(fetchOrCreateResume.pending, (state) => {
         state.loading = true;
         state.error = null;
+      })
+      .addCase(fetchMyResumeReadonly.fulfilled, (state, action) => {
+        const data: any = (action.payload as any)?.data ?? null;
+        if (data) {
+          state.resume = {
+            ...data,
+            resume_id: data.resumeId || data.resume_id || data.id,
+            id: data.resumeId || data.resume_id || data.id,
+            status: data.status || 1,
+          };
+        } else {
+          state.resume = null; // 尚未创建简历（只读查询不建草稿）
+        }
       })
       .addCase(fetchOrCreateResume.fulfilled, (state, action) => {
         state.loading = false;

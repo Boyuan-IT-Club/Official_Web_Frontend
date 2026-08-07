@@ -20,7 +20,7 @@ import {
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchOrCreateResume, fetchActiveCycle } from '@/store/modules/resume';
+import { fetchMyResumeReadonly, fetchActiveCycle } from '@/store/modules/resume';
 import RecruitProgressCard from '@/components/RecruitProgressCard';
 import './index.scss';
 
@@ -97,7 +97,7 @@ const Dashboard = () => {
         const active = await dispatch(fetchActiveCycle()).unwrap();
         if (active != null) cid = active;
       } catch (e) { /* 回退默认周期 */ }
-      dispatch(fetchOrCreateResume(cid));
+      dispatch(fetchMyResumeReadonly(cid));
     })();
   }, [dispatch]);
 
@@ -117,7 +117,7 @@ const Dashboard = () => {
 
     // 尝试从后端获取最新简历状态
     try {
-      const result = await dispatch(fetchOrCreateResume(resumeState?.cycleId ?? 2)).unwrap();
+      const result = await dispatch(fetchMyResumeReadonly(resumeState?.cycleId ?? 2)).unwrap();
       const resumeData = result?.data || result;
       if (resumeData && resumeData.status >= 2) {
         navigate('/main/interview-appointment');

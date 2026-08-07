@@ -11,6 +11,7 @@ import {
   UserOutlined,
   HomeOutlined,
   FileTextOutlined,
+  ScheduleOutlined,
   LogoutOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -61,8 +62,8 @@ const MainLayout = () => {
     },
     {
       key: "/main/interview-appointment",
-      icon: <FileTextOutlined />,
-      label: "我的申请",
+      icon: <ScheduleOutlined />,
+      label: "申请进度",
     },
     // 管理功能已迁移到独立管理端 admin.boyuan.club（用户端产物不含管理代码）
   ];

@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchActiveCycle, fetchOrCreateResume } from '@/store/modules/resume';
+import { fetchActiveCycle, fetchMyResumeReadonly } from '@/store/modules/resume';
 import {
   MyPreference, MySchedule, MyResult, RescheduleRequest, PreferenceTimeSlot,
   getMyPreference, getMySchedule, getMyResult, getMyReschedule,
@@ -72,7 +72,7 @@ const InterviewAppointment: React.FC = () => {
         const active = await dispatch(fetchActiveCycle()).unwrap();
         if (active != null) cid = active;
       } catch { /* 回退 */ }
-      dispatch(fetchOrCreateResume(cid));
+      dispatch(fetchMyResumeReadonly(cid));
       loadAll(cid);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,6 +127,21 @@ const InterviewAppointment: React.FC = () => {
   // ---- 时间线节点 ----
   const status: number | null = resume?.status ?? null;
   const submitted = (status ?? 0) >= 2;
+
+  // 当前阶段（英雄区展示）
+  const stage = result
+    ? (result.decision === 1
+        ? { emoji: '🎉', title: `已被${result.assignedDeptName || '社团'}录取`, sub: '欢迎加入博远！后续安排请留意邮件与群通知' }
+        : { emoji: '🌱', title: '本次未能录取', sub: '感谢参与，欢迎常来社团活动，期待下次相遇' })
+    : schedule?.interviewTime
+      ? { emoji: '📅', title: '面试已安排', sub: `${fmtDT(schedule.interviewTime)}${schedule.deptName ? ` · ${schedule.deptName}` : ''}${schedule.location ? ` · ${schedule.location}` : ''}，请准时到场` }
+      : preference
+        ? { emoji: '⏳', title: '等待安排面试', sub: '志愿已提交，管理员正在排期，结果会邮件通知' }
+        : submitted
+          ? { emoji: '📨', title: '简历已提交', sub: '记得回到简历页补填面试意向（志愿部门+可面试时间）' }
+          : status != null
+            ? { emoji: '✍️', title: '简历填写中', sub: '完成后记得点击提交' }
+            : { emoji: '🚀', title: '开始你的申请', sub: '填写并提交简历，迈出加入博远的第一步' };
 
   const items: any[] = [];
 
@@ -235,21 +250,29 @@ const InterviewAppointment: React.FC = () => {
   });
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: 16 }}>
-      <Card>
-        <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }} wrap>
-          <Title level={3} style={{ margin: 0 }}>我的申请</Title>
-          <Space wrap>
-            <Button icon={<DownloadOutlined />} onClick={handleDownloadPdf} disabled={!submitted}>
-              下载简历 PDF
-            </Button>
-            <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/main/dashboard')}>返回首页</Button>
-          </Space>
+    <div className="app-progress-page">
+      <div className="progress-hero">
+        <div className="hero-main">
+          <span className="hero-emoji">{stage.emoji}</span>
+          <div>
+            <div className="hero-title">{stage.title}</div>
+            <div className="hero-sub">{stage.sub}</div>
+          </div>
+        </div>
+        <Space wrap className="hero-actions">
+          <Button ghost icon={<DownloadOutlined />} onClick={handleDownloadPdf} disabled={!submitted}>
+            简历 PDF
+          </Button>
+          <Button ghost icon={<ArrowLeftOutlined />} onClick={() => navigate('/main/dashboard')}>
+            返回首页
+          </Button>
         </Space>
+      </div>
+      <Card className="progress-body" title="申请进度">
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
         ) : (
-          <Timeline style={{ marginTop: 16 }} items={items} />
+          <Timeline className="progress-timeline" items={items} />
         )}
       </Card>
 
