@@ -41,8 +41,12 @@ import {
   handleReschedule,
   listAvailableSessions,
   listReschedules,
+  InterviewResultItem,
+  listResults,
   listSchedulesRoster,
   listSessions,
+  sendResultNotifications,
+  updateResult,
   pushToFeishu,
   pullFromFeishu,
   getFeishuTask,
@@ -692,6 +696,206 @@ const RescheduleTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   );
 };
 
+
+
+// ─── 结果与通知 Tab ──────────────────────────────────────────────────────────
+const DECISION_TAG: Record<number, { color: string; text: string }> = {
+  1: { color: "green", text: "通过" },
+  2: { color: "red", text: "未通过" },
+};
+
+const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts }) => {
+  const [list, setList] = useState<InterviewResultItem[]>([]);
+  const [nameMap, setNameMap] = useState<Record<number, { name?: string; username?: string }>>({});
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [editing, setEditing] = useState<InterviewResultItem | null>(null);
+  const [editDecision, setEditDecision] = useState<number | undefined>();
+  const [editDept, setEditDept] = useState<number | undefined>();
+  const [saving, setSaving] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [customMsg, setCustomMsg] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [res, roster]: any[] = await Promise.all([
+        listResults({ cycleId, page: 1, size: 200 }),
+        listSchedulesRoster(cycleId).catch(() => null),
+      ]);
+      setList(res?.data?.interviewResults ?? []);
+      const map: Record<number, { name?: string; username?: string }> = {};
+      (roster?.data ?? []).forEach((r: any) => {
+        if (r.userId != null) map[r.userId] = { name: r.name, username: r.username };
+      });
+      setNameMap(map);
+    } catch (e: any) {
+      message.error(e?.message || "加载结果失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [cycleId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const deptName = (id?: number) => depts.find((d: any) => d.deptId === id)?.deptName || (id ? `#${id}` : "-");
+
+  const openEditResult = (r: InterviewResultItem) => {
+    setEditing(r);
+    setEditDecision(r.decision ?? undefined);
+    setEditDept(r.assignedDeptId ?? undefined);
+  };
+
+  const saveResult = async () => {
+    if (!editing) return;
+    if (editDecision === 1 && !editDept) { message.warning("录取时请选择录取部门"); return; }
+    setSaving(true);
+    try {
+      await updateResult(editing.resultId, { decision: editDecision, assignedDeptId: editDecision === 1 ? editDept : undefined });
+      message.success("结果已更新");
+      setEditing(null);
+      load();
+    } catch (e: any) {
+      message.error(e?.message || "更新失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doSend = async () => {
+    setSending(true);
+    try {
+      const res: any = await sendResultNotifications({
+        resultIds: selected,
+        notificationType: "email",
+        customMessage: customMsg.trim() || undefined,
+      });
+      const d = res?.data;
+      if ((d?.failedCount ?? 0) > 0) {
+        message.warning(`发送完成：成功 ${d?.sentCount ?? 0}，失败 ${d?.failedCount}（失败ID：${(d?.failedId ?? []).join(",")}）`);
+      } else {
+        message.success(`已发送 ${d?.sentCount ?? selected.length} 封结果通知邮件`);
+      }
+      setNotifyOpen(false);
+      setSelected([]);
+    } catch (e: any) {
+      message.error(e?.message || "发送失败");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const undecided = list.filter((r) => r.decision == null).length;
+
+  return (
+    <>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message="结果来源：「飞书同步」拉回，或在下方逐条录入。录入完成后勾选并发送邮件通知（通过=录取通知，未通过=感谢信）。"
+      />
+      <Space style={{ marginBottom: 12 }}>
+        <Button
+          type="primary"
+          disabled={selected.length === 0}
+          onClick={() => { setCustomMsg(""); setNotifyOpen(true); }}
+        >
+          发送通知（已选 {selected.length}）
+        </Button>
+        {undecided > 0 && <Tag color="orange">{undecided} 条结果未录入决定</Tag>}
+      </Space>
+      <Table
+        rowKey="resultId"
+        size="middle"
+        loading={loading}
+        dataSource={list}
+        pagination={false}
+        locale={{ emptyText: "暂无面试结果（可从「飞书同步」拉回，或等待面试完成后录入）" }}
+        rowSelection={{
+          selectedRowKeys: selected,
+          onChange: (keys) => setSelected(keys as number[]),
+          getCheckboxProps: (r: InterviewResultItem) => ({ disabled: r.decision == null }),
+        }}
+        columns={[
+          { title: "姓名", dataIndex: "userId", width: 110,
+            render: (uid: number) => nameMap[uid]?.name || nameMap[uid]?.username || `用户#${uid}` },
+          { title: "学号", dataIndex: "userId", width: 120, render: (uid: number) => nameMap[uid]?.username || "-" },
+          { title: "结果", dataIndex: "decision", width: 90,
+            render: (d: number) => d != null
+              ? <Tag color={DECISION_TAG[d]?.color}>{DECISION_TAG[d]?.text ?? d}</Tag>
+              : <Tag color="orange">待录入</Tag> },
+          { title: "录取部门", dataIndex: "assignedDeptId", width: 110, render: (v: number) => deptName(v) },
+          { title: "决定时间", dataIndex: "decisionAt", width: 150,
+            render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },
+          { title: "操作", width: 90,
+            render: (_: unknown, r: InterviewResultItem) => (
+              <Button type="link" size="small" onClick={() => openEditResult(r)}>录入/修改</Button>
+            ) },
+        ] as any}
+      />
+
+      <Modal
+        title={editing ? `录入结果：${nameMap[editing.userId]?.name || `用户#${editing.userId}`}` : ""}
+        open={!!editing}
+        onOk={saveResult}
+        confirmLoading={saving}
+        onCancel={() => setEditing(null)}
+        destroyOnClose
+      >
+        <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          <div>
+            <div style={{ marginBottom: 4, color: "#888", fontSize: 13 }}>面试决定</div>
+            <Select
+              style={{ width: "100%" }}
+              placeholder="选择结果"
+              value={editDecision}
+              onChange={setEditDecision}
+              options={[{ value: 1, label: "通过（录取）" }, { value: 2, label: "未通过" }]}
+            />
+          </div>
+          {editDecision === 1 && (
+            <div>
+              <div style={{ marginBottom: 4, color: "#888", fontSize: 13 }}>录取部门</div>
+              <Select
+                style={{ width: "100%" }}
+                placeholder="选择部门"
+                value={editDept}
+                onChange={setEditDept}
+                options={depts.map((d: any) => ({ value: d.deptId, label: d.deptName }))}
+              />
+            </div>
+          )}
+        </Space>
+      </Modal>
+
+      <Modal
+        title={`发送结果通知（${selected.length} 人）`}
+        open={notifyOpen}
+        onOk={doSend}
+        okText="确认发送"
+        confirmLoading={sending}
+        onCancel={() => setNotifyOpen(false)}
+        destroyOnClose
+      >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="将向所选同学发送邮件：通过者收到录取通知，未通过者收到感谢信。发送后无法撤回，请确认结果已核对无误。"
+        />
+        <Input.TextArea
+          rows={3}
+          maxLength={500}
+          value={customMsg}
+          onChange={(e) => setCustomMsg(e.target.value)}
+          placeholder="自定义附加内容（可选），会附在邮件正文中"
+        />
+      </Modal>
+    </>
+  );
+};
 
 // ─── 飞书同步 Tab ────────────────────────────────────────────────────────────
 const FEISHU_TERMINAL = ["SUCCESS", "PARTIAL_SUCCESS", "FAILED"];

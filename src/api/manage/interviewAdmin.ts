@@ -202,3 +202,26 @@ export function pullFromFeishu(data: { cycleId: number; feishuTableUrl: string; 
 export function getFeishuTask(taskId: number) {
   return request({ url: `/api/interview/feishu/import/tasks/${taskId}`, method: 'get' });
 }
+
+// ---- 面试结果与通知 ----
+export interface InterviewResultItem {
+  resultId: number;
+  scheduleId: number;
+  userId: number;
+  decision?: number; // 1通过 2未通过
+  assignedDeptId?: number;
+  decisionAt?: string;
+}
+
+export function listResults(params: { cycleId: number; name?: string; decision?: string; department?: string; page?: number; size?: number }) {
+  return request({ url: '/api/interview/result/list', method: 'get', params });
+}
+
+export function updateResult(resultId: number, data: { decision?: number; assignedDeptId?: number }) {
+  return request({ url: `/api/interview/result/update/${resultId}`, method: 'put', data });
+}
+
+/** 批量发送结果通知邮件 */
+export function sendResultNotifications(data: { resultIds: number[]; notificationType: string; customMessage?: string }) {
+  return request({ url: '/api/interview/result/send-notifications', method: 'post', data });
+}
