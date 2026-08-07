@@ -23,6 +23,7 @@ import { PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   AdminRescheduleRequest,
+  ScheduleRosterItem,
   InterviewSession,
   InterviewTimeSlot,
   SessionAssignmentResult,
@@ -35,6 +36,7 @@ import {
   handleReschedule,
   listAvailableSessions,
   listReschedules,
+  listSchedulesRoster,
   listSessions,
   listTimeSlots,
   listUnassigned,
@@ -190,6 +192,22 @@ const TimeSlotTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 // ─── 场次 Tab ────────────────────────────────────────────────────────────────
 const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts }) => {
   const [list, setList] = useState<InterviewSession[]>([]);
+  const [rosterSession, setRosterSession] = useState<InterviewSession | null>(null);
+  const [roster, setRoster] = useState<ScheduleRosterItem[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+
+  const openRoster = async (sess: InterviewSession) => {
+    setRosterSession(sess);
+    setRosterLoading(true);
+    try {
+      const res: any = await listSchedulesRoster(cycleId, sess.sessionId);
+      setRoster(res?.data ?? []);
+    } catch (e: any) {
+      message.error(e?.message || "加载名单失败");
+    } finally {
+      setRosterLoading(false);
+    }
+  };
   const [slots, setSlots] = useState<InterviewTimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -286,6 +304,9 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
             width: 150,
             render: (_: unknown, r: InterviewSession) => (
               <Space>
+                <Button type="link" size="small" onClick={() => openRoster(r)}>
+                  名单
+                </Button>
                 <Button type="link" size="small" onClick={() => openEdit(r)}>
                   编辑
                 </Button>
@@ -342,6 +363,30 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
             <InputNumber min={5} max={120} style={{ width: "100%" }} />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title={rosterSession ? `场次 #${rosterSession.sessionId} 分配名单（${rosterSession.deptName || ''} @${rosterSession.location}）` : ''}
+        open={!!rosterSession}
+        footer={null}
+        width={640}
+        onCancel={() => setRosterSession(null)}
+      >
+        <Table
+          rowKey="scheduleId"
+          size="small"
+          loading={rosterLoading}
+          dataSource={roster}
+          pagination={false}
+          locale={{ emptyText: "该场次还没有分配任何候选人" }}
+          columns={[
+            { title: "面试时间", dataIndex: "interviewTime", width: 130,
+              render: (v: string) => (v ? String(v).replace("T", " ").slice(5, 16) : "-") },
+            { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: ScheduleRosterItem) => v || r.username || `用户#${r.userId}` },
+            { title: "学号", dataIndex: "username", width: 120 },
+            { title: "简历", dataIndex: "resumeId", width: 70, render: (v: number) => `#${v}` },
+            { title: "备注", dataIndex: "notes", ellipsis: true },
+          ] as any}
+        />
       </Modal>
     </>
   );

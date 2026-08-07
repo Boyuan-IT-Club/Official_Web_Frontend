@@ -151,3 +151,26 @@ export function handleReschedule(requestId: number, status: 1 | 2, adminNote?: s
     data: { status, adminNote },
   });
 }
+
+// ---- 分配名单 ----
+export interface ScheduleRosterItem {
+  scheduleId: number;
+  resumeId: number;
+  userId?: number;
+  sessionId?: number;
+  interviewTime?: string;
+  status?: number;
+  notes?: string;
+  name?: string;
+  username?: string;
+  deptName?: string;
+}
+
+/** 查询某周期已分配名单（可按场次过滤），按面试时间排序 */
+export function listSchedulesRoster(cycleId: number, sessionId?: number) {
+  return request({
+    url: `/api/interview/admin/cycles/${cycleId}/schedules`,
+    method: 'get',
+    params: sessionId != null ? { sessionId } : undefined,
+  });
+}
