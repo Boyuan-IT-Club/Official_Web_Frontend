@@ -4,7 +4,7 @@ import { request } from '@/utils/request';
 // 获取简历字段配置
 export const getResumeFields = (cycleId: number) => {
   return request({
-    url: `/api/resume/fields/${cycleId}`,
+    url: `/api/resumes/fields/${cycleId}`,
     method: 'get',
   });
 };
@@ -12,7 +12,7 @@ export const getResumeFields = (cycleId: number) => {
 // 更新简历字段配置
 export const updateResumeFields = (cycleId: number, fields: any[]) => {
   return request({
-    url: `/api/resume/fields/${cycleId}`,
+    url: `/api/resumes/fields/${cycleId}`,
     method: 'put',
     data: { fields },
   });
