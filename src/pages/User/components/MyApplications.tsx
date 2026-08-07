@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Empty, List, Tag, Typography } from 'antd';
 import { HistoryOutlined, RightOutlined } from '@ant-design/icons';
 import { request } from '@/utils';
+import { getAllCycles } from '@/api/manage/cycleApis';
 
 const { Text } = Typography;
 
@@ -14,24 +15,33 @@ interface MyResumeItem {
   createdAt?: string;
 }
 
-const STATUS_TAG: Record<number, { color: string; text: string }> = {
-  1: { color: 'default', text: '草稿' },
-  2: { color: 'processing', text: '已提交' },
-  3: { color: 'processing', text: '审核中' },
-  4: { color: 'success', text: '审核通过' },
-  5: { color: 'error', text: '未通过' },
+// 学生视角只需三态：草稿 / 已提交 / 已截止未提交（评审细节由结果通知承载）
+const statusTag = (status: number, cycleEnded: boolean): { color: string; text: string } => {
+  if (status >= 2) return { color: 'processing', text: '已提交' };
+  return cycleEnded
+    ? { color: 'default', text: '已截止（未提交）' }
+    : { color: 'gold', text: '草稿' };
 };
 
 /** 我的申请（跨周期）：历届投递列表，点击查看该届完整申请进度 */
 const MyApplications: React.FC = () => {
   const [list, setList] = useState<MyResumeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cycleEnd, setCycleEnd] = useState<Record<number, string | undefined>>({});
 
   useEffect(() => {
     let cancelled = false;
-    request({ url: '/api/resumes/my', method: 'get' })
-      .then((res: any) => { if (!cancelled) setList(res?.data ?? []); })
-      .catch(() => { /* 静默 */ })
+    Promise.all([
+      request({ url: '/api/resumes/my', method: 'get' }).catch(() => null),
+      getAllCycles().catch(() => null),
+    ])
+      .then(([res, cyc]: any[]) => {
+        if (cancelled) return;
+        setList(res?.data ?? []);
+        const map: Record<number, string | undefined> = {};
+        (cyc?.data ?? []).forEach((c: any) => { map[c.cycleId] = c.endDate; });
+        setCycleEnd(map);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -51,7 +61,9 @@ const MyApplications: React.FC = () => {
           size="small"
           dataSource={list}
           renderItem={(item) => {
-            const tag = STATUS_TAG[item.status] ?? { color: 'default', text: `状态${item.status}` };
+            const end = cycleEnd[item.cycleId];
+            const ended = !!end && end < new Date().toISOString().slice(0, 10);
+            const tag = statusTag(item.status, ended);
             return (
               <List.Item
                 style={{ cursor: 'pointer', padding: '8px 4px' }}

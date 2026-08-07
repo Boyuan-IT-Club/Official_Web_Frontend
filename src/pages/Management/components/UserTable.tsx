@@ -368,7 +368,13 @@ const UserTable: React.FC<UserTableProps> = ({
         onChange: (_: React.Key[], rows: User[]) => onSelectionChange(rows),
       }}
       columns={columns}
-      dataSource={users}
+      dataSource={[...users].sort((a, b) => {
+        // 有角色的用户排前面（角色多者优先），无角色的排后面
+        const ra = ((a as any).roles?.length ?? 0);
+        const rb = ((b as any).roles?.length ?? 0);
+        if (ra !== rb) return rb - ra;
+        return (a.userId ?? 0) - (b.userId ?? 0);
+      })}
       rowKey="userId"
       loading={loading}
       pagination={{

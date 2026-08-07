@@ -24,7 +24,7 @@ import './index.scss';
 const { Title, Text } = Typography;
 
 const RESUME_STATUS_TEXT: Record<number, string> = {
-  1: '草稿（尚未提交）', 2: '已提交，等待审核', 3: '审核中', 4: '审核通过', 5: '审核未通过',
+  1: '草稿（尚未提交）', 2: '已提交', 3: '已提交', 4: '已提交', 5: '已提交',
 };
 
 const fmtDT = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
