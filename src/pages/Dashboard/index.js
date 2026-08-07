@@ -1,5 +1,5 @@
 // src/pages/Dashboard/index.js
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Typography, Divider, Button, message } from 'antd';
 import {
   CodeOutlined,
@@ -90,6 +90,7 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const resumeState = useSelector((state) => state.resume);
+  const [hasInterview, setHasInterview] = useState(false);
 
   // 进入首页：解析活跃周期（动态化，不再硬编码），再拉取简历状态驱动进度卡
   useEffect(() => {
@@ -150,15 +151,22 @@ const Dashboard = () => {
         <RecruitProgressCard cycleId={resumeState?.cycleId ?? 2} resumeStatus={resumeState?.resume?.status ?? null} />
       </div>
 
-      {/* 工作台：面试提醒 + 最新活动 */}
+      {/* 工作台：面试提醒 + 最新活动（无面试安排时活动卡自动铺满整行） */}
       <div style={{ maxWidth: 960, margin: '12px auto 0', padding: '0 16px' }}>
         <Row gutter={[12, 12]}>
-          <Col xs={24} md={12}>
-            <InterviewReminderCard cycleId={resumeState?.cycleId ?? 2} />
-          </Col>
-          <Col xs={24} md={12}>
+          {hasInterview && (
+            <Col xs={24} md={12}>
+              <InterviewReminderCard cycleId={resumeState?.cycleId ?? 2} onVisibleChange={setHasInterview} />
+            </Col>
+          )}
+          <Col xs={24} md={hasInterview ? 12 : 24}>
             <ActivitiesPreviewCard />
           </Col>
+          {!hasInterview && (
+            <Col span={0} style={{ display: 'none' }}>
+              <InterviewReminderCard cycleId={resumeState?.cycleId ?? 2} onVisibleChange={setHasInterview} />
+            </Col>
+          )}
         </Row>
       </div>
 

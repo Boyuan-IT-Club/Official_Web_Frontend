@@ -39,9 +39,15 @@ const MyApplications: React.FC = () => {
   }, []);
 
   return (
-    <Card size="small" title={<><HistoryOutlined /> 我的申请</>} loading={loading} style={{ marginTop: 16 }}>
+    <Card
+      size="small"
+      title={<span style={{ fontSize: 14 }}><HistoryOutlined /> 我的申请</span>}
+      loading={loading}
+      style={{ marginTop: 16 }}
+      bodyStyle={{ padding: '4px 12px' }}
+    >
       {list.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有投递记录" />
+        <Text type="secondary" style={{ fontSize: 13, display: 'block', padding: '8px 4px' }}>还没有投递记录</Text>
       ) : (
         <List
           size="small"
@@ -50,12 +56,12 @@ const MyApplications: React.FC = () => {
             const tag = STATUS_TAG[item.status] ?? { color: 'default', text: `状态${item.status}` };
             return (
               <List.Item
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: 'pointer', padding: '8px 4px' }}
                 onClick={() => navigate(`/main/interview-appointment?cycleId=${item.cycleId}`)}
                 actions={[<RightOutlined key="go" style={{ color: '#bbb' }} />]}
               >
                 <List.Item.Meta
-                  title={item.cycleName || `招募周期 #${item.cycleId}`}
+                  title={<span style={{ fontSize: 14 }}>{item.cycleName || `招募周期 #${item.cycleId}`}</span>}
                   description={
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       {item.academicYear ? `${item.academicYear} 学年 · ` : ''}
