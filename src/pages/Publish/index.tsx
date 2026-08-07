@@ -506,17 +506,21 @@ const Publish: React.FC = () => {
   }, [userInfo, isEditing]);
 
   // ---- 提交与更新 ----
+  // 以「用户实际填过的值」为准来构造保存载荷。
+  // 注意：不要用 configFields（字段启停配置）作为唯一来源——配置接口异常时
+  // 它会是空数组，进而导致整份简历静默保存 0 个字段（历史数据丢失的根因）。
   const buildFieldValuesForSubmit = useCallback((currentResumeId: any) => {
+    const disabledFieldIds = new Set<number>(
+      configFields
+        .filter(f => f.enabled === false)
+        .map(f => fieldIdMapping[f.key])
+        .filter((id): id is number => !!id),
+    );
     const result: any[] = [];
-    const enabledKeys = configFields.filter(f => f.enabled !== false).map(f => f.key);
-    enabledKeys.forEach((fieldKey) => {
-      const fieldId = fieldIdMapping[fieldKey];
-      if (fieldId) {
-        const fv = fieldValueMap.get(fieldId);
-        if (fv) {
-          result.push({ fieldId, fieldValue: fv.fieldValue, valueId: fv.valueId, resumeId: currentResumeId });
-        }
-      }
+    fieldValueMap.forEach((fv, fieldId) => {
+      if (disabledFieldIds.has(fieldId)) return;             // 明确停用的字段不提交
+      if (fv?.fieldValue == null || String(fv.fieldValue).trim() === '') return; // 空值跳过
+      result.push({ fieldId, fieldValue: fv.fieldValue, valueId: fv.valueId, resumeId: currentResumeId });
     });
     return result;
   }, [configFields, fieldIdMapping, fieldValueMap]);
@@ -584,8 +588,12 @@ const Publish: React.FC = () => {
     setSavingDraft(true);
     try {
       const fieldValuesToSave = buildFieldValuesForSubmit(currentResumeId);
+      if (fieldValuesToSave.length === 0) {
+        message.warning('还没有填写任何内容，无需保存');
+        return;
+      }
       await dispatch(saveFieldValues({ cycleId, fieldValues: fieldValuesToSave, resumeId: currentResumeId })).unwrap();
-      message.success('草稿已保存，下次登录可继续编辑');
+      message.success(`草稿已保存（${fieldValuesToSave.length} 项），下次登录可继续编辑`);
     } catch (err) {
       console.error('草稿保存失败:', err);
       message.error('草稿保存失败，请稍后重试');
@@ -608,6 +616,10 @@ const Publish: React.FC = () => {
       if (!currentResumeId) { message.error('简历ID不存在，请刷新页面重试'); return; }
 
       const fieldValuesToSave = buildFieldValuesForSubmit(currentResumeId);
+      if (fieldValuesToSave.length === 0) {
+        message.error('未能收集到任何简历内容，请刷新页面后重新填写（避免提交空简历）');
+        return;
+      }
 
       await dispatch(saveFieldValues({ cycleId, fieldValues: fieldValuesToSave, resumeId: currentResumeId })).unwrap();
       await dispatch(submitResume({ cycleId, resumeId: currentResumeId })).unwrap();
