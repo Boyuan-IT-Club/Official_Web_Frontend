@@ -343,3 +343,52 @@
     }
   }
 }
+
+// 编辑模式轻量状态条（替代原先横跨全宽的绿色 Alert）
+.edit-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 420px;
+  margin: 0 auto 20px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #f0f7ff;
+  border: 1px solid #d6e8ff;
+
+  .edit-mode-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1f76cc;
+    flex-shrink: 0;
+    animation: edit-mode-pulse 1.8s ease-in-out infinite;
+  }
+
+  .edit-mode-text {
+    flex: 1;
+    font-size: 13px;
+    color: #1f3a60;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .edit-mode-exit {
+    padding: 0;
+    height: auto;
+    font-size: 13px;
+  }
+}
+
+@keyframes edit-mode-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (max-width: 576px) {
+  .edit-mode-bar {
+    max-width: none;
+    .edit-mode-text { font-size: 12px; }
+  }
+}

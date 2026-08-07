@@ -492,18 +492,24 @@ const Publish: React.FC = () => {
   }, [fieldValues, isEditing, fieldIdMapping, departments, interviewTimes,
       isFieldEnabled, getFieldValue, form]);
 
-  // 从登录信息自动填充姓名、学号（邮箱前缀）、邮箱、手机号
+  // 从登录信息自动补全姓名、学号（邮箱前缀）、邮箱、手机号。
+  // 说明：不限定编辑态——查看态也需要有值；且只在该字段当前为空时补，
+  // 不覆盖用户自己填过的内容。补进 redux 后随「保存草稿/提交」一并落库。
   useEffect(() => {
-    if (!isEditing || !userInfo) return;
-    if (userInfo.name) handleFieldChange('name', userInfo.name);
+    if (isInitializing || !userInfo) return;
+    const fillIfEmpty = (key: string, value?: string | null) => {
+      if (!value) return;
+      const current = getFieldValue(key);
+      if (current == null || String(current).trim() === '') handleFieldChange(key, value);
+    };
+    fillIfEmpty('name', userInfo.name);
+    fillIfEmpty('phone', userInfo.phone);
     if (userInfo.email) {
-      handleFieldChange('email', userInfo.email);
-      const studentId = String(userInfo.email).split('@')[0];
-      if (studentId) handleFieldChange('student_id', studentId);
+      fillIfEmpty('email', userInfo.email);
+      fillIfEmpty('student_id', String(userInfo.email).split('@')[0]);
     }
-    if (userInfo.phone) handleFieldChange('phone', userInfo.phone);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userInfo, isEditing]);
+  }, [userInfo, isInitializing, fieldIdMapping]);
 
   // ---- 提交与更新 ----
   // 以「用户实际填过的值」为准来构造保存载荷。
@@ -812,7 +818,15 @@ const Publish: React.FC = () => {
               {isSubmitted ? '修改简历信息' : '欢迎加入博远信息技术社，请填写以下信息完成申请'}
             </Text>
             {isSubmitted && (
-              <Alert message="编辑模式" description="您正在修改已提交的简历。所有修改将在点击'更新简历'后生效。" type="success" showIcon className="edit-mode-alert" style={{ marginBottom: 24 }} />
+              <div className="edit-mode-bar">
+                <span className="edit-mode-dot" />
+                <span className="edit-mode-text">
+                  编辑模式 · 修改将在点击「更新简历」后生效
+                </span>
+                <Button type="link" size="small" className="edit-mode-exit" onClick={handleCancelEdit}>
+                  退出编辑
+                </Button>
+              </div>
             )}
           </div>
 
