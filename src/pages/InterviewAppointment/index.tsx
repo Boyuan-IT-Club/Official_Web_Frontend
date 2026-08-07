@@ -9,7 +9,7 @@ import {
   ArrowLeftOutlined, CalendarOutlined, CheckCircleTwoTone, ClockCircleOutlined,
   DownloadOutlined, FileTextOutlined, FormOutlined, SmileTwoTone, SwapOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchActiveCycle, fetchMyResumeReadonly } from '@/store/modules/resume';
 import {
@@ -30,9 +30,12 @@ const fmtDT = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 1
 const InterviewAppointment: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<any>();
+  const [searchParams] = useSearchParams();
+  // 历史周期查看：个人主页「我的申请」以 ?cycleId= 进入；无参数时用活跃周期
+  const paramCycleId = searchParams.get('cycleId');
   const resumeState = useSelector((state: any) => state.resume);
   const resume = resumeState?.resume;
-  const cycleId: number = resumeState?.cycleId ?? 2;
+  const cycleId: number = paramCycleId ? Number(paramCycleId) : (resumeState?.cycleId ?? 2);
 
   const [loading, setLoading] = useState(true);
   const [preference, setPreference] = useState<MyPreference | null>(null);
@@ -68,15 +71,17 @@ const InterviewAppointment: React.FC = () => {
   useEffect(() => {
     (async () => {
       let cid = cycleId;
-      try {
-        const active = await dispatch(fetchActiveCycle()).unwrap();
-        if (active != null) cid = active;
-      } catch { /* 回退 */ }
+      if (!paramCycleId) {
+        try {
+          const active = await dispatch(fetchActiveCycle()).unwrap();
+          if (active != null) cid = active;
+        } catch { /* 回退 */ }
+      }
       dispatch(fetchMyResumeReadonly(cid));
       loadAll(cid);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, loadAll]);
+  }, [dispatch, loadAll, paramCycleId]);
 
   const handleDownloadPdf = async () => {
     const rid = resume?.resume_id || resume?.id;

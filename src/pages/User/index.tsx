@@ -11,6 +11,7 @@ import { userActions } from '@/store/modules/user';
 import type { RootState, AppDispatch } from '@/store';
 import type { UserInfo } from '@/api/user';
 import AwardPanel from './components/AwardPanel';
+import MyApplications from './components/MyApplications';
 import './index.scss';
 
 const { Title, Text } = Typography;
@@ -135,6 +136,7 @@ const PersonPage: React.FC = () => {
 
           {/* 获奖经历独立组件，只在渲染时才请求数据 */}
           <AwardPanel userId={userInfo?.userId} />
+          <MyApplications />
         </Col>
       </Row>
 
