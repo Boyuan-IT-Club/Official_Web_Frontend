@@ -26,6 +26,21 @@
       line-height: 1;
     }
 
+    .hero-cycle {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-bottom: 2px;
+
+      .hero-history-tag {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 0 8px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 10px;
+        font-size: 11px;
+      }
+    }
+
     .hero-title {
       font-size: 20px;
       font-weight: 700;
@@ -83,7 +98,22 @@
     .progress-hero {
       padding: 20px 16px;
 
-      .hero-title { font-size: 17px; }
+      .hero-cycle {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-bottom: 2px;
+
+      .hero-history-tag {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 0 8px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 10px;
+        font-size: 11px;
+      }
+    }
+
+    .hero-title { font-size: 17px; }
       .hero-sub { font-size: 12px; }
     }
   }

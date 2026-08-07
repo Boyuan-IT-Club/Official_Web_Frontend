@@ -17,6 +17,7 @@ import {
   getMyPreference, getMySchedule, getMyResult, getMyReschedule,
   submitReschedule, listOpenTimeSlots, exportMyResumePdf,
 } from '@/api/interviewPreference';
+import { getAllCycles, RecruitmentCycle } from '@/api/manage/cycleApis';
 import './index.scss';
 
 const { Title, Text } = Typography;
@@ -38,6 +39,8 @@ const InterviewAppointment: React.FC = () => {
   const cycleId: number = paramCycleId ? Number(paramCycleId) : (resumeState?.cycleId ?? 2);
 
   const [loading, setLoading] = useState(true);
+  const [cycleName, setCycleName] = useState<string>('');
+  const [isHistory, setIsHistory] = useState(false);
   const [preference, setPreference] = useState<MyPreference | null>(null);
   const [schedule, setSchedule] = useState<MySchedule | null>(null);
   const [result, setResult] = useState<MyResult | null>(null);
@@ -71,12 +74,19 @@ const InterviewAppointment: React.FC = () => {
   useEffect(() => {
     (async () => {
       let cid = cycleId;
-      if (!paramCycleId) {
-        try {
-          const active = await dispatch(fetchActiveCycle()).unwrap();
-          if (active != null) cid = active;
-        } catch { /* 回退 */ }
-      }
+      let activeCid: number | null = null;
+      try {
+        activeCid = await dispatch(fetchActiveCycle()).unwrap();
+      } catch { /* 回退 */ }
+      if (!paramCycleId && activeCid != null) cid = activeCid;
+      setIsHistory(activeCid != null && cid !== activeCid);
+      // 解析周期名，明确标识当前查看的是哪一届
+      getAllCycles()
+        .then((res: any) => {
+          const found = (res?.data ?? []).find((c: RecruitmentCycle) => c.cycleId === cid);
+          setCycleName(found?.cycleName ?? `招募周期 #${cid}`);
+        })
+        .catch(() => setCycleName(`招募周期 #${cid}`));
       dispatch(fetchMyResumeReadonly(cid));
       loadAll(cid);
     })();
@@ -260,6 +270,10 @@ const InterviewAppointment: React.FC = () => {
         <div className="hero-main">
           <span className="hero-emoji">{stage.emoji}</span>
           <div>
+            <div className="hero-cycle">
+              {cycleName}
+              {isHistory && <span className="hero-history-tag">历史周期</span>}
+            </div>
             <div className="hero-title">{stage.title}</div>
             <div className="hero-sub">{stage.sub}</div>
           </div>
@@ -268,6 +282,11 @@ const InterviewAppointment: React.FC = () => {
           <Button ghost icon={<DownloadOutlined />} onClick={handleDownloadPdf} disabled={!submitted}>
             简历 PDF
           </Button>
+          {isHistory && (
+            <Button ghost onClick={() => navigate('/main/interview-appointment', { replace: true })}>
+              回到当前周期
+            </Button>
+          )}
           <Button ghost icon={<ArrowLeftOutlined />} onClick={() => navigate('/main/dashboard')}>
             返回首页
           </Button>

@@ -38,17 +38,26 @@ function downloadIcs(schedule: MySchedule) {
   URL.revokeObjectURL(url);
 }
 
-/** 面试提醒卡：有面试安排时显示倒计时与快捷操作，无安排时不渲染 */
-const InterviewReminderCard: React.FC<{ cycleId: number }> = ({ cycleId }) => {
+/** 面试提醒卡：有面试安排时显示倒计时与快捷操作，无安排时不渲染并通知父组件调整布局 */
+const InterviewReminderCard: React.FC<{
+  cycleId: number;
+  onVisibleChange?: (visible: boolean) => void;
+}> = ({ cycleId, onVisibleChange }) => {
   const navigate = useNavigate();
   const [schedule, setSchedule] = useState<MySchedule | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     getMySchedule(cycleId)
-      .then((res: any) => { if (!cancelled) setSchedule(res?.data ?? null); })
-      .catch(() => { /* 静默 */ });
+      .then((res: any) => {
+        if (cancelled) return;
+        const data = res?.data ?? null;
+        setSchedule(data);
+        onVisibleChange?.(!!data?.interviewTime);
+      })
+      .catch(() => { onVisibleChange?.(false); });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cycleId]);
 
   if (!schedule?.interviewTime) return null;
