@@ -22,6 +22,7 @@ import Experience from "../pages/Experience";
 const Publish = lazy(() => import("@/pages/Publish"));
 const InterviewAppointment = lazy(() => import("@/pages/InterviewAppointment"));
 const Person = lazy(() => import("@/pages/User"));
+const Evaluations = lazy(() => import("@/pages/Evaluations"));
 
 // 懒加载包裹组件
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -65,6 +66,10 @@ const router = createBrowserRouter([
       {
         path: "interview-appointment",
         element: <LazyLoad><InterviewAppointment /></LazyLoad>,
+      },
+      {
+        path: "evaluations",
+        element: <LazyLoad><Evaluations /></LazyLoad>,
       },
     ],
   },
