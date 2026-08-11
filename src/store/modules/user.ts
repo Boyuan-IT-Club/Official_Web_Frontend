@@ -40,6 +40,7 @@ export interface UserInfo {
   studentId?: string;
   phone?: string;
   major?: string | null;
+  github?: string;
   avatar?: string;
   [key: string]: unknown;
 }
@@ -163,16 +164,19 @@ export const updateUserInfo = createAsyncThunk<
   ThunkApiConfig
 >("user/updateUserInfo", async (userData, { rejectWithValue, dispatch }) => {
   try {
-    const updateData: Pick<UserInfo, "name" | "phone" | "major"> = {
+    const updateData: Pick<UserInfo, "name" | "phone" | "major" | "github"> = {
       name: userData.name,
       phone: userData.phone,
       major: userData.major ?? null,
+      github: userData.github ?? "",
     };
 
     Object.keys(updateData).forEach((key) => {
       const k = key as keyof typeof updateData;
-      if (updateData[k] === undefined || updateData[k] === ("" as any)) {
-        updateData[k] = null as any;
+      // github 保持空串语义(空 = 解绑,由后端归一化处理),不转 null
+      if (k === "github") return;
+      if (updateData[k] === undefined || updateData[k] === "") {
+        updateData[k] = null;
       }
     });
 
