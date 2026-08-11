@@ -16,6 +16,7 @@ const Resume = lazy(() => import("@/pages/Resume"));
 const CycleManage = lazy(() => import("@/pages/CycleManage"));
 const InterviewManage = lazy(() => import("@/pages/InterviewManage"));
 const ActivityManage = lazy(() => import("@/pages/ActivityManage"));
+const EvaluationManage = lazy(() => import("@/pages/EvaluationManage"));
 
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}><Spin size="large" /></div>}>
@@ -58,6 +59,10 @@ const router = createBrowserRouter([
       {
         path: "activities",
         element: <LazyLoad><ActivityManage /></LazyLoad>,
+      },
+      {
+        path: "evaluations",
+        element: <LazyLoad><EvaluationManage /></LazyLoad>,
       },
     ],
   },

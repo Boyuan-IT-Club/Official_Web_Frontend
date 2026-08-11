@@ -15,6 +15,7 @@ import {
   CalendarOutlined,
   ScheduleOutlined,
   FlagOutlined,
+  CodeOutlined,
   LogoutOutlined,
   ExportOutlined,
 } from "@ant-design/icons";
@@ -42,6 +43,7 @@ const MENU_DEFS: Array<{
   { key: "/cycles", icon: <CalendarOutlined />, label: "招募周期", anyOf: ["cycle:manage"] },
   { key: "/interviews", icon: <ScheduleOutlined />, label: "面试管理", anyOf: ["resume:audit", "resume:view"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
+  { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
 ];
 
 const AdminLayout: React.FC = () => {
