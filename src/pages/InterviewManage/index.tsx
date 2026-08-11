@@ -1069,6 +1069,8 @@ const InterviewManage: React.FC = () => {
             { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} /> },
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} /> },
+            { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} /> },
+            { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
           ]}
         />
       ) : (

@@ -52,37 +52,7 @@ const Resume: React.FC = () => {
     setCurrentPage(page);
   };
 
-  const handleApprove = (resumeId: string | number): void => {
-    dispatch(resumeActions.updateResumeStatus({ resumeId, status: 4 }))
-      .unwrap()
-      .then(() => {
-        if (selectedResume && selectedResume.resumeId === resumeId) {
-          setSelectedResume((prev) => (prev ? { ...prev, status: 4 } : prev));
-        }
-        // eslint-disable-next-line no-console
-        console.log(`简历 ID ${resumeId} 已通过`);
-      })
-      .catch((error: unknown) => {
-        // eslint-disable-next-line no-console
-        console.error('通过简历失败:', error);
-      });
-  };
-
-  const handleReject = (resumeId: string | number): void => {
-    dispatch(resumeActions.updateResumeStatus({ resumeId, status: 5 }))
-      .unwrap()
-      .then(() => {
-        if (selectedResume && selectedResume.resumeId === resumeId) {
-          setSelectedResume((prev) => (prev ? { ...prev, status: 5 } : prev));
-        }
-        // eslint-disable-next-line no-console
-        console.log(`简历 ID ${resumeId} 已拒绝`);
-      })
-      .catch((error: unknown) => {
-        // eslint-disable-next-line no-console
-        console.error('拒绝简历失败:', error);
-      });
-  };
+  // 简历状态三态化后不再有审核动作：评审结论由「面试管理 → 结果与通知」承载
 
   const handleDownload = (resumeId: string | number): void => {
     dispatch(resumeActions.downloadResumePDF(resumeId))
@@ -103,15 +73,11 @@ const Resume: React.FC = () => {
         <ResumeDetail
           resume={selectedResume}
           onBack={handleBackToList}
-          onApprove={handleApprove}
-          onReject={handleReject}
           onDownload={handleDownload}
         />
       ) : (
         <ResumeList
           onShowDetail={handleShowDetail}
-          onApprove={handleApprove}
-          onReject={handleReject}
           onDownload={handleDownload}
           currentPage={currentPage}
           onPageChange={handlePageChange}
