@@ -46,6 +46,7 @@ import {
   listSchedulesRoster,
   listSessions,
   sendResultNotifications,
+  batchDecision,
   updateResult,
   pushToFeishu,
   pullFromFeishu,
@@ -730,6 +731,9 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [customMsg, setCustomMsg] = useState("");
   const [sending, setSending] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchDept, setBatchDept] = useState<number | undefined>();
+  const [batching, setBatching] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -777,6 +781,42 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
     }
   };
 
+  /** 批量写入决定。decision=1 需带部门；=2 由服务端清空部门。 */
+  const runBatch = async (decision: 1 | 2, deptId?: number) => {
+    setBatching(true);
+    try {
+      const res: any = await batchDecision({ cycleId, resultIds: selected, decision, assignedDeptId: deptId });
+      const d = res?.data;
+      const skipped = d?.skipped?.length ?? 0;
+      if (skipped > 0) {
+        message.warning(`已更新 ${d?.updated ?? 0} 人，跳过 ${skipped} 条（不属于本周期）`);
+      } else {
+        message.success(
+          decision === 1
+            ? `已录取 ${d?.updated ?? selected.length} 人到${deptName(deptId)}`
+            : `已标记 ${d?.updated ?? selected.length} 人未通过`,
+        );
+      }
+      setBatchOpen(false);
+      setSelected([]);
+      load();
+    } catch (e: any) {
+      message.error(e?.message || "批量操作失败");
+    } finally {
+      setBatching(false);
+    }
+  };
+
+  const confirmBatchReject = () => {
+    Modal.confirm({
+      title: `标记 ${selected.length} 人未通过？`,
+      content: "会清空这些人已填的录取部门。此操作可以再次修改，但会覆盖原有结果。",
+      okText: "确认标记",
+      okButtonProps: { danger: true },
+      onOk: () => runBatch(2),
+    });
+  };
+
   const doSend = async () => {
     setSending(true);
     try {
@@ -801,6 +841,9 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
   };
 
   const undecided = list.filter((r) => r.decision == null).length;
+  const selectedUndecided = list.filter(
+    (r) => selected.includes(r.resultId) && r.decision == null,
+  ).length;
 
   return (
     <>
@@ -808,17 +851,28 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message="结果来源：「飞书同步」拉回，或在下方逐条录入。录入完成后勾选并发送邮件通知（通过=录取通知，未通过=感谢信）。"
+        message="勾选候选人后可「批量录取」到指定部门，或「批量标记未通过」；也可逐条录入/修改。结果还可从「飞书同步」拉回。决定录完后再勾选发送邮件通知（通过=录取通知，未通过=感谢信）。"
       />
-      <Space style={{ marginBottom: 12 }}>
+      <Space style={{ marginBottom: 12 }} wrap>
         <Button
           type="primary"
           disabled={selected.length === 0}
-          onClick={() => { setCustomMsg(""); setNotifyOpen(true); }}
+          onClick={() => { setBatchDept(undefined); setBatchOpen(true); }}
         >
-          发送通知（已选 {selected.length}）
+          批量录取（已选 {selected.length}）
         </Button>
-        {undecided > 0 && <Tag color="orange">{undecided} 条结果未录入决定</Tag>}
+        <Button danger disabled={selected.length === 0} onClick={confirmBatchReject}>
+          批量标记未通过
+        </Button>
+        <Tooltip title={selectedUndecided > 0 ? "所选名单里有人还没录入决定，先批量录取或标记未通过" : ""}>
+          <Button
+            disabled={selected.length === 0 || selectedUndecided > 0}
+            onClick={() => { setCustomMsg(""); setNotifyOpen(true); }}
+          >
+            发送通知（已选 {selected.length}）
+          </Button>
+        </Tooltip>
+        {undecided > 0 && <Tag color="orange">{undecided} 人未录入决定</Tag>}
       </Space>
       <Table
         rowKey="resultId"
@@ -830,7 +884,8 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         rowSelection={{
           selectedRowKeys: selected,
           onChange: (keys) => setSelected(keys as number[]),
-          getCheckboxProps: (r: InterviewResultItem) => ({ disabled: r.decision == null }),
+          // 不再禁用"未录入决定"的行——批量录取的目标恰恰是这些人；
+          // 发送通知的按钮会自行判断所选名单里是否还有未录入的
         }}
         columns={[
           { title: "姓名", dataIndex: "userId", width: 110,
@@ -881,6 +936,44 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
               />
             </div>
           )}
+        </Space>
+      </Modal>
+
+      <Modal
+        title={`批量录取（${selected.length} 人）`}
+        open={batchOpen}
+        onOk={() => {
+          if (!batchDept) { message.warning("请选择录取部门"); return; }
+          runBatch(1, batchDept);
+        }}
+        okText="确认录取"
+        confirmLoading={batching}
+        onCancel={() => setBatchOpen(false)}
+        destroyOnClose
+      >
+        <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          <Alert
+            type="info"
+            showIcon
+            message="所选候选人将统一标记为「通过」，并录取进下面选择的部门。已有决定的人会被覆盖。"
+          />
+          {selectedUndecided < selected.length && (
+            <Alert
+              type="warning"
+              showIcon
+              message={`所选 ${selected.length} 人中有 ${selected.length - selectedUndecided} 人已录入过结果，本次会被覆盖。`}
+            />
+          )}
+          <div>
+            <div style={{ marginBottom: 4, color: "#888", fontSize: 13 }}>录取部门</div>
+            <Select
+              style={{ width: "100%" }}
+              placeholder="选择部门"
+              value={batchDept}
+              onChange={setBatchDept}
+              options={depts.map((d: any) => ({ value: d.deptId, label: d.deptName }))}
+            />
+          </div>
         </Space>
       </Modal>
 
