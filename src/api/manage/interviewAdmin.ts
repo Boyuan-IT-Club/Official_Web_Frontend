@@ -198,6 +198,41 @@ export function pullFromFeishu(data: { cycleId: number; feishuTableUrl: string; 
   return request({ url: '/api/interview/feishu/import-from-table', method: 'post', data });
 }
 
+export interface LocationTableConfig {
+  location: string;
+  /** null 表示该地点尚未配置链接，推送时会被跳过 */
+  feishuTableUrl?: string | null;
+  remark?: string | null;
+  sessionCount: number;
+  scheduleCount: number;
+  /** 尚未同步到飞书的人数 */
+  pendingCount: number;
+}
+
+/** 该周期的面试地点及各自的飞书表格链接配置（推送按地点分桶） */
+export function listFeishuLocations(cycleId: number) {
+  return request({ url: `/api/interview/feishu/cycles/${cycleId}/locations`, method: 'get' });
+}
+
+/** 保存某地点的表格链接；feishuTableUrl 留空表示清除该地点的配置 */
+export function saveFeishuLocation(cycleId: number, data: { location: string; feishuTableUrl?: string; remark?: string }) {
+  return request({ url: `/api/interview/feishu/cycles/${cycleId}/locations`, method: 'put', data });
+}
+
+export interface PullAllResult {
+  tasks: { location: string; taskId: number }[];
+  skippedLocations: string[];
+}
+
+/** 一键从所有已配链接的地点拉回：每个地点一个独立任务 */
+export function pullAllLocations(cycleId: number, updateUserDept = true) {
+  return request({
+    url: `/api/interview/feishu/cycles/${cycleId}/pull-all`,
+    method: 'post',
+    params: { updateUserDept },
+  });
+}
+
 /** 查询飞书任务进度 */
 export function getFeishuTask(taskId: number) {
   return request({ url: `/api/interview/feishu/import/tasks/${taskId}`, method: 'get' });
