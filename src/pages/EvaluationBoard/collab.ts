@@ -108,6 +108,38 @@ export function resolveCollabUrl(): string {
 }
 
 /**
+ * Hocuspocus 把服务端 onAuthenticate / onLoadDocument 的任何失败都统一回报成
+ * `permission-denied`，错误原文不会传到浏览器——于是"后端漏配服务令牌"这类配置问题，
+ * 在界面上和"你没有评价权限"长得一模一样。协同服务因此额外提供了 GET /collab/diag，
+ * 连接失败时拉一次，把真正的原因和下一步动作显示出来。
+ */
+async function fetchCollabDiagnosis(docName: string): Promise<string | null> {
+  try {
+    const base = resolveCollabUrl().replace(/^ws/, 'http');
+    const res = await fetch(`${base}/diag`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const diag = await res.json();
+
+    const forDoc = diag?.docs?.[docName];
+    if (forDoc?.title) {
+      return forDoc.hint ? `${forDoc.title}。${forDoc.hint}` : forDoc.title;
+    }
+    if (diag?.backend?.status === 'unauthorized') {
+      return '协同服务未通过后端的服务间认证：后端缺少 COLLAB_SERVICE_TOKEN 或两侧取值不一致。';
+    }
+    if (diag?.backend?.status === 'unreachable') {
+      return '协同服务连不上后端服务，请稍后重试或联系管理员。';
+    }
+    if (diag?.db?.status !== 'ok') {
+      return '协同服务无法访问数据库，请联系管理员。';
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 把整串文本的改动折算成最小的 insert/delete。
  *
  * 直接清空重写会让并发编辑同一段评语的两个人互相抹掉对方刚敲的字，
@@ -295,7 +327,11 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
       },
       onAuthenticationFailed: ({ reason }) => {
         setStatus('error');
-        setErrorMessage(reason || '协同服务拒绝了连接');
+        // reason 基本恒为 permission-denied，对定位毫无帮助，先摆上占位再问自检端点要真相
+        setErrorMessage('连接被拒绝，正在查询原因…');
+        void fetchCollabDiagnosis(docName).then((detail) => {
+          setErrorMessage(detail ?? (reason ? `协同服务拒绝了连接（${reason}）` : '协同服务拒绝了连接'));
+        });
       },
       onSynced: ({ state }) => {
         setSynced(state);
