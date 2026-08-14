@@ -54,7 +54,7 @@ const PhotoUpload: React.FC<Props> = React.memo(({
             />
           ) : (
             <div>
-              <UploadOutlined style={{ color: '#1890ff', fontSize: '20px' }} />
+              <UploadOutlined style={{ color: '#1f3a60', fontSize: '20px' }} />
               <div style={{ marginTop: 8, color: '#000' }}>上传照片</div>
             </div>
           )}

@@ -1,31 +1,27 @@
-// 管理端外壳（方向 A：浅色壳 + 品牌深蓝点缀）。
+// 管理端外壳（B1：石墨深侧栏 + 灰底浅内容）。
 //
-// 原先是 antd 默认深色壳（#001529 头部 + 深色侧栏），观感停留在 2019 年。
-// 现在把品牌深蓝降级为点缀色——只出现在 logo、菜单选中态、关键数字上，
-// 大面积交给白与浅灰；层次靠 1px 细线和底色差表达，不用投影。
-//
-// 其余观感（圆角、表格表头、按钮、标签）由 src/theme/admin.ts 的 antd token 统一控制，
-// 不在这里逐条覆写，避免样式来源分散。
+// 上一版做成了全浅色壳，结果侧栏/顶栏/内容区三个面都接近白，层次分不开、整体发飘。
+// 现在侧栏交回深色（石墨灰，非发蓝的 #001529），内容区底色压到 #f1f3f6，
+// 白卡浮在上面对比明确。侧栏与顶栏的具体色值在 src/theme/admin.ts 的 token 里，
+// 这里只处理 antd token 覆盖不到的自定义元素，避免样式来源分散。
 
 .admin-layout {
   .admin-sider-logo {
     display: flex;
     align-items: center;
     gap: 10px;
-    height: 56px;
+    height: 48px;
     padding: 0 16px;
-    // 与头部同高、同色：两块拼起来是一条连续的顶栏
-    background: #fff;
-    border-bottom: 1px solid #e8eaed;
+    border-bottom: 1px solid #2a2e37;
 
     .logo-image {
-      height: 26px;
+      height: 24px;
       width: auto;
       flex-shrink: 0;
     }
 
     .logo-text {
-      color: #1a1a1a;
+      color: #f1f3f4;
       font-size: 14px;
       font-weight: 600;
       white-space: nowrap;
@@ -38,8 +34,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 20px;
-    background: #fff;
-    border-bottom: 1px solid #e8eaed;
+    // 顶栏与内容区之间要有明确分界，否则白顶栏会和白卡糊在一起
+    border-bottom: 1px solid #dfe3e8;
   }
 
   .admin-page-title {
@@ -65,11 +61,5 @@
   .admin-user-name {
     color: #5f6368;
     font-size: 13px;
-  }
-
-  // 折叠按钮的底色与文字色由 theme/admin.ts 的 lightTrigger* token 控制，
-  // 这里只补一根上边线把它与菜单区分开
-  .ant-layout-sider-trigger {
-    border-top: 1px solid #e8eaed;
   }
 }

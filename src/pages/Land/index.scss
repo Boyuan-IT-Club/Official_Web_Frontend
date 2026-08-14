@@ -7,15 +7,15 @@ body {
 }
 
 // 变量定义
-$primary-blue: #2980b9;    
+$primary-blue: #1f3a60;   // 统一到品牌深蓝（原为 #1f3a60）    
 $primary-dark: #333333;    
 $light-blue-bg: #bde0f5;   
 $white: #ffffff;
 $text-main: #333333;
 $text-sub: #666666;
-$border-color: #333333;    
-$shadow-sm: 6px 6px 0px rgba(51, 51, 51, 0.15); 
-$shadow-md: 8px 8px 0px rgba(51, 51, 51, 0.2); 
+$border-color: #e1e5ea;   // 原为 #333 粗黑边    
+$shadow-sm: 0 1px 2px rgba(26, 26, 26, 0.06);  // 原为 6px 6px 0px 硬阴影 
+$shadow-md: 0 2px 8px rgba(26, 26, 26, 0.08);  // 原为 8px 8px 0px 硬阴影 
 
 * {
   box-sizing: border-box;
@@ -24,7 +24,9 @@ $shadow-md: 8px 8px 0px rgba(51, 51, 51, 0.2);
 }
 
 body {
-  font-family: "Comic Sans MS", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+  // 原先首位是 "Comic Sans MS" —— 手写体在招新页会显得不专业，换成系统字体栈
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
   background-color: $white; 
   color: $text-main;
 }

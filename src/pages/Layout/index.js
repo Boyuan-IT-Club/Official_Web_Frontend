@@ -99,6 +99,7 @@ const MainLayout = () => {
         collapsed={collapsed}
         onCollapse={setCollapsed}
         width={220}
+        theme="light"
         className="tech-sider"
         style={{
           position: "fixed",
@@ -115,10 +116,9 @@ const MainLayout = () => {
           onClick={() => navigate("/")}
         >
           <img src={logo} alt="博远信息技术社" className="logo-image" />
-          {!collapsed && <div className="logo-glow"></div>}
         </div>
         <Menu
-          theme="dark"
+          theme="light"
           selectedKeys={selectedKeys}
           mode="inline"
           items={menuItems}
