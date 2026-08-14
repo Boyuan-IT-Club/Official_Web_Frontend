@@ -199,9 +199,9 @@ const EvaluationManage: React.FC = () => {
         ),
       },
       ...(activeTab === 'overview'
-        ? [{ title: '最新分', dataIndex: 'latestTotalScore', key: 'latestTotalScore', width: 90, sorter: (a: CandidateRow, b: CandidateRow) => (a.latestTotalScore ?? 0) - (b.latestTotalScore ?? 0) }]
+        ? [{ title: '最新分', dataIndex: 'latestTotalScore', key: 'latestTotalScore', width: 90 }]
         : []),
-      { title: '最高分', dataIndex: 'maxTotalScore', key: 'maxTotalScore', width: 90, sorter: (a: CandidateRow, b: CandidateRow) => (a.maxTotalScore ?? 0) - (b.maxTotalScore ?? 0) },
+      { title: '最高分', dataIndex: 'maxTotalScore', key: 'maxTotalScore', width: 90 },
       { title: '提交次数', dataIndex: 'submissionCount', key: 'submissionCount', width: 90 },
       {
         title: '最后提交',

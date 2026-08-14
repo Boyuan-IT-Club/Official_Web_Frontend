@@ -1,7 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from 'echarts/core';
+import { LineChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
 import { Empty } from 'antd';
 import dayjs from 'dayjs';
+
+// modular 引入:只注册用到的折线图 + 网格/提示 + Canvas 渲染器,显著减包体(review D2)
+echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
 interface Props {
   points: { evaluatedAt: string; totalScore: number }[];
