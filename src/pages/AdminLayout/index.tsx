@@ -14,6 +14,7 @@ import {
   FolderOpenOutlined,
   CalendarOutlined,
   ScheduleOutlined,
+  FormOutlined,
   FlagOutlined,
   LogoutOutlined,
   ExportOutlined,
@@ -41,6 +42,7 @@ const MENU_DEFS: Array<{
   { key: "/resumes", icon: <FolderOpenOutlined />, label: "简历审核", anyOf: ["resume:view", "resume:audit"] },
   { key: "/cycles", icon: <CalendarOutlined />, label: "招募周期", anyOf: ["cycle:manage"] },
   { key: "/interviews", icon: <ScheduleOutlined />, label: "面试管理", anyOf: ["resume:audit", "resume:view"] },
+  { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
 ];
 
