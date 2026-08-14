@@ -58,6 +58,8 @@ import {
 } from "@/api/manage/interviewAdmin";
 import { getAllCycles, RecruitmentCycle } from "@/api/manage/cycleApis";
 import { getValidDept } from "@/api/manage/deptManage";
+import EvaluationSummaryTab from "./EvaluationSummaryTab";
+import SessionInterviewersModal from "./SessionInterviewersModal";
 
 const fmtTime = (t?: string) => (t ? t.slice(0, 5) : "-");
 
@@ -215,6 +217,7 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
   const [rosterSession, setRosterSession] = useState<InterviewSession | null>(null);
   const [roster, setRoster] = useState<ScheduleRosterItem[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
+  const [interviewerSession, setInterviewerSession] = useState<InterviewSession | null>(null);
 
   const openRoster = async (sess: InterviewSession) => {
     setRosterSession(sess);
@@ -327,6 +330,9 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
                 <Button type="link" size="small" onClick={() => openRoster(r)}>
                   名单
                 </Button>
+                <Button type="link" size="small" onClick={() => setInterviewerSession(r)}>
+                  面试官
+                </Button>
                 <Button type="link" size="small" onClick={() => openEdit(r)}>
                   编辑
                 </Button>
@@ -424,6 +430,14 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
           ] as any}
         />
       </Modal>
+      <SessionInterviewersModal
+        open={!!interviewerSession}
+        sessionId={interviewerSession?.sessionId}
+        sessionLabel={interviewerSession
+          ? `#${interviewerSession.sessionId} ${interviewerSession.deptName || ''} @${interviewerSession.location}`
+          : undefined}
+        onClose={() => setInterviewerSession(null)}
+      />
     </>
   );
 };
@@ -1069,6 +1083,7 @@ const InterviewManage: React.FC = () => {
             { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} /> },
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} /> },
+            { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} /> },
             { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} /> },
             { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
           ]}
