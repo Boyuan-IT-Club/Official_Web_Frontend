@@ -221,6 +221,26 @@ export function updateResult(resultId: number, data: { decision?: number; assign
   return request({ url: `/api/interview/result/update/${resultId}`, method: 'put', data });
 }
 
+export interface BatchDecisionResult {
+  updated: number;
+  /** 不属于该周期或已不存在的 resultId，服务端逐条跳过而非整批失败 */
+  skipped: number[];
+}
+
+/**
+ * 批量录取 / 批量标记未通过。
+ * cycleId 必传：结果的周期挂在面试安排上，服务端据此把夹带的别届 ID 挡掉。
+ * decision=1 时必须给 assignedDeptId；=2 时服务端会清空录取部门。
+ */
+export function batchDecision(data: {
+  cycleId: number;
+  resultIds: number[];
+  decision: 1 | 2;
+  assignedDeptId?: number;
+}) {
+  return request({ url: '/api/interview/result/batch-decision', method: 'post', data });
+}
+
 /** 批量发送结果通知邮件 */
 export function sendResultNotifications(data: { resultIds: number[]; notificationType: string; customMessage?: string }) {
   return request({ url: '/api/interview/result/send-notifications', method: 'post', data });
