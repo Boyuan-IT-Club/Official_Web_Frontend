@@ -18,7 +18,8 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@routes": ["./src/router/user.tsx"]
+      "@routes": ["./src/router/user.tsx"],
+      "@theme": ["./src/theme/user.ts"]
     }
   },
   "include": ["src"]
