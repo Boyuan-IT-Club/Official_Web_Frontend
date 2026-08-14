@@ -5,7 +5,6 @@ import {
   Avatar,
   Typography,
   Dropdown,
-  Tag,
   message,
 } from "antd";
 import {
@@ -100,6 +99,10 @@ const AdminLayout: React.FC = () => {
   // 选中当前一级路径
   const selectedKeys = ["/" + (location.pathname.split("/")[1] || "manage")];
 
+  // 头部左侧显示当前页面名——原先放的是一个「管理端」标签，占位却不提供信息
+  const currentTitle =
+    MENU_DEFS.find((m) => m.key === selectedKeys[0])?.label ?? "管理后台";
+
   return (
     <AntdLayout className="admin-layout" style={{ minHeight: "100vh" }}>
       <Sider
@@ -107,15 +110,24 @@ const AdminLayout: React.FC = () => {
         collapsed={collapsed}
         onCollapse={setCollapsed}
         width={220}
-        theme="dark"
-        style={{ position: "fixed", height: "100vh", left: 0, top: 0, bottom: 0, zIndex: 100 }}
+        theme="light"
+        style={{
+          position: "fixed",
+          height: "100vh",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 100,
+          // 用一根细右边线划分侧栏与内容区，取代原先的深色块 + 投影
+          borderRight: "1px solid #e8eaed",
+        }}
       >
         <div className="admin-sider-logo" onClick={() => navigate("/manage")} style={{ cursor: "pointer" }}>
           <img src={logo} alt="博远信息技术社" className="logo-image" />
           {!collapsed && <span className="logo-text">管理后台</span>}
         </div>
         <Menu
-          theme="dark"
+          theme="light"
           mode="inline"
           selectedKeys={selectedKeys}
           items={menuItems}
@@ -124,11 +136,11 @@ const AdminLayout: React.FC = () => {
       </Sider>
       <AntdLayout style={{ marginLeft: collapsed ? 80 : 220, transition: "margin-left 0.2s" }}>
         <Header className="admin-header">
-          <Tag color="geekblue">管理端</Tag>
+          <span className="admin-page-title">{currentTitle}</span>
           <Dropdown menu={{ items: userMenuItems as any }} placement="bottomRight">
             <div className="admin-user">
               <Avatar size="small" icon={<UserOutlined />} src={userInfo?.avatar || undefined} />
-              <Text style={{ marginLeft: 8, color: "#fff" }}>
+              <Text className="admin-user-name">
                 {userInfo?.name || userInfo?.username || "管理员"}
               </Text>
             </div>
