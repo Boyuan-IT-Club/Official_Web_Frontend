@@ -15,13 +15,33 @@ export const BRAND = {
 } as const;
 
 export const NEUTRAL = {
-  /** 页面底色：比纯白略灰，卡片浮在上面才有层次 */
-  pageBg: '#fbfbfc',
-  /** 侧栏底色 */
-  shellBg: '#f7f8fa',
-  /** 细线边框，取代 antd 默认那圈偏重的边 */
-  border: '#e8eaed',
+  /**
+   * 页面底色。第一版用过 #fbfbfc，结果侧栏/顶栏/内容区三个面都接近白，
+   * 层次分不开、整体发飘，所以这里明确压灰，让白卡真正"浮"起来。
+   */
+  pageBg: '#f1f3f6',
+  /** 内容区里卡片的底色 */
+  cardBg: '#ffffff',
+  /** 分隔线：比 #e8eaed 实一档，否则在灰底上几乎看不见 */
+  border: '#e1e5ea',
+  borderStrong: '#dfe3e8',
   textPrimary: '#1a1a1a',
   textSecondary: '#5f6368',
   textMuted: '#80868b',
+} as const;
+
+/**
+ * 管理端侧栏用的石墨深色。
+ *
+ * 刻意用中性石墨灰而不是深蓝：antd 默认的 #001529 之所以显旧，
+ * 是因为它是高饱和的"发蓝深色"；石墨灰不抢色，任何强调色放上去都干净。
+ */
+export const GRAPHITE = {
+  bg: '#1c1f26',
+  bgElevated: '#2b303b',
+  border: '#2a2e37',
+  text: '#f1f3f4',
+  textMuted: '#9aa0a6',
+  /** 深底上的强调色：品牌深蓝在深色里辨识度不足，改用其浅化版本 */
+  accent: '#8ab4f8',
 } as const;
