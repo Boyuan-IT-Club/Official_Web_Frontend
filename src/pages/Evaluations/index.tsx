@@ -17,6 +17,7 @@ const TASK_LABELS: Record<string, string> = {
   task2: 'Docker',
   task3: 'Linux',
   task4: 'Makefile',
+  task5: 'Node/SSH',
 };
 
 /** 单份提交的检查项明细(与管理端同一种渲染语言) */
@@ -31,7 +32,7 @@ function ReportDetail({ submission }: { submission: Submission }) {
 
   if (!report) return <Text type="secondary">报告解析失败</Text>;
 
-  const taskIds = ['task1', 'task2', 'task3', 'task4'];
+  const taskIds = ['task1', 'task2', 'task3', 'task4', 'task5'];
   return (
     <div className="report-detail">
       {taskIds.map((id) => {
@@ -102,7 +103,7 @@ const Evaluations: React.FC = () => {
 
   const maxTotal = latestReport
     ? Object.values(latestReport.tasks).reduce((sum, t) => sum + (t.max_score ?? 0), 0)
-    : 400;
+    : 500;
 
   return (
     <div className="eval-center">
@@ -136,7 +137,7 @@ const Evaluations: React.FC = () => {
               />
             </div>
             <div className="latest-tasks">
-              {['task1', 'task2', 'task3', 'task4'].map((id) => (
+              {['task1', 'task2', 'task3', 'task4', 'task5'].map((id) => (
                 <Tag key={id} color={latestReport?.tasks?.[id] ? 'blue' : 'default'}>
                   {TASK_LABELS[id]}: {latestReport?.tasks?.[id]?.score ?? '—'}
                 </Tag>
@@ -186,7 +187,7 @@ const Evaluations: React.FC = () => {
               title: '4 task 摘要',
               key: 'tasks',
               render: (_: unknown, r: Submission) =>
-                [r.task1Score, r.task2Score, r.task3Score, r.task4Score]
+                [r.task1Score, r.task2Score, r.task3Score, r.task4Score, r.task5Score]
                   .map((s) => s ?? '—')
                   .join(' / '),
             },

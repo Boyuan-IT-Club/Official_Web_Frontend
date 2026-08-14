@@ -48,6 +48,7 @@ export interface Submission {
   task2Score?: number | null;
   task3Score?: number | null;
   task4Score?: number | null;
+  task5Score?: number | null;
   reportJson: string;
   repository?: string | null;
   commitSha?: string | null;

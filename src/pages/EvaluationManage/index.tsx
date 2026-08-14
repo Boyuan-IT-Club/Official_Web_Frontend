@@ -64,8 +64,8 @@ function ReportDetail({ submission }: { submission: Submission }) {
     return <Empty description="报告解析失败" />;
   }
 
-  const taskIds = ['task1', 'task2', 'task3', 'task4'];
-  const maxTotal = taskIds.reduce((sum, id) => sum + (report.tasks?.[id]?.max_score ?? 0), 0) || 400;
+  const taskIds = ['task1', 'task2', 'task3', 'task4', 'task5'];
+  const maxTotal = taskIds.reduce((sum, id) => sum + (report.tasks?.[id]?.max_score ?? 0), 0) || 500;
 
   return (
     <div className="report-detail">
@@ -320,7 +320,7 @@ const EvaluationManage: React.FC = () => {
             <InputNumber
               placeholder="最低分"
               min={0}
-              max={400}
+              max={500}
               value={filters.minScore}
               onChange={(v) => {
                 setFilters({ ...filters, minScore: v ?? undefined });
@@ -331,7 +331,7 @@ const EvaluationManage: React.FC = () => {
             <InputNumber
               placeholder="最高分"
               min={0}
-              max={400}
+              max={500}
               value={filters.maxScore}
               onChange={(v) => {
                 setFilters({ ...filters, maxScore: v ?? undefined });

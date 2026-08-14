@@ -35,7 +35,7 @@ const ScoreTrendChart: React.FC<Props> = ({ points }) => {
           boundaryGap: false,
           data: points.map((p) => dayjs(p.evaluatedAt).format('MM-DD HH:mm')),
         },
-        yAxis: { type: 'value', min: 0, max: 400 },
+        yAxis: { type: 'value', min: 0, max: 500 },
         series: [
           {
             type: 'line',
