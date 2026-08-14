@@ -11,8 +11,6 @@ import {
   Drawer,
   Modal,
   List,
-  Progress,
-  Collapse,
   Empty,
   message,
   Typography,
@@ -21,7 +19,8 @@ import type { TableProps } from 'antd';
 import { SearchOutlined, GithubOutlined, TrophyOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getCandidates, getSubmissions, getSubmissionDetail, claimSubmission } from '@/api/manage/evaluationAdmin';
-import type { CandidateRow, Submission, Report, Page } from '@/api/manage/evaluationAdmin';
+import type { CandidateRow, Submission, Page } from '@/api/manage/evaluationAdmin';
+import ReportDetail from '@/components/ReportDetail';
 import { getAllCycles } from '@/api/manage/cycleApis';
 import { getValidDept } from '@/api/manage/deptManage';
 import { globalSearch } from '@/api/manage/userApis';
@@ -49,61 +48,6 @@ const CLAIMED_OPTIONS = [
   { value: 'claimed', label: '已认领' },
   { value: 'unclaimed', label: '未认领' },
 ];
-
-/** 单份报告明细:总分 + 4 task 得分条 + 检查项折叠列表 */
-function ReportDetail({ submission }: { submission: Submission }) {
-  const report = useMemo<Report | null>(() => {
-    try {
-      return JSON.parse(submission.reportJson) as Report;
-    } catch {
-      return null;
-    }
-  }, [submission.reportJson]);
-
-  if (!report) {
-    return <Empty description="报告解析失败" />;
-  }
-
-  const taskIds = ['task1', 'task2', 'task3', 'task4', 'task5'];
-  const maxTotal = taskIds.reduce((sum, id) => sum + (report.tasks?.[id]?.max_score ?? 0), 0) || 500;
-
-  return (
-    <div className="report-detail">
-      <div className="report-total">
-        <Text strong>总分</Text>
-        <Progress
-          percent={Math.round(((report.total_score || 0) / maxTotal) * 100)}
-          format={() => `${report.total_score || 0} / ${maxTotal}`}
-        />
-      </div>
-      <Collapse
-        size="small"
-        className="report-tasks"
-        items={taskIds.map((id) => {
-          const t = report.tasks?.[id];
-          return {
-            key: id,
-            label: `${id} · ${t ? `${t.score}/${t.max_score}` : '—'}`,
-            children: t ? (
-              <ul className="check-list">
-                {(t.test_results || []).map((r, i) => (
-                  <li key={i}>
-                    <span className={r.passed ? 'check-pass' : 'check-fail'}>{r.passed ? '✅' : '❌'}</span>
-                    <span className="check-name">{r.name}</span>
-                    <span className="check-points">{r.points} 分</span>
-                  </li>
-                ))}
-                {(t.test_results || []).length === 0 && <li className="check-empty">无检查项明细</li>}
-              </ul>
-            ) : (
-              '无数据'
-            ),
-          };
-        })}
-      />
-    </div>
-  );
-}
 
 const EvaluationManage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');

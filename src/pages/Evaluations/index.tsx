@@ -3,6 +3,7 @@ import { Card, Progress, Tag, Space, Table, Alert, Button, Empty, Typography, me
 import { GithubOutlined, LinkOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import ScoreTrendChart from '@/components/ScoreTrendChart';
+import ReportDetail from '@/components/ReportDetail';
 import { fetchMySubmissions, fetchLatestSubmission, fetchTrend } from '@/api/evaluations';
 import type { Submission, Report, TrendPoint, Page } from '@/api/evaluations';
 import { useNavigate } from 'react-router-dom';
@@ -20,46 +21,6 @@ const TASK_LABELS: Record<string, string> = {
   task5: 'Node/SSH',
 };
 
-/** 单份提交的检查项明细(与管理端同一种渲染语言) */
-function ReportDetail({ submission }: { submission: Submission }) {
-  const report = useMemo<Report | null>(() => {
-    try {
-      return JSON.parse(submission.reportJson) as Report;
-    } catch {
-      return null;
-    }
-  }, [submission.reportJson]);
-
-  if (!report) return <Text type="secondary">报告解析失败</Text>;
-
-  const taskIds = ['task1', 'task2', 'task3', 'task4', 'task5'];
-  return (
-    <div className="report-detail">
-      {taskIds.map((id) => {
-        const t = report.tasks?.[id];
-        if (!t) return null;
-        return (
-          <div key={id} className="report-task">
-            <Text strong>
-              {TASK_LABELS[id] ?? id} · {t.score}/{t.max_score}
-            </Text>
-            <ul className="check-list">
-              {(t.test_results || []).map((r, i) => (
-                <li key={i}>
-                  <span className={r.passed ? 'check-pass' : 'check-fail'}>{r.passed ? '✅' : '❌'}</span>
-                  <span className="check-name">{r.name}</span>
-                  <span className="check-points">{r.points} 分</span>
-                </li>
-              ))}
-              {(t.test_results || []).length === 0 && <li className="check-empty">无检查项明细</li>}
-            </ul>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 const Evaluations: React.FC = () => {
   const navigate = useNavigate();
   const userInfo = useSelector((s: RootState) => s.user.userInfo as { github?: string } | undefined);
@@ -68,6 +29,7 @@ const Evaluations: React.FC = () => {
   const [latest, setLatest] = useState<Submission | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [history, setHistory] = useState<Page<Submission> | null>(null);
+  const [historyPage, setHistoryPage] = useState(0);
   const [loading, setLoading] = useState(false);
 
   const loadAll = useCallback(async () => {
@@ -76,7 +38,7 @@ const Evaluations: React.FC = () => {
       const [latestRes, trendRes, historyRes] = await Promise.all([
         fetchLatestSubmission(),
         fetchTrend(),
-        fetchMySubmissions(0, 10),
+        fetchMySubmissions(historyPage, 10),
       ]);
       setLatest((latestRes?.data as Submission) ?? null);
       setTrend((trendRes?.data ?? []) as TrendPoint[]);
@@ -86,7 +48,7 @@ const Evaluations: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [historyPage]);
 
   useEffect(() => {
     void loadAll();
@@ -168,9 +130,15 @@ const Evaluations: React.FC = () => {
           rowKey="id"
           loading={loading}
           dataSource={history?.content ?? []}
-          pagination={false}
+          pagination={{
+            current: historyPage + 1,
+            pageSize: 10,
+            total: history?.totalElements ?? 0,
+            showSizeChanger: false,
+            onChange: (p) => setHistoryPage(p - 1),
+          }}
           expandable={{
-            expandedRowRender: (record) => <ReportDetail submission={record} />,
+            expandedRowRender: (record) => <ReportDetail submission={record} showTotal={false} taskLabels={TASK_LABELS} />,
           }}
           columns={[
             {
@@ -184,7 +152,7 @@ const Evaluations: React.FC = () => {
               render: (v: number) => <Text strong>{v}</Text>,
             },
             {
-              title: '4 task 摘要',
+              title: '5 task 摘要',
               key: 'tasks',
               render: (_: unknown, r: Submission) =>
                 [r.task1Score, r.task2Score, r.task3Score, r.task4Score, r.task5Score]

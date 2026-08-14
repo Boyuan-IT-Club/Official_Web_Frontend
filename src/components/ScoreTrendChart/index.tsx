@@ -7,7 +7,7 @@ interface Props {
   points: { evaluatedAt: string; totalScore: number }[];
 }
 
-/** 评测得分趋势折线图(echarts)。y 轴 0–400。 */
+/** 评测得分趋势折线图(echarts)。y 轴 0–500(5-task 制,review F2)。 */
 const ScoreTrendChart: React.FC<Props> = ({ points }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
