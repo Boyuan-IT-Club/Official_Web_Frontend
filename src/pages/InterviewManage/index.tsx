@@ -47,6 +47,9 @@ import {
   listSessions,
   sendResultNotifications,
   batchDecision,
+  listFeishuLocations,
+  saveFeishuLocation,
+  pullAllLocations,
   updateResult,
   pushToFeishu,
   pullFromFeishu,
@@ -1014,6 +1017,61 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   const [updateDept, setUpdateDept] = useState(true);
   const [task, setTask] = useState<FeishuTaskStatus | null>(null);
   const [running, setRunning] = useState(false);
+  const [locations, setLocations] = useState<LocationTableConfig[]>([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const [editLoc, setEditLoc] = useState<LocationTableConfig | null>(null);
+  const [editUrl, setEditUrl] = useState("");
+  const [savingLoc, setSavingLoc] = useState(false);
+
+  const loadLocations = useCallback(async () => {
+    setLocLoading(true);
+    try {
+      const res: any = await listFeishuLocations(cycleId);
+      setLocations(res?.data ?? []);
+    } catch (e: any) {
+      message.error(e?.message || "加载地点配置失败");
+    } finally {
+      setLocLoading(false);
+    }
+  }, [cycleId]);
+
+  useEffect(() => { loadLocations(); }, [loadLocations]);
+
+  const saveLoc = async () => {
+    if (!editLoc) return;
+    setSavingLoc(true);
+    try {
+      await saveFeishuLocation(cycleId, { location: editLoc.location, feishuTableUrl: editUrl.trim() });
+      message.success(editUrl.trim() ? "链接已保存" : "已清除该地点的链接");
+      setEditLoc(null);
+      loadLocations();
+    } catch (e: any) {
+      message.error(e?.message || "保存失败");
+    } finally {
+      setSavingLoc(false);
+    }
+  };
+
+  const handlePullAll = async () => {
+    try {
+      const res: any = await pullAllLocations(cycleId, updateDept);
+      const d = res?.data;
+      const n = d?.tasks?.length ?? 0;
+      if (n === 0) {
+        message.warning("没有已配置链接的地点，请先在上方为地点填写表格链接");
+        return;
+      }
+      const skipped = d?.skippedLocations ?? [];
+      message.info(
+        `已提交 ${n} 个拉回任务（每个地点一个）${skipped.length ? `，跳过未配链接的：${skipped.join("、")}` : ""}`,
+      );
+      // 逐个跟踪，避免多个轮询同时刷同一块进度区
+      for (const t of d.tasks) await trackTask(t.taskId);
+      loadLocations();
+    } catch (e: any) {
+      message.error(e?.message || "提交失败");
+    }
+  };
 
   const trackTask = useCallback(async (taskId: number) => {
     setRunning(true);
@@ -1045,7 +1103,11 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
         forceUpdate,
       });
       const taskId = res?.data?.taskId;
-      if (taskId) { message.info(`任务已提交（#${taskId}），正在执行…`); trackTask(taskId); }
+      if (taskId) {
+        message.info(`任务已提交（#${taskId}），正在执行…`);
+        await trackTask(taskId);
+        loadLocations();
+      }
     } catch (e: any) {
       message.error(e?.message || "提交失败");
     }
@@ -1068,35 +1130,101 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="推送：把本周期的面试安排写入飞书多维表格（面试官在飞书协作打分）；拉回：面试结束后从表格读取录取结果写回平台（列：姓名、录取部门、面试是否通过等）。"
+        message="推送与拉回都按【面试地点】分桶：每个地点对应一张飞书多维表格，面试官只看自己考场那张。先在下方为每个地点配好链接，再推送。"
       />
       <Space direction="vertical" size={16} style={{ width: "100%" }}>
-        <Card size="small" title="① 推送面试安排到飞书" type="inner">
+        <Card
+          size="small"
+          type="inner"
+          title="① 各地点的飞书表格链接"
+          extra={<Button size="small" onClick={loadLocations} loading={locLoading}>刷新</Button>}
+        >
+          <Table
+            rowKey="location"
+            size="small"
+            loading={locLoading}
+            dataSource={locations}
+            pagination={false}
+            locale={{ emptyText: "本周期还没有场次，先去「场次」Tab 创建（地点在场次上）" }}
+            columns={[
+              { title: "面试地点", dataIndex: "location", width: 160 },
+              { title: "场次数", dataIndex: "sessionCount", width: 80 },
+              { title: "已分配", dataIndex: "scheduleCount", width: 80 },
+              {
+                title: "待推送",
+                dataIndex: "pendingCount",
+                width: 90,
+                render: (v: number) => (v > 0 ? <Tag color="orange">{v}</Tag> : <span style={{ color: "#aaa" }}>0</span>),
+              },
+              {
+                title: "飞书表格链接",
+                dataIndex: "feishuTableUrl",
+                render: (v: string | null) =>
+                  v ? (
+                    <Tooltip title={v}>
+                      <a href={v} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                        {v.length > 48 ? `${v.slice(0, 48)}…` : v}
+                      </a>
+                    </Tooltip>
+                  ) : (
+                    <Tag color="red">未配置（推送会跳过该地点）</Tag>
+                  ),
+              },
+              {
+                title: "操作",
+                width: 90,
+                render: (_: unknown, r: LocationTableConfig) => (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => { setEditLoc(r); setEditUrl(r.feishuTableUrl ?? ""); }}
+                  >
+                    {r.feishuTableUrl ? "修改" : "配置"}
+                  </Button>
+                ),
+              },
+            ] as any}
+          />
+        </Card>
+        <Card size="small" title="② 推送面试安排到飞书" type="inner">
           <Space direction="vertical" style={{ width: "100%" }} size={8}>
+            <span style={{ fontSize: 13, color: "#666" }}>
+              按上表的地点分别推送到各自的表格。下面这一栏留空即为正常用法。
+            </span>
             <Input
-              placeholder="飞书多维表格链接（留空使用系统配置的默认表格）"
+              placeholder="（可选）覆盖：填了则忽略上表，把所有地点合并推到这一张表"
               value={pushUrl}
               onChange={(e) => setPushUrl(e.target.value)}
             />
-            <Space>
+            <Space wrap>
               <Switch checked={forceUpdate} onChange={setForceUpdate} size="small" />
               <span style={{ fontSize: 13, color: "#666" }}>强制覆盖已同步记录</span>
-              <Button type="primary" onClick={handlePush} loading={running}>推送到飞书</Button>
+              <Button type="primary" onClick={handlePush} loading={running}>
+                {pushUrl.trim() ? "合并推送到单张表" : "按地点推送到飞书"}
+              </Button>
             </Space>
           </Space>
         </Card>
-        <Card size="small" title="② 从飞书拉回录取结果" type="inner">
+        <Card size="small" title="③ 从飞书拉回录取结果" type="inner">
           <Space direction="vertical" style={{ width: "100%" }} size={8}>
-            <Input
-              placeholder="飞书多维表格链接（必填）"
-              value={pullUrl}
-              onChange={(e) => setPullUrl(e.target.value)}
-            />
-            <Space>
+            <Space wrap>
               <Switch checked={updateDept} onChange={setUpdateDept} size="small" />
               <span style={{ fontSize: 13, color: "#666" }}>录取后同步更新用户部门</span>
-              <Button type="primary" onClick={handlePull} loading={running}>拉回结果</Button>
+              <Button type="primary" onClick={handlePullAll} loading={running}>
+                拉回全部地点
+              </Button>
             </Space>
+            <span style={{ fontSize: 12, color: "#999" }}>
+              每个地点提交一个独立任务，逐个执行；下方进度区依次显示各任务结果。
+            </span>
+            <Input
+              placeholder="（可选）只拉这一张表：填入链接后点右侧按钮"
+              value={pullUrl}
+              onChange={(e) => setPullUrl(e.target.value)}
+              addonAfter={
+                <span style={{ cursor: "pointer" }} onClick={handlePull}>拉这张</span>
+              }
+            />
           </Space>
         </Card>
         {task && (
@@ -1114,6 +1242,29 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
           </Card>
         )}
       </Space>
+
+      <Modal
+        title={`配置「${editLoc?.location ?? ""}」的飞书表格`}
+        open={!!editLoc}
+        onOk={saveLoc}
+        confirmLoading={savingLoc}
+        onCancel={() => setEditLoc(null)}
+        okText="保存"
+        destroyOnClose
+      >
+        <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          <Alert
+            type="info"
+            showIcon
+            message="同一地点的多个场次共用这一个链接。留空并保存即清除配置，之后推送会跳过该地点。"
+          />
+          <Input
+            placeholder="粘贴飞书多维表格链接"
+            value={editUrl}
+            onChange={(e) => setEditUrl(e.target.value)}
+          />
+        </Space>
+      </Modal>
     </>
   );
 };
