@@ -1,13 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { LogIn, Users, Rocket, Trophy, Globe } from 'lucide-react';
 import './index.scss';
 import { useNavigate } from 'react-router-dom';
 import singleLogo from '../../assets/SingleLogo.png';
 
+// 离开首页前记住滚动位置，返回首页时恢复到原浏览位置
+const SCROLL_STORAGE_KEY = 'land:scrollY';
+
 const Land: React.FC = () => {
   const [activeTab, setActiveTab] = useState('intro');
   const isClickScrolling = useRef(false);
   const navigate = useNavigate();
+
+  useLayoutEffect(() => {
+    const saved = sessionStorage.getItem(SCROLL_STORAGE_KEY);
+    if (saved) {
+      const y = Number(saved);
+      if (Number.isFinite(y)) window.scrollTo(0, y);
+    }
+    return () => {
+      sessionStorage.setItem(SCROLL_STORAGE_KEY, String(window.scrollY));
+    };
+  }, []);
 
   const navItems = [
     { id: 'intro', label: '关于我们' },
