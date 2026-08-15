@@ -12,6 +12,8 @@ import {
   Row,
   Col,
   Modal,
+  Table,
+  Upload,
 } from 'antd';
 import {
   SendOutlined,
@@ -25,6 +27,9 @@ import {
   CaretDownOutlined,
   EyeOutlined,
   ExclamationCircleOutlined,
+  ImportOutlined,
+  FileWordOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -62,6 +67,16 @@ import {
 } from '@/store/modules/resume';
 import { fetchResumeFieldsConfig, ResumeField } from '@/store/modules/resumeFields';
 import type { UserInfo } from '@/store/modules/user';
+import {
+  buildExportData,
+  exportResumeAsDOCX,
+} from '@/utils/exportResume';
+import {
+  importResumeFile,
+  extractFieldsFromText,
+  hasAnyExtractedField,
+} from '@/utils/importResume';
+import type { ExtractedFields } from '@/utils/importResume';
 import './index.scss';
 
 const { Title, Text } = Typography;
@@ -194,6 +209,12 @@ const Publish: React.FC = () => {
   });
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+
+  // ---- 导入导出相关状态 ----
+  const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
+  const [extractedFields, setExtractedFields] = useState<ExtractedFields | null>(null);
+  const [importLoading, setImportLoading] = useState<boolean>(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const {
     cycleId, fieldDefinitions, resume, fieldValues, submitting, updating, error,
@@ -506,10 +527,9 @@ const Publish: React.FC = () => {
     fillIfEmpty('phone', userInfo.phone);
     if (userInfo.email) {
       fillIfEmpty('email', userInfo.email);
-      fillIfEmpty('student_id', String(userInfo.email).split('@')[0]);
+      fillIfEmpty('student_id', userInfo.studentId ?? String(userInfo.email).split('@')[0]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userInfo, isInitializing, fieldIdMapping]);
+  }, [userInfo, isInitializing, fieldIdMapping, getFieldValue, handleFieldChange]);
 
   // ---- 提交与更新 ----
   // 以「用户实际填过的值」为准来构造保存载荷。
@@ -769,6 +789,85 @@ const Publish: React.FC = () => {
     }
   }, [dispatch, cycleId, form]);
 
+  // ---- 导出处理 ----
+  const exportData = useMemo(() => {
+    return buildExportData(fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64);
+  }, [fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64]);
+
+  const handleExportDOCX = useCallback(async (): Promise<void> => {
+    await exportResumeAsDOCX(exportData);
+  }, [exportData]);
+
+  // ---- 导入处理 ----
+  const handleImportFile = useCallback(async (file: File): Promise<void> => {
+    setImportLoading(true);
+    try {
+      const result = await importResumeFile(file);
+      if (result) {
+        setExtractedFields(result);
+        setImportModalOpen(true);
+      }
+    } finally {
+      setImportLoading(false);
+      // 重置 file input，允许重复选择同一文件
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, []);
+
+  const handleConfirmImport = useCallback((): void => {
+    if (!extractedFields) return;
+
+    const keyToFieldKey: Record<string, string> = {
+      name: 'name',
+      student_id: 'student_id',
+      gender: 'gender',
+      grade: 'grade',
+      major: 'major',
+      email: 'email',
+      phone: 'phone',
+      github: 'github',
+      self_introduction: 'self_introduction',
+      reason: 'reason',
+      tech_stack: 'tech_stack',
+      project_experience: 'project_experience',
+    };
+
+    let importedCount = 0;
+    Object.entries(keyToFieldKey).forEach(([extractKey, fieldKey]) => {
+      const value = (extractedFields as any)[extractKey];
+      if (value && String(value).trim()) {
+        dispatch(setFieldValue({ fieldId: fieldIdMapping[fieldKey], value: String(value).trim() }));
+        importedCount++;
+      }
+    });
+
+    // 特殊处理：技术栈需要更新 techStackItems 状态
+    if (extractedFields.tech_stack) {
+      try {
+        const arr = JSON.parse(extractedFields.tech_stack);
+        if (Array.isArray(arr)) {
+          setTechStackItems(arr);
+        } else {
+          // 如果提取出来的是逗号分隔的字符串
+          const items = String(extractedFields.tech_stack).split(/[,，、]/).filter(Boolean);
+          if (items.length > 0) setTechStackItems(items);
+        }
+      } catch {
+        const items = String(extractedFields.tech_stack).split(/[,，、]/).filter(Boolean);
+        if (items.length > 0) setTechStackItems(items);
+      }
+    }
+
+    setImportModalOpen(false);
+    setExtractedFields(null);
+    message.success(`成功导入 ${importedCount} 个字段，请核对后保存`);
+  }, [extractedFields, dispatch, fieldIdMapping]);
+
+  const handleCancelImport = useCallback((): void => {
+    setImportModalOpen(false);
+    setExtractedFields(null);
+  }, []);
+
   // ---- 渲染 ----
   if (isInitializing || configLoading) {
     return (
@@ -812,6 +911,9 @@ const Publish: React.FC = () => {
           />
           <div style={{ marginTop: 24, textAlign: 'center', padding: '16px', borderTop: '1px solid #f0f0f0' }}>
             <Space>
+              <Button icon={<FileWordOutlined />} size="large" onClick={handleExportDOCX}>
+                导出 DOCX
+              </Button>
               {canEdit && (
                 <Button type="primary" icon={<EditOutlined />} onClick={handleEdit} size="large">
                   修改简历
@@ -869,6 +971,32 @@ const Publish: React.FC = () => {
               </div>
             </Card>
           )}
+
+          {/* 导入导出工具栏 */}
+          <div className="import-export-toolbar" style={{ marginBottom: 16, textAlign: 'center' }}>
+            <Space>
+              <Button icon={<FileWordOutlined />} onClick={handleExportDOCX}>
+                导出 DOCX
+              </Button>
+              <Button
+                icon={<ImportOutlined />}
+                loading={importLoading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                导入文件
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.doc"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportFile(file);
+                }}
+              />
+            </Space>
+          </div>
 
           <div className="content-wrapper">
             <Card className="questionnaire-card">
@@ -1054,6 +1182,87 @@ const Publish: React.FC = () => {
           {/* 面试意向已并入上方表单（方案二），原独立预约面板移除 */}
         </div>
       )}
+
+      {/* 导入预览弹窗 */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <ImportOutlined style={{ color: '#1890ff', marginRight: '8px' }} />
+            导入预览 - 请确认提取的信息
+          </div>
+        }
+        open={importModalOpen}
+        onOk={handleConfirmImport}
+        onCancel={handleCancelImport}
+        okText="确认导入"
+        cancelText="取消"
+        width={640}
+      >
+        {extractedFields && (
+          <div>
+            {hasAnyExtractedField(extractedFields) ? (
+              <>
+                <Alert
+                  message="以下信息从文件中自动提取，请核对后确认导入"
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+                <Table
+                  dataSource={[
+                    { label: '姓名', value: extractedFields.name },
+                    { label: '学号', value: extractedFields.student_id },
+                    { label: '性别', value: extractedFields.gender },
+                    { label: '年级', value: extractedFields.grade },
+                    { label: '专业', value: extractedFields.major },
+                    { label: '邮箱', value: extractedFields.email },
+                    { label: '手机号', value: extractedFields.phone },
+                    { label: 'GitHub', value: extractedFields.github },
+                    { label: '自我介绍', value: extractedFields.self_introduction },
+                    { label: '加入理由', value: extractedFields.reason },
+                    { label: '技术栈', value: extractedFields.tech_stack },
+                    { label: '项目经验', value: extractedFields.project_experience },
+                  ].filter((row) => row.value && String(row.value).trim())}
+                  columns={[
+                    {
+                      title: '字段',
+                      dataIndex: 'label',
+                      key: 'label',
+                      width: 100,
+                      render: (text: string) => <Text strong>{text}</Text>,
+                    },
+                    {
+                      title: '提取内容',
+                      dataIndex: 'value',
+                      key: 'value',
+                      render: (text: string) => (
+                        <Text
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {text}
+                        </Text>
+                      ),
+                    },
+                  ]}
+                  pagination={false}
+                  size="small"
+                  rowKey="label"
+                />
+              </>
+            ) : (
+              <Alert
+                message="未能从文件中提取到有效信息"
+                description="请确认文件包含可识别的文本内容（非扫描图片），并包含姓名、邮箱、手机号等关键字段。"
+                type="warning"
+                showIcon
+              />
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         title={
