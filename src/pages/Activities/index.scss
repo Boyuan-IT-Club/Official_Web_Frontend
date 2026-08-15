@@ -3,7 +3,7 @@
 // --- 变量定义 (保持全站统一) ---
 $bg-color: #ffffff;       
 $card-bg: #ffffff;        
-$primary-color: #2980b9;  
+$primary-color: #1f3a60;  
 $text-color: #333333;
 $action-color: #4c5886;   
 $border-radius: 12px;     
@@ -18,7 +18,8 @@ $outer-bg: #e3f2fd;       // 淡蓝外背景
   justify-content: center;     
   align-items: flex-start;     
   padding: 3rem 0;             
-  font-family: "Comic Sans MS", "Microsoft YaHei", sans-serif;
+  // 原先首位是 "Comic Sans MS"，手写体在正式页面显得不专业
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
 }
 
 // --- 内部画板 ---

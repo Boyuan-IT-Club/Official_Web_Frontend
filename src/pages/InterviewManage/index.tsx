@@ -46,6 +46,10 @@ import {
   listSchedulesRoster,
   listSessions,
   sendResultNotifications,
+  batchDecision,
+  listFeishuLocations,
+  saveFeishuLocation,
+  pullAllLocations,
   updateResult,
   pushToFeishu,
   pullFromFeishu,
@@ -58,6 +62,8 @@ import {
 } from "@/api/manage/interviewAdmin";
 import { getAllCycles, RecruitmentCycle } from "@/api/manage/cycleApis";
 import { getValidDept } from "@/api/manage/deptManage";
+import EvaluationSummaryTab from "./EvaluationSummaryTab";
+import SessionInterviewersModal from "./SessionInterviewersModal";
 
 const fmtTime = (t?: string) => (t ? t.slice(0, 5) : "-");
 
@@ -215,6 +221,7 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
   const [rosterSession, setRosterSession] = useState<InterviewSession | null>(null);
   const [roster, setRoster] = useState<ScheduleRosterItem[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
+  const [interviewerSession, setInterviewerSession] = useState<InterviewSession | null>(null);
 
   const openRoster = async (sess: InterviewSession) => {
     setRosterSession(sess);
@@ -327,6 +334,9 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
                 <Button type="link" size="small" onClick={() => openRoster(r)}>
                   名单
                 </Button>
+                <Button type="link" size="small" onClick={() => setInterviewerSession(r)}>
+                  面试官
+                </Button>
                 <Button type="link" size="small" onClick={() => openEdit(r)}>
                   编辑
                 </Button>
@@ -424,6 +434,14 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
           ] as any}
         />
       </Modal>
+      <SessionInterviewersModal
+        open={!!interviewerSession}
+        sessionId={interviewerSession?.sessionId}
+        sessionLabel={interviewerSession
+          ? `#${interviewerSession.sessionId} ${interviewerSession.deptName || ''} @${interviewerSession.location}`
+          : undefined}
+        onClose={() => setInterviewerSession(null)}
+      />
     </>
   );
 };
@@ -716,6 +734,9 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [customMsg, setCustomMsg] = useState("");
   const [sending, setSending] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchDept, setBatchDept] = useState<number | undefined>();
+  const [batching, setBatching] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -763,6 +784,42 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
     }
   };
 
+  /** 批量写入决定。decision=1 需带部门；=2 由服务端清空部门。 */
+  const runBatch = async (decision: 1 | 2, deptId?: number) => {
+    setBatching(true);
+    try {
+      const res: any = await batchDecision({ cycleId, resultIds: selected, decision, assignedDeptId: deptId });
+      const d = res?.data;
+      const skipped = d?.skipped?.length ?? 0;
+      if (skipped > 0) {
+        message.warning(`已更新 ${d?.updated ?? 0} 人，跳过 ${skipped} 条（不属于本周期）`);
+      } else {
+        message.success(
+          decision === 1
+            ? `已录取 ${d?.updated ?? selected.length} 人到${deptName(deptId)}`
+            : `已标记 ${d?.updated ?? selected.length} 人未通过`,
+        );
+      }
+      setBatchOpen(false);
+      setSelected([]);
+      load();
+    } catch (e: any) {
+      message.error(e?.message || "批量操作失败");
+    } finally {
+      setBatching(false);
+    }
+  };
+
+  const confirmBatchReject = () => {
+    Modal.confirm({
+      title: `标记 ${selected.length} 人未通过？`,
+      content: "会清空这些人已填的录取部门。此操作可以再次修改，但会覆盖原有结果。",
+      okText: "确认标记",
+      okButtonProps: { danger: true },
+      onOk: () => runBatch(2),
+    });
+  };
+
   const doSend = async () => {
     setSending(true);
     try {
@@ -787,6 +844,9 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
   };
 
   const undecided = list.filter((r) => r.decision == null).length;
+  const selectedUndecided = list.filter(
+    (r) => selected.includes(r.resultId) && r.decision == null,
+  ).length;
 
   return (
     <>
@@ -794,17 +854,28 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message="结果来源：「飞书同步」拉回，或在下方逐条录入。录入完成后勾选并发送邮件通知（通过=录取通知，未通过=感谢信）。"
+        message="勾选候选人后可「批量录取」到指定部门，或「批量标记未通过」；也可逐条录入/修改。结果还可从「飞书同步」拉回。决定录完后再勾选发送邮件通知（通过=录取通知，未通过=感谢信）。"
       />
-      <Space style={{ marginBottom: 12 }}>
+      <Space style={{ marginBottom: 12 }} wrap>
         <Button
           type="primary"
           disabled={selected.length === 0}
-          onClick={() => { setCustomMsg(""); setNotifyOpen(true); }}
+          onClick={() => { setBatchDept(undefined); setBatchOpen(true); }}
         >
-          发送通知（已选 {selected.length}）
+          批量录取（已选 {selected.length}）
         </Button>
-        {undecided > 0 && <Tag color="orange">{undecided} 条结果未录入决定</Tag>}
+        <Button danger disabled={selected.length === 0} onClick={confirmBatchReject}>
+          批量标记未通过
+        </Button>
+        <Tooltip title={selectedUndecided > 0 ? "所选名单里有人还没录入决定，先批量录取或标记未通过" : ""}>
+          <Button
+            disabled={selected.length === 0 || selectedUndecided > 0}
+            onClick={() => { setCustomMsg(""); setNotifyOpen(true); }}
+          >
+            发送通知（已选 {selected.length}）
+          </Button>
+        </Tooltip>
+        {undecided > 0 && <Tag color="orange">{undecided} 人未录入决定</Tag>}
       </Space>
       <Table
         rowKey="resultId"
@@ -816,7 +887,8 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         rowSelection={{
           selectedRowKeys: selected,
           onChange: (keys) => setSelected(keys as number[]),
-          getCheckboxProps: (r: InterviewResultItem) => ({ disabled: r.decision == null }),
+          // 不再禁用"未录入决定"的行——批量录取的目标恰恰是这些人；
+          // 发送通知的按钮会自行判断所选名单里是否还有未录入的
         }}
         columns={[
           { title: "姓名", dataIndex: "userId", width: 110,
@@ -871,6 +943,44 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
       </Modal>
 
       <Modal
+        title={`批量录取（${selected.length} 人）`}
+        open={batchOpen}
+        onOk={() => {
+          if (!batchDept) { message.warning("请选择录取部门"); return; }
+          runBatch(1, batchDept);
+        }}
+        okText="确认录取"
+        confirmLoading={batching}
+        onCancel={() => setBatchOpen(false)}
+        destroyOnClose
+      >
+        <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          <Alert
+            type="info"
+            showIcon
+            message="所选候选人将统一标记为「通过」，并录取进下面选择的部门。已有决定的人会被覆盖。"
+          />
+          {selectedUndecided < selected.length && (
+            <Alert
+              type="warning"
+              showIcon
+              message={`所选 ${selected.length} 人中有 ${selected.length - selectedUndecided} 人已录入过结果，本次会被覆盖。`}
+            />
+          )}
+          <div>
+            <div style={{ marginBottom: 4, color: "#888", fontSize: 13 }}>录取部门</div>
+            <Select
+              style={{ width: "100%" }}
+              placeholder="选择部门"
+              value={batchDept}
+              onChange={setBatchDept}
+              options={depts.map((d: any) => ({ value: d.deptId, label: d.deptName }))}
+            />
+          </div>
+        </Space>
+      </Modal>
+
+      <Modal
         title={`发送结果通知（${selected.length} 人）`}
         open={notifyOpen}
         onOk={doSend}
@@ -907,6 +1017,61 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   const [updateDept, setUpdateDept] = useState(true);
   const [task, setTask] = useState<FeishuTaskStatus | null>(null);
   const [running, setRunning] = useState(false);
+  const [locations, setLocations] = useState<LocationTableConfig[]>([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const [editLoc, setEditLoc] = useState<LocationTableConfig | null>(null);
+  const [editUrl, setEditUrl] = useState("");
+  const [savingLoc, setSavingLoc] = useState(false);
+
+  const loadLocations = useCallback(async () => {
+    setLocLoading(true);
+    try {
+      const res: any = await listFeishuLocations(cycleId);
+      setLocations(res?.data ?? []);
+    } catch (e: any) {
+      message.error(e?.message || "加载地点配置失败");
+    } finally {
+      setLocLoading(false);
+    }
+  }, [cycleId]);
+
+  useEffect(() => { loadLocations(); }, [loadLocations]);
+
+  const saveLoc = async () => {
+    if (!editLoc) return;
+    setSavingLoc(true);
+    try {
+      await saveFeishuLocation(cycleId, { location: editLoc.location, feishuTableUrl: editUrl.trim() });
+      message.success(editUrl.trim() ? "链接已保存" : "已清除该地点的链接");
+      setEditLoc(null);
+      loadLocations();
+    } catch (e: any) {
+      message.error(e?.message || "保存失败");
+    } finally {
+      setSavingLoc(false);
+    }
+  };
+
+  const handlePullAll = async () => {
+    try {
+      const res: any = await pullAllLocations(cycleId, updateDept);
+      const d = res?.data;
+      const n = d?.tasks?.length ?? 0;
+      if (n === 0) {
+        message.warning("没有已配置链接的地点，请先在上方为地点填写表格链接");
+        return;
+      }
+      const skipped = d?.skippedLocations ?? [];
+      message.info(
+        `已提交 ${n} 个拉回任务（每个地点一个）${skipped.length ? `，跳过未配链接的：${skipped.join("、")}` : ""}`,
+      );
+      // 逐个跟踪，避免多个轮询同时刷同一块进度区
+      for (const t of d.tasks) await trackTask(t.taskId);
+      loadLocations();
+    } catch (e: any) {
+      message.error(e?.message || "提交失败");
+    }
+  };
 
   const trackTask = useCallback(async (taskId: number) => {
     setRunning(true);
@@ -938,7 +1103,11 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
         forceUpdate,
       });
       const taskId = res?.data?.taskId;
-      if (taskId) { message.info(`任务已提交（#${taskId}），正在执行…`); trackTask(taskId); }
+      if (taskId) {
+        message.info(`任务已提交（#${taskId}），正在执行…`);
+        await trackTask(taskId);
+        loadLocations();
+      }
     } catch (e: any) {
       message.error(e?.message || "提交失败");
     }
@@ -961,35 +1130,101 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message="推送：把本周期的面试安排写入飞书多维表格（面试官在飞书协作打分）；拉回：面试结束后从表格读取录取结果写回平台（列：姓名、录取部门、面试是否通过等）。"
+        message="推送与拉回都按【面试地点】分桶：每个地点对应一张飞书多维表格，面试官只看自己考场那张。先在下方为每个地点配好链接，再推送。"
       />
       <Space direction="vertical" size={16} style={{ width: "100%" }}>
-        <Card size="small" title="① 推送面试安排到飞书" type="inner">
+        <Card
+          size="small"
+          type="inner"
+          title="① 各地点的飞书表格链接"
+          extra={<Button size="small" onClick={loadLocations} loading={locLoading}>刷新</Button>}
+        >
+          <Table
+            rowKey="location"
+            size="small"
+            loading={locLoading}
+            dataSource={locations}
+            pagination={false}
+            locale={{ emptyText: "本周期还没有场次，先去「场次」Tab 创建（地点在场次上）" }}
+            columns={[
+              { title: "面试地点", dataIndex: "location", width: 160 },
+              { title: "场次数", dataIndex: "sessionCount", width: 80 },
+              { title: "已分配", dataIndex: "scheduleCount", width: 80 },
+              {
+                title: "待推送",
+                dataIndex: "pendingCount",
+                width: 90,
+                render: (v: number) => (v > 0 ? <Tag color="orange">{v}</Tag> : <span style={{ color: "#aaa" }}>0</span>),
+              },
+              {
+                title: "飞书表格链接",
+                dataIndex: "feishuTableUrl",
+                render: (v: string | null) =>
+                  v ? (
+                    <Tooltip title={v}>
+                      <a href={v} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                        {v.length > 48 ? `${v.slice(0, 48)}…` : v}
+                      </a>
+                    </Tooltip>
+                  ) : (
+                    <Tag color="red">未配置（推送会跳过该地点）</Tag>
+                  ),
+              },
+              {
+                title: "操作",
+                width: 90,
+                render: (_: unknown, r: LocationTableConfig) => (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => { setEditLoc(r); setEditUrl(r.feishuTableUrl ?? ""); }}
+                  >
+                    {r.feishuTableUrl ? "修改" : "配置"}
+                  </Button>
+                ),
+              },
+            ] as any}
+          />
+        </Card>
+        <Card size="small" title="② 推送面试安排到飞书" type="inner">
           <Space direction="vertical" style={{ width: "100%" }} size={8}>
+            <span style={{ fontSize: 13, color: "#666" }}>
+              按上表的地点分别推送到各自的表格。下面这一栏留空即为正常用法。
+            </span>
             <Input
-              placeholder="飞书多维表格链接（留空使用系统配置的默认表格）"
+              placeholder="（可选）覆盖：填了则忽略上表，把所有地点合并推到这一张表"
               value={pushUrl}
               onChange={(e) => setPushUrl(e.target.value)}
             />
-            <Space>
+            <Space wrap>
               <Switch checked={forceUpdate} onChange={setForceUpdate} size="small" />
               <span style={{ fontSize: 13, color: "#666" }}>强制覆盖已同步记录</span>
-              <Button type="primary" onClick={handlePush} loading={running}>推送到飞书</Button>
+              <Button type="primary" onClick={handlePush} loading={running}>
+                {pushUrl.trim() ? "合并推送到单张表" : "按地点推送到飞书"}
+              </Button>
             </Space>
           </Space>
         </Card>
-        <Card size="small" title="② 从飞书拉回录取结果" type="inner">
+        <Card size="small" title="③ 从飞书拉回录取结果" type="inner">
           <Space direction="vertical" style={{ width: "100%" }} size={8}>
-            <Input
-              placeholder="飞书多维表格链接（必填）"
-              value={pullUrl}
-              onChange={(e) => setPullUrl(e.target.value)}
-            />
-            <Space>
+            <Space wrap>
               <Switch checked={updateDept} onChange={setUpdateDept} size="small" />
               <span style={{ fontSize: 13, color: "#666" }}>录取后同步更新用户部门</span>
-              <Button type="primary" onClick={handlePull} loading={running}>拉回结果</Button>
+              <Button type="primary" onClick={handlePullAll} loading={running}>
+                拉回全部地点
+              </Button>
             </Space>
+            <span style={{ fontSize: 12, color: "#999" }}>
+              每个地点提交一个独立任务，逐个执行；下方进度区依次显示各任务结果。
+            </span>
+            <Input
+              placeholder="（可选）只拉这一张表：填入链接后点右侧按钮"
+              value={pullUrl}
+              onChange={(e) => setPullUrl(e.target.value)}
+              addonAfter={
+                <span style={{ cursor: "pointer" }} onClick={handlePull}>拉这张</span>
+              }
+            />
           </Space>
         </Card>
         {task && (
@@ -1007,6 +1242,29 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
           </Card>
         )}
       </Space>
+
+      <Modal
+        title={`配置「${editLoc?.location ?? ""}」的飞书表格`}
+        open={!!editLoc}
+        onOk={saveLoc}
+        confirmLoading={savingLoc}
+        onCancel={() => setEditLoc(null)}
+        okText="保存"
+        destroyOnClose
+      >
+        <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          <Alert
+            type="info"
+            showIcon
+            message="同一地点的多个场次共用这一个链接。留空并保存即清除配置，之后推送会跳过该地点。"
+          />
+          <Input
+            placeholder="粘贴飞书多维表格链接"
+            value={editUrl}
+            onChange={(e) => setEditUrl(e.target.value)}
+          />
+        </Space>
+      </Modal>
     </>
   );
 };
@@ -1069,6 +1327,9 @@ const InterviewManage: React.FC = () => {
             { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} /> },
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} /> },
+            { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} /> },
+            { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} /> },
+            { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
           ]}
         />
       ) : (

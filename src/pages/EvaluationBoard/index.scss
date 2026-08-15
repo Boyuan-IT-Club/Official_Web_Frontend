@@ -1,0 +1,20 @@
+.evaluation-board {
+  &__loading {
+    display: flex;
+    justify-content: center;
+    padding: 48px 0;
+  }
+
+  // 已移出名单的候选人：评价还留着，但不该再吸引注意力
+  &__row--removed {
+    opacity: 0.55;
+
+    td {
+      background-color: #fafafa;
+    }
+  }
+
+  .ant-table-tbody .ant-input-number-sm {
+    text-align: center;
+  }
+}

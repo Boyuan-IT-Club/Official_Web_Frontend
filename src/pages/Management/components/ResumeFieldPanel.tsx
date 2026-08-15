@@ -139,7 +139,7 @@ const SortableItem: React.FC<{
         size="small"
         style={{
           backgroundColor: '#ffffff',
-          border: isDragging ? '2px solid #1890ff' : '1px solid #f0f0f0',
+          border: isDragging ? '2px solid #1f3a60' : '1px solid #f0f0f0',
         }}
         title={
           <Space>

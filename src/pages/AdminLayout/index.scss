@@ -1,20 +1,31 @@
+// 管理端外壳（B1：石墨深侧栏 + 灰底浅内容）。
+//
+// 上一版做成了全浅色壳，结果侧栏/顶栏/内容区三个面都接近白，层次分不开、整体发飘。
+// 现在侧栏交回深色（石墨灰，非发蓝的 #001529），内容区底色压到 #f1f3f6，
+// 白卡浮在上面对比明确。侧栏与顶栏的具体色值在 src/theme/admin.ts 的 token 里，
+// 这里只处理 antd token 覆盖不到的自定义元素，避免样式来源分散。
+
 .admin-layout {
   .admin-sider-logo {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 16px;
+    gap: 10px;
+    height: 48px;
+    padding: 0 16px;
+    border-bottom: 1px solid #2a2e37;
 
     .logo-image {
-      height: 32px;
+      height: 24px;
       width: auto;
+      flex-shrink: 0;
     }
 
     .logo-text {
-      color: #fff;
-      font-size: 15px;
+      color: #f1f3f4;
+      font-size: 14px;
       font-weight: 600;
       white-space: nowrap;
+      letter-spacing: 0.2px;
     }
   }
 
@@ -22,14 +33,33 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 24px;
-    background: #001529;
+    padding: 0 20px;
+    // 顶栏与内容区之间要有明确分界，否则白顶栏会和白卡糊在一起
+    border-bottom: 1px solid #dfe3e8;
+  }
+
+  .admin-page-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
   }
 
   .admin-user {
     display: flex;
     align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 8px;
     cursor: pointer;
-    color: #fff;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: #f1f3f4;
+    }
+  }
+
+  .admin-user-name {
+    color: #5f6368;
+    font-size: 13px;
   }
 }

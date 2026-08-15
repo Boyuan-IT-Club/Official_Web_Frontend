@@ -12,6 +12,11 @@ module.exports = {
       '@routes': path.resolve(
         __dirname,
         isAdminBuild ? 'src/router/admin.tsx' : 'src/router/user.tsx'
+      ),
+      // 主题同样按构建目标二选一：两端各自演进，互不牵连
+      '@theme': path.resolve(
+        __dirname,
+        isAdminBuild ? 'src/theme/admin.ts' : 'src/theme/user.ts'
       )
     }
  }
