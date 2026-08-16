@@ -54,6 +54,7 @@ import {
   pushToFeishu,
   pullFromFeishu,
   getFeishuTask,
+  getResumeDetail,
   listTimeSlots,
   listUnassigned,
   manualAssign,
@@ -62,6 +63,9 @@ import {
 } from "@/api/manage/interviewAdmin";
 import { getAllCycles, RecruitmentCycle } from "@/api/manage/cycleApis";
 import { getValidDept } from "@/api/manage/deptManage";
+import { request } from "@/utils";
+import ResumeDetail from "@/pages/Resume/ResumeDetail";
+import "@/pages/Resume/index.scss";
 import EvaluationSummaryTab from "./EvaluationSummaryTab";
 import SessionInterviewersModal from "./SessionInterviewersModal";
 
@@ -222,6 +226,9 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
   const [roster, setRoster] = useState<ScheduleRosterItem[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [interviewerSession, setInterviewerSession] = useState<InterviewSession | null>(null);
+  const [resumeDetail, setResumeDetail] = useState<any>(null);
+  const [resumeDetailLoading, setResumeDetailLoading] = useState(false);
+  const [resumeDetailOpen, setResumeDetailOpen] = useState(false);
 
   const openRoster = async (sess: InterviewSession) => {
     setRosterSession(sess);
@@ -233,6 +240,39 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
       message.error(e?.message || "加载名单失败");
     } finally {
       setRosterLoading(false);
+    }
+  };
+
+  const openResumeDetail = async (r: ScheduleRosterItem) => {
+    setResumeDetail(null);
+    setResumeDetailOpen(true);
+    setResumeDetailLoading(true);
+    try {
+      const res: any = await getResumeDetail(r.resumeId);
+      setResumeDetail(res?.data ?? null);
+    } catch (e: any) {
+      message.error(e?.message || "加载简历失败");
+      setResumeDetailOpen(false);
+    } finally {
+      setResumeDetailLoading(false);
+    }
+  };
+
+  const downloadResume = async (resumeId: number) => {
+    try {
+      const response: any = await request.get(`/api/resumes/export/pdf/${resumeId}`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      const cd = response.headers?.["content-disposition"];
+      const m = String(cd || "").match(/filename="?([^"]+)"?/);
+      link.setAttribute("download", m?.[1] || `resume_${resumeId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      message.error(e?.message || "下载失败");
     }
   };
   const [slots, setSlots] = useState<InterviewTimeSlot[]>([]);
@@ -421,7 +461,10 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
               render: (v: string) => (v ? String(v).replace("T", " ").slice(5, 16) : "-") },
             { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: ScheduleRosterItem) => v || r.username || `用户#${r.userId}` },
             { title: "学号", dataIndex: "username", width: 120 },
-            { title: "简历", dataIndex: "resumeId", width: 70, render: (v: number) => `#${v}` },
+            { title: "简历", dataIndex: "resumeId", width: 70,
+              render: (v: number, r: ScheduleRosterItem) => (
+                <Button type="link" size="small" onClick={() => openResumeDetail(r)}>#{v}</Button>
+              ) },
             { title: "飞书", dataIndex: "syncStatus", width: 70,
               render: (v: number) => (v === 1 ? <Tag color="green">已同步</Tag> : <Tag>未同步</Tag>) },
             { title: "备注", dataIndex: "notes",
@@ -434,6 +477,28 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
           ] as any}
         />
       </Modal>
+      {resumeDetailOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2000,
+            background: "#f5f5f5",
+            overflow: "auto",
+          }}
+        >
+          {resumeDetailLoading ? (
+            <div style={{ textAlign: "center", padding: 48 }}><Spin /></div>
+          ) : (
+            <ResumeDetail
+              resume={resumeDetail}
+              backText="返回名单"
+              onBack={() => setResumeDetailOpen(false)}
+              onDownload={downloadResume}
+            />
+          )}
+        </div>
+      )}
       <SessionInterviewersModal
         open={!!interviewerSession}
         sessionId={interviewerSession?.sessionId}
