@@ -3,17 +3,23 @@ import {
   Button,
   Card,
   DatePicker,
+  Dropdown,
   Form,
   Input,
   Modal,
-  Popconfirm,
   Select,
   Space,
   Table,
   Tag,
   message,
 } from "antd";
-import { PlusOutlined, SyncOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  EditOutlined,
+  MoreOutlined,
+  PlusOutlined,
+  SyncOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   RecruitmentCycle,
@@ -149,18 +155,36 @@ const CycleManage: React.FC = () => {
       width: 150,
       render: (_: unknown, record: RecruitmentCycle) => (
         <Space>
-          <Button type="link" size="small" onClick={() => openEdit(record)}>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => openEdit(record)}
+          >
             编辑
           </Button>
-          <Popconfirm
-            title="确认删除该周期？"
-            description="删除前请确认周期下没有简历/面试数据"
-            onConfirm={() => handleDelete(record.cycleId)}
+          <Dropdown
+            trigger={["click"]}
+            menu={{
+              items: [
+                { key: "del", icon: <DeleteOutlined />, label: "删除周期", danger: true },
+              ],
+              onClick: () => {
+                Modal.confirm({
+                  title: "确认删除该周期？",
+                  content: "删除前请确认周期下没有简历/面试数据",
+                  okText: "删除",
+                  okType: "danger",
+                  cancelText: "取消",
+                  async onOk() {
+                    await handleDelete(record.cycleId);
+                  },
+                });
+              },
+            }}
           >
-            <Button type="link" size="small" danger>
-              删除
-            </Button>
-          </Popconfirm>
+            <Button type="text" size="small" icon={<MoreOutlined />} />
+          </Dropdown>
         </Space>
       ),
     },
