@@ -175,6 +175,11 @@ export function listSchedulesRoster(cycleId: number, sessionId?: number) {
   });
 }
 
+/** 按简历ID拉取简历详情（管理端，需 resume:view 权限） */
+export function getResumeDetail(resumeId: number) {
+  return request({ url: `/api/resumes/${resumeId}`, method: 'get' });
+}
+
 // ---- 飞书同步 ----
 export interface FeishuTaskStatus {
   taskId: number;
