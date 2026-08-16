@@ -54,13 +54,13 @@ import {
   pushToFeishu,
   pullFromFeishu,
   getFeishuTask,
-  getResumeDetail,
   listTimeSlots,
   listUnassigned,
   manualAssign,
   updateSession,
   updateTimeSlot,
 } from "@/api/manage/interviewAdmin";
+import { getCandidateResume } from "@/api/manage/interviewEvaluation";
 import { getAllCycles, RecruitmentCycle } from "@/api/manage/cycleApis";
 import { getValidDept } from "@/api/manage/deptManage";
 import { request } from "@/utils";
@@ -248,7 +248,7 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
     setResumeDetailOpen(true);
     setResumeDetailLoading(true);
     try {
-      const res: any = await getResumeDetail(r.resumeId);
+      const res: any = await getCandidateResume(cycleId, r.scheduleId);
       setResumeDetail(res?.data ?? null);
     } catch (e: any) {
       message.error(e?.message || "加载简历失败");
