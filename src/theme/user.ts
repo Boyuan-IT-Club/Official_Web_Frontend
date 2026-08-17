@@ -1,34 +1,28 @@
 import type { ThemeConfig } from 'antd';
 
 /**
- * 用户端主题。
+ * 用户端主题：目前刻意为空。
  *
- * ⚠️ 刻意不设任何颜色 token —— 配色完全沿用各页面原有的 SCSS 变量，一个字不改。
- * （曾经在这里统一过品牌深蓝，整站观感反而变差，已回滚。）
+ * 曾经在这里做过一版全站改造（品牌深蓝 + 圆角 + Bento 首页），观感反而变差已整体回滚，
+ * 因此用户端回到 antd 默认外观 —— 各页面自带的 SCSS 说了算。
+ * 视觉一致性由 src/styles/_tokens.scss 的阴影/圆角/字号刻度保证，不靠颜色 token。
  *
- * 这里只统一「怎么画」，与 src/styles/_tokens.scss 的 SCSS 刻度保持一致：
- * antd 组件的圆角与阴影此前和自定义 SCSS 各说各话，同一个页面里
- * antd 的 Card（6px 圆角 + 默认投影）和手写卡片（12px + 自定义阴影）并排出现，
- * 这是"整体不对但说不清哪里"的来源之一。
+ * 保留文件而非删除：craco 的 @theme 别名按 REACT_APP_MODE 二选一，删掉用户端构建会找不到模块。
  */
-const userTheme: ThemeConfig = {
-  token: {
-    // 与 _tokens.scss 的 $radius-control / $radius-sm / $radius-card 对齐
-    borderRadius: 8,
-    borderRadiusLG: 12,
-    borderRadiusSM: 6,
-    fontSize: 14,
-    controlHeight: 36,
-    wireframe: false,
-  },
-  components: {
-    // 按钮的默认投影去掉：站内卡片已统一用细边框表达层次，按钮再带投影就显脏
-    Button: { primaryShadow: 'none', defaultShadow: 'none', dangerShadow: 'none', fontWeight: 500 },
-    Card: { borderRadiusLG: 12 },
-    Modal: { borderRadiusLG: 12, titleFontSize: 16 },
-    Alert: { borderRadiusLG: 12 },
-    Drawer: { borderRadiusLG: 12 },
-  },
-};
+const userTheme: ThemeConfig = {};
+
+/**
+ * 皮肤列表：用户端目前只有一套，SkinProvider 见到只有一项时不渲染切换入口。
+ * 将来要给学生端也做皮肤，在这里加项即可，不必改 Provider。
+ */
+export interface Skin {
+  key: string;
+  name: string;
+  palette?: unknown;
+  theme: ThemeConfig;
+}
+
+export const SKINS: Skin[] = [{ key: 'default', name: '默认', theme: userTheme }];
+export const DEFAULT_SKIN_KEY = 'default';
 
 export default userTheme;
