@@ -98,6 +98,10 @@ const MainLayout = () => {
     },
   ];
   const selectedKeys = [location.pathname];
+
+  // 顶栏左侧显示当前页面名：原先左侧空着，右上角的用户信息孤零零贴着边
+  const currentPageTitle =
+    menuItems.find((m) => m.key === location.pathname)?.label ?? "博远信息技术社";
   return (
     <AntdLayout className="main-layout" style={{ minHeight: "100vh" }}>
       <Sider
@@ -121,7 +125,9 @@ const MainLayout = () => {
           onClick={() => navigate("/")}
         >
           <img src={logo} alt="博远信息技术社" className="logo-image" />
-          {!collapsed && <div className="logo-glow"></div>}
+          {/* 原先这里是一层 radial-gradient 发光 + pulse 呼吸动画，是全站最显年代感的一处；
+              换成社团名——侧栏只有一个居中 logo 时认不出是哪个站。折叠时隐藏文字。 */}
+          {!collapsed && <span className="logo-text">博远技术社</span>}
         </div>
         <Menu
           theme="dark"
@@ -136,11 +142,12 @@ const MainLayout = () => {
         className="site-layout"
         style={{
           marginLeft: collapsed ? 80 : 220,
-          transition: "margin-left 0.3s ease",
+          transition: "margin-left 0.15s ease",
           minHeight: "100vh",
         }}
       >
         <Header className="tech-header">
+          <span className="header-page-title">{currentPageTitle}</span>
           {loading ? (
             <Text type="secondary">加载中...</Text>
           ) : (

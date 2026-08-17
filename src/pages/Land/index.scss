@@ -1,3 +1,5 @@
+@use "../../styles/tokens" as t;
+
 /* index.scss */
 html,
 body {
@@ -14,8 +16,8 @@ $white: #ffffff;
 $text-main: #333333;
 $text-sub: #666666;
 $border-color: #333333;    
-$shadow-sm: 6px 6px 0px rgba(51, 51, 51, 0.15); 
-$shadow-md: 8px 8px 0px rgba(51, 51, 51, 0.2); 
+$shadow-sm: t.$shadow-sm;   // 原为 6px 6px 0px 硬阴影 
+$shadow-md: t.$shadow-md;   // 原为 8px 8px 0px 硬阴影 
 
 * {
   box-sizing: border-box;
@@ -66,7 +68,7 @@ body {
   .logo-placeholder {
     width: 48px; height: 48px; object-fit: cover;
     border-radius: 50%;
-    border: 2px solid $primary-blue;
+    border: 1px solid $primary-blue;
     flex-shrink: 0;
   }
 
@@ -80,20 +82,20 @@ body {
   .login-btn {
     display: flex; align-items: center; justify-content: center;
     background-color: $primary-blue; color: $white; 
-    border: 2px solid $text-main; 
-    padding: 8px 20px; border-radius: 8px; cursor: pointer; transition: all 0.3s;
+    border: 1px solid $text-main; 
+    padding: 8px 20px; border-radius: t.$radius-sm; cursor: pointer; transition: background t.$dur-base ease, border-color t.$dur-base ease, transform t.$dur-fast ease;
     font-weight: bold;
     font-size: 14px; // 统一字体大小
-    box-shadow: 2px 2px 0px rgba(0,0,0,0.1); 
+    box-shadow: t.$shadow-sm; 
     
     &:hover { 
       background-color: darken($primary-blue, 8%); 
       transform: translateY(-2px);
-      box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
+      box-shadow: t.$shadow-md;
     }
     &:active {
       transform: translateY(0);
-      box-shadow: 1px 1px 0px rgba(0,0,0,0.1);
+      box-shadow: t.$shadow-sm;
     }
   }
 }
@@ -116,7 +118,7 @@ body {
   .hero-content {
     transform: translateY(-40px);
     text-align: center; color: $text-main; z-index: 1;
-    h1 { font-size: 5.0rem; font-weight: 800; margin-bottom: 12px; color: $primary-blue; text-shadow: 3px 3px 0px rgba($text-main, 0.1); }
+    h1 { font-size: 5.0rem; font-weight: 800; margin-bottom: 12px; color: $primary-blue; }
     p { font-size: 1.3rem; opacity: 0.85; letter-spacing: 3px; font-weight: bold; }
   }
 }
@@ -130,13 +132,13 @@ body {
   z-index: 9999; display: block; width: 100%;
   background-color: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
-  box-shadow: 0 4px 0px rgba($text-main, 0.05);
+  box-shadow: t.$shadow-sm;
 
   .nav-list {
     display: flex; list-style: none; width: 100%;
     .nav-item {
       flex: 1; text-align: center; padding: 20px 0; cursor: pointer;
-      position: relative; color: $text-sub; transition: all 0.3s;
+      position: relative; color: $text-sub; transition: background t.$dur-base ease, border-color t.$dur-base ease, transform t.$dur-fast ease;
       font-weight: bold;
 
       .active-bar {
@@ -170,10 +172,10 @@ body {
 
   .card {
     background: $white; 
-    border-radius: 16px;
-    border: 3px solid $border-color; 
+    border-radius: t.$radius-card;
+    border: 1px solid $border-color; 
     box-shadow: $shadow-sm; 
-    width: 65%; display: flex; overflow: hidden; transition: all 0.3s ease;
+    width: 65%; display: flex; overflow: hidden; transition: background t.$dur-base ease, border-color t.$dur-base ease, transform t.$dur-fast ease;
 
     &:hover { 
       box-shadow: $shadow-md; 
@@ -201,14 +203,14 @@ body {
       
       .card-btn {
         align-self: flex-start; padding: 10px 28px;
-        border-radius: 12px;
-        border: 2px solid $text-main;
+        border-radius: t.$radius-card;
+        border: 1px solid $text-main;
         cursor: pointer; background: $primary-blue; color: $white;
-        box-shadow: 2px 2px 0px rgba($text-main, 0.15);
+        box-shadow: t.$shadow-sm;
         &:hover { 
           background: darken($primary-blue, 5%); 
           transform: translateY(-2px);
-          box-shadow: 4px 4px 0px rgba($text-main, 0.2);
+          box-shadow: t.$shadow-md;
         }
       }
     }
@@ -221,15 +223,15 @@ body {
   .stats-inner {
     width: 90%; max-width: 1200px;
     background-color: $white; padding: 40px 20px;
-    border-radius: 20px; 
-    border: 3px solid $border-color; 
+    border-radius: t.$radius-pill; 
+    border: 1px solid $border-color; 
     box-shadow: $shadow-sm; 
     display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 30px;
   }
   .stat-item {
     &:hover { transform: translateY(-5px) scale(1.05); }
     svg { color: $primary-blue; margin-bottom: 16px; width: 40px; height: 40px; }
-    .count { display: block; font-size: 38px; font-weight: 800; color: $primary-blue; line-height: 1; margin-bottom: 8px; text-shadow: 2px 2px 0px rgba($text-main, 0.1); }
+    .count { display: block; font-size: 38px; font-weight: 800; color: $primary-blue; line-height: 1; margin-bottom: 8px; }
     .label { font-size: 15px; color: $text-main; font-weight: bold; letter-spacing: 1px; }
   }
 }
