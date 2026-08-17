@@ -12,9 +12,7 @@ import {
 import StatsCard from './components/StatsCard';
 import Toolbar from './components/UserToolbar';
 import UserTable, { User } from './components/UserTable';
-import ResumeFieldPanel from './components/ResumeFieldPanel';
 import RoleManager from './components/RoleManager';
-import PromptPanel from './components/PromptPanel';
 import DeptManage from './components/DeptManage';
 
 // 导入API
@@ -73,7 +71,6 @@ function useDebounce<T>(value: T, delay = 400): T {
 
 const Management: React.FC = () => {
   const [activeTab, setActiveTab]             = useState('users');
-  const [activeConfigTab, setActiveConfigTab] = useState('resume');
 
   // ── 用户列表 ──────────────────────────────────────────────────────────────
   const [users, setUsers]     = useState<User[]>([]);
@@ -105,8 +102,6 @@ const Management: React.FC = () => {
   const [roleOptions, setRoleOptions]   = useState<RoleOption[]>([]);
 
   // ── 简历 / 提示词 ─────────────────────────────────────────────────────────
-  const [resumeFields, setResumeFields] = useState<ResumeFieldUI[]>([]);
-  const [formPrompts, setFormPrompts]   = useState<any[]>([]);
 
   // ── 核心请求：分页列表 ────────────────────────────────────────────────────
   const fetchUsers = useCallback(async (
@@ -400,49 +395,13 @@ const Management: React.FC = () => {
               label: '角色管理',
               children: <RoleManager />,
             },
-            {
-              key: 'resume',
-              label: '简历设置',
-              children: (
-                <Tabs
-                  activeKey={activeConfigTab}
-                  onChange={setActiveConfigTab}
-                  items={[
-                    {
-                      key: 'resume',
-                      label: '简历字段',
-                      children: (
-                        <ResumeFieldPanel
-                          cycleId={CURRENT_CYCLE_ID}
-                          fields={resumeFields}
-                          onSave={handleSaveResumeFields}
-                          onFieldsChange={setResumeFields}
-                          onResetToDefault={handleResetToDefault}
-                          fieldTypeOptions={[
-                            { value: 'text', label: '单行文本' },
-                            { value: 'textarea', label: '多行文本' },
-                            { value: 'select', label: '下拉选择' },
-                            { value: 'radio', label: '单选' },
-                            { value: 'checkbox', label: '多选' },
-                            { value: 'file', label: '文件上传' },
-                          ]}
-                        />
-                      ),
-                    },
-                    {
-                      key: 'prompt',
-                      label: '报名提示',
-                      children: (
-                        <PromptPanel
-                          prompts={formPrompts}
-                          onSave={setFormPrompts}
-                        />
-                      ),
-                    },
-                  ]}
-                />
-              ),
-            },
+            // 「简历设置」Tab 已移出本页：简历字段是按周期定义的
+            // （resume_field_definition.cycle_id），与用户/角色无关；而且这里写死了
+            // cycleId 常量，导致新建周期后无法配置其字段。现入口在
+            // 「招募周期」列表每一行的「简历字段」按钮，见 CycleManage/ResumeFieldsDrawer。
+            //
+            // 同一 Tab 下的「报名提示」面板没有一起搬：它的 prompts 是纯本地 state
+            // （从不读写后端），改完刷新即丢，属于未完成功能，先不挂出来误导人。
             {
               key: 'dept',
               label: '部门管理',

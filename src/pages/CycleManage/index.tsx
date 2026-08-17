@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import ResumeFieldsDrawer from "./ResumeFieldsDrawer";
 import {
   Button,
   Card,
@@ -42,6 +43,8 @@ const CycleManage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<RecruitmentCycle | null>(null);
   const [saving, setSaving] = useState(false);
+  // 简历字段按周期配置，入口挂在每一行上（原先在「用户与角色」里且写死了周期）
+  const [fieldsFor, setFieldsFor] = useState<RecruitmentCycle | null>(null);
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {
@@ -152,7 +155,7 @@ const CycleManage: React.FC = () => {
     },
     {
       title: "操作",
-      width: 150,
+      width: 220,
       render: (_: unknown, record: RecruitmentCycle) => (
         <Space>
           <Button
@@ -162,6 +165,9 @@ const CycleManage: React.FC = () => {
             onClick={() => openEdit(record)}
           >
             编辑
+          </Button>
+          <Button type="link" size="small" onClick={() => setFieldsFor(record)}>
+            简历字段
           </Button>
           <Dropdown
             trigger={["click"]}
@@ -256,6 +262,13 @@ const CycleManage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+      <ResumeFieldsDrawer
+        open={!!fieldsFor}
+        cycleId={fieldsFor?.cycleId ?? null}
+        cycleName={fieldsFor?.cycleName}
+        onClose={() => setFieldsFor(null)}
+      />
+
     </Card>
   );
 };

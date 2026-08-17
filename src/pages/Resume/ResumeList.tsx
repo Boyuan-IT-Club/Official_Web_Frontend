@@ -34,6 +34,7 @@ import {
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
+import { getAllCycles } from '@/api/manage/cycleApis';
 import './index.scss';
 
 const { Text, Title } = Typography;
@@ -135,6 +136,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     searchType: string;
     expectedDepartment: string;
     statusFilter: string;
+    cycleId?: number;
     sortBy: string;
     sortOrder: string;
   }>({
@@ -142,6 +144,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     searchType: 'name',
     expectedDepartment: '',
     statusFilter: '2',
+    cycleId: undefined,
     sortBy: 'submitted_at',
     sortOrder: 'DESC',
   });
@@ -153,6 +156,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [sortBy, setSortBy] = useState<string>('submitted_at');
   const [sortOrder, setSortOrder] = useState<string>('DESC');
   const [statusFilter, setStatusFilter] = useState<string>('2');
+  // 招募周期筛选：后端 /api/resumes/search 早就支持 cycleId 参数，只是前端一直没传，
+  // 于是列表把历届简历混在一起显示
+  const [cycleId, setCycleId] = useState<number | undefined>();
+  const [cycles, setCycles] = useState<any[]>([]);
   const [isStartingReview, setIsStartingReview] = useState<boolean>(false);
 
   // 用于高亮显示当前排序方式
@@ -163,13 +170,14 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
   // 检查搜索参数是否真正变化
   const hasSearchParamsChanged = (): boolean => {
-    const currentParams = { searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder };
+    const currentParams = { searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder };
     const prevParams = searchParamsRef.current;
     return (
       currentParams.searchText !== prevParams.searchText ||
       currentParams.searchType !== prevParams.searchType ||
       currentParams.expectedDepartment !== prevParams.expectedDepartment ||
       currentParams.statusFilter !== prevParams.statusFilter ||
+      currentParams.cycleId !== prevParams.cycleId ||
       currentParams.sortBy !== prevParams.sortBy ||
       currentParams.sortOrder !== prevParams.sortOrder
     );
@@ -177,7 +185,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
   // 更新搜索参数引用
   const updateSearchParamsRef = (): void => {
-    searchParamsRef.current = { searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder };
+    searchParamsRef.current = { searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder };
   };
 
   // 加载简历数据的函数（保持原逻辑不变）
@@ -212,6 +220,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
       params.status = statusFilter;
     }
 
+    // 添加周期筛选
+    if (cycleId) {
+      params.cycleId = cycleId;
+    }
+
     // 添加排序 - 使用接口文档中的参数名
     if (sortBy && sortOrder) {
       params.sortBy = sortBy;
@@ -230,6 +243,22 @@ const ResumeList: React.FC<ResumeListProps> = ({
   };
 
   // 当父组件的 currentPage 变化时更新本地状态（保持原逻辑不变）
+  // 拉周期列表并默认选中进行中的那一届：默认「全部周期」会把历届混在一起，
+  // 而管理员绝大多数时候只关心当前这一届
+  useEffect(() => {
+    let cancelled = false;
+    getAllCycles()
+      .then((res: any) => {
+        if (cancelled) return;
+        const list = res?.data ?? [];
+        setCycles(list);
+        const active = list.find((c: any) => c.isActive === 1) ?? list[0];
+        if (active) setCycleId(active.cycleId);
+      })
+      .catch(() => { /* 周期拉不到时退化为全部周期，不阻塞简历列表 */ });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (currentPage && currentPage !== localCurrentPage) {
       // eslint-disable-next-line no-console
@@ -263,7 +292,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
       loadResumes(1, pagination.pageSize);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder, onPageChange]);
+  }, [searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder, onPageChange]);
 
   // 获取状态信息
   // 简历状态三态：草稿 / 已提交 / 已截止（录取与否见「面试管理 → 结果与通知」）
@@ -382,6 +411,20 @@ const ResumeList: React.FC<ResumeListProps> = ({
               <Option value="name">姓名</Option>
               <Option value="major">专业</Option>
             </Select>
+          </div>
+
+          <div className="control-item department-filter-select">
+            <Select
+              style={{ width: '100%' }}
+              placeholder="招募周期"
+              value={cycleId}
+              onChange={setCycleId}
+              allowClear
+              options={cycles.map((c: any) => ({
+                value: c.cycleId,
+                label: `${c.cycleName}${c.isActive === 1 ? '（进行中）' : ''}`,
+              }))}
+            />
           </div>
 
           <div className="control-item department-filter-select">

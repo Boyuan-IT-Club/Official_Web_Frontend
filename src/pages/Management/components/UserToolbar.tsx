@@ -78,11 +78,19 @@ const Toolbar: React.FC<ToolbarProps> = ({
       try {
         const res: any = await getValidDept();
         const list = res?.data || res || [];
+        // 字段名是 deptName（Department 实体的 dept_name），不是 name。
+        // 原先写的 String(d.name ?? d) 在 d.name 为 undefined 时回退到整个对象，
+        // String({...}) 得到 "[object Object]"，于是下拉里全是这个。
+        //
+        // value 取部门名而非 deptId 是刻意的：后端按 user.dept 字符串精确匹配
+        // （UserMapper.xml: AND dept = #{dept}），批量设置部门的接口也收字符串。
         setDeptOptions(
-          (Array.isArray(list) ? list : []).map((d: any) => ({
-            value: String(d.name ?? d),
-            label: String(d.name ?? d),
-          })),
+          (Array.isArray(list) ? list : [])
+            .map((d: any) => {
+              const name = typeof d === 'string' ? d : (d?.deptName ?? d?.name);
+              return name ? { value: String(name), label: String(name) } : null;
+            })
+            .filter((o): o is { value: string; label: string } => o !== null),
         );
       } catch (e) {
         console.error(e);
