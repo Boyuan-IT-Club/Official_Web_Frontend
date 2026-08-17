@@ -15,6 +15,7 @@ import {
   ScheduleOutlined,
   FormOutlined,
   FlagOutlined,
+  CodeOutlined,
   LogoutOutlined,
   ExportOutlined,
 } from "@ant-design/icons";
@@ -43,6 +44,7 @@ const MENU_DEFS: Array<{
   { key: "/interviews", icon: <ScheduleOutlined />, label: "面试管理", anyOf: ["resume:audit", "resume:view"] },
   { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
+  { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
 ];
 
 const AdminLayout: React.FC = () => {

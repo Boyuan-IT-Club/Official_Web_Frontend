@@ -1,0 +1,76 @@
+.eval-center {
+  .page-title {
+    margin-bottom: 16px;
+  }
+
+  .bind-guide {
+    margin-bottom: 16px;
+  }
+
+  .latest-card {
+    margin-bottom: 16px;
+
+    .latest-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .latest-score {
+      min-width: 260px;
+      flex: 1;
+
+      .score-num {
+        font-size: 40px;
+        font-weight: 600;
+        line-height: 1.1;
+        color: rgba(0, 0, 0, 0.88);
+      }
+    }
+
+    .latest-tasks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .latest-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 12px;
+    }
+  }
+
+  .trend-card,
+  .history-card {
+    margin-bottom: 16px;
+  }
+
+  .report-detail {
+    .report-task {
+      margin-bottom: 8px;
+    }
+
+    .check-list {
+      list-style: none;
+      margin: 4px 0 0;
+      padding-left: 12px;
+
+      li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 2px 0;
+      }
+
+      .check-pass { color: #52c41a; }
+      .check-fail { color: #f5222d; }
+      .check-name { flex: 1; }
+      .check-points { color: rgba(0, 0, 0, 0.45); font-size: 12px; }
+      .check-empty { color: rgba(0, 0, 0, 0.35); }
+    }
+  }
+}

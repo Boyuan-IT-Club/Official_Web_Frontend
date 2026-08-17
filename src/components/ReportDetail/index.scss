@@ -1,0 +1,24 @@
+.report-detail {
+  .report-total {
+    margin-bottom: 16px;
+  }
+
+  .check-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+    }
+
+    .check-pass { color: #52c41a; }
+    .check-fail { color: #f5222d; }
+    .check-name { flex: 1; }
+    .check-points { color: rgba(0, 0, 0, 0.45); font-size: 12px; }
+    .check-empty { color: rgba(0, 0, 0, 0.35); }
+  }
+}

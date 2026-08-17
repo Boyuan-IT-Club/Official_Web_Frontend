@@ -1,0 +1,66 @@
+.eval-manage {
+  .eval-filter {
+    margin-bottom: 8px;
+  }
+
+  .rank {
+    display: inline-block;
+    min-width: 22px;
+    text-align: center;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.65);
+  }
+
+  .rank-1 { color: #d4a017; }
+  .rank-2 { color: #8a8a8a; }
+  .rank-3 { color: #b87333; }
+
+  .submission-list {
+    margin-bottom: 16px;
+
+    .submission-item {
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 4px 8px;
+      transition: background-color 0.2s;
+
+      &.active {
+        background: rgba(64, 128, 255, 0.08);
+      }
+      &:hover {
+        background: rgba(0, 0, 0, 0.03);
+      }
+    }
+  }
+
+  .divider-hr {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.06);
+    margin: 8px 0 16px;
+  }
+
+  .report-detail {
+    .report-total {
+      margin-bottom: 16px;
+    }
+
+    .check-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+
+      li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+      }
+
+      .check-pass { color: #52c41a; }
+      .check-fail { color: #f5222d; }
+      .check-name { flex: 1; }
+      .check-points { color: rgba(0, 0, 0, 0.45); font-size: 12px; }
+      .check-empty { color: rgba(0, 0, 0, 0.35); }
+    }
+  }
+}

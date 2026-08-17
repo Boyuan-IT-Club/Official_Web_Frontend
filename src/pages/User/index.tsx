@@ -21,6 +21,7 @@ interface EditFormValues {
   name: string;
   major?: string;
   phone?: string;
+  github?: string;
 }
 
 const PersonPage: React.FC = () => {
@@ -52,6 +53,8 @@ const PersonPage: React.FC = () => {
       const updateData: Record<string, string> = { name: values.name };
       if (values.phone) updateData.phone = values.phone;
       if (values.major) updateData.major = values.major;
+      // github 始终提交(空串 = 解绑,后端归一化存储)
+      updateData.github = values.github ?? '';
 
       const result = await dispatch(userActions.updateUserInfo(updateData));
       if (userActions.updateUserInfo.fulfilled.match(result)) {
@@ -123,9 +126,16 @@ const PersonPage: React.FC = () => {
                   </Descriptions.Item>
                   <Descriptions.Item label="邮箱">{userInfo?.email}</Descriptions.Item>
                   <Descriptions.Item label="电话">{userInfo?.phone || '未设置'}</Descriptions.Item>
+                  <Descriptions.Item label="GitHub 账号">
+                    {userInfo?.github ? (
+                      <a href={userInfo.github.startsWith('http') ? userInfo.github : `https://github.com/${userInfo.github}`} target="_blank" rel="noreferrer">
+                        {userInfo.github}
+                      </a>
+                    ) : '未绑定'}
+                  </Descriptions.Item>
                 </Descriptions>
                 <Button type="primary" icon={<EditOutlined />} onClick={() => {
-                  form.setFieldsValue({ name: userInfo?.name ?? '', major: userInfo?.major, phone: userInfo?.phone });
+                  form.setFieldsValue({ name: userInfo?.name ?? '', major: userInfo?.major, phone: userInfo?.phone, github: userInfo?.github ?? '' });
                   setIsEditModalVisible(true);
                 }}>
                   编辑个人信息
@@ -146,6 +156,9 @@ const PersonPage: React.FC = () => {
           <Form.Item name="name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}><Input /></Form.Item>
           <Form.Item name="major" label="专业"><Input placeholder="请输入您的专业" /></Form.Item>
           <Form.Item name="phone" label="电话" rules={[{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码' }]}><Input /></Form.Item>
+          <Form.Item name="github" label="GitHub 账号" extra="填写 GitHub 用户名或主页地址,用于关联 Autograder 评测提交;留空可解绑">
+            <Input placeholder="如 Zewang0217 或 https://github.com/Zewang0217" allowClear />
+          </Form.Item>
         </Form>
       </Modal>
     </div>
