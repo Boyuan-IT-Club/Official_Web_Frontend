@@ -15,10 +15,11 @@ import {
   fromBackendFields,
   saveResumeFields,
   type ResumeFieldUI,
+  type ResumeFieldType,
 } from '@/api/manage/resumeEntry';
 import ResumeFieldPanel from '@/pages/Management/components/ResumeFieldPanel';
 
-const FIELD_TYPE_OPTIONS = [
+const FIELD_TYPE_OPTIONS: { value: ResumeFieldType; label: string }[] = [
   { value: 'text', label: '单行文本' },
   { value: 'textarea', label: '多行文本' },
   { value: 'select', label: '下拉选择' },

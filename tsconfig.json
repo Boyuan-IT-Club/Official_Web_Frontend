@@ -4,7 +4,13 @@
     "lib": ["DOM", "DOM.Iterable", "ES2019"],
     "jsx": "react-jsx",
     "module": "ESNext",
-    "moduleResolution": "Bundler",
+    // 必须是 "node"：本仓库 TypeScript 是 4.9，"Bundler" 要 TS 5.0+ 才认。
+    // 写成 "Bundler" 时 tsc 以 TS6046 拒绝整个配置，webpack 里的
+    // fork-ts-checker 随之静默降级——表现是 npm run build 永远
+    // "Compiled successfully"，连「变量未定义」这种必崩的错都不报
+    // （曾因此把 setResumeFields is not defined 放到了生产）。
+    // 改这行前先确认 typescript 版本。
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
 

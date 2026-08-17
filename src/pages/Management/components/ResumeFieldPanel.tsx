@@ -18,7 +18,7 @@ import {
   DownOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import type { ResumeFieldUI } from '@/api/manage/resumeEntry';
+import type { ResumeFieldUI, ResumeFieldType } from '@/api/manage/resumeEntry';
 import {
   FIELD_TYPE_OPTIONS,
   FIELD_KEY_CATEGORY_MAP,
@@ -58,7 +58,7 @@ interface Props {
   onFieldsChange?: (fields: ResumeFieldUI[]) => void;
   onResetToDefault?: () => void;
   loading?: boolean;
-  fieldTypeOptions?: { value: string; label: string }[];
+  fieldTypeOptions?: { value: ResumeFieldType; label: string }[];
 }
 
 // 分类配置
@@ -130,7 +130,7 @@ const SortableItem: React.FC<{
   name: number;
   onDelete: (index: number) => void;
   onSortOrderChange: (value: number | null, index: number) => void;
-  fieldTypeOptions: { value: string; label: string }[];
+  fieldTypeOptions: { value: ResumeFieldType; label: string }[];
 }> = ({ id, field, index, form, name, onDelete, onSortOrderChange, fieldTypeOptions }) => {
   const {
     attributes,
@@ -349,7 +349,7 @@ const CategoryCard: React.FC<{
   form: any;
   onDelete: (index: number) => void;
   onSortOrderChange: (value: number | null, index: number) => void;
-  fieldTypeOptions: { value: string; label: string }[];
+  fieldTypeOptions: { value: ResumeFieldType; label: string }[];
   categoryName?: string;
 }> = ({
   category,
@@ -489,7 +489,7 @@ const ResumeFieldPanel: React.FC<Props> = ({
   }, [fields, form]);
 
   // 在指定分类下新增一个指定类型的字段
-  const addField = (fieldType: string, category: number) => {
+  const addField = (fieldType: ResumeFieldType, category: number) => {
     const current = form.getFieldValue('fields') || [];
 
     // 计算最大的 sortOrder
