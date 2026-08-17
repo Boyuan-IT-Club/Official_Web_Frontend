@@ -18,6 +18,8 @@ import {
   CodeOutlined,
   LogoutOutlined,
   ExportOutlined,
+  BgColorsOutlined,
+  CheckOutlined,
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -25,6 +27,7 @@ import { fetchUserInfo, logout } from "@/store/modules/user";
 import { useAppDispatch } from "@/store/hooks";
 import { getToken } from "@/utils";
 import { getJwtPermissionCodes } from "@/utils/jwt";
+import { useSkin } from "@/theme/SkinProvider";
 import logo from "../../assets/SingleLogo.png";
 import "./index.scss";
 
@@ -55,6 +58,7 @@ const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
 
   const permCodes = useMemo(() => getJwtPermissionCodes(getToken()), []);
+  const { skin, skins, setSkinKey } = useSkin();
 
   useEffect(() => {
     if (userInfo?.username) return;
@@ -80,6 +84,24 @@ const AdminLayout: React.FC = () => {
   };
 
   const userMenuItems = [
+    // 皮肤切换：只有一套皮肤时不出现这一项，免得点开是个只有一个选项的菜单
+    ...(skins.length > 1
+      ? [
+        {
+          key: "skin",
+          icon: <BgColorsOutlined />,
+          label: "界面皮肤",
+          children: skins.map((s) => ({
+            key: `skin:${s.key}`,
+            label: s.name,
+            // 当前选中项打勾，而不是靠高亮——下拉子菜单里高亮容易和 hover 混淆
+            icon: s.key === skin.key ? <CheckOutlined /> : <span style={{ width: 14 }} />,
+            onClick: () => setSkinKey(s.key),
+          })),
+        },
+        { type: "divider" as const },
+      ]
+      : []),
     {
       key: "user-site",
       icon: <ExportOutlined />,
