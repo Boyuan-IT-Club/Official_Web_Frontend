@@ -1,10 +1,12 @@
+@use "../../styles/tokens" as t;
+
 // 变量定义 - 保持原有名称不动
 $bg-color: #ffffff;       // 原本的背景蓝变量值为白，现作为内部主框架的底色（白）
 $card-bg: #ffffff;        // 卡片白
 $primary-color: #2980b9;  // 主色调深蓝
 $text-color: #333333;
 $action-color: #4c5886;   // 活动按钮深灰蓝
-$border-radius: 12px;     // 圆角弧度
+$border-radius: t.$radius-card;     // 圆角弧度
 
 // 新增：最外层满屏淡蓝色的变量
 $outer-bg: #e3f2fd;       // 柔和的淡蓝色
@@ -12,17 +14,17 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
 // 混合宏 - 复用卡片样式 (保持完全不动)
 @mixin card-style {
   background: $card-bg;
-  border: 3px solid $text-color; 
+  border: 1px solid $text-color; 
   border-radius: $border-radius;
   position: relative;
   margin-bottom: 3rem; 
   padding: 2.5rem 1.5rem 1.5rem 1.5rem; 
-  box-shadow: 6px 6px 0px rgba($text-color, 0.15); 
+  box-shadow: t.$shadow-md; 
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 
   &:hover {
     transform: translateY(-3px);
-    box-shadow: 8px 8px 0px rgba($text-color, 0.2);
+    box-shadow: t.$shadow-md;
   }
 }
 
@@ -45,8 +47,8 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
   color: $text-color;
   width: 90%;                  // 保证移动端不贴边
   max-width: 1000px;           // 最大宽度从 1400px 调小到 1000px，实现“变窄”效果
-  border-radius: 24px;         // 给内部框架加个大圆角
-  box-shadow: 0 15px 35px rgba($primary-color, 0.1); // 加一层柔和的阴影，像一张悬浮的白纸
+  border-radius: t.$radius-pill;         // 给内部框架加个大圆角
+  box-shadow: t.$shadow-lg; // 加一层柔和的阴影，像一张悬浮的白纸
   
   display: flex;
   flex-direction: column; 
@@ -66,7 +68,7 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
       width: 48px;       
       height: 48px;      
       border-radius: 50%; 
-      border: 2px solid $primary-color; 
+      border: 1px solid $primary-color; 
       object-fit: cover;
     }
 
@@ -87,16 +89,16 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
         color: #fff;
         border: 2px solid transparent;
         padding: 8px 20px;
-        border-radius: 8px;
+        border-radius: t.$radius-sm;
         font-weight: bold;
         cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        transition: background t.$dur-base ease, border-color t.$dur-base ease, transform t.$dur-fast ease;
+        box-shadow: t.$shadow-sm;
 
         &:hover {
           background-color: darken($action-color, 8%);
           transform: translateY(-2px);
-          box-shadow: 4px 4px 0px rgba(0,0,0,0.15);
+          box-shadow: t.$shadow-md;
         }
       }
     }
@@ -109,11 +111,11 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
     left: 50%;
     transform: translateX(-50%);
     background-color: $card-bg; 
-    border: 3px solid $text-color; 
-    border-radius: 20px;
+    border: 1px solid $text-color; 
+    border-radius: t.$radius-pill;
     padding: 4px 24px;
     z-index: 1;
-    box-shadow: 3px 3px 0px rgba($text-color, 0.1);
+    box-shadow: t.$shadow-sm;
 
     h2 {
       margin: 0;
@@ -157,7 +159,7 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
         align-items: center; 
         gap: 25px;
         background: $card-bg;
-        transition: all 0.3s ease;
+        transition: background t.$dur-base ease, border-color t.$dur-base ease, transform t.$dur-fast ease;
 
         &:hover {
           border-color: $primary-color;
@@ -169,8 +171,8 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
           width: 48px;
           height: 48px;
           background-color: lighten($primary-color, 45%); 
-          border: 2px solid $primary-color; 
-          border-radius: 12px; 
+          border: 1px solid $primary-color; 
+          border-radius: t.$radius-card; 
           flex-shrink: 0; 
           display: flex;
           align-items: center;
@@ -202,3 +204,19 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
     }
   }
   }
+
+// 本页白面（由 content-container 拆卡后补）
+// 外层 .content-container 不再提供白底（原先是"一个白色大卡包住所有内容"，
+// 卡片里再套卡片会把层次全糊在一起）。本页没有自己的卡片，因此在这里补一层白面，
+// 让内容浮在 $tech-light 灰底之上，而不是直接贴着灰底。
+.page-wrapper {
+  background: #fff;
+  border: t.$border-hairline;
+  border-radius: t.$radius-card;
+  padding: t.$gap-lg;
+
+  @media (max-width: 768px) {
+    padding: t.$gap-md;
+    border-radius: t.$radius-sm;
+  }
+}

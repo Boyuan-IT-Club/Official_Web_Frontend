@@ -1,3 +1,5 @@
+@use "../../styles/tokens" as t;
+
 // 简历速览排版
 .resume-view {
   .rv-head {
@@ -23,7 +25,7 @@
       width: 72px;
       height: 96px;
       object-fit: cover;
-      border-radius: 6px;
+      border-radius: t.$radius-control;
       border: 1px solid #e5e9f0;
       flex-shrink: 0;
     }

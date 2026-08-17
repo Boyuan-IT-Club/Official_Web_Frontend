@@ -1,3 +1,5 @@
+@use "../../styles/tokens" as t;
+
 // 申请进度页
 .app-progress-page {
   max-width: 780px;
@@ -36,7 +38,7 @@
         margin-left: 8px;
         padding: 0 8px;
         border: 1px solid rgba(255, 255, 255, 0.5);
-        border-radius: 10px;
+        border-radius: t.$radius-card;
         font-size: 11px;
       }
     }
@@ -108,7 +110,7 @@
         margin-left: 8px;
         padding: 0 8px;
         border: 1px solid rgba(255, 255, 255, 0.5);
-        border-radius: 10px;
+        border-radius: t.$radius-card;
         font-size: 11px;
       }
     }
@@ -120,3 +122,19 @@
 }
 
 // 简历速览的排版已移至 @/components/ResumeQuickView，学生端与管理端共用
+
+// 本页白面（由 content-container 拆卡后补）
+// 外层 .content-container 不再提供白底（原先是"一个白色大卡包住所有内容"，
+// 卡片里再套卡片会把层次全糊在一起）。本页没有自己的卡片，因此在这里补一层白面，
+// 让内容浮在 $tech-light 灰底之上，而不是直接贴着灰底。
+.app-progress-page {
+  background: #fff;
+  border: t.$border-hairline;
+  border-radius: t.$radius-card;
+  padding: t.$gap-lg;
+
+  @media (max-width: 768px) {
+    padding: t.$gap-md;
+    border-radius: t.$radius-sm;
+  }
+}

@@ -1,17 +1,34 @@
 import type { ThemeConfig } from 'antd';
 
 /**
- * 用户端主题：目前刻意为空。
+ * 用户端主题。
  *
- * 曾经在这里做过一版全站改造（品牌深蓝 + 圆角 + Bento 首页），效果不理想已整体回滚，
- * 用户端因此回到 antd 默认外观 —— 也就是各页面自带的 SCSS 说了算，与改造前一致。
+ * ⚠️ 刻意不设任何颜色 token —— 配色完全沿用各页面原有的 SCSS 变量，一个字不改。
+ * （曾经在这里统一过品牌深蓝，整站观感反而变差，已回滚。）
  *
- * 保留这个文件而不是删掉，是因为 craco 的 @theme 别名按 REACT_APP_MODE 二选一，
- * 删掉会让用户端构建找不到模块。空对象等价于「不覆盖任何 token」。
- *
- * 下次要做用户端视觉改造时，从这里加 token 是最省事的入口：
- * 一处改动即可影响全部用户端页面，不必逐页改 SCSS。
+ * 这里只统一「怎么画」，与 src/styles/_tokens.scss 的 SCSS 刻度保持一致：
+ * antd 组件的圆角与阴影此前和自定义 SCSS 各说各话，同一个页面里
+ * antd 的 Card（6px 圆角 + 默认投影）和手写卡片（12px + 自定义阴影）并排出现，
+ * 这是"整体不对但说不清哪里"的来源之一。
  */
-const userTheme: ThemeConfig = {};
+const userTheme: ThemeConfig = {
+  token: {
+    // 与 _tokens.scss 的 $radius-control / $radius-sm / $radius-card 对齐
+    borderRadius: 8,
+    borderRadiusLG: 12,
+    borderRadiusSM: 6,
+    fontSize: 14,
+    controlHeight: 36,
+    wireframe: false,
+  },
+  components: {
+    // 按钮的默认投影去掉：站内卡片已统一用细边框表达层次，按钮再带投影就显脏
+    Button: { primaryShadow: 'none', defaultShadow: 'none', dangerShadow: 'none', fontWeight: 500 },
+    Card: { borderRadiusLG: 12 },
+    Modal: { borderRadiusLG: 12, titleFontSize: 16 },
+    Alert: { borderRadiusLG: 12 },
+    Drawer: { borderRadiusLG: 12 },
+  },
+};
 
 export default userTheme;

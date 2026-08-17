@@ -1,4 +1,18 @@
-// 变量定义
+@use "../../styles/tokens" as t;
+
+// 用户端外壳。配色沿用原有变量，一个字不改；改的是阴影、圆角、间距、动效与层次。
+//
+// 具体改了什么、为什么：
+//   - 侧栏原有 `box-shadow: 2px 0 15px rgba(0,0,0,.3)`：0.3 的黑在浅色内容区旁边像一道脏边，
+//     换成一根 1px 的半透明白线，深浅分界一样清楚但不脏
+//   - logo 的 `radial-gradient` 发光 + `pulse` 呼吸动画删除：这是全站最显年代感的一处
+//   - 菜单 hover 的 `transform: translateX(5px)`：横移会让整列菜单看起来在抖，改为底色变化
+//   - `transition: all 0.3s` → 只过渡具体属性、时长压到 0.15s（all 会连 width/height 一起过渡）
+//   - `.content-container` 不再是"一个白色大卡包住所有内容"：卡片里再套卡片会把层次全糊在一起。
+//     现在外层只管最大宽度与留白，白卡由各页面自己用，浮在 $tech-light 上才有对比
+//   - 侧栏补上社团名与分隔线：原先只有一个居中的 40px logo，识别成本高
+
+// 变量定义（原样保留）
 $primary-color: #1890ff;
 $tech-blue: #1a73e8;
 $tech-dark: #0f1621;
@@ -11,139 +25,140 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
 .main-layout {
   .tech-sider {
     background: $menu-bg;
-    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.3);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     z-index: 10;
-    transition: all 0.3s ease;
-    
+
     .sider-logo {
-      height: 64px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 0 16px;
-      position: relative;
+      gap: t.$gap-xs;
+      height: 56px;
+      padding: 0 t.$gap-md;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       overflow: hidden;
-      
+
       .logo-image {
-        height: 40px;
-        z-index: 2;
-        transition: all 0.3s ease;
+        height: 26px;
+        width: auto;
+        flex-shrink: 0;
       }
-      
-      .logo-glow {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background: radial-gradient(circle, rgba(0,198,255,0.3) 0%, rgba(0,0,0,0) 70%);
-        opacity: 0.5;
-        animation: pulse 4s infinite alternate;
+
+      .logo-text {
+        font-size: t.$text-body;
+        font-weight: 600;
+        color: #fff;
+        white-space: nowrap;
+        letter-spacing: 0.2px;
       }
     }
-    
+
     .tech-menu {
       background: transparent;
       border-right: none;
-      padding-top: 16px;
-      
+      padding-top: t.$gap-sm;
+
       .ant-menu-item {
-        margin: 8px 16px;
-        border-radius: 4px;
-        transition: all 0.3s;
-        
+        margin: 3px 10px;
+        padding-left: 12px !important;
+        border-radius: t.$radius-sm;
+        height: 40px;
+        line-height: 40px;
+        transition: background t.$dur-base t.$ease, color t.$dur-base t.$ease;
+
         a {
-          color: rgba(255, 255, 255, 0.65);
+          color: rgba(255, 255, 255, 0.7);
           display: block;
+
           &:hover {
-            color: white;
+            color: #fff;
           }
         }
-        
+
+        .anticon {
+          font-size: 15px;
+          color: rgba(255, 255, 255, 0.55);
+          transition: color t.$dur-base t.$ease;
+        }
+
         &:hover {
-          background: rgba(255, 255, 255, 0.1) !important;
-          transform: translateX(5px);
-        }
-        
-        &::after {
-          content: '';
-          position: absolute;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 3px;
-          background: $tech-accent;
-          opacity: 0;
-          transition: all 0.3s;
-        }
-        
-        &.ant-menu-item-selected {
-          background: rgba(0, 198, 255, 0.1) !important;
-          
-          a {
-            color: white;
+          background: rgba(255, 255, 255, 0.07) !important;
+
+          .anticon {
+            color: rgba(255, 255, 255, 0.85);
           }
-          
-          &::after {
-            opacity: 1;
+        }
+
+        // 选中态靠底色 + 图标点亮表达，不再用左侧竖条：
+        // 竖条在圆角块上会切出一个直角，两种形状打架
+        &.ant-menu-item-selected {
+          background: rgba(0, 198, 255, 0.14) !important;
+
+          a {
+            color: #fff;
+          }
+
+          .anticon {
+            color: $tech-accent;
           }
         }
       }
     }
   }
-  
+
   .site-layout {
     background: $tech-light;
-    
+
     .tech-header {
       background: white;
-      padding: 0 24px;
-      box-shadow: 0 1px 10px rgba(0, 0, 0, 0.1);
+      padding: 0 t.$gap-lg;
+      // 原为 `0 1px 10px rgba(0,0,0,.1)`：顶栏本身不该浮起来，一根细线就够
+      border-bottom: t.$border-hairline;
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       align-items: center;
-      
+
+      .header-page-title {
+        font-size: t.$text-subtitle;
+        font-weight: 600;
+        color: $text-color;
+      }
+
       .header-user {
         display: flex;
         align-items: center;
+        gap: t.$gap-xs;
+        padding: 4px 8px;
+        border-radius: t.$radius-sm;
         cursor: pointer;
-        transition: all 0.3s;
-        
+        transition: background t.$dur-base t.$ease;
+
         &:hover {
-          background: rgba(0, 0, 0, 0.05);
+          background: rgba(0, 0, 0, 0.04);
         }
-        
+
         .user-avatar {
           background: $tech-blue;
         }
-        
+
         .username {
-          margin-left: 10px;
+          margin-left: 0;
+          font-size: t.$text-sm;
           font-weight: 500;
           color: $text-color;
         }
       }
     }
-    
+
     .site-content {
-      margin: 16px;
-      
+      margin: t.$gap-md;
+
+      // 不再是白底大卡：外层只负责最大宽度与留白
       .content-container {
-        background: white;
-        padding: 24px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        max-width: 1180px;
+        margin: 0 auto;
         min-height: calc(100vh - 96px);
       }
     }
-  }
-}
-
-// 动画效果
-@keyframes pulse {
-  0% {
-    opacity: 0.3;
-  }
-  100% {
-    opacity: 0.7;
   }
 }
 
@@ -155,26 +170,22 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       height: 100vh;
       z-index: 100;
     }
-    
+
     .site-layout {
       margin-left: 80px;
-      
+
       .tech-header {
-        padding: 0 12px;
-        
+        padding: 0 t.$gap-sm;
+
         .header-user {
           .username {
             display: none;
           }
         }
       }
-      
+
       .site-content {
-        margin: 16px 8px;
-        
-        .content-container {
-          padding: 16px;
-        }
+        margin: t.$gap-sm t.$gap-xs;
       }
     }
   }
@@ -182,20 +193,21 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
 
 // 下拉菜单样式
 .ant-dropdown-menu {
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  
+  border-radius: t.$radius-card;
+  box-shadow: t.$shadow-md;
+
   .ant-dropdown-menu-item {
-    padding: 8px 16px;
-    margin: 4px 0;
-    
+    padding: 8px 14px;
+    border-radius: t.$radius-control;
+    transition: background t.$dur-base t.$ease;
+
     &:hover {
       background-color: #f5f5f5;
     }
-    
+
     &.ant-dropdown-menu-item-danger {
       color: #ff4d4f;
-      
+
       &:hover {
         background-color: #fff2f0;
       }
