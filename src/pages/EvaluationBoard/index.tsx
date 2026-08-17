@@ -6,6 +6,7 @@ import {
   Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
 } from 'antd';
 import { LockOutlined, SettingOutlined, UnlockOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { getToken, parseJwtPayload } from '@/utils';
 import { hasPermission } from '@/utils/jwt';
@@ -39,6 +40,7 @@ interface DerivedRow extends BoardRow {
 }
 
 const EvaluationBoardPage: React.FC = () => {
+  const navigate = useNavigate();
   const token = getToken();
   const { userInfo } = useSelector((state: any) => state.user);
   const jwt = useMemo(() => (token ? parseJwtPayload(token) : null), [token]);
@@ -277,7 +279,18 @@ const EvaluationBoardPage: React.FC = () => {
       width: 80,
       fixed: 'right',
       render: (_v: unknown, row: DerivedRow) => (
-        <Button type="link" size="small" onClick={() => openRow(row)}>详情</Button>
+        <Space size={2}>
+          {/* 工作台是新的主入口：左简历右逐维度评价，且有独立 URL 可分享给同场面试官。
+              抽屉保留为「快速看一眼」，不必为了瞄一下分数跳走整页 */}
+          <Button
+            type="link"
+            size="small"
+            onClick={() => navigate(`/evaluation/${cycleId}/${row.scheduleId}`)}
+          >
+            打分
+          </Button>
+          <Button type="link" size="small" onClick={() => openRow(row)}>速览</Button>
+        </Space>
       ),
     },
   ];

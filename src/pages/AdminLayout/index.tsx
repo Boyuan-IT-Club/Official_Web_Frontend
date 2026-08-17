@@ -112,15 +112,23 @@ const AdminLayout: React.FC = () => {
         collapsed={collapsed}
         onCollapse={setCollapsed}
         width={220}
-        theme="dark"
-        style={{ position: "fixed", height: "100vh", left: 0, top: 0, bottom: 0, zIndex: 100 }}
+        theme="light"
+        style={{
+          position: "fixed",
+          height: "100vh",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 100,
+          borderRight: "1px solid #e8e8ed",
+        }}
       >
         <div className="admin-sider-logo" onClick={() => navigate("/manage")} style={{ cursor: "pointer" }}>
           <img src={logo} alt="博远信息技术社" className="logo-image" />
           {!collapsed && <span className="logo-text">管理后台</span>}
         </div>
         <Menu
-          theme="dark"
+          theme="light"
           mode="inline"
           selectedKeys={selectedKeys}
           items={menuItems}

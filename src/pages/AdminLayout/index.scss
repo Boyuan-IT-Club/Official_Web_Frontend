@@ -1,9 +1,11 @@
-// 管理端外壳（B1：石墨深侧栏 + 灰底浅内容）。
+// 管理端外壳（T1 靛蓝开发者风：整体浅色 + 靛蓝强调 + 等宽字点缀）。
 //
-// 上一版做成了全浅色壳，结果侧栏/顶栏/内容区三个面都接近白，层次分不开、整体发飘。
-// 现在侧栏交回深色（石墨灰，非发蓝的 #001529），内容区底色压到 #f1f3f6，
-// 白卡浮在上面对比明确。侧栏与顶栏的具体色值在 src/theme/admin.ts 的 token 里，
-// 这里只处理 antd token 覆盖不到的自定义元素，避免样式来源分散。
+// 演进：antd 默认深蓝壳 → 全浅色壳（三面近白、层次分不开）→ 石墨深侧栏
+//      → 当前 T1 浅色。最后这步是业务侧要求：管理端不要暗色调。
+//
+// 浅色后台的层次靠三层明度递进，而不是深色块：
+//   页面 #fcfcfd → 分区 #f2f2f5 → 卡片 #fff + 1px 边框
+// 具体色值在 src/theme/admin.ts 的 token 里，这里只处理 token 覆盖不到的自定义元素。
 
 .admin-layout {
   .admin-sider-logo {
@@ -12,7 +14,7 @@
     gap: 10px;
     height: 48px;
     padding: 0 16px;
-    border-bottom: 1px solid #2a2e37;
+    border-bottom: 1px solid #e8e8ed;
 
     .logo-image {
       height: 24px;
@@ -21,7 +23,7 @@
     }
 
     .logo-text {
-      color: #f1f3f4;
+      color: #1c1c1f;
       font-size: 14px;
       font-weight: 600;
       white-space: nowrap;
@@ -34,14 +36,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 20px;
-    // 顶栏与内容区之间要有明确分界，否则白顶栏会和白卡糊在一起
-    border-bottom: 1px solid #dfe3e8;
+    border-bottom: 1px solid #e8e8ed;
   }
 
   .admin-page-title {
     font-size: 15px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: #1c1c1f;
   }
 
   .admin-user {
@@ -54,12 +55,12 @@
     transition: background 0.15s ease;
 
     &:hover {
-      background: #f1f3f4;
+      background: #f2f2f5;
     }
   }
 
   .admin-user-name {
-    color: #5f6368;
+    color: #5c5c66;
     font-size: 13px;
   }
 }
