@@ -1,47 +1,61 @@
 /**
- * 品牌配色的单一来源。
+ * 配色的单一来源。
  *
- * 此前全站散着四套蓝：#1890ff（antd v4 默认）、#1a73e8、#2980b9、#00c6ff（霓虹青），
- * 而真正的品牌色是 #1f3a60（简历 PDF 导出用的也是它）。统一到这里，避免继续分裂。
+ * 用户端曾散着四套蓝（#1890ff / #1a73e8 / #2980b9 / #00c6ff），
+ * 而品牌色是 #1f3a60（简历 PDF 导出用的也是它）。BRAND 保留品牌色定义，
+ * 但用户端目前不套用（那版改造观感变差已回滚），只由管理端与导出物使用。
  */
 export const BRAND = {
-  /** 品牌深蓝：只做点缀——logo、选中态、关键数字、主按钮 */
+  /** 品牌深蓝 */
   primary: '#1f3a60',
   primaryHover: '#2c4f7c',
-  primaryActive: '#16294480',
-  /** 选中态底色：品牌蓝的极浅色，用于菜单高亮与标签 */
   primaryBg: '#eaeff7',
   primaryBorder: '#c9d4e5',
 } as const;
 
+/**
+ * 管理端主题 T1「靛蓝开发者风」。
+ *
+ * 演进：antd 默认深蓝壳(#001529) → 全浅色壳(层次分不开) → 石墨深侧栏
+ *      → 当前 T1 浅色 + 靛蓝强调。
+ * 最后这一步是业务侧的明确要求：管理端不要暗色调，要偏"开发工具"的现代观感。
+ *
+ * 靛蓝而非品牌深蓝：#1f3a60 明度太低，在浅色底上做强调色会显沉；
+ * #5b5bd6 在白底上对比足够又不刺眼，长时间看表格不累。
+ * 与用户端的蓝同属冷色系，两个站看着仍是一家。
+ */
+export const T1 = {
+  /** 强调色：主按钮、选中态、关键数字、链接 */
+  accent: '#5b5bd6',
+  accentHover: '#6d6de0',
+  accentActive: '#4a4ac0',
+  /** 极浅底：菜单选中、标签、徽章 */
+  accentBg: '#eeeefc',
+  /** 浅底上的深色文字（对比度达标） */
+  accentText: '#3c3489',
+  accentBorder: '#d8d8e0',
+} as const;
+
 export const NEUTRAL = {
-  /**
-   * 页面底色。第一版用过 #fbfbfc，结果侧栏/顶栏/内容区三个面都接近白，
-   * 层次分不开、整体发飘，所以这里明确压灰，让白卡真正"浮"起来。
-   */
-  pageBg: '#f1f3f6',
-  /** 内容区里卡片的底色 */
+  /** 页面底色：略带冷调的近白，白卡浮在上面才有层次 */
+  pageBg: '#fcfcfd',
+  /** 内容区更实一档的分区底（表头、只读区） */
+  subtleBg: '#f2f2f5',
   cardBg: '#ffffff',
-  /** 分隔线：比 #e8eaed 实一档，否则在灰底上几乎看不见 */
-  border: '#e1e5ea',
-  borderStrong: '#dfe3e8',
-  textPrimary: '#1a1a1a',
-  textSecondary: '#5f6368',
-  textMuted: '#80868b',
+  /** 分隔线 */
+  border: '#e8e8ed',
+  borderStrong: '#d8d8e0',
+  textPrimary: '#1c1c1f',
+  textSecondary: '#5c5c66',
+  textMuted: '#8a8a94',
+  textFaint: '#a8a8b3',
 } as const;
 
 /**
- * 管理端侧栏用的石墨深色。
+ * 等宽字栈。
  *
- * 刻意用中性石墨灰而不是深蓝：antd 默认的 #001529 之所以显旧，
- * 是因为它是高饱和的"发蓝深色"；石墨灰不抢色，任何强调色放上去都干净。
+ * "开发感"里最有效的一笔其实不是配色，而是把学号、时间、分数这类
+ * 定长/数值信息改用等宽字——数字纵向对齐后，表格一眼就能扫。
  */
-export const GRAPHITE = {
-  bg: '#1c1f26',
-  bgElevated: '#2b303b',
-  border: '#2a2e37',
-  text: '#f1f3f4',
-  textMuted: '#9aa0a6',
-  /** 深底上的强调色：品牌深蓝在深色里辨识度不足，改用其浅化版本 */
-  accent: '#8ab4f8',
-} as const;
+export const MONO_FONT =
+  "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";

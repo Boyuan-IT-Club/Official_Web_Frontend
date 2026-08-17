@@ -33,6 +33,17 @@ export const STATUS_COL = 'status';
 const DIMENSION_COL_PREFIX = 'dim';
 
 /** 评分维度的列ID，形如 dim:12 */
+/**
+ * 每个维度自己的评语键，形如 dim:12:note。
+ *
+ * 原先整行只有一个 comment 总评框，面试官得把几个维度的话揉进一段，
+ * 事后分不清哪句针对哪一项、是谁写的。与服务端 doc-model.js 的
+ * dimensionNoteColId 必须保持一致，否则两边读写的不是同一格。
+ */
+export function dimensionNoteColId(dimensionId: number): string {
+  return `${dimensionColId(dimensionId)}${SEPARATOR}note`;
+}
+
 export function dimensionColId(dimensionId: number): string {
   return `${DIMENSION_COL_PREFIX}${SEPARATOR}${dimensionId}`;
 }
@@ -265,6 +276,8 @@ export interface CollabBoard {
   readEvaluation: (scheduleId: number) => RowEvaluation;
   writeScore: (scheduleId: number, colId: string, score: number | null) => void;
   writeComment: (scheduleId: number, text: string) => void;
+  /** 写某个维度的独立评语（Y.Text，多人同时编辑走字符级合并） */
+  writeDimensionNote: (scheduleId: number, dimensionId: number, text: string) => void;
   writeRecommendation: (scheduleId: number, value: number | null) => void;
   writeStatus: (scheduleId: number, status: number) => void;
   /** 广播我正在看哪位候选人 */
@@ -497,6 +510,22 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     [transact],
   );
 
+  const writeDimensionNote = useCallback(
+    (scheduleId: number, dimensionId: number, text: string) => {
+      const colId = dimensionNoteColId(dimensionId);
+      transact((rowMap) => {
+        let target = rowMap.get(colId);
+        if (!(target instanceof Y.Text)) {
+          // 兜底新建：服务端播种时已预建，但管理员新增维度后、对账跑到之前会缺
+          target = new Y.Text();
+          rowMap.set(colId, target);
+        }
+        applyTextDiff(target as Y.Text, text);
+      }, scheduleId);
+    },
+    [transact],
+  );
+
   const writeRecommendation = useCallback(
     (scheduleId: number, value: number | null) => {
       transact((rowMap) => {
@@ -539,6 +568,7 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     readEvaluation,
     writeScore,
     writeComment,
+    writeDimensionNote,
     writeRecommendation,
     writeStatus,
     setActiveRow,

@@ -16,6 +16,7 @@ const Resume = lazy(() => import("@/pages/Resume"));
 const CycleManage = lazy(() => import("@/pages/CycleManage"));
 const InterviewManage = lazy(() => import("@/pages/InterviewManage"));
 const EvaluationBoard = lazy(() => import("@/pages/EvaluationBoard"));
+const EvaluationWorkspace = lazy(() => import("@/pages/EvaluationWorkspace"));
 const ActivityManage = lazy(() => import("@/pages/ActivityManage"));
 const EvaluationManage = lazy(() => import("@/pages/EvaluationManage"));
 
@@ -60,6 +61,12 @@ const router = createBrowserRouter([
       {
         path: "evaluation",
         element: <LazyLoad><EvaluationBoard /></LazyLoad>,
+      },
+      {
+        // 评价工作台：左简历右逐维度评价。独立 URL 是刻意的——
+        // 同场的另一位面试官可以直接收链接进来，抽屉做不到这点
+        path: "evaluation/:cycleId/:scheduleId",
+        element: <LazyLoad><EvaluationWorkspace /></LazyLoad>,
       },
       {
         path: "activities",
