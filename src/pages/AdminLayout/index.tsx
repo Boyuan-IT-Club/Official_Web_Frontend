@@ -5,7 +5,6 @@ import {
   Avatar,
   Typography,
   Dropdown,
-  Tag,
   message,
 } from "antd";
 import {
@@ -14,6 +13,7 @@ import {
   FolderOpenOutlined,
   CalendarOutlined,
   ScheduleOutlined,
+  FormOutlined,
   FlagOutlined,
   CodeOutlined,
   LogoutOutlined,
@@ -42,6 +42,7 @@ const MENU_DEFS: Array<{
   { key: "/resumes", icon: <FolderOpenOutlined />, label: "简历审核", anyOf: ["resume:view", "resume:audit"] },
   { key: "/cycles", icon: <CalendarOutlined />, label: "招募周期", anyOf: ["cycle:manage"] },
   { key: "/interviews", icon: <ScheduleOutlined />, label: "面试管理", anyOf: ["resume:audit", "resume:view"] },
+  { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
   { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
 ];
@@ -100,6 +101,10 @@ const AdminLayout: React.FC = () => {
   // 选中当前一级路径
   const selectedKeys = ["/" + (location.pathname.split("/")[1] || "manage")];
 
+  // 头部左侧显示当前页面名——原先放的是一个「管理端」标签，占位却不提供信息
+  const currentTitle =
+    MENU_DEFS.find((m) => m.key === selectedKeys[0])?.label ?? "管理后台";
+
   return (
     <AntdLayout className="admin-layout" style={{ minHeight: "100vh" }}>
       <Sider
@@ -124,11 +129,11 @@ const AdminLayout: React.FC = () => {
       </Sider>
       <AntdLayout style={{ marginLeft: collapsed ? 80 : 220, transition: "margin-left 0.2s" }}>
         <Header className="admin-header">
-          <Tag color="geekblue">管理端</Tag>
+          <span className="admin-page-title">{currentTitle}</span>
           <Dropdown menu={{ items: userMenuItems as any }} placement="bottomRight">
             <div className="admin-user">
               <Avatar size="small" icon={<UserOutlined />} src={userInfo?.avatar || undefined} />
-              <Text style={{ marginLeft: 8, color: "#fff" }}>
+              <Text className="admin-user-name">
                 {userInfo?.name || userInfo?.username || "管理员"}
               </Text>
             </div>

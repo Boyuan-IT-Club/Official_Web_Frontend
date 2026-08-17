@@ -1,13 +1,13 @@
 // src/pages/Resume/index.scss
 
 // --- 保留原有的变量定义 ---
-$primary-color: #1890ff;
-$tech-blue: #1a73e8;
+$primary-color: #1f3a60;   // 原为 antd v4 默认蓝
+$tech-blue: #1f3a60;   // 统一到品牌深蓝
 $tech-dark: #0f1621;
 $tech-light: #f8f9fa;
-$tech-accent: #00c6ff;
+$tech-accent: #1f3a60;   // 原为霓虹青 #00c6ff，统一到品牌深蓝
 $text-color: #333;
-$menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+$menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
 
 // --- 修改和新增的样式 ---
 

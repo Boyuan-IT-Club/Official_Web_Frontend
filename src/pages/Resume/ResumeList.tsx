@@ -141,7 +141,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     searchText: '',
     searchType: 'name',
     expectedDepartment: '',
-    statusFilter: '2,3,4,5',
+    statusFilter: '2',
     sortBy: 'submitted_at',
     sortOrder: 'DESC',
   });
@@ -152,7 +152,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [expectedDepartment, setExpectedDepartment] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('submitted_at');
   const [sortOrder, setSortOrder] = useState<string>('DESC');
-  const [statusFilter, setStatusFilter] = useState<string>('2,3,4,5');
+  const [statusFilter, setStatusFilter] = useState<string>('2');
   const [isStartingReview, setIsStartingReview] = useState<boolean>(false);
 
   // 用于高亮显示当前排序方式
@@ -266,19 +266,16 @@ const ResumeList: React.FC<ResumeListProps> = ({
   }, [searchText, searchType, expectedDepartment, statusFilter, sortBy, sortOrder, onPageChange]);
 
   // 获取状态信息
+  // 简历状态三态：草稿 / 已提交 / 已截止（录取与否见「面试管理 → 结果与通知」）
   const getStatusInfo = (status: number) => {
     switch (status) {
-      case 5:
-        return { text: '已拒绝', color: 'red', icon: <CloseCircleOutlined /> };
-      case 4:
-        return { text: '已录取', color: 'green', icon: <CheckCircleOutlined /> };
       case 3:
-        return { text: '评审中', color: 'blue', icon: <ClockCircleOutlined /> };
+        return { text: '已截止（未提交）', color: 'default', icon: <CloseCircleOutlined /> };
       case 2:
-        return { text: '已提交', color: 'cyan', icon: <ClockCircleOutlined /> };
+        return { text: '已提交', color: 'processing', icon: <CheckCircleOutlined /> };
       case 1:
       default:
-        return { text: '草稿', color: 'default', icon: <ClockCircleOutlined /> };
+        return { text: '草稿', color: 'gold', icon: <ClockCircleOutlined /> };
     }
   };
 
@@ -322,47 +319,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     }
   };
 
-  // 处理"开始审核"按钮点击（保持原逻辑不变）
-  const handleStartReview = useCallback(async () => {
-    Modal.confirm({
-      title: '确认开始审核',
-      content: '此操作会将所有"已提交"的简历状态变为"评审中"，申请人将无法再修改简历。确定要继续吗？',
-      okText: '确定',
-      cancelText: '取消',
-      okType: 'danger',
-      onOk: async () => {
-        setIsStartingReview(true);
-        try {
-          const resumeIdsToReview = resumes
-            .filter((resume) => resume.status === 2)
-            .map((resume) => resume.resumeId);
-
-          if (resumeIdsToReview.length === 0) {
-            message.info('当前页没有状态为"已提交"的简历需要更新。');
-            setIsStartingReview(false);
-            return;
-          }
-
-          const updatePromises = resumeIdsToReview.map((resumeId) =>
-            dispatch(resumeActions.updateResumeStatus({ resumeId, status: 3 })).unwrap()
-          );
-
-          await Promise.all(updatePromises);
-
-          message.success(`已开始审核，成功将 ${resumeIdsToReview.length} 份"已提交"的简历状态更新为"评审中"`);
-
-          loadResumes(localCurrentPage, pagination.pageSize);
-        } catch (error: any) {
-          // eslint-disable-next-line no-console
-          console.error('开始审核失败:', error);
-          const errorMessage = error?.message || '操作失败，请稍后重试';
-          message.error(`开始审核失败: ${errorMessage}`);
-        } finally {
-          setIsStartingReview(false);
-        }
-      },
-    });
-  }, [dispatch, resumes, localCurrentPage, pagination.pageSize]);
+  // 「开始审核/评审中」流程已随三态化移除：录取与否在「面试管理 → 结果与通知」中决定
 
   // 排序菜单 - 添加 selectedKeys（保持原逻辑不变）
   const sortMenu = (
@@ -451,11 +408,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
               onChange={setStatusFilter}
               allowClear
             >
-              <Option value="2,3,4,5">全部可审核简历</Option>
+              <Option value="1,2">全部</Option>
               <Option value="2">已提交</Option>
-              <Option value="3">评审中</Option>
-              <Option value="4">已录取</Option>
-              <Option value="5">已拒绝</Option>
+              <Option value="1">草稿</Option>
             </Select>
           </div>
 
@@ -463,18 +418,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
             <Dropdown overlay={sortMenu} trigger={['click']}>
               <Button icon={<FilterOutlined />}>排序方式</Button>
             </Dropdown>
-          </div>
-
-          <div className="control-item start-review-button">
-            <Button
-              type="primary"
-              danger
-              onClick={handleStartReview}
-              loading={isStartingReview}
-              disabled={isStartingReview || adminLoading}
-            >
-              开始审核
-            </Button>
           </div>
 
           <div className="control-item results-info-wrapper">

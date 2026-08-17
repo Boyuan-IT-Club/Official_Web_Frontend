@@ -140,35 +140,17 @@ type ResumeDetailProps = {
   onApprove?: (resumeId: string | number) => void;
   onReject?: (resumeId: string | number) => void;
   onDownload?: (resumeId: string | number) => void;
+  /** 返回按钮文案，默认「返回列表」 */
+  backText?: string;
 };
 
 // --- 主要组件 ---
-const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload }) => {
+const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText }) => {
   if (!resume) {
     return <div className="coming-soon">请选择要查看的简历</div>;
   }
 
-  const handleApproveWithConfirm = (): void => {
-    Modal.confirm({
-      title: '确认通过简历',
-      content: `确定要通过 ${getFieldValueFromResume(resume, '姓名') || '该'} 的简历吗？`,
-      okText: '通过',
-      cancelText: '取消',
-      okType: 'primary',
-      onOk: () => onApprove?.(resume.resumeId),
-    });
-  };
-
-  const handleRejectWithConfirm = (): void => {
-    Modal.confirm({
-      title: '确认拒绝简历',
-      content: `确定要拒绝 ${getFieldValueFromResume(resume, '姓名') || '该'} 的简历吗？`,
-      okText: '拒绝',
-      cancelText: '取消',
-      okType: 'danger',
-      onOk: () => onReject?.(resume.resumeId),
-    });
-  };
+  // 审核按钮已移除：录取与否在「面试管理 → 结果与通知」中决定
 
   // 提取数据
   const photoBase64 = getFieldValueFromResume(resume, '个人照片');
@@ -222,19 +204,9 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
     <div className="resume-detail-container">
       <div className="detail-header">
         <Button icon={<ArrowLeftOutlined />} onClick={() => onBack?.()} type="primary" ghost>
-          返回列表
+          {backText || '返回列表'}
         </Button>
         <Space>
-          {resume.status === 3 && (
-            <>
-              <Button type="primary" icon={<CheckCircleOutlined />} onClick={handleApproveWithConfirm}>
-                通过
-              </Button>
-              <Button danger icon={<CloseCircleOutlined />} onClick={handleRejectWithConfirm}>
-                拒绝
-              </Button>
-            </>
-          )}
           <Button type="default" icon={<DownloadOutlined />} onClick={() => onDownload?.(resume.resumeId)}>
             下载PDF
           </Button>

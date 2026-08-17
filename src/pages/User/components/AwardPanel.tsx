@@ -8,10 +8,11 @@ import {
   Modal,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined, EditOutlined, PlusOutlined, TrophyOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, InfoCircleOutlined, PlusOutlined, TrophyOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { userActions } from '@/store/modules/user';
 import type { RootState, AppDispatch } from '@/store';
@@ -173,6 +174,9 @@ const AwardPanel: React.FC<AwardPanelProps> = ({ userId }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <TrophyOutlined style={{ color: '#ffc53d', fontSize: 18 }} />
             <span style={{ color: '#1f1f1f', fontWeight: 600 }}>获奖经历</span>
+            <Tooltip title="添加获奖经历更有利于评选优秀社员">
+              <InfoCircleOutlined style={{ color: '#8c8c8c', fontSize: 14, cursor: 'pointer' }} />
+            </Tooltip>
           </div>
         }
         loading={loading}

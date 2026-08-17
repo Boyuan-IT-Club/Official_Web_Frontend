@@ -1,11 +1,26 @@
 // ResumeFieldPanel.tsx
-import React, { useEffect, useState, useMemo } from 'react';
-import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Popconfirm, Typography, InputNumber, Badge, Select } from 'antd';
-import { DeleteOutlined, PlusOutlined, ReloadOutlined, MenuOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import React, { useEffect } from 'react';
+import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Typography, InputNumber, Badge, Select, Radio, Checkbox, Modal, Dropdown } from 'antd';
+import {
+  DeleteOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  MenuOutlined,
+  FolderOpenOutlined,
+  FontSizeOutlined,
+  AlignLeftOutlined,
+  DownSquareOutlined,
+  CheckCircleOutlined,
+  CheckSquareOutlined,
+  UploadOutlined,
+  EditOutlined,
+  MoreOutlined,
+  DownOutlined,
+  RightOutlined,
+} from '@ant-design/icons';
 import type { ResumeFieldUI } from '@/api/manage/resumeEntry';
 import {
   FIELD_TYPE_OPTIONS,
-  DEFAULT_FIELD_TYPE,
   FIELD_KEY_CATEGORY_MAP,
   fieldTypeNeedsOptions,
   parseFieldOptions,
@@ -31,6 +46,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { IdcardOutlined, CommentOutlined, TeamOutlined, CodeOutlined } from '@ant-design/icons';
+import { BRAND, NEUTRAL } from '@/theme/tokens';
 import './ResumeFieldPanel.scss';
 
 const { Text } = Typography;
@@ -47,12 +63,27 @@ interface Props {
 
 // 分类配置
 const CATEGORY_CONFIG: Record<number, { name: string; icon: React.ReactNode; color: string }> = {
-  1: { name: '基本信息', icon: <IdcardOutlined style={{ color: '#1473cc' }} />, color: '#000000' },
-  2: { name: '个人陈述', icon: <CommentOutlined style={{ color: '#1473cc' }} />, color: '#000000' },
-  3: { name: '志愿选择', icon: <TeamOutlined style={{ color: '#1473cc' }} />, color: '#000000' },
-  4: { name: '面试安排', icon: <TeamOutlined style={{ color: '#1473cc' }} />, color: '#000000' },
-  5: { name: '技术能力', icon: <CodeOutlined style={{ color: '#1473cc' }} />, color: '#000000' },
+  1: { name: '基本信息', icon: <IdcardOutlined style={{ color: BRAND.primary }} />, color: BRAND.primary },
+  2: { name: '个人陈述', icon: <CommentOutlined style={{ color: BRAND.primary }} />, color: BRAND.primary },
+  3: { name: '志愿选择', icon: <TeamOutlined style={{ color: BRAND.primary }} />, color: BRAND.primary },
+  4: { name: '面试安排', icon: <TeamOutlined style={{ color: BRAND.primary }} />, color: BRAND.primary },
+  5: { name: '技术能力', icon: <CodeOutlined style={{ color: BRAND.primary }} />, color: BRAND.primary },
 };
+
+// 左栏题型面板：点击即新增对应类型的字段
+const FIELD_TYPE_ICONS: Record<string, React.ReactNode> = {
+  text: <FontSizeOutlined />,
+  textarea: <AlignLeftOutlined />,
+  select: <DownSquareOutlined />,
+  radio: <CheckCircleOutlined />,
+  checkbox: <CheckSquareOutlined />,
+  file: <UploadOutlined />,
+};
+
+const FIELD_TYPE_ITEMS = FIELD_TYPE_OPTIONS.map((t) => ({
+  ...t,
+  icon: FIELD_TYPE_ICONS[t.value],
+}));
 
 /** 选项列表编辑（用于 select / radio / checkbox） */
 const FieldOptionsEditor: React.FC<{ listName: number }> = ({ listName }) => (
@@ -90,7 +121,7 @@ const FieldOptionsEditor: React.FC<{ listName: number }> = ({ listName }) => (
   </div>
 );
 
-// 可拖拽的卡片组件（保持原来的样式不变）
+// 可拖拽的字段卡片：默认收起只显示标题行，点「编辑」展开编辑表单
 const SortableItem: React.FC<{
   id: string;
   field: ResumeFieldUI;
@@ -110,6 +141,8 @@ const SortableItem: React.FC<{
     isDragging,
   } = useSortable({ id });
 
+  const [editing, setEditing] = React.useState(false);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -120,9 +153,13 @@ const SortableItem: React.FC<{
     boxShadow: isDragging ? '0 5px 15px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.06)',
   };
 
-  const fieldLabel = form.getFieldValue(['fields', name, 'fieldLabel']) || '字段';
+  const watchedLabel = Form.useWatch(['fields', name, 'fieldLabel'], form);
+  const fieldLabel = watchedLabel || '未命名字段';
   const sortOrder = form.getFieldValue(['fields', name, 'sortOrder']) || index + 1;
   const fieldType = Form.useWatch(['fields', name, 'fieldType'], form);
+  const placeholder = Form.useWatch(['fields', name, 'placeholder'], form);
+  const options = Form.useWatch(['fields', name, 'options'], form) || [];
+  const isRequired = Form.useWatch(['fields', name, 'isRequired'], form);
   const showOptionsEditor = fieldTypeNeedsOptions(fieldType);
 
   const handleFieldTypeChange = (value: string): void => {
@@ -133,64 +170,90 @@ const SortableItem: React.FC<{
     }
   };
 
+  const optionItems = (Array.isArray(options) ? options : [])
+    .map((o) => String(o))
+    .filter(Boolean)
+    .map((o) => ({ value: o, label: o }));
+
+  // 收起态：按字段类型渲染「最终简历页面」里的控件预览（只读）
+  const renderPreview = () => {
+    switch (fieldType) {
+      case 'textarea':
+        return <Input.TextArea disabled placeholder={placeholder} rows={3} />;
+      case 'select':
+        return <Select disabled placeholder={placeholder} options={optionItems} />;
+      case 'radio':
+        return <Radio.Group disabled options={optionItems} />;
+      case 'checkbox':
+        return <Checkbox.Group disabled options={optionItems} />;
+      case 'file':
+        return <Button disabled icon={<UploadOutlined />}>上传文件</Button>;
+      case 'text':
+      default:
+        return <Input disabled placeholder={placeholder} />;
+    }
+  };
+
   return (
     <div ref={setNodeRef} style={style}>
       <Card
         size="small"
+        className="resume-field-panel__field"
         style={{
-          backgroundColor: '#ffffff',
-          border: isDragging ? '2px solid #1890ff' : '1px solid #f0f0f0',
+          backgroundColor: NEUTRAL.cardBg,
+          border: isDragging ? `2px solid ${BRAND.primary}` : `1px solid ${NEUTRAL.border}`,
         }}
         title={
-          <Space>
+          <Space size={8}>
             {/* 拖拽手柄 */}
             <div
               {...attributes}
               {...listeners}
-              style={{
-                cursor: 'grab',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                backgroundColor: '#f5f5f5',
-                display: 'inline-flex',
-                alignItems: 'center',
-                marginRight: '8px'
-              }}
+              className="resume-field-panel__drag-handle"
             >
-              <MenuOutlined style={{ color: '#999', fontSize: '16px' }} />
+              <MenuOutlined />
             </div>
-            {/* 字段序号 - 可编辑 */}
-            <Text type="secondary" style={{ marginLeft: 4 }}>#</Text>
-            <Form.Item name={[name, 'sortOrder']} noStyle>
-              <InputNumber
-                min={1}
-                max={100}
-                value={sortOrder}
-                onChange={(value) => onSortOrderChange(value, name)}
-                style={{ width: 70 }}
-                placeholder="排列序号"
-              />
-            </Form.Item>
+            <Text type="secondary" className="resume-field-panel__field-index">{sortOrder}.</Text>
           </Space>
         }
         extra={
-          <Space>
+          <Space size={4}>
             <Form.Item name={[name, 'isActive']} valuePropName="checked" noStyle>
-              <Switch checkedChildren="启用" unCheckedChildren="停用" />
+              <Switch size="small" checkedChildren="启用" unCheckedChildren="停用" />
             </Form.Item>
             <Form.Item name={[name, 'isRequired']} valuePropName="checked" noStyle>
-              <Switch checkedChildren="必填" unCheckedChildren="选填" />
+              <Switch size="small" checkedChildren="必填" unCheckedChildren="选填" />
             </Form.Item>
-            <Popconfirm
-              title="删除字段"
-              description={`确定要删除"${fieldLabel}"字段吗？`}
-              onConfirm={() => onDelete(name)}
-              okText="确定"
-              cancelText="取消"
-              placement="left"
+            <Button
+              type="link"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => setEditing((v) => !v)}
             >
-              <Button danger icon={<DeleteOutlined />} />
-            </Popconfirm>
+              {editing ? '收起' : '编辑'}
+            </Button>
+            <Dropdown
+              trigger={["click"]}
+              menu={{
+                items: [
+                  { key: "del", icon: <DeleteOutlined />, label: "删除字段", danger: true },
+                ],
+                onClick: () => {
+                  Modal.confirm({
+                    title: "删除字段",
+                    content: `确定要删除「${fieldLabel}」字段吗？`,
+                    okText: "删除",
+                    okType: "danger",
+                    cancelText: "取消",
+                    onOk() {
+                      onDelete(name);
+                    },
+                  });
+                },
+              }}
+            >
+              <Button type="text" size="small" icon={<MoreOutlined />} />
+            </Dropdown>
           </Space>
         }
       >
@@ -204,52 +267,74 @@ const SortableItem: React.FC<{
           <InputNumber style={{ display: 'none' }} />
         </Form.Item>
 
-        <Row gutter={16} align="middle">
-          <Col span={12}>
-            <Form.Item
-              name={[name, 'fieldLabel']}
-              label="字段名称"
-              rules={[{ required: true, message: '请输入字段名称' }]}
-            >
-              <Input placeholder="如：个人简介" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name={[name, 'fieldKey']}
-              label="字段标识"
-              rules={[{ required: true, message: '请输入字段标识' }]}
-            >
-              <Input placeholder="如：introduction" />
-            </Form.Item>
-          </Col>
-        </Row>
+        {editing ? (
+          <>
+            <Row gutter={16} align="middle">
+              <Col span={8}>
+                <Form.Item name={[name, 'sortOrder']} label="排列序号">
+                  <InputNumber
+                    min={1}
+                    max={100}
+                    style={{ width: '100%' }}
+                    onChange={(value) => onSortOrderChange(value, name)}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item
+                  name={[name, 'fieldType']}
+                  label="字段类型"
+                  rules={[{ required: true, message: '请选择字段类型' }]}
+                >
+                  <Select
+                    placeholder="选择类型"
+                    options={fieldTypeOptions.length ? fieldTypeOptions : FIELD_TYPE_OPTIONS}
+                    onChange={handleFieldTypeChange}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name={[name, 'placeholder']} label="占位提示">
+                  <Input placeholder="如：请提供个人简介" />
+                </Form.Item>
+              </Col>
+            </Row>
 
-        <Row gutter={16} align="middle">
-          <Col span={12}>
-            <Form.Item
-              name={[name, 'fieldType']}
-              label="字段类型"
-              rules={[{ required: true, message: '请选择字段类型' }]}
-            >
-              <Select
-                placeholder="选择类型"
-                options={fieldTypeOptions.length ? fieldTypeOptions : FIELD_TYPE_OPTIONS}
-                onChange={handleFieldTypeChange}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name={[name, 'placeholder']} label="占位提示">
-              <Input placeholder="如：请提供个人简介" />
-            </Form.Item>
-          </Col>
-        </Row>
+            <Row gutter={16} align="middle">
+              <Col span={12}>
+                <Form.Item
+                  name={[name, 'fieldLabel']}
+                  label="字段名称"
+                  rules={[{ required: true, message: '请输入字段名称' }]}
+                >
+                  <Input placeholder="如：个人简介" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name={[name, 'fieldKey']}
+                  label="字段标识"
+                  rules={[{ required: true, message: '请输入字段标识' }]}
+                >
+                  <Input placeholder="如：introduction" />
+                </Form.Item>
+              </Col>
+            </Row>
 
-        {showOptionsEditor && (
-          <div style={{ marginTop: 8 }}>
-            <FieldOptionsEditor listName={name} />
-          </div>
+            {showOptionsEditor && (
+              <div style={{ marginTop: 8 }}>
+                <FieldOptionsEditor listName={name} />
+              </div>
+            )}
+          </>
+        ) : (
+          <Form.Item
+            label={fieldLabel}
+            required={isRequired}
+            className="resume-field-panel__preview"
+          >
+            {renderPreview()}
+          </Form.Item>
         )}
       </Card>
     </div>
@@ -264,8 +349,8 @@ const CategoryCard: React.FC<{
   form: any;
   onDelete: (index: number) => void;
   onSortOrderChange: (value: number | null, index: number) => void;
-  onAddFieldToCategory: (category: number) => void;
   fieldTypeOptions: { value: string; label: string }[];
+  categoryName?: string;
 }> = ({
   category,
   fields,
@@ -273,16 +358,18 @@ const CategoryCard: React.FC<{
   form,
   onDelete,
   onSortOrderChange,
-  onAddFieldToCategory,
   fieldTypeOptions,
+  categoryName,
 }) => {
   const config = CATEGORY_CONFIG[category];
-  
-  if (!config) return null;
+  const name = config?.name || categoryName || `分类 ${category}`;
+  const icon = config?.icon || <FolderOpenOutlined style={{ color: BRAND.primary }} />;
+  const color = config?.color || BRAND.primary;
+  const [collapsed, setCollapsed] = React.useState(false);
 
   // 获取当前分类下的字段及其在 fieldsMeta 中的对应项
   const categoryFieldsWithMeta: { field: ResumeFieldUI; meta: any; globalIndex: number }[] = [];
-  
+
   fields.forEach((field, idx) => {
     if (field?.category === category && fieldsMeta[idx]) {
       categoryFieldsWithMeta.push({
@@ -296,93 +383,65 @@ const CategoryCard: React.FC<{
   // 为当前分类的字段创建拖拽ID
   const items = categoryFieldsWithMeta.map((_, idx) => `category-${category}-field-${idx}`);
 
+  const titleNode = (
+    <Space>
+      <span className="resume-field-panel__category-icon">{icon}</span>
+      <span className="resume-field-panel__category-name">{name}</span>
+      <Badge count={categoryFieldsWithMeta.length} showZero color={color} />
+    </Space>
+  );
+
+  const collapseBtn = (
+    <Button
+      type="text"
+      size="small"
+      icon={collapsed ? <RightOutlined /> : <DownOutlined />}
+      onClick={() => setCollapsed((v) => !v)}
+    />
+  );
+
   if (categoryFieldsWithMeta.length === 0) {
     return (
       <Card
-        style={{
-          marginBottom: 24,
-          borderRadius: '12px',
-          border: `2px solid #0967be`,
-          backgroundColor: '#fafafa'
-        }}
-        title={
-          <Space>
-            <span style={{ fontSize: 18 }}>{config.icon}</span>
-            <span style={{ fontSize: 16, fontWeight: 600, color: config.color }}>
-              {config.name}
-            </span>
-            <Badge count={0} style={{ backgroundColor: config.color }} />
-          </Space>
-        }
-        extra={
-          <Button
-            type="dashed"
-            icon={<PlusOutlined />}
-            onClick={() => onAddFieldToCategory(category)}
-          >
-            添加字段
-          </Button>
-        }
+        className="resume-field-panel__category"
+        title={titleNode}
+        extra={collapseBtn}
       >
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px 20px', 
-          color: '#999',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 8
-        }}>
-          <FolderOpenOutlined style={{ fontSize: 32, color: '#d9d9d9' }} />
-          <Text type="secondary">暂无字段，点击上方按钮添加</Text>
-        </div>
+        {!collapsed && (
+          <div className="resume-field-panel__empty">
+            <FolderOpenOutlined style={{ fontSize: 32, color: '#d9d9d9' }} />
+            <Text type="secondary">暂无字段，请在左侧选择类型添加</Text>
+          </div>
+        )}
       </Card>
     );
   }
 
   return (
     <Card
-      style={{
-        marginBottom: 24,
-        borderRadius: '12px',
-        border: `2px solid #0967be`,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-      }}
-      title={
-        <Space>
-          <span style={{ fontSize: 18 }}>{config.icon}</span>
-          <span style={{ fontSize: 16, fontWeight: 600, color: config.color }}>
-            {config.name}
-          </span>
-        </Space>
-      }
-      extra={
-        <Button
-          type="dashed"
-          icon={<PlusOutlined />}
-          onClick={() => onAddFieldToCategory(category)}
-        >
-          添加字段
-        </Button>
-      }
+      className={`resume-field-panel__category${collapsed ? ' is-collapsed' : ''}`}
+      title={titleNode}
+      extra={collapseBtn}
     >
-      <DndContext>
-        <SortableContext items={items} strategy={verticalListSortingStrategy}>
-          {categoryFieldsWithMeta.map(({ meta, globalIndex }, idx) => (
-            <SortableItem
-              key={meta.key}
-              id={`category-${category}-field-${idx}`}
-              field={fields[globalIndex]}
-              index={globalIndex}
-              form={form}
-              name={meta.name}
-              onDelete={onDelete}
-              onSortOrderChange={onSortOrderChange}
-              fieldTypeOptions={fieldTypeOptions}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+      {!collapsed && (
+        <DndContext>
+          <SortableContext items={items} strategy={verticalListSortingStrategy}>
+            {categoryFieldsWithMeta.map(({ meta, globalIndex }, idx) => (
+              <SortableItem
+                key={meta.key}
+                id={`category-${category}-field-${idx}`}
+                field={fields[globalIndex]}
+                index={globalIndex}
+                form={form}
+                name={meta.name}
+                onDelete={onDelete}
+                onSortOrderChange={onSortOrderChange}
+                fieldTypeOptions={fieldTypeOptions}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      )}
     </Card>
   );
 };
@@ -398,6 +457,20 @@ const ResumeFieldPanel: React.FC<Props> = ({
 }) => {
   const [form] = Form.useForm<{ fields: ResumeFieldUI[] }>();
   const [saving, setSaving] = React.useState(false);
+  const [targetCategory, setTargetCategory] = React.useState<number>(1);
+  // 自定义分类（纯前端分组，默认 5 类之外用户新增的）
+  const [customCategories, setCustomCategories] = React.useState<{ id: number; name: string }[]>([]);
+  const [categoryModalOpen, setCategoryModalOpen] = React.useState(false);
+  const [newCategoryName, setNewCategoryName] = React.useState('');
+
+  // 分类展示顺序：默认 5 类 + 自定义分类
+  const categoryOrder = React.useMemo(
+    () => [1, 2, 3, 4, 5, ...customCategories.map((c) => c.id)],
+    [customCategories],
+  );
+
+  const categoryNameOf = (id: number) =>
+    CATEGORY_CONFIG[id]?.name || customCategories.find((c) => c.id === id)?.name;
 
   // 配置拖拽传感器
   const sensors = useSensors(
@@ -415,8 +488,8 @@ const ResumeFieldPanel: React.FC<Props> = ({
     form.setFieldsValue({ fields });
   }, [fields, form]);
 
-  // 添加字段到指定分类
-  const addFieldToCategory = (category: number) => {
+  // 在指定分类下新增一个指定类型的字段
+  const addField = (fieldType: string, category: number) => {
     const current = form.getFieldValue('fields') || [];
 
     // 计算最大的 sortOrder
@@ -429,20 +502,37 @@ const ResumeFieldPanel: React.FC<Props> = ({
       cycleId,
       fieldKey: `field_${Date.now()}`,
       fieldLabel: '新字段',
-      fieldType: DEFAULT_FIELD_TYPE,
+      fieldType,
       placeholder: '',
       isRequired: true,
       isActive: true,
       sortOrder: maxSortOrder + 1,
       category,
+      options: fieldTypeNeedsOptions(fieldType) ? [''] : undefined,
     };
 
     const newFields = [...current, newField];
     form.setFieldsValue({ fields: newFields });
     onFieldsChange?.(newFields);
 
-    const categoryName = CATEGORY_CONFIG[category]?.name || '未知分类';
-    message.success(`已在「${categoryName}」添加新字段`);
+    const categoryName = categoryNameOf(category) || '未知分类';
+    const typeLabel = FIELD_TYPE_ITEMS.find((t) => t.value === fieldType)?.label || fieldType;
+    message.success(`已在「${categoryName}」添加「${typeLabel}」字段`);
+  };
+
+  // 新增自定义分类
+  const handleAddCategory = () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      message.warning('请输入分类名称');
+      return;
+    }
+    const nextId = Math.max(100, ...customCategories.map((c) => c.id)) + 1;
+    setCustomCategories((prev) => [...prev, { id: nextId, name }]);
+    setTargetCategory(nextId);
+    setNewCategoryName('');
+    setCategoryModalOpen(false);
+    message.success(`已新增分类「${name}」`);
   };
 
   const deleteField = (index: number) => {
@@ -594,70 +684,118 @@ const ResumeFieldPanel: React.FC<Props> = ({
   const currentFields = Form.useWatch('fields', form) || [];
 
   return (
-    <div style={{
-      backgroundColor: '#e4f0fc',
-      padding: '24px',
-      borderRadius: '8px',
-      minHeight: '400px'
-    }}>
+    <div className="resume-field-panel">
       <Form form={form} layout="vertical" size="small" className="resume-field-form">
-        {/* 按钮行 */}
-        <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-          <Text
-            type="secondary"
-            style={{
-              color: '#1f76cc',
-              fontSize: 20,
-              fontWeight: 'bold'
-            }}>
-            编辑简历字段
-          </Text>
-
-          <Space size={16}>
-            <Button
-              type="primary"
-              onClick={handleSave}
-              loading={saving || loading}
-            >
-              保存
-            </Button>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={handleResetToDefault}
-              size="middle"
-            >
+        {/* 头部：标题 + 操作 */}
+        <div className="resume-field-panel__header">
+          <div>
+            <div className="resume-field-panel__title">编辑简历字段</div>
+            <div className="resume-field-panel__subtitle">拖拽卡片或修改序号可调整投递页展示顺序</div>
+          </div>
+          <Space size={12}>
+            <Button icon={<ReloadOutlined />} onClick={handleResetToDefault}>
               加载默认配置
             </Button>
+            <Button type="primary" onClick={handleSave} loading={saving || loading}>
+              保存
+            </Button>
           </Space>
-        </Row>
+        </div>
 
-        <Form.List name="fields">
-          {(fieldsMeta) => {
-            return (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                {/* 按分类顺序渲染 */}
-                {[1, 2, 3, 4, 5].map(category => (
-                  <CategoryCard
-                    key={category}
-                    category={category}
-                    fields={currentFields}
-                    fieldsMeta={fieldsMeta}
-                    form={form}
-                    onDelete={deleteField}
-                    onSortOrderChange={handleSortOrderChange}
-                    onAddFieldToCategory={addFieldToCategory}
-                    fieldTypeOptions={fieldTypeOptions}
-                  />
-                ))}
-              </DndContext>
-            );
-          }}
-        </Form.List>
+        <div className="resume-field-panel__body">
+          {/* 左栏：新增字段的类型面板 */}
+          <aside className="resume-field-panel__sidebar">
+            <div className="resume-field-panel__sidebar-title">添加字段</div>
+            <div className="resume-field-panel__sidebar-label">添加到分类</div>
+            <Select
+              className="resume-field-panel__sidebar-select"
+              value={targetCategory}
+              onChange={setTargetCategory}
+              options={categoryOrder.map((c) => ({
+                value: c,
+                label: categoryNameOf(c) || `分类 ${c}`,
+              }))}
+            />
+            <Button
+              className="resume-field-panel__sidebar-add-cat"
+              type="dashed"
+              icon={<PlusOutlined />}
+              onClick={() => setCategoryModalOpen(true)}
+            >
+              新增分类
+            </Button>
+            <div className="resume-field-panel__sidebar-label">字段类型</div>
+            <div className="resume-field-panel__type-list">
+              {FIELD_TYPE_ITEMS.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  className="resume-field-panel__type-item"
+                  onClick={() => addField(t.value, targetCategory)}
+                >
+                  <span className="resume-field-panel__type-icon">{t.icon}</span>
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          {/* 中间：分类题目流 */}
+          <div className="resume-field-panel__content">
+            <Form.List name="fields">
+              {(fieldsMeta) => {
+                return (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    {/* 按分类顺序渲染 */}
+                    {categoryOrder.map(category => (
+                      <CategoryCard
+                        key={category}
+                        category={category}
+                        categoryName={categoryNameOf(category)}
+                        fields={currentFields}
+                        fieldsMeta={fieldsMeta}
+                        form={form}
+                        onDelete={deleteField}
+                        onSortOrderChange={handleSortOrderChange}
+                        fieldTypeOptions={fieldTypeOptions}
+                      />
+                    ))}
+                  </DndContext>
+                );
+              }}
+            </Form.List>
+          </div>
+        </div>
       </Form>
+
+      <Modal
+        title="新增分类"
+        open={categoryModalOpen}
+        onOk={handleAddCategory}
+        onCancel={() => {
+          setCategoryModalOpen(false);
+          setNewCategoryName('');
+        }}
+        okText="新增"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <Form layout="vertical">
+          <Form.Item label="分类名称" required>
+            <Input
+              placeholder="如：其他"
+              maxLength={20}
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onPressEnter={handleAddCategory}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

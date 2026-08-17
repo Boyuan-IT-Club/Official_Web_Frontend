@@ -15,6 +15,7 @@ const Management = lazy(() => import("@/pages/Management"));
 const Resume = lazy(() => import("@/pages/Resume"));
 const CycleManage = lazy(() => import("@/pages/CycleManage"));
 const InterviewManage = lazy(() => import("@/pages/InterviewManage"));
+const EvaluationBoard = lazy(() => import("@/pages/EvaluationBoard"));
 const ActivityManage = lazy(() => import("@/pages/ActivityManage"));
 const EvaluationManage = lazy(() => import("@/pages/EvaluationManage"));
 
@@ -55,6 +56,10 @@ const router = createBrowserRouter([
       {
         path: "interviews",
         element: <LazyLoad><InterviewManage /></LazyLoad>,
+      },
+      {
+        path: "evaluation",
+        element: <LazyLoad><EvaluationBoard /></LazyLoad>,
       },
       {
         path: "activities",
