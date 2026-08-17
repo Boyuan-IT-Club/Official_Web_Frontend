@@ -41,15 +41,15 @@
       }
 
         .user-avatar {
-          border: 4px solid #1f3a60;
+          border: 4px solid #1890ff;
           transition: all 0.3s ease;
-          box-shadow: 0 1px 3px rgba(26, 26, 26, 0.08);
+          box-shadow: 0 6px 16px rgba(24, 144, 255, 0.3);
           cursor: pointer;
 
           &:hover {
             transform: scale(1.08);
-            box-shadow: 0 1px 3px rgba(26, 26, 26, 0.08);
-            border-color: #2c4f7c;
+            box-shadow: 0 8px 24px rgba(24, 144, 255, 0.4);
+            border-color: #40a9ff;
           }
         }
 
@@ -109,14 +109,14 @@
           font-weight: 600;
           font-size: 16px;
           padding: 0 24px;
-          background: #1f3a60;
+          background: linear-gradient(135deg, #1890ff, #096dd9);
           border: none;
-          box-shadow: 0 1px 3px rgba(26, 26, 26, 0.08);
+          box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
 
           &:hover {
-            background: #2c4f7c;
+            background: linear-gradient(135deg, #40a9ff, #1890ff);
             transform: translateY(-2px);
-            box-shadow: 0 1px 3px rgba(26, 26, 26, 0.08);
+            box-shadow: 0 6px 16px rgba(24, 144, 255, 0.4);
           }
         }
       }

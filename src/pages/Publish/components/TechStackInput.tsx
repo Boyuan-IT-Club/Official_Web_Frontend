@@ -53,7 +53,7 @@ const TechStackInput: React.FC<Props> = React.memo(({
               onClick={onAdd}
               disabled={disabled}
               className="add-button"
-              style={{ backgroundColor: '#1f3a60', borderColor: '#1f3a60' }}
+              style={{ backgroundColor: '#1890ff', borderColor: '#1890ff' }}
             />
           )}
         </div>

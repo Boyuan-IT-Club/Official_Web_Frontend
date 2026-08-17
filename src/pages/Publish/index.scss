@@ -29,7 +29,7 @@
 
             .anticon {
               margin-right: 8px;
-              color: #1f3a60;
+              color: #1890ff;
             }
           }
         }
@@ -96,8 +96,8 @@
 
       &:hover {
         background: #e6f7ff;
-        border-color: #2c4f7c;
-        color: #2c4f7c;
+        border-color: #40a9ff;
+        color: #40a9ff;
       }
     }
   }
@@ -189,13 +189,13 @@
     }
 
     .ant-btn.add-button {
-      background-color: #1f3a60;
-      border-color: #1f3a60;
-      box-shadow: 0 1px 3px rgba(26, 26, 26, 0.08);
+      background-color: #1890ff;
+      border-color: #1890ff;
+      box-shadow: 0 2px 4px rgba(24, 144, 255, 0.3);
 
       &:hover {
-        background-color: #2c4f7c;
-        border-color: #2c4f7c;
+        background-color: #40a9ff;
+        border-color: #40a9ff;
       }
     }
   }

@@ -154,7 +154,7 @@ const AwardPanel: React.FC<AwardPanelProps> = ({ userId }) => {
       align: 'center',
       render: (_: unknown, record: Award) => (
         <div className="award-actions">
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEditAward(record)} style={{ color: '#1f3a60' }}>
+          <Button type="link" icon={<EditOutlined />} onClick={() => handleEditAward(record)} style={{ color: '#1890ff' }}>
             编辑
           </Button>
           <Button type="link" icon={<DeleteOutlined />} onClick={() => handleDeleteAward(record.awardId)} style={{ color: '#ff4d4f' }}>
@@ -181,7 +181,7 @@ const AwardPanel: React.FC<AwardPanelProps> = ({ userId }) => {
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => { awardForm.resetFields(); setIsAwardModalVisible(true); }}
-            style={{ backgroundColor: '#1f3a60', borderColor: '#1f3a60', borderRadius: 6 }}
+            style={{ backgroundColor: '#1890ff', borderColor: '#1890ff', borderRadius: 6 }}
           >
             添加获奖经历
           </Button>

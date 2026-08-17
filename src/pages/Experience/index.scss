@@ -2,7 +2,7 @@
 
 $bg-color: #ffffff;       
 $card-bg: #ffffff;        
-$primary-color: #1f3a60;  
+$primary-color: #2980b9;  
 $text-color: #333333;
 $action-color: #4c5886;   
 $border-radius: 12px;     
@@ -16,8 +16,7 @@ $outer-bg: #e3f2fd;
   justify-content: center;     
   align-items: flex-start;     
   padding: 3rem 0;             
-  // 原先首位是 "Comic Sans MS"，手写体在正式页面显得不专业
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  font-family: "Comic Sans MS", "Microsoft YaHei", sans-serif;
 }
 
 .experiences-container {
