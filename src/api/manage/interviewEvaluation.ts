@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios';
 import { request } from '@/utils';
 
 /**
@@ -15,7 +16,10 @@ interface ApiEnvelope<T> {
 }
 
 /** request 的返回类型是 AxiosResponse，但拦截器实际返回的是响应体，故在此收敛一次 */
-function call<T>(config: Parameters<typeof request>[0]): Promise<ApiEnvelope<T>> {
+// 不能写 Parameters<typeof request>[0]：request 是重载的 axios 实例，
+// Parameters<> 只取最后一个重载 (url: string, config?)，配置参数会被推成 string，
+// 于是每个 call({...}) 都报「对象不能赋给 string」
+function call<T>(config: AxiosRequestConfig): Promise<ApiEnvelope<T>> {
   return request(config) as unknown as Promise<ApiEnvelope<T>>;
 }
 

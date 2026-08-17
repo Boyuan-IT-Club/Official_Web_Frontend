@@ -8,6 +8,8 @@ export interface UserInfo {
   dept?: string;
   email?: string;
   phone?: string;
+  /** 后端 user.github 列；页面「我的资料」在读它，类型里漏了会报 TS2339 */
+  github?: string;
   avatar?: string;
 }
 

@@ -48,6 +48,7 @@ import {
   sendResultNotifications,
   batchDecision,
   listFeishuLocations,
+  type LocationTableConfig,
   saveFeishuLocation,
   pullAllLocations,
   updateResult,

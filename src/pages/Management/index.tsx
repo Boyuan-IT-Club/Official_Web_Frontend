@@ -24,12 +24,6 @@ import {
 } from '@/api/manage/userApis';
 
 import {
-  getResumeFields,
-  saveResumeFields,
-  initResumeFields,
-  DEFAULT_RESUME_FIELDS,
-  fromBackendFields,
-  RESUME_CYCLE_ID,
 } from '@/api/manage/resumeEntry';
 import { getToken, hasEffectiveJwtRoles } from '@/utils';
 
@@ -54,7 +48,6 @@ const STATUS_OPTIONS = [
 ];
 
 // 当前招新周期 ID（与后端默认配置 cycleId 一致）
-const CURRENT_CYCLE_ID = RESUME_CYCLE_ID;
 
 // ─── 防抖 Hook ────────────────────────────────────────────────────────────────
 
@@ -180,64 +173,20 @@ const Management: React.FC = () => {
     }
   };
 
-  // ── 简历字段 ──────────────────────────────────────────────────────────────
-  const fetchResumeFields = useCallback(async () => {
-    try {
-      const list = await getResumeFields(CURRENT_CYCLE_ID);
-      const uiFields = fromBackendFields(list);
-      setResumeFields(uiFields);
-      if (uiFields.length === 0) {
-        message.info('当前周期暂无字段，可点击「加载默认配置」初始化');
-      }
-    } catch (e: any) {
-      console.error(e);
-      message.error(e?.message || '获取简历字段失败');
-      setResumeFields([]);
-    }
-  }, []);
-
-  const handleSaveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> => {
-    try {
-      await saveResumeFields(fields);
-      await fetchResumeFields();
-    } catch (e: any) {
-      console.error(e);
-      if (Number(e?.code) === 2100) {
-        const noRoles = getToken() && !hasEffectiveJwtRoles(getToken());
-        message.error(
-          noRoles
-            ? '认证失败：Token 内 roles 为空，请让管理员在后台分配「管理员」角色后重新登录'
-            : '认证失败：请使用管理员账号重新登录后再保存',
-          8,
-        );
-      } else {
-        message.error(e?.message || '保存简历字段失败');
-      }
-      throw e;
-    }
-  };
-
-  const handleResetToDefault = async () => {
-    try {
-      // 用默认字段初始化到后端，再重新拉取
-      await initResumeFields(CURRENT_CYCLE_ID);
-      await fetchResumeFields();
-      message.success('已加载默认配置');
-    } catch (e) {
-      console.error(e);
-      // 接口失败时直接用本地默认值兜底
-      setResumeFields(DEFAULT_RESUME_FIELDS);
-      message.warning('后端初始化失败，已加载本地默认配置');
-    }
-  };
+  // 简历字段的加载/保存/重置已随「简历设置」Tab 移到「招募周期」
+  // （CycleManage/ResumeFieldsDrawer），本页不再持有相关状态与函数。
+  //
+  // ⚠️ 上次移除 Tab 时只删了 useState 声明、漏删了这三个仍在调用它的函数，
+  // 而挂载时的 useEffect 就会调其中之一，页面一进来就弹
+  // "Can't find variable: setResumeFields"。
+  // 教训：删状态要连着删它所有的读写方——按变量名 grep 计数会漏掉 setXxx 这种派生标识符。
 
   // ── 初始化 ────────────────────────────────────────────────────────────────
   // 注：管理端准入已由 AdminGuard 按 JWT permissionCodes 把关，无需在此重复告警
   useEffect(() => {
     fetchRoleOptions();
-    fetchResumeFields();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchResumeFields]);
+  }, []);
 
   // ── 翻页回调 ──────────────────────────────────────────────────────────────
   const handlePageChange = (newPage: number, newPageSize: number) => {

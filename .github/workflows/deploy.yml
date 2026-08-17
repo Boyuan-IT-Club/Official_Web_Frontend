@@ -21,6 +21,11 @@ jobs:
         run: npm install
 
       # 双构建：用户端(build-user) + 管理端(build-admin)，见 craco.config.js 的 @routes 别名
+      # 放在构建前：类型错误在这里 10 秒内就报出来，
+      # 不用等两轮 webpack 打包；也保证 tsconfig 被 tsc 真正读过一遍
+      - name: Type check
+        run: npm run typecheck
+
       - name: Build user site
         run: npm run build:user
         env:
