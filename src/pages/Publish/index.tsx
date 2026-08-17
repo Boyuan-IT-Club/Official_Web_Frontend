@@ -1267,7 +1267,7 @@ const Publish: React.FC = () => {
       <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            {isSubmitted ? <EditOutlined style={{ color: '#1f3a60', marginRight: '8px' }} /> : <SendOutlined style={{ color: '#1f3a60', marginRight: '8px' }} />}
+            {isSubmitted ? <EditOutlined style={{ color: '#1890ff', marginRight: '8px' }} /> : <SendOutlined style={{ color: '#1890ff', marginRight: '8px' }} />}
             {isSubmitted ? '确认更新简历' : '确认提交申请'}
           </div>
         }

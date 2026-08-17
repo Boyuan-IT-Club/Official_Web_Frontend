@@ -1,59 +1,17 @@
 import type { ThemeConfig } from 'antd';
-import { BRAND, NEUTRAL } from './tokens';
 
 /**
- * 用户端主题（方向 1 的品牌配色 + 方向 4/7 的布局在页面层实现）。
+ * 用户端主题：目前刻意为空。
  *
- * 改造前用户端散着四套蓝：#1890ff（antd v4 默认）、#1a73e8、#2980b9、
- * 霓虹青 #00c6ff，而真正的品牌色是 #1f3a60。这里统一到品牌色，
- * 并把圆角、边框、按钮观感与管理端对齐——两个站看起来才像同一个产品。
+ * 曾经在这里做过一版全站改造（品牌深蓝 + 圆角 + Bento 首页），效果不理想已整体回滚，
+ * 用户端因此回到 antd 默认外观 —— 也就是各页面自带的 SCSS 说了算，与改造前一致。
+ *
+ * 保留这个文件而不是删掉，是因为 craco 的 @theme 别名按 REACT_APP_MODE 二选一，
+ * 删掉会让用户端构建找不到模块。空对象等价于「不覆盖任何 token」。
+ *
+ * 下次要做用户端视觉改造时，从这里加 token 是最省事的入口：
+ * 一处改动即可影响全部用户端页面，不必逐页改 SCSS。
  */
-const userTheme: ThemeConfig = {
-  token: {
-    colorPrimary: BRAND.primary,
-    colorLink: BRAND.primary,
-    colorBgLayout: NEUTRAL.pageBg,
-    colorBorder: NEUTRAL.borderStrong,
-    colorBorderSecondary: NEUTRAL.border,
-    colorText: NEUTRAL.textPrimary,
-    colorTextSecondary: NEUTRAL.textSecondary,
-    colorTextDescription: NEUTRAL.textMuted,
-    borderRadius: 10,
-    borderRadiusLG: 14,
-    borderRadiusSM: 8,
-    fontSize: 14,
-    controlHeight: 36,
-    wireframe: false,
-  },
-  components: {
-    Layout: {
-      bodyBg: NEUTRAL.pageBg,
-      headerBg: '#ffffff',
-      headerHeight: 56,
-      // 用户端侧栏走浅色：这里是给学生用的，不需要后台那种深色锚点
-      lightSiderBg: '#ffffff',
-      lightTriggerBg: '#ffffff',
-      lightTriggerColor: NEUTRAL.textSecondary,
-    },
-    Menu: {
-      itemBg: 'transparent',
-      itemSelectedBg: BRAND.primaryBg,
-      itemSelectedColor: BRAND.primary,
-      itemHoverBg: '#f1f3f4',
-      itemColor: NEUTRAL.textSecondary,
-      itemBorderRadius: 9,
-      itemMarginInline: 10,
-      itemHeight: 40,
-      activeBarWidth: 0,
-      activeBarBorderWidth: 0,
-    },
-    Card: { borderRadiusLG: 14, paddingLG: 20 },
-    Button: { primaryShadow: 'none', defaultShadow: 'none', fontWeight: 500 },
-    Tag: { defaultBg: '#f1f3f4', defaultColor: NEUTRAL.textSecondary },
-    Steps: { colorPrimary: BRAND.primary },
-    Alert: { borderRadiusLG: 12 },
-    Modal: { borderRadiusLG: 14, titleFontSize: 16 },
-  },
-};
+const userTheme: ThemeConfig = {};
 
 export default userTheme;
