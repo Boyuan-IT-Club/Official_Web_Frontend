@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchActiveCycle, fetchMyResumeReadonly } from '@/store/modules/resume';
+import { fetchOpenCycles, fetchMyResumeReadonly } from '@/store/modules/resume';
 import InterviewIntentEditor from '@/components/InterviewIntentEditor';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import {
@@ -82,12 +82,17 @@ const InterviewAppointment: React.FC = () => {
   useEffect(() => {
     (async () => {
       let cid = cycleId;
-      let activeCid: number | null = null;
+      // 「当前」不再是单个周期：同时可能有多个周期在开放投递，
+      // 所以往届判定改成「不在开放列表里」，而不是「不等于那一个活跃周期」
+      let openIds: number[] = [];
       try {
-        activeCid = await dispatch(fetchActiveCycle()).unwrap();
-      } catch { /* 回退 */ }
-      if (!paramCycleId && activeCid != null) cid = activeCid;
-      setIsHistory(activeCid != null && cid !== activeCid);
+        const open = await dispatch(fetchOpenCycles()).unwrap();
+        openIds = (open ?? []).map((c) => Number(c.cycleId));
+      } catch { /* 回退：拿不到开放列表就沿用 store 里的 cycleId，不标往届 */ }
+      if (!paramCycleId && openIds.length > 0 && !openIds.includes(Number(cid))) {
+        cid = openIds[0];
+      }
+      setIsHistory(openIds.length > 0 && !openIds.includes(Number(cid)));
       // 解析周期名，明确标识当前查看的是哪一届
       getAllCycles()
         .then((res: any) => {

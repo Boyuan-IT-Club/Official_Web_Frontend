@@ -20,7 +20,7 @@ import {
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchMyResumeReadonly, fetchActiveCycle } from '@/store/modules/resume';
+import { fetchMyResumeReadonly, fetchOpenCycles } from '@/store/modules/resume';
 import RecruitProgressCard from '@/components/RecruitProgressCard';
 import InterviewReminderCard from '@/components/InterviewReminderCard';
 import ActivitiesPreviewCard from '@/components/ActivitiesPreviewCard';
@@ -92,16 +92,23 @@ const Dashboard = () => {
   const resumeState = useSelector((state) => state.resume);
   const [hasInterview, setHasInterview] = useState(false);
 
-  // 进入首页：解析活跃周期（动态化，不再硬编码），再拉取简历状态驱动进度卡
+  // 进入首页：解析当前开放投递的周期，再拉取简历状态驱动进度卡。
+  // 可能同时有多个周期开放，这里取用户选中的那个（fetchOpenCycles 的 reducer
+  // 会把选中项校正到开放列表内）；首页不放选择器，切换入口在投递页。
   useEffect(() => {
     (async () => {
-      let cid = 2;
+      let cid = null;
       try {
-        const active = await dispatch(fetchActiveCycle()).unwrap();
-        if (active != null) cid = active;
-      } catch (e) { /* 回退默认周期 */ }
-      dispatch(fetchMyResumeReadonly(cid));
+        const open = await dispatch(fetchOpenCycles()).unwrap();
+        const ids = (open || []).map((c) => Number(c.cycleId));
+        const selected = Number(resumeState?.cycleId);
+        cid = ids.includes(selected) ? selected : (ids.length > 0 ? ids[0] : null);
+      } catch (e) { /* 拿不到开放周期就不猜，见下面的兜底 */ }
+      // 兜底用 store 里的值而不是写死的 2：写死会让进度卡去查一个不相关的周期
+      if (cid == null) cid = resumeState?.cycleId ?? null;
+      if (cid != null) dispatch(fetchMyResumeReadonly(cid));
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
   // 简历投递
