@@ -157,7 +157,7 @@ const PersonPage: React.FC = () => {
           <Form.Item name="major" label="专业"><Input placeholder="请输入您的专业" /></Form.Item>
           <Form.Item name="phone" label="电话" rules={[{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码' }]}><Input /></Form.Item>
           <Form.Item name="github" label="GitHub 账号" extra="填写 GitHub 用户名或主页地址,用于关联 Autograder 评测提交;留空可解绑">
-            <Input placeholder="如 Zewang0217 或 https://github.com/Zewang0217" allowClear />
+            <Input placeholder="如 zhangsan 或 https://github.com/zhangsan" allowClear />
           </Form.Item>
         </Form>
       </Modal>
