@@ -4,6 +4,7 @@ import {
   type PayloadAction,
 } from "@reduxjs/toolkit";
 import { request } from "@/utils";
+import { getOpenCycles, type OpenCycle } from "@/api/manage/cycleApis";
 
 /** ===== Types ===== */
 
@@ -69,7 +70,10 @@ export interface AdminFetchResumesResult {
 
 export interface ResumeState {
   // 用户提交简历相关
+  /** 当前选中的投递周期。同时开放多个时由用户在投递页选择 */
   cycleId: number;
+  /** 当前开放投递的周期列表（启用中且今天在起止日期内） */
+  openCycles: OpenCycle[];
   fields: any[];
   fieldDefinitions: any[];
   resume: ResumeEntity | null;
@@ -110,17 +114,28 @@ export const fetchResumeFields = createAsyncThunk<any, ID, ThunkApiConfig>(
   },
 );
 
-// 获取当前活跃招募周期（周期动态化：不再硬编码 cycleId）
-export const fetchActiveCycle = createAsyncThunk<any, void, ThunkApiConfig>(
-  "resume/fetchActiveCycle",
+/**
+ * 获取当前开放投递的周期列表。
+ *
+ * 原实现是 GET /api/cycles/active/1 然后取 list[0]，有两个问题：
+ *   1. is_active 只表示「是否启用」，往届周期为了能查历史简历通常也保持启用，
+ *      所以「启用中」不等于「现在能投」；取第一条等于在多个周期间任选一个
+ *   2. 一旦选中的周期还没配简历字段，/api/resumes/fields/{id} 会返回
+ *      200 + 空数组（不报错），投递页就渲染成一张零字段的空表单 ——
+ *      表现为「用户端显示不出来」，且前后端都没有任何报错
+ *
+ * 改为由后端按起止日期算出「现在真的能投」的全部周期，同时开放多个时
+ * 交给用户在投递页自己选。
+ */
+export const fetchOpenCycles = createAsyncThunk<OpenCycle[], void, ThunkApiConfig>(
+  "resume/fetchOpenCycles",
   async (_, { rejectWithValue }) => {
     try {
-      const res: any = await request.get("/api/cycles/active/1");
+      const res: any = await getOpenCycles();
       const list = res?.data ?? [];
-      const active = Array.isArray(list) && list.length > 0 ? list[0] : null;
-      return active?.cycleId ?? null;
+      return Array.isArray(list) ? (list as OpenCycle[]) : [];
     } catch (e: any) {
-      return rejectWithValue(e?.message ?? "获取活跃周期失败");
+      return rejectWithValue(e?.message ?? "获取开放周期失败");
     }
   },
 );
@@ -438,7 +453,10 @@ export const downloadResumePDF = createAsyncThunk<
 /** ===== Slice ===== */
 
 const initialState: ResumeState = {
+  // 这个初始值只在「还没拿到开放周期列表」的瞬间用一下；拿到后一律被覆盖。
+  // 不要依赖它 —— 它是周期动态化之前的硬编码遗留。
   cycleId: 2,
+  openCycles: [],
   fields: [],
   fieldDefinitions: [],
   resume: null,
@@ -542,6 +560,10 @@ const resumeSlice = createSlice({
       state.adminError = null;
       state.pagination.total = 0;
     },
+    /** 用户在投递页手动切换周期 */
+    setSelectedCycle: (state, action: PayloadAction<number>) => {
+      state.cycleId = Number(action.payload);
+    },
     setSearchParams: (
       state,
       action: PayloadAction<Partial<SearchParamsState>>,
@@ -551,9 +573,14 @@ const resumeSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchActiveCycle.fulfilled, (state, action) => {
-        if (action.payload != null) {
-          state.cycleId = Number(action.payload);
+      .addCase(fetchOpenCycles.fulfilled, (state, action) => {
+        const list = action.payload ?? [];
+        state.openCycles = list;
+        // 只在当前选中项不在开放列表里时才改动选择，否则用户手选的周期会被
+        // 后续任何一次刷新悄悄重置掉
+        const stillOpen = list.some((c) => Number(c.cycleId) === Number(state.cycleId));
+        if (!stillOpen && list.length > 0) {
+          state.cycleId = Number(list[0].cycleId);
         }
       })
       .addCase(fetchResumeFields.pending, (state) => {
@@ -818,6 +845,7 @@ const resumeSlice = createSlice({
 });
 
 export const {
+  setSelectedCycle,
   setFieldValue,
   setFieldDefinitions,
   resetError,

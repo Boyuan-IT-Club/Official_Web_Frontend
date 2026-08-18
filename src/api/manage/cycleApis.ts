@@ -37,6 +37,27 @@ export function getActiveCycles() {
   return request({ url: '/api/cycles/active/1', method: 'get' });
 }
 
+/** 一个「当前开放投递」的周期。fieldCount 为 0 表示该周期还没配报名表单 */
+export interface OpenCycle {
+  cycleId: number;
+  cycleName: string;
+  academicYear: string;
+  description?: string | null;
+  startDate: string;
+  endDate: string;
+  fieldCount: number;
+}
+
+/**
+ * 当前开放投递的周期列表（启用中 + 今天在起止日期内），按 start_date 倒序。
+ *
+ * 不要再用 getActiveCycles() 判断「现在该投哪个周期」：is_active 只表示
+ * 「是否启用」，往届周期为了查历史简历通常也保持启用，取第一条会任选一个。
+ */
+export function getOpenCycles() {
+  return request({ url: '/api/cycles/open', method: 'get' });
+}
+
 export function createCycle(data: CyclePayload) {
   return request({ url: '/api/cycles', method: 'post', data });
 }

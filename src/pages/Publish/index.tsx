@@ -1,5 +1,5 @@
 // src/pages/Publish/index.tsx
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Card,
   Form,
@@ -14,6 +14,7 @@ import {
   Modal,
   Table,
   Upload,
+  Select,
 } from 'antd';
 import {
   SendOutlined,
@@ -63,7 +64,8 @@ import {
   setResumeId,
   fetchFieldValues,
   clearFieldValues,
-  fetchActiveCycle,
+  fetchOpenCycles,
+  setSelectedCycle,
 } from '@/store/modules/resume';
 import { fetchResumeFieldsConfig, ResumeField } from '@/store/modules/resumeFields';
 import type { UserInfo } from '@/store/modules/user';
@@ -208,6 +210,8 @@ const Publish: React.FC = () => {
     first: '', second: '', canAttend: 'yes', customTime: '',
   });
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
+  // 已按哪个周期初始化过（见 initData 里的去重说明）
+  const initedCidRef = useRef<number | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
 
   // ---- 导入导出相关状态 ----
@@ -217,7 +221,7 @@ const Publish: React.FC = () => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const {
-    cycleId, fieldDefinitions, resume, fieldValues, submitting, updating, error,
+    cycleId, openCycles, fieldDefinitions, resume, fieldValues, submitting, updating, error,
   } = useSelector((state: RootStateLike) => state.resume);
 
   const { fields: configFields, loading: configLoading } = useSelector(
@@ -410,9 +414,22 @@ const Publish: React.FC = () => {
     try {
       setIsInitializing(true);
 
-      // 周期动态化：先解析当前活跃周期，失败时退回 store 中的默认值
-      const activeCid = await dispatch(fetchActiveCycle()).unwrap().catch(() => null);
-      const cid = activeCid ?? cycleId;
+      // 解析本次要投的周期：可能同时有多个周期开放，用户选中的那个优先，
+      // 选中项不在开放列表里（首次进入、或上次选的周期已截止）才回退到最新一个
+      const open = await dispatch(fetchOpenCycles()).unwrap().catch(() => [] as typeof openCycles);
+      const openIds = (open ?? []).map((c) => Number(c.cycleId));
+      const cid = openIds.includes(Number(cycleId))
+        ? Number(cycleId)
+        : (openIds.length > 0 ? openIds[0] : cycleId);
+
+      // fetchOpenCycles 的 reducer 也会把 store 里的 cycleId 校正到开放列表内，
+      // 那会让本 effect 因 cycleId 变化再跑一次。这里记下已初始化的周期，
+      // 同一个周期不重复拉一遍全部接口。
+      if (initedCidRef.current === cid) {
+        setIsInitializing(false);
+        return;
+      }
+      initedCidRef.current = cid;
 
       // 所有独立请求并行发起，大幅减少首屏加载时间
       const [configResult, fieldsResult, resumeResult, fieldValuesResult] =
@@ -951,6 +968,50 @@ const Publish: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* 同时开放多个招募周期时让用户自己选：is_active 只表示「是否启用」，
+              往届周期为了查历史简历通常也保持启用，系统无法替用户判断该投哪个。
+              只有一个开放周期时不渲染，避免多出一个无意义的下拉。 */}
+          {openCycles.length > 1 && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="当前有多个招募周期正在进行"
+              description={
+                <Space wrap style={{ marginTop: 8 }}>
+                  <span>请选择要投递的周期：</span>
+                  <Select
+                    style={{ minWidth: 260 }}
+                    value={Number(cycleId)}
+                    onChange={(v) => dispatch(setSelectedCycle(Number(v)))}
+                    options={openCycles.map((c) => ({
+                      value: Number(c.cycleId),
+                      label: `${c.cycleName}（${c.startDate} ~ ${c.endDate}）`
+                        + (c.fieldCount === 0 ? ' · 未配置报名表单' : ''),
+                    }))}
+                  />
+                </Space>
+              }
+            />
+          )}
+
+          {/* 选中周期没有任何字段定义时，表单会渲染成一片空白且不报任何错
+              （/api/resumes/fields/{cycleId} 在无定义时返回 200 + 空数组）。
+              明确说出来，别让人对着空白页猜。 */}
+          {fieldDefinitions.length === 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="该周期还没有配置报名表单"
+              description={
+                openCycles.length > 1
+                  ? '这个招募周期的简历字段尚未配置，暂时无法填写。可以先在上方切换到其它周期，或联系管理员配置。'
+                  : '这个招募周期的简历字段尚未配置，暂时无法填写，请联系管理员。'
+              }
+            />
+          )}
 
           <div className="tips-button-container" style={{ marginBottom: 16, textAlign: 'center' }}>
             <Button type="default" icon={<QuestionCircleOutlined />} onClick={() => setShowTips(!showTips)} className="tips-toggle-button">
