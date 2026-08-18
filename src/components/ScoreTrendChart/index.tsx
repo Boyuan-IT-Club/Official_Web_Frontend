@@ -57,10 +57,17 @@ const ScoreTrendChart: React.FC<Props> = ({ points }) => {
     );
   }, [points]);
 
-  if (points.length === 0) {
-    return <Empty description="暂无趋势数据" />;
-  }
-  return <div ref={containerRef} style={{ width: '100%', height: 260 }} />;
+  // 容器常驻:echarts.init 在挂载时就需要容器,条件渲染会导致数据到达后图表空白(线上 bug)
+  return (
+    <div style={{ position: 'relative', width: '100%', height: 260 }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {points.length === 0 && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Empty description="暂无趋势数据" />
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default ScoreTrendChart;
