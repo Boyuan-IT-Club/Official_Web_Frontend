@@ -43,6 +43,7 @@ import TechStackInput from './components/TechStackInput';
 import PhotoUpload from './components/PhotoUpload';
 import FormSection from './components/FormSection';
 import ResumeDisplay from '@/components/ResumeDisplay';
+import CycleSwitcher from '@/components/CycleSwitcher';
 import InterviewStatusCard from '@/components/InterviewStatusCard';
 import {
   PreferenceTimeSlot,
@@ -920,36 +921,19 @@ const Publish: React.FC = () => {
 
   return (
     <div className="publish-page">
-      {/* 周期选择器放在 isEditing 分支之外：简历一提交页面就切到只读分支，
+      {/* 周期切换放在 isEditing 分支之外：简历一提交页面就切到只读分支，
           若只在编辑分支里渲染，投完第一个周期后另一个在招周期的入口就消失了。
-          两种状态都要能切 —— 投完 A 去投 B 是正常需求。
-          只有一个开放周期时不渲染，避免多出一个无意义的下拉。 */}
-      {openCycles.length > 1 && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="当前有多个招募周期正在进行"
-          description={
-            <Space wrap style={{ marginTop: 8 }}>
-              <span>当前查看/投递的周期：</span>
-              <Select
-                style={{ minWidth: 300 }}
-                value={Number(cycleId)}
-                onChange={(v) => dispatch(setSelectedCycle(Number(v)))}
-                options={openCycles.map((c) => ({
-                  value: Number(c.cycleId),
-                  label: `${c.cycleName}（${c.startDate} ~ ${c.endDate}）`
-                    + (c.fieldCount === 0 ? ' · 未配置报名表单' : ''),
-                }))}
-              />
-              <span style={{ color: '#8c8c8c', fontSize: 12 }}>
-                切换后可在另一个周期单独投递一份简历
-              </span>
-            </Space>
-          }
-        />
-      )}
+          原先是 Alert 里塞一个 Select —— 下拉会把另一个周期藏起来，而用户最初
+          的问题恰恰是「看不到另一个招募活动的入口」，藏进下拉等于没解决。 */}
+      <CycleSwitcher
+        cycles={openCycles}
+        value={Number(cycleId)}
+        onChange={(id) => dispatch(setSelectedCycle(id))}
+        statusOf={(id) =>
+          Number(id) === Number(cycleId) && !isEditing ? '已提交' : undefined
+        }
+      />
+
       {!isEditing ? (
         <div>
           <div className="questionnaire-header">

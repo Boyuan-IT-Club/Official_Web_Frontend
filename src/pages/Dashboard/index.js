@@ -20,8 +20,9 @@ import {
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchMyResumeReadonly, fetchOpenCycles } from '@/store/modules/resume';
+import { fetchMyResumeReadonly, fetchOpenCycles, setSelectedCycle } from '@/store/modules/resume';
 import RecruitProgressCard from '@/components/RecruitProgressCard';
+import CycleSwitcher from '@/components/CycleSwitcher';
 import InterviewReminderCard from '@/components/InterviewReminderCard';
 import ActivitiesPreviewCard from '@/components/ActivitiesPreviewCard';
 import './index.scss';
@@ -92,24 +93,21 @@ const Dashboard = () => {
   const resumeState = useSelector((state) => state.resume);
   const [hasInterview, setHasInterview] = useState(false);
 
-  // 进入首页：解析当前开放投递的周期，再拉取简历状态驱动进度卡。
-  // 可能同时有多个周期开放，这里取用户选中的那个（fetchOpenCycles 的 reducer
-  // 会把选中项校正到开放列表内）；首页不放选择器，切换入口在投递页。
+  // 进入首页先拉一次「当前开放投递的周期」列表。
+  // fetchOpenCycles 的 reducer 会把 store 里选中的 cycleId 校正到开放列表内，
+  // 所以这里不用自己算该选哪个。
   useEffect(() => {
-    (async () => {
-      let cid = null;
-      try {
-        const open = await dispatch(fetchOpenCycles()).unwrap();
-        const ids = (open || []).map((c) => Number(c.cycleId));
-        const selected = Number(resumeState?.cycleId);
-        cid = ids.includes(selected) ? selected : (ids.length > 0 ? ids[0] : null);
-      } catch (e) { /* 拿不到开放周期就不猜，见下面的兜底 */ }
-      // 兜底用 store 里的值而不是写死的 2：写死会让进度卡去查一个不相关的周期
-      if (cid == null) cid = resumeState?.cycleId ?? null;
-      if (cid != null) dispatch(fetchMyResumeReadonly(cid));
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    dispatch(fetchOpenCycles());
   }, [dispatch]);
+
+  // 简历状态跟着「选中的周期」重新拉 —— 必须单独一个 effect 且依赖 cycleId：
+  // 首页现在有切换器了，如果还是只在挂载时拉一次，切到另一个周期后进度卡的
+  // resumeStatus 会停在上一个周期的数据（RecruitProgressCard 自己会按 cycleId
+  // 重拉它那三个接口，但 resumeStatus 是从这里传进去的）。
+  const selectedCycleId = resumeState?.cycleId ?? null;
+  useEffect(() => {
+    if (selectedCycleId != null) dispatch(fetchMyResumeReadonly(selectedCycleId));
+  }, [dispatch, selectedCycleId]);
 
   // 简历投递
   const handleGoToResume = () => {
@@ -127,7 +125,7 @@ const Dashboard = () => {
 
     // 尝试从后端获取最新简历状态
     try {
-      const result = await dispatch(fetchMyResumeReadonly(resumeState?.cycleId ?? 2)).unwrap();
+      const result = await dispatch(fetchMyResumeReadonly(selectedCycleId ?? 2)).unwrap();
       const resumeData = result?.data || result;
       if (resumeData && resumeData.status >= 2) {
         navigate('/main/interview-appointment');
@@ -153,9 +151,20 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* 招新进度卡（方案三）：随时知道自己进行到哪一步 */}
+      {/* 多周期同时在招时，首页也能切 —— 进度卡跟着切换的周期走。
+          只有一个开放周期时 CycleSwitcher 自己返回 null，不占位。 */}
       <div style={{ maxWidth: 960, margin: '16px auto 0', padding: '0 16px' }}>
-        <RecruitProgressCard cycleId={resumeState?.cycleId ?? 2} resumeStatus={resumeState?.resume?.status ?? null} />
+        <CycleSwitcher
+          compact
+          cycles={resumeState?.openCycles ?? []}
+          value={Number(selectedCycleId)}
+          onChange={(id) => dispatch(setSelectedCycle(id))}
+        />
+      </div>
+
+      {/* 招新进度卡（方案三）：随时知道自己进行到哪一步 */}
+      <div style={{ maxWidth: 960, margin: '8px auto 0', padding: '0 16px' }}>
+        <RecruitProgressCard cycleId={selectedCycleId ?? 2} resumeStatus={resumeState?.resume?.status ?? null} />
       </div>
 
       {/* 工作台：面试提醒 + 最新活动（无面试安排时活动卡自动铺满整行） */}
@@ -163,7 +172,7 @@ const Dashboard = () => {
         <Row gutter={[12, 12]}>
           {hasInterview && (
             <Col xs={24} md={12}>
-              <InterviewReminderCard cycleId={resumeState?.cycleId ?? 2} onVisibleChange={setHasInterview} />
+              <InterviewReminderCard cycleId={selectedCycleId ?? 2} onVisibleChange={setHasInterview} />
             </Col>
           )}
           <Col xs={24} md={hasInterview ? 12 : 24}>
@@ -171,7 +180,7 @@ const Dashboard = () => {
           </Col>
           {!hasInterview && (
             <Col span={0} style={{ display: 'none' }}>
-              <InterviewReminderCard cycleId={resumeState?.cycleId ?? 2} onVisibleChange={setHasInterview} />
+              <InterviewReminderCard cycleId={selectedCycleId ?? 2} onVisibleChange={setHasInterview} />
             </Col>
           )}
         </Row>

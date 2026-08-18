@@ -1,0 +1,146 @@
+@use '../../styles/tokens' as t;
+
+// 配色跟用户端现有页面对齐（Dashboard 用的是 #66a3ff / #6c7ae0 蓝系 + #718096 辅助灰），
+// 不引入新色系；层次靠 tokens 里的阴影与圆角刻度。
+$accent: #6c7ae0;
+$accent-soft: #66a3ff;
+$accent-bg: #f5f9ff;
+$muted: #718096;
+
+.cycle-switcher {
+  margin-bottom: t.$gap-md;
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: t.$gap-xs;
+    margin-bottom: t.$gap-sm;
+  }
+
+  &__title {
+    font-size: t.$text-body;
+    color: #2d3748;
+
+    b {
+      color: $accent;
+      font-weight: 700;
+      margin: 0 2px;
+    }
+  }
+
+  &__hint {
+    font-size: t.$text-caption;
+    color: $muted;
+  }
+
+  &__list {
+    display: grid;
+    // 两个周期时并排，窄屏自动堆叠；不用固定两列，将来三个周期也不会挤爆
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: t.$gap-sm;
+  }
+
+  &.is-compact {
+    .cycle-switcher__list { gap: t.$gap-xs; }
+    .cycle-card {
+      padding: 10px t.$gap-sm;
+      gap: 4px;
+    }
+    .cycle-card__name { font-size: t.$text-sm; }
+    .cycle-card__date { font-size: 11px; }
+  }
+}
+
+.cycle-card {
+  // button 复位：这里要的是可点的卡片，不是按钮外观
+  appearance: none;
+  border: t.$border-strong;
+  background: #fff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: t.$gap-sm t.$gap-md;
+  border-radius: t.$radius-card;
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+
+  &:hover:not(.is-active) {
+    border-color: rgba($accent-soft, .55);
+    background: $accent-bg;
+  }
+
+  // 键盘可达：这是个 role=tab 的按钮，不能只靠颜色区分
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+
+  &.is-active {
+    border-color: $accent;
+    background: $accent-bg;
+    box-shadow: t.$shadow-sm;
+    cursor: default;
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: t.$gap-xs;
+  }
+
+  &__name {
+    font-size: t.$text-body;
+    font-weight: 600;
+    color: #1a202c;
+    // 周期名可能很长，别把卡片撑破
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__tick {
+    color: $accent;
+    flex: none;
+  }
+
+  &__date {
+    font-size: t.$text-caption;
+    color: $muted;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+.cycle-tag {
+  font-size: 11px;
+  line-height: 18px;
+  padding: 0 8px;
+  border-radius: t.$radius-pill;
+  background: #f1f3f5;
+  color: $muted;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &.is-done {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  &.is-warn {
+    background: #fff4e5;
+    color: #b26a00;
+  }
+}
