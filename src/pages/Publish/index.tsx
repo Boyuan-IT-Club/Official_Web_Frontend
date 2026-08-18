@@ -429,6 +429,19 @@ const Publish: React.FC = () => {
         setIsInitializing(false);
         return;
       }
+      // 切换周期（不是首次进入）时先清空表单与已加载的字段值。
+      // 必须显式清：下面填表单用的是 form.setFieldsValue(部分对象)，它只覆盖
+      // 传进去的键，不会清掉没传的键 —— 从填满的 A 切到空的 B 时，A 的答案会
+      // 以预填的样子留在 B 的表单里，用户很可能就那样提交了。
+      const isCycleSwitch = initedCidRef.current !== null && initedCidRef.current !== cid;
+      if (isCycleSwitch) {
+        dispatch(clearFieldValues());
+        form.resetFields();
+        setPhotoBase64('');
+        setTechStackItems(['']);
+        setDepartments({ first: '', second: '' });
+        setInterviewTimes({ first: '', second: '', canAttend: 'yes', customTime: '' });
+      }
       initedCidRef.current = cid;
 
       // 所有独立请求并行发起，大幅减少首屏加载时间
@@ -498,7 +511,7 @@ const Publish: React.FC = () => {
     } finally {
       setIsInitializing(false);
     }
-  }, [dispatch, cycleId]);
+  }, [dispatch, cycleId, form]);
 
   useEffect(() => { void initData(); }, [initData]);
 
@@ -907,6 +920,36 @@ const Publish: React.FC = () => {
 
   return (
     <div className="publish-page">
+      {/* 周期选择器放在 isEditing 分支之外：简历一提交页面就切到只读分支，
+          若只在编辑分支里渲染，投完第一个周期后另一个在招周期的入口就消失了。
+          两种状态都要能切 —— 投完 A 去投 B 是正常需求。
+          只有一个开放周期时不渲染，避免多出一个无意义的下拉。 */}
+      {openCycles.length > 1 && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="当前有多个招募周期正在进行"
+          description={
+            <Space wrap style={{ marginTop: 8 }}>
+              <span>当前查看/投递的周期：</span>
+              <Select
+                style={{ minWidth: 300 }}
+                value={Number(cycleId)}
+                onChange={(v) => dispatch(setSelectedCycle(Number(v)))}
+                options={openCycles.map((c) => ({
+                  value: Number(c.cycleId),
+                  label: `${c.cycleName}（${c.startDate} ~ ${c.endDate}）`
+                    + (c.fieldCount === 0 ? ' · 未配置报名表单' : ''),
+                }))}
+              />
+              <span style={{ color: '#8c8c8c', fontSize: 12 }}>
+                切换后可在另一个周期单独投递一份简历
+              </span>
+            </Space>
+          }
+        />
+      )}
       {!isEditing ? (
         <div>
           <div className="questionnaire-header">
@@ -968,33 +1011,6 @@ const Publish: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* 同时开放多个招募周期时让用户自己选：is_active 只表示「是否启用」，
-              往届周期为了查历史简历通常也保持启用，系统无法替用户判断该投哪个。
-              只有一个开放周期时不渲染，避免多出一个无意义的下拉。 */}
-          {openCycles.length > 1 && (
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
-              message="当前有多个招募周期正在进行"
-              description={
-                <Space wrap style={{ marginTop: 8 }}>
-                  <span>请选择要投递的周期：</span>
-                  <Select
-                    style={{ minWidth: 260 }}
-                    value={Number(cycleId)}
-                    onChange={(v) => dispatch(setSelectedCycle(Number(v)))}
-                    options={openCycles.map((c) => ({
-                      value: Number(c.cycleId),
-                      label: `${c.cycleName}（${c.startDate} ~ ${c.endDate}）`
-                        + (c.fieldCount === 0 ? ' · 未配置报名表单' : ''),
-                    }))}
-                  />
-                </Space>
-              }
-            />
-          )}
 
           {/* 选中周期没有任何字段定义时，表单会渲染成一片空白且不报任何错
               （/api/resumes/fields/{cycleId} 在无定义时返回 200 + 空数组）。
