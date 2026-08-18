@@ -57,6 +57,8 @@ export interface ToolbarProps {
   roleOptions: RoleOption[];
   onClearSelection: () => void;
   refreshUsers: () => void;
+  /** 是否持有 admin:manage。false 时进入只读模式,只保留搜索与筛选 */
+  canManage?: boolean;
 }
 
 // ─── 组件 ────────────────────────────────────────────────────────────────────
@@ -68,6 +70,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   selectedDept, onDeptChange,
   selectedRowIds, selectedRowsCount, selectedRows,
   roleOptions, onClearSelection, refreshUsers,
+  canManage = true,
 }) => {
 
   // ── 部门选项 ────────────────────────────────────────────────────────────
@@ -342,8 +345,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </Select>
         </Space>
 
-        {/* 右侧：批量操作 */}
-        {selectedRowsCount > 0 && (
+        {/* 右侧：批量操作。只读角色(仅 user:view)不渲染 —— 后端写接口仍是
+            admin:manage,这里只是别让人点了才吃 403 */}
+        {canManage && selectedRowsCount > 0 && (
           <Space>
             <Badge count={selectedRowsCount} size="small">
               <Dropdown menu={{ items: batchMenuItems }} trigger={['click']}>

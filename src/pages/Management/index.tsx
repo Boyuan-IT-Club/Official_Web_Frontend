@@ -1,6 +1,6 @@
 // src/pages/Management/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar } from 'antd';
+import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar, Alert } from 'antd';
 import {
   TeamOutlined,
   LockOutlined,
@@ -23,11 +23,9 @@ import {
   exportUsersExcel,
 } from '@/api/manage/userApis';
 
-import {
-} from '@/api/manage/resumeEntry';
 import { getToken, hasEffectiveJwtRoles } from '@/utils';
+import { hasPermission } from '@/utils/jwt';
 
-import type { ResumeFieldUI } from '@/api/manage/resumeEntry';
 
 const { confirm } = Modal;
 
@@ -97,6 +95,12 @@ const Management: React.FC = () => {
   // ── 简历 / 提示词 ─────────────────────────────────────────────────────────
 
   // ── 核心请求：分页列表 ────────────────────────────────────────────────────
+  // 只读准入:管理员(ADMIN)角色只有 user:view,能读用户列表但一个写接口都调不动。
+  // 后端是唯一权威(写接口仍要 admin:manage),这里收起入口只是免得点了才吃 403。
+  const canManage = hasPermission(getToken(), 'admin:manage');
+  // 角色管理的增删改查都要 role:assign,ADMIN 角色没有,不隐藏就是一个必然 403 的空 tab
+  const canAssignRole = hasPermission(getToken(), 'role:assign');
+
   const fetchUsers = useCallback(async (
     currentPage: number,
     currentPageSize: number,
@@ -304,6 +308,15 @@ const Management: React.FC = () => {
               label: '用户管理',
               children: (
                 <>
+                  {!canManage && (
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginBottom: 12 }}
+                      message="只读模式"
+                      description="当前账号具有查看用户信息的权限,但不能执行录取、分配部门、冻结、删除等操作。需要这些操作请联系超级管理员。"
+                    />
+                  )}
                   <Toolbar
                     searchText={searchText}
                     onSearchChange={setSearchText}
@@ -320,6 +333,7 @@ const Management: React.FC = () => {
                     onClearSelection={() => setSelectedRows([])}
                     roleOptions={roleOptions}
                     refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept)}
+                    canManage={canManage}
                   />
                   <UserTable
                     users={users}
@@ -329,6 +343,7 @@ const Management: React.FC = () => {
                     onSelectionChange={setSelectedRows}
                     onView={handleViewUser}
                     refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept)}
+                    canManage={canManage}
                     pagination={{
                       current: page,
                       pageSize,
@@ -339,11 +354,13 @@ const Management: React.FC = () => {
                 </>
               ),
             },
-            {
+            // 角色管理整块要 role:assign;只读管理员没有,挂出来点进去只会看到一片
+            // 加载失败,所以直接不给这个 tab
+            ...(canAssignRole ? [{
               key: 'roles',
               label: '角色管理',
               children: <RoleManager />,
-            },
+            }] : []),
             // 「简历设置」Tab 已移出本页：简历字段是按周期定义的
             // （resume_field_definition.cycle_id），与用户/角色无关；而且这里写死了
             // cycleId 常量，导致新建周期后无法配置其字段。现入口在

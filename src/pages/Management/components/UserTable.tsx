@@ -25,7 +25,8 @@ export interface User {
   email: string;
   isMember: boolean;
   name: null | string;
-  password: string;
+  // password 不在这里：接口已用 @JsonProperty(WRITE_ONLY) 停止下发密码哈希,
+  // 留着这个字段会让人以为响应里还有它
   phone: null | string;
   role: string;
   status: boolean;   // True = 正常，False = 冻结
@@ -48,6 +49,8 @@ interface UserTableProps {
   onSelectionChange: (selected: User[]) => void;
   onView: (user: User) => void;
   refreshUsers: () => void;
+  /** 是否持有 admin:manage。false 时只保留「查看详情」,并去掉勾选框 */
+  canManage?: boolean;
   pagination: {
     current: number;
     pageSize: number;
@@ -62,6 +65,7 @@ const UserTable: React.FC<UserTableProps> = ({
   users, loading, roleOptions,
   selectedRows, onSelectionChange,
   onView, refreshUsers, pagination,
+  canManage = true,
 }) => {
   // ── 角色管理弹窗（从「更多」菜单进入；多选，保存时整体替换，可增可减） ──
   const [roleModalUser, setRoleModalUser] = React.useState<User | null>(null);
@@ -274,8 +278,9 @@ const UserTable: React.FC<UserTableProps> = ({
           <Tooltip title="查看详情">
             <Button type="text" icon={<EyeOutlined />} size="small" onClick={() => onView(record)} />
           </Tooltip>
-          {/* 冻结/删除等危险操作收进「更多」菜单，避免误触 */}
-          <Dropdown
+          {/* 冻结/删除等危险操作收进「更多」菜单，避免误触。
+              只读角色(仅 user:view)不渲染「更多」,只留查看详情 */}
+          {canManage && <Dropdown
             trigger={['click']}
             menu={{
               items: [
@@ -311,7 +316,7 @@ const UserTable: React.FC<UserTableProps> = ({
             }}
           >
             <Button type="text" icon={<MoreOutlined />} size="small" />
-          </Dropdown>
+          </Dropdown>}
         </Space>
       ),
     },
@@ -363,10 +368,10 @@ const UserTable: React.FC<UserTableProps> = ({
       />
     </Modal>
     <Table<User>
-      rowSelection={{
+      rowSelection={canManage ? {
         selectedRowKeys: selectedRows.map((u) => u.userId),
         onChange: (_: React.Key[], rows: User[]) => onSelectionChange(rows),
-      }}
+      } : undefined}
       columns={columns}
       dataSource={[...users].sort((a, b) => {
         // 有角色的用户排前面（角色多者优先），无角色的排后面
