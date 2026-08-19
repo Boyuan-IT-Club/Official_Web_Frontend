@@ -153,12 +153,28 @@ const isValidationError = (err: unknown): err is ValidationErrorLike => {
 };
 
 // 常量移出组件，避免每次渲染重新创建
-const DEFAULT_FIELD_ID_MAPPING: Record<string, number> = {
-  student_id: 16, name: 4, major: 5, email: 6, phone: 7,
-  grade: 8, gender: 9, expected_departments: 10, self_introduction: 11,
-  tech_stack: 12, project_experience: 13, expected_interview_time: 14,
-  personal_photo: 15, reason: 18, github: 19,
+/**
+ * 从后端返回的字段定义列表构造 fieldKey -> fieldId 映射。
+ *
+ * 这里原先是一张写死的表（name: 4, major: 5, grade: 8 …），那是**某一个周期**的
+ * 自增 ID。别的周期 resume_field_definition 是另一批 ID，照那张表写入会把值
+ * 存到错的字段上 —— 线上表现是简历详情里「姓名」空着、而「年级」显示成了人名。
+ *
+ * 拿不到定义时返回空映射，而不是猜 ID：写到错字段是不可逆的数据损坏，
+ * 什么都不写反而可以重填。此时投递页会显示「该周期还没有配置报名表单」。
+ */
+const buildFieldIdMapping = (list: unknown): Record<string, number> => {
+  // store 里存的就是数组本身：fetchResumeFields 返回 res.data，而 axios 拦截器
+  // 已经把响应解到业务体，所以这里拿到的是 data 数组。兼容一下信封形状以防调用方不同。
+  const arr = Array.isArray(list) ? list : (list as any)?.data;
+  if (!Array.isArray(arr) || arr.length === 0) return {};
+  const mapping: Record<string, number> = {};
+  arr.forEach((f: FieldDefinitionItem) => {
+    if (f?.fieldKey != null && f?.fieldId != null) mapping[f.fieldKey] = Number(f.fieldId);
+  });
+  return mapping;
 };
+
 
 const DEFAULT_FIRST_DEPT: OptionItem[] = [
   { value: '技术部', label: '技术部' }, { value: '媒体部', label: '媒体部' },
@@ -232,15 +248,10 @@ const Publish: React.FC = () => {
   const userInfo = useSelector((state: RootStateLike) => state.user.userInfo);
 
   // ---- O(1) Map 查找替代 O(n) array.find() ----
-  const fieldIdMapping = useMemo<Record<string, number>>(() => {
-    const data = (fieldDefinitions as any)?.data;
-    if (data && Array.isArray(data) && data.length > 0) {
-      const mapping: Record<string, number> = {};
-      data.forEach((field: FieldDefinitionItem) => { mapping[field.fieldKey] = field.fieldId; });
-      return mapping;
-    }
-    return DEFAULT_FIELD_ID_MAPPING;
-  }, [fieldDefinitions]);
+  const fieldIdMapping = useMemo<Record<string, number>>(
+    () => buildFieldIdMapping(fieldDefinitions),
+    [fieldDefinitions],
+  );
 
   const fieldValueMap = useMemo<Map<number, FieldValueLike>>(() => {
     const map = new Map<number, FieldValueLike>();
@@ -467,10 +478,14 @@ const Publish: React.FC = () => {
         const resumeId = resumeData.resumeId || resumeData.resume_id || resumeData.id;
         if (resumeId) dispatch(setResumeId(resumeId));
 
-        const photoFid = DEFAULT_FIELD_ID_MAPPING['personal_photo'];
-        const techFid = DEFAULT_FIELD_ID_MAPPING['tech_stack'];
-        const deptFid = DEFAULT_FIELD_ID_MAPPING['expected_departments'];
-        const interviewFid = DEFAULT_FIELD_ID_MAPPING['expected_interview_time'];
+        // 用本次刚取回的定义就地构造映射：不能按写死的 ID 去找，那是别的周期的编号。
+        // 也不用组件里的 fieldIdMapping —— 它来自 initData 自己 dispatch 的状态，
+        // 放进依赖会让本回调依赖自身的副作用。
+        const fidOf = buildFieldIdMapping(fieldsResult);
+        const photoFid = fidOf['personal_photo'];
+        const techFid = fidOf['tech_stack'];
+        const deptFid = fidOf['expected_departments'];
+        const interviewFid = fidOf['expected_interview_time'];
 
         const sf = resumeData.simpleFields;
         if (sf) {
@@ -766,8 +781,8 @@ const Publish: React.FC = () => {
         });
         const sf = resumeData.simpleFields;
         if (sf) {
-          const techFid = DEFAULT_FIELD_ID_MAPPING['tech_stack'];
-          const deptFid = DEFAULT_FIELD_ID_MAPPING['expected_departments'];
+          const techFid = fieldIdMapping['tech_stack'];
+          const deptFid = fieldIdMapping['expected_departments'];
           const techField = sf.find(f => f.fieldId === techFid);
           setTechStackItems(techField?.fieldValue ? parseJsonField<string[]>(techField.fieldValue, ['']) : ['']);
           const deptField = sf.find(f => f.fieldId === deptFid);
@@ -783,7 +798,7 @@ const Publish: React.FC = () => {
       message.error('加载简历数据失败，请刷新页面重试');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, cycleId, fieldValues]);
+  }, [dispatch, cycleId, fieldValues, fieldIdMapping]);
 
   const handleCancelEdit = useCallback(async (): Promise<void> => {
     try {
@@ -795,9 +810,9 @@ const Publish: React.FC = () => {
         await dispatch(fetchFieldValues(cycleId)).unwrap();
         const sf = resumeData.simpleFields;
         if (sf) {
-          const techFid = DEFAULT_FIELD_ID_MAPPING['tech_stack'];
-          const deptFid = DEFAULT_FIELD_ID_MAPPING['expected_departments'];
-          const photoFid = DEFAULT_FIELD_ID_MAPPING['personal_photo'];
+          const techFid = fieldIdMapping['tech_stack'];
+          const deptFid = fieldIdMapping['expected_departments'];
+          const photoFid = fieldIdMapping['personal_photo'];
           const techField = sf.find(f => f.fieldId === techFid);
           setTechStackItems(techField?.fieldValue ? parseJsonField<string[]>(techField.fieldValue, ['']) : ['']);
           const deptField = sf.find(f => f.fieldId === deptFid);
@@ -818,7 +833,7 @@ const Publish: React.FC = () => {
       console.error('取消修改失败:', err);
       message.error('取消修改失败，请刷新页面');
     }
-  }, [dispatch, cycleId, form]);
+  }, [dispatch, cycleId, form, fieldIdMapping]);
 
   // ---- 导出处理 ----
   const exportData = useMemo(() => {
