@@ -1011,9 +1011,11 @@ const Publish: React.FC = () => {
             )}
           </div>
 
-          {/* 选中周期没有任何字段定义时，表单会渲染成一片空白且不报任何错
-              （/api/resumes/fields/{cycleId} 在无定义时返回 200 + 空数组）。
-              明确说出来，别让人对着空白页猜。 */}
+          {/* 选中周期没有任何字段定义时，下面的表单必须整块不渲染。
+              表单本身是写死的 JSX，isFieldEnabled 在拿不到配置时默认放行，
+              所以字段定义为空时它照样能填 —— 但 fieldIdMapping 也是空的，
+              填完提交一个字都存不进去，而且不报错。只挂个提示条不够，
+              必须把可填写的部分拿掉，否则就是在诱导用户白填一遍。 */}
           {fieldDefinitions.length === 0 && (
             <Alert
               type="warning"
@@ -1028,6 +1030,8 @@ const Publish: React.FC = () => {
             />
           )}
 
+          {fieldDefinitions.length > 0 && (
+          <>
           <div className="tips-button-container" style={{ marginBottom: 16, textAlign: 'center' }}>
             <Button type="default" icon={<QuestionCircleOutlined />} onClick={() => setShowTips(!showTips)} className="tips-toggle-button">
               填写提示 {showTips ? <CaretDownOutlined /> : <CaretDownOutlined rotate={-90} />}
@@ -1256,6 +1260,8 @@ const Publish: React.FC = () => {
           </div>
 
           {/* 面试意向已并入上方表单（方案二），原独立预约面板移除 */}
+          </>
+          )}
         </div>
       )}
 

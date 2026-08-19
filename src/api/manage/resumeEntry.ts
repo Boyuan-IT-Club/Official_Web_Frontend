@@ -174,10 +174,18 @@ export const FIELD_TYPE_OPTIONS: { value: BackendFieldType; label: string }[] = 
 /**
  * 默认字段
  */
+/**
+ * 前端内置的字段模板。
+ *
+ * fieldId 一律为 0 —— 这些是**模板**，不是数据库行。曾经这里写的是 1..20 的顺序编号，
+ * 而真实行的 field_id 是另一批值；保存走 updateById 时，id 1/2/3 打空
+ * （姓名/学号/性别 静默消失），id 4 起把内容整体错位覆盖到别的字段上。
+ * 要落库请走 POST /api/resumes/fields/{cycleId}/init（只新增、不覆盖）。
+ */
 export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
   // ==================== 分类1：基本信息 ====================
   {
-    fieldId: 1,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "name",
     fieldLabel: "姓名",
@@ -189,7 +197,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 1, // 基本信息
   },
   {
-    fieldId: 2,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "student_id",
     fieldLabel: "学号",
@@ -201,7 +209,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 1, // 基本信息
   },
   {
-    fieldId: 3,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "gender",
     fieldLabel: "性别",
@@ -213,7 +221,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 1, // 基本信息
   },
   {
-    fieldId: 4,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "grade",
     fieldLabel: "年级",
@@ -225,7 +233,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 1, // 基本信息
   },
   {
-    fieldId: 5,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "major",
     fieldLabel: "专业",
@@ -238,7 +246,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
   },
 
   {
-    fieldId: 6,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "email",
     fieldLabel: "邮箱",
@@ -250,7 +258,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 1, 
   },
   {
-    fieldId: 7,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "phone",
     fieldLabel: "手机号",
@@ -262,7 +270,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 1,
   },
   {
-    fieldId: 8,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "github",
     fieldLabel: "GitHub主页",
@@ -275,7 +283,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
   },
 
   {
-    fieldId: 9,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "personal_photo",
     fieldLabel: "个人照片",
@@ -289,7 +297,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
 
   // ==================== 分类2 :自我介绍====================
   {
-    fieldId: 10,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "self_introduction",
     fieldLabel: "自我介绍",
@@ -301,7 +309,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 2,
   },
   {
-    fieldId: 11,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "reason",
     fieldLabel: "加入理由",
@@ -313,7 +321,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 2,
   },
   {
-    fieldId: 17,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "introduction",
     fieldLabel: "个人简介",
@@ -327,7 +335,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
 
   // ==================== 分类3：志愿选择 ====================
   {
-    fieldId: 12,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "first_choice",
     fieldLabel: "第一志愿",
@@ -340,7 +348,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 3, // 志愿选择
   },
   {
-    fieldId: 13,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "second_choice",
     fieldLabel: "第二志愿",
@@ -353,7 +361,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 3, // 志愿选择
   },
   {
-    fieldId: 20,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "expected_departments",
     fieldLabel: "期望部门",
@@ -368,7 +376,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
 
   // ==================== 分类4：面试安排 ====================
   {
-    fieldId: 14,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "can_attend_offline_interview",
     fieldLabel: "能否参加线下面试",
@@ -380,7 +388,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 4, // 面试安排
   },
   {
-    fieldId: 15,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "expected_interview_time",
     fieldLabel: "第一面试时间",
@@ -393,7 +401,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 4, // 面试安排
   },
   {
-    fieldId: 16,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "second_interview_time",
     fieldLabel: "第二面试时间",
@@ -408,7 +416,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
 
   // ==================== 分类5：技术能力 ====================
   {
-    fieldId: 18,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "tech_stack",
     fieldLabel: "技术栈",
@@ -420,7 +428,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     category: 5, // 技术能力
   },
   {
-    fieldId: 19,
+    fieldId: 0,
     cycleId: 2,
     fieldKey: "project_experience",
     fieldLabel: "项目经验",
@@ -593,12 +601,24 @@ export const saveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> =
     throw new Error('没有可保存的字段');
   }
 
+  // 按有无真实 fieldId 分流：批量更新接口只接受已存在的行（后端现在会对
+  // fieldId<=0 或不存在的 ID 直接报错，不再静默打空）；没有 ID 的是新字段，
+  // 必须走创建接口，让数据库分配主键。
+  const toUpdate = normalized.filter((f) => Number(f.fieldId) > 0);
+  const toCreate = normalized.filter((f) => !(Number(f.fieldId) > 0));
+
   try {
-    await batchUpdateResumeFields(normalized);
+    for (const f of toCreate) {
+      await createResumeField(toBackendField(f));
+    }
+    if (toUpdate.length > 0) {
+      await batchUpdateResumeFields(toUpdate);
+    }
   } catch (e: any) {
     throw {
       ...e,
-      message: `批量更新失败（${normalized.length} 项）: ${e?.message || '系统异常'}`,
+      message: `保存字段失败（新建 ${toCreate.length} 项 / 更新 ${toUpdate.length} 项）: `
+        + `${e?.message || '系统异常'}`,
     };
   }
 };
