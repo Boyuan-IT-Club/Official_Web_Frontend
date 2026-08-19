@@ -213,6 +213,37 @@ const parseJsonField = <T,>(raw: any, fallback: T): T => {
   try { return JSON.parse(String(raw)) as T; } catch { return fallback; }
 };
 
+/**
+ * 解析存成 JSON 的字段值，并**保证**结果是字符串数组。
+ *
+ * parseJsonField 的 <T> 只是类型断言 —— JSON.parse 运行时可能返回数字、对象、null，
+ * 而 TypeScript 挡不住脏数据。线上就因此整页崩过：某字段存的值是 123，
+ * JSON.parse 得到数字 123，塞进 techStackItems 后 exportResume 里的
+ * techStackItems.filter(Boolean) 直接 TypeError（TypeError: s.filter is not a function）。
+ *
+ * 凡是要喂给「按数组用」的 state，都必须走这里，不能只标个 <string[]> 就当数组。
+ */
+/** 同上，但保证结果是普通对象（非数组、非 null）。拿到数字虽然不崩，但字段会全变 undefined */
+const parseObjectField = <T extends object>(raw: unknown, fallback: T): T => {
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return fallback;
+    return parsed as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const parseStringArray = (raw: unknown, fallback: string[]): string[] => {
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (!Array.isArray(parsed)) return fallback;
+    return parsed.map((x) => (x == null ? '' : String(x)));
+  } catch {
+    return fallback;
+  }
+};
+
 const Publish: React.FC = () => {
   const dispatch = useDispatch<any>();
   const [form] = Form.useForm<any>();
@@ -494,19 +525,19 @@ const Publish: React.FC = () => {
 
           const techField = sf.find(f => f.fieldId === techFid);
           if (techField?.fieldValue) {
-            setTechStackItems(parseJsonField<string[]>(techField.fieldValue, ['']));
+            setTechStackItems(parseStringArray(techField.fieldValue, ['']));
           } else { setTechStackItems(['']); }
 
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
-            const arr = parseJsonField<string[]>(deptField.fieldValue, []);
+            const arr = parseStringArray(deptField.fieldValue, []);
             setDepartments({ first: arr[0] || '', second: arr[1] || '' });
           } else { setDepartments({ first: '', second: '' }); }
         }
 
         const interviewField = resolvedFieldValues.find(f => f.fieldId === interviewFid);
         if (interviewField?.fieldValue) {
-          setInterviewTimes(parseJsonField<InterviewTimesState>(interviewField.fieldValue, {
+          setInterviewTimes(parseObjectField<InterviewTimesState>(interviewField.fieldValue, {
             first: '', second: '', canAttend: 'yes', customTime: '',
           }));
         } else {
@@ -784,10 +815,10 @@ const Publish: React.FC = () => {
           const techFid = fieldIdMapping['tech_stack'];
           const deptFid = fieldIdMapping['expected_departments'];
           const techField = sf.find(f => f.fieldId === techFid);
-          setTechStackItems(techField?.fieldValue ? parseJsonField<string[]>(techField.fieldValue, ['']) : ['']);
+          setTechStackItems(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']);
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
-            const arr = parseJsonField<string[]>(deptField.fieldValue, []);
+            const arr = parseStringArray(deptField.fieldValue, []);
             setDepartments({ first: arr[0] || '', second: arr[1] || '' });
           } else { setDepartments({ first: '', second: '' }); }
         }
@@ -814,10 +845,10 @@ const Publish: React.FC = () => {
           const deptFid = fieldIdMapping['expected_departments'];
           const photoFid = fieldIdMapping['personal_photo'];
           const techField = sf.find(f => f.fieldId === techFid);
-          setTechStackItems(techField?.fieldValue ? parseJsonField<string[]>(techField.fieldValue, ['']) : ['']);
+          setTechStackItems(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']);
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
-            const arr = parseJsonField<string[]>(deptField.fieldValue, []);
+            const arr = parseStringArray(deptField.fieldValue, []);
             setDepartments({ first: arr[0] || '', second: arr[1] || '' });
           } else { setDepartments({ first: '', second: '' }); }
           const photoField = sf.find(f => f.fieldId === photoFid);
