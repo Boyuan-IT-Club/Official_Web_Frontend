@@ -29,9 +29,19 @@ export function buildExportData(
     const v = typeof raw === 'object' ? (raw as { fieldValue?: unknown }).fieldValue : raw;
     return v == null ? '' : String(v);
   };
+  // 两层都要防：字段值可能不是 JSON 数组，传进来的 techStackItems 也可能不是数组。
+  // 线上崩过一次 —— 某字段存的是 123，JSON.parse 得到数字后被塞进 techStackItems，
+  // 这里的 techStackItems.filter 直接 TypeError 把整页打白。
+  // 本函数是导出用的公共工具，不该因为调用方传了脏数据就崩。
+  const safeItems = Array.isArray(techStackItems) ? techStackItems.filter(Boolean) : [];
   let techStack: string[] = [];
-  try { const r = getVal('tech_stack'); techStack = r ? JSON.parse(r) : []; } catch { techStack = techStackItems.filter(Boolean); }
-  if (!Array.isArray(techStack)) techStack = techStackItems.filter(Boolean);
+  try {
+    const r = getVal('tech_stack');
+    const parsed = r ? JSON.parse(r) : [];
+    techStack = Array.isArray(parsed) ? parsed : safeItems;
+  } catch {
+    techStack = safeItems;
+  }
   let it: ResumeExportData['interviewTimes'];
   try { const r = getVal('expected_interview_time'); if (r) { const p = JSON.parse(r); it = { first: p.first || '', second: p.second || '', canAttend: p.canAttend === 'no' ? 'no' : 'yes' }; } } catch {}
   return {
