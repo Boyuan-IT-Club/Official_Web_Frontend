@@ -1,4 +1,5 @@
 // src/pages/Publish/index.tsx
+import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Card,
@@ -15,6 +16,7 @@ import {
   Table,
   Upload,
   Select,
+  Radio,
 } from 'antd';
 import {
   SendOutlined,
@@ -31,6 +33,7 @@ import {
   ImportOutlined,
   FileWordOutlined,
   UploadOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -247,6 +250,7 @@ const parseStringArray = (raw: unknown, fallback: string[]): string[] => {
 
 const Publish: React.FC = () => {
   const dispatch = useDispatch<any>();
+  const navigate = useNavigate();
   const [form] = Form.useForm<any>();
 
   const [photoBase64, setPhotoBase64] = useState<string>('');
@@ -669,6 +673,10 @@ const Publish: React.FC = () => {
       // 面试已安排，意向以既有安排为准；简历其它内容照常保存
       return;
     }
+    if (interviewTimes.canAttend === 'no') {
+      // 明确表示不能到场：不提交排期志愿，也不该拿「志愿未完整填写」去烦他
+      return;
+    }
     const firstDeptId = deptNameToId[departments.first];
     if (!firstDeptId || selectedSlotIds.length === 0) {
       message.warning('面试意向未完整填写（志愿部门/可面试时间），可稍后回到本页补填并更新简历');
@@ -685,7 +693,7 @@ const Publish: React.FC = () => {
       console.error('面试志愿提交失败:', e);
       message.warning(e?.message || '面试志愿提交失败，可稍后回到本页重新提交');
     }
-  }, [cycleId, departments, deptNameToId, selectedSlotIds, intentLocked]);
+  }, [cycleId, departments, deptNameToId, selectedSlotIds, intentLocked, interviewTimes.canAttend]);
 
   // 保存草稿：只持久化已填字段值，不做必填校验、不提交
   const [savingDraft, setSavingDraft] = useState(false);
@@ -1192,15 +1200,6 @@ const Publish: React.FC = () => {
 
                     {/* 志愿信息模块 */}
                     <FormSection title="志愿选择" icon={<TeamOutlined />}>
-                      {intentLocked && (
-                        <Alert
-                          type="warning"
-                          showIcon
-                          style={{ marginBottom: 12 }}
-                          message="面试已安排，志愿与可面试时间已锁定"
-                          description="面试官将按当前安排等你。如需调整时间或部门，请到「申请中心」提交改期申请，不要在这里修改。"
-                        />
-                      )}
                       <Row gutter={16}>
                         <Col xs={24} md={12}>
                           <SelectField
@@ -1260,11 +1259,48 @@ const Publish: React.FC = () => {
                       size="small"
                       title="面试意向"
                       style={{ marginTop: 8, marginBottom: 20 }}
+                      extra={intentLocked && (
+                        <span className="intent-locked-pill"><LockOutlined /> 已锁定</span>
+                      )}
                     >
-                      <Text type="secondary" style={{ display: 'block', marginBottom: 10 }}>
-                        志愿部门取自上方「期望部门」的选择；请勾选你<b>能到场</b>的面试时间（可多选，选得越多越容易被安排到合适场次）。
-                      </Text>
-                      {openSlots.length === 0 ? (
+                      {intentLocked ? (
+                        /* 锁定提示放在真正被锁的这块里，而不是志愿选择区顶上一条黄色大警告 */
+                        <div className="intent-locked-note">
+                          <LockOutlined className="intent-locked-note__icon" />
+                          <div>
+                            <div className="intent-locked-note__title">面试已安排，志愿与时间以当前安排为准</div>
+                            <div className="intent-locked-note__desc">
+                              面试官将按安排等你。需要调整时间或部门，请到
+                              <a onClick={() => navigate('/main/interview-appointment')}>申请中心</a>
+                              提交改期申请。
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <Text type="secondary" style={{ display: 'block', marginBottom: 10 }}>
+                          志愿部门取自上方「期望部门」的选择；先确认能否到场，再勾选你<b>能到场</b>的面试时间（可多选，选得越多越容易被安排到合适场次）。
+                        </Text>
+                      )}
+
+                      {/* 能否参加线下面试：不能到场就不必预约时间，也不会进入排期 */}
+                      <div style={{ marginBottom: openSlots.length > 0 ? 10 : 0 }}>
+                        <span style={{ marginRight: 12 }}>能否参加线下面试<span style={{ color: '#ff4d4f' }}> *</span></span>
+                        <Radio.Group
+                          value={interviewTimes.canAttend}
+                          disabled={!canEdit || intentLocked}
+                          onChange={(e) => handleInterviewTimeChange('canAttend', e.target.value)}
+                          options={[
+                            { label: '能参加', value: 'yes' },
+                            { label: '不能参加', value: 'no' },
+                          ]}
+                        />
+                      </div>
+
+                      {interviewTimes.canAttend === 'no' ? (
+                        <Text type="secondary">
+                          已选择不能参加线下面试，无需预约时间；情况有变可随时回到本页修改。
+                        </Text>
+                      ) : openSlots.length === 0 ? (
                         <Alert type="info" showIcon message="面试时间尚未开放，提交简历后可回到本页补填面试意向" />
                       ) : (
                         <Space direction="vertical" size={4}>
