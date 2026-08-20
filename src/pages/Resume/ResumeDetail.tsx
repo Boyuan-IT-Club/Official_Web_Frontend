@@ -1,5 +1,6 @@
-import React from 'react';
-import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal } from 'antd';
+import React, { useState } from 'react';
+import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal, InputNumber, message } from 'antd';
+import { updateResumeScore } from '@/api/manage/resumeEntry';
 import {
   UserOutlined,
   IdcardOutlined,
@@ -146,6 +147,12 @@ type ResumeDetailProps = {
 
 // --- 主要组件 ---
 const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText }) => {
+  // 打分控件的本地状态（savedScore 用于禁用未变更时的保存键）
+  const initialScore = (resume as any)?.resumeScore ?? undefined;
+  const [score, setScore] = useState<number | undefined>(initialScore);
+  const [savedScore, setSavedScore] = useState<number | undefined>(initialScore);
+  const [scoreSaving, setScoreSaving] = useState(false);
+
   if (!resume) {
     return <div className="coming-soon">请选择要查看的简历</div>;
   }
@@ -217,9 +224,44 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
         <Card
           className="resume-display-card"
           extra={
-            <Tag icon={statusInfo.icon} color={statusInfo.color} style={{ fontSize: '14px' }}>
-              {statusInfo.text}
-            </Tag>
+            <Space size="middle">
+              {/* 简历打分：resume_score 此前没有任何写入口，这里是唯一入口 */}
+              <Space size={4}>
+                <span style={{ color: '#8c8c8c', fontSize: 13 }}>简历评分</span>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  size="small"
+                  value={score}
+                  onChange={(v) => setScore(v == null ? undefined : Number(v))}
+                  style={{ width: 72 }}
+                />
+                <Button
+                  size="small"
+                  type="primary"
+                  loading={scoreSaving}
+                  disabled={score == null || score === savedScore}
+                  onClick={async () => {
+                    if (score == null) return;
+                    setScoreSaving(true);
+                    try {
+                      await updateResumeScore(Number(resume.resumeId), score);
+                      setSavedScore(score);
+                      message.success(`已打分 ${score}`);
+                    } catch (e: any) {
+                      message.error(e?.message || '打分失败');
+                    } finally {
+                      setScoreSaving(false);
+                    }
+                  }}
+                >
+                  保存
+                </Button>
+              </Space>
+              <Tag icon={statusInfo.icon} color={statusInfo.color} style={{ fontSize: '14px' }}>
+                {statusInfo.text}
+              </Tag>
+            </Space>
           }
         >
           <div className="resume-header">

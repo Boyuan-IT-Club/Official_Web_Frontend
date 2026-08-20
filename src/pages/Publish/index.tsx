@@ -48,6 +48,7 @@ import InterviewStatusCard from '@/components/InterviewStatusCard';
 import {
   PreferenceTimeSlot,
   getMyPreference,
+  getMySchedule,
   listOpenTimeSlots,
   submitPreference,
 } from '@/api/interviewPreference';
@@ -632,18 +633,23 @@ const Publish: React.FC = () => {
   const [openSlots, setOpenSlots] = useState<PreferenceTimeSlot[]>([]);
   const [selectedSlotIds, setSelectedSlotIds] = useState<number[]>([]);
   const [deptNameToId, setDeptNameToId] = useState<Record<string, number>>({});
+  // 面试已安排（status=1）后意向锁定：算法已按旧志愿排完场次，此时再改
+  // 不会生效，只会让人以为改了。后端同样会拒（3613），这里是把入口一并收掉。
+  const [intentLocked, setIntentLocked] = useState(false);
 
   useEffect(() => {
     if (!cycleId) return;
     let cancelled = false;
     (async () => {
       try {
-        const [slots, depts, mine]: any[] = await Promise.all([
+        const [slots, depts, mine, sched]: any[] = await Promise.all([
           listOpenTimeSlots(cycleId).catch(() => null),
           getValidDept().catch(() => null),
           getMyPreference(cycleId).catch(() => null),
+          getMySchedule(cycleId).catch(() => null),
         ]);
         if (cancelled) return;
+        setIntentLocked(sched?.data?.status === 1);
         setOpenSlots(slots?.data ?? []);
         const mapping: Record<string, number> = {};
         (depts?.data ?? []).forEach((d: any) => { if (d?.deptName) mapping[d.deptName] = d.deptId; });
@@ -659,6 +665,10 @@ const Publish: React.FC = () => {
 
   /** 简历提交/更新成功后同步提交面试志愿（失败仅提醒，不影响简历） */
   const savePreferenceBestEffort = useCallback(async () => {
+    if (intentLocked) {
+      // 面试已安排，意向以既有安排为准；简历其它内容照常保存
+      return;
+    }
     const firstDeptId = deptNameToId[departments.first];
     if (!firstDeptId || selectedSlotIds.length === 0) {
       message.warning('面试意向未完整填写（志愿部门/可面试时间），可稍后回到本页补填并更新简历');
@@ -675,7 +685,7 @@ const Publish: React.FC = () => {
       console.error('面试志愿提交失败:', e);
       message.warning(e?.message || '面试志愿提交失败，可稍后回到本页重新提交');
     }
-  }, [cycleId, departments, deptNameToId, selectedSlotIds]);
+  }, [cycleId, departments, deptNameToId, selectedSlotIds, intentLocked]);
 
   // 保存草稿：只持久化已填字段值，不做必填校验、不提交
   const [savingDraft, setSavingDraft] = useState(false);
@@ -1182,6 +1192,15 @@ const Publish: React.FC = () => {
 
                     {/* 志愿信息模块 */}
                     <FormSection title="志愿选择" icon={<TeamOutlined />}>
+                      {intentLocked && (
+                        <Alert
+                          type="warning"
+                          showIcon
+                          style={{ marginBottom: 12 }}
+                          message="面试已安排，志愿与可面试时间已锁定"
+                          description="面试官将按当前安排等你。如需调整时间或部门，请到「申请中心」提交改期申请，不要在这里修改。"
+                        />
+                      )}
                       <Row gutter={16}>
                         <Col xs={24} md={12}>
                           <SelectField
@@ -1191,7 +1210,7 @@ const Publish: React.FC = () => {
                             value={departments.first}
                             onChange={(value: string) => handleDepartmentChange('first', value)}
                             options={firstDeptOptions}
-                            disabled={!canEdit}
+                            disabled={!canEdit || intentLocked}
                             required
                             className="compact-input"
                           />
@@ -1204,7 +1223,7 @@ const Publish: React.FC = () => {
                             value={departments.second}
                             onChange={(value: string) => handleDepartmentChange('second', value)}
                             options={secondDeptOptions}
-                            disabled={!canEdit}
+                            disabled={!canEdit || intentLocked}
                             disabledOptions={disabledSecondDepts}
                             className="compact-input"
                           />
@@ -1250,10 +1269,10 @@ const Publish: React.FC = () => {
                       ) : (
                         <Space direction="vertical" size={4}>
                           {openSlots.map((s) => (
-                            <label key={s.timeSlotId} style={{ cursor: canEdit ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <label key={s.timeSlotId} style={{ cursor: (canEdit && !intentLocked) ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}>
                               <input
                                 type="checkbox"
-                                disabled={!canEdit}
+                                disabled={!canEdit || intentLocked}
                                 checked={selectedSlotIds.includes(s.timeSlotId)}
                                 onChange={(e) => {
                                   setSelectedSlotIds((prev) =>
