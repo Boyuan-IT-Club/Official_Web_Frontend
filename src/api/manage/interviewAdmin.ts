@@ -246,6 +246,8 @@ export interface InterviewResultItem {
   decision?: number; // 1通过 2未通过
   assignedDeptId?: number;
   decisionAt?: string;
+  /** 最近一次结果通知的发送时间；空 = 从未通知（V27 起后端返回） */
+  notifiedAt?: string;
 }
 
 export function listResults(params: { cycleId: number; name?: string; decision?: string; department?: string; page?: number; size?: number }) {
