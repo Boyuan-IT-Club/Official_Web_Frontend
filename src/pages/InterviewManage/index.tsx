@@ -903,6 +903,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
       }
       setNotifyOpen(false);
       setSelected([]);
+      load();   // 刷新「通知状态」列
     } catch (e: any) {
       message.error(e?.message || "发送失败");
     } finally {
@@ -954,7 +955,15 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         <Tooltip title={selectedUndecided > 0 ? "所选名单里有人还没录入决定，先批量录取或标记未通过" : ""}>
           <Button
             disabled={selected.length === 0 || selectedUndecided > 0}
-            onClick={() => { setCustomMsg(""); setNotifyOpen(true); }}
+            onClick={() => {
+              setCustomMsg("");
+              // 已通知过的人再点发送是重发 —— 说清楚，别让人误以为没发出去过
+              const resent = list.filter((r) => selected.includes(r.resultId) && r.notifiedAt).length;
+              if (resent > 0) {
+                message.info(`所选名单中 ${resent} 人此前已通知过，本次发送将向他们重发`);
+              }
+              setNotifyOpen(true);
+            }}
           >
             发送通知（已选 {selected.length}）
           </Button>
@@ -985,6 +994,12 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
           { title: "录取部门", dataIndex: "assignedDeptId", width: 110, render: (v: number) => deptName(v) },
           { title: "决定时间", dataIndex: "decisionAt", width: 150,
             render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },
+          { title: "通知状态", dataIndex: "notifiedAt", width: 130,
+            render: (v: string) => v
+              ? <Tooltip title={`发送于 ${String(v).replace("T", " ").slice(0, 16)}`}>
+                  <Tag color="green">已通知</Tag>
+                </Tooltip>
+              : <Tag>未通知</Tag> },
           { title: "操作", width: 90,
             render: (_: unknown, r: InterviewResultItem) => (
               <Button type="link" size="small" onClick={() => openEditResult(r)}>录入/修改</Button>
