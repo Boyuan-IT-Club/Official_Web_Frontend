@@ -66,6 +66,8 @@ export const FIELD_KEY_CATEGORY_MAP: Record<string, number> = {
   // 分类3：志愿选择
   first_choice: 3,
   second_choice: 3,
+  // 老式多选的期望部门与志愿同组；此前漏在 map 外，兜底落进了「基本信息」
+  expected_departments: 3,
   // 分类4：面试安排
   can_attend_offline_interview: 4,
   expected_interview_time: 4,
@@ -181,6 +183,9 @@ export const FIELD_TYPE_OPTIONS: { value: BackendFieldType; label: string }[] = 
  * 而真实行的 field_id 是另一批值；保存走 updateById 时，id 1/2/3 打空
  * （姓名/学号/性别 静默消失），id 4 起把内容整体错位覆盖到别的字段上。
  * 要落库请走 POST /api/resumes/fields/{cycleId}/init（只新增、不覆盖）。
+ *
+ * sortOrder 为全局唯一的 1..20（按分组展示顺序）。别抄旧字段 ID 当序号 ——
+ * 曾因此每个新周期一加载默认配置就出现两对重复序号（13、14 各撞一次）。
  */
 export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
   // ==================== 分类1：基本信息 ====================
@@ -326,7 +331,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "introduction",
     fieldLabel: "个人简介",
     isRequired: true,
-    sortOrder: 13,
+    sortOrder: 12,
     isActive: true,
     fieldType: "textarea",
     placeholder: "请提供个人简介",
@@ -340,7 +345,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "first_choice",
     fieldLabel: "第一志愿",
     isRequired: true,
-    sortOrder: 12,
+    sortOrder: 13,
     isActive: true,
     fieldType: "select",
     placeholder: "请选择您想加入的第一志愿部门",
@@ -353,7 +358,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "second_choice",
     fieldLabel: "第二志愿",
     isRequired: false,
-    sortOrder: 13,
+    sortOrder: 14,
     isActive: true,
     fieldType: "select",
     placeholder: "请选择您想加入的第二志愿部门（选填）",
@@ -366,7 +371,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "expected_departments",
     fieldLabel: "期望部门",
     isRequired: true,
-    sortOrder: 14,
+    sortOrder: 15,
     isActive: true,
     fieldType: "select",
     placeholder: "请选择期望加入的部门",
@@ -381,7 +386,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "can_attend_offline_interview",
     fieldLabel: "能否参加线下面试",
     isRequired: true,
-    sortOrder: 14,
+    sortOrder: 16,
     isActive: true,
     fieldType: "radio",
     options: ["能参加", "不能参加"],
@@ -393,7 +398,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "expected_interview_time",
     fieldLabel: "第一面试时间",
     isRequired: true,
-    sortOrder: 15,
+    sortOrder: 17,
     isActive: true,
     fieldType: "select",
     placeholder: "请选择第一面试时间",
@@ -406,7 +411,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "second_interview_time",
     fieldLabel: "第二面试时间",
     isRequired: false,
-    sortOrder: 16,
+    sortOrder: 18,
     isActive: true,
     fieldType: "select",
     placeholder: "请选择第二面试时间（选填）",
@@ -421,7 +426,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "tech_stack",
     fieldLabel: "技术栈",
     isRequired: true,
-    sortOrder: 17,
+    sortOrder: 19,
     isActive: true,
     fieldType: "text",
     placeholder: "请输入技术栈",
@@ -433,7 +438,7 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     fieldKey: "project_experience",
     fieldLabel: "项目经验",
     isRequired: true,
-    sortOrder: 18,
+    sortOrder: 20,
     isActive: true,
     fieldType: "textarea",
     placeholder: "请描述您曾参与过的项目，包括项目角色、使用的技术、取得的成果等...",
