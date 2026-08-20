@@ -71,3 +71,12 @@ export function hasConsoleAccess(token: string | null): boolean {
 export function hasPermission(token: string | null, code: string): boolean {
   return getJwtPermissionCodes(token).includes(code);
 }
+
+/**
+ * 是否持有任一权限码。权限拆分期用它同时接受新旧码 ——
+ * 旧令牌里只有旧码、V24 后新签发的令牌里只有新码，单查任何一个都会误判。
+ */
+export function hasAnyPermission(token: string | null, codes: string[]): boolean {
+  const held = getJwtPermissionCodes(token);
+  return codes.some((c) => held.includes(c));
+}

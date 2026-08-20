@@ -9,7 +9,7 @@ import { LockOutlined, SettingOutlined, UnlockOutlined } from '@ant-design/icons
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { getToken, parseJwtPayload } from '@/utils';
-import { hasPermission } from '@/utils/jwt';
+import { hasAnyPermission } from '@/utils/jwt';
 import { RecruitmentCycle, getAllCycles } from '@/api/manage/cycleApis';
 import {
   EVALUATION_STATUS, EvaluationBoard as EvaluationBoardState, RECOMMENDATION_OPTIONS,
@@ -47,7 +47,8 @@ const EvaluationBoardPage: React.FC = () => {
 
   const currentUserId = Number(userInfo?.userId ?? jwt?.userId ?? 0);
   const currentUserName = String(userInfo?.name || userInfo?.username || jwt?.sub || '我');
-  const isAdmin = hasPermission(token, 'resume:audit');
+  // 评价表管理级的新码是 interview:board:manage；resume:audit 为过渡兼容（阶段三移除）
+  const isAdmin = hasAnyPermission(token, ['interview:board:manage', 'resume:audit']);
 
   const [cycles, setCycles] = useState<RecruitmentCycle[]>([]);
   const [cycleId, setCycleId] = useState<number | undefined>();
