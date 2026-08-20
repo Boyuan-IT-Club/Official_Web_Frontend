@@ -43,6 +43,7 @@ import {
   listReschedules,
   InterviewResultItem,
   listResults,
+  seedResultsFromSchedules,
   listSchedulesRoster,
   listSessions,
   sendResultNotifications,
@@ -920,7 +921,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message="勾选候选人后可「批量录取」到指定部门，或「批量标记未通过」；也可逐条录入/修改。结果还可从「飞书同步」拉回。决定录完后再勾选发送邮件通知（通过=录取通知，未通过=感谢信）。"
+        message="面试完成后点「从面试安排生成名单」得到待定列表（不依赖飞书），勾选后「批量录取」到指定部门或「批量标记未通过」，也可逐条录入/修改；飞书拉回仍然可用。决定录完后再勾选发送邮件通知（通过=录取通知，未通过=感谢信）。"
       />
       <Space style={{ marginBottom: 12 }} wrap>
         <Button
@@ -932,6 +933,23 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         </Button>
         <Button danger disabled={selected.length === 0} onClick={confirmBatchReject}>
           批量标记未通过
+        </Button>
+        {/* 名单来源：结果行此前只有飞书拉取会创建，站内闭环靠这个按钮起步 */}
+        <Button
+          onClick={async () => {
+            try {
+              const res: any = await seedResultsFromSchedules(cycleId);
+              const created = res?.data?.created ?? 0;
+              message.success(created > 0
+                ? `已从面试安排生成 ${created} 行待定结果`
+                : '没有新的安排需要生成（已有结果行的安排会跳过）');
+              load();
+            } catch (e: any) {
+              message.error(e?.message || '生成失败');
+            }
+          }}
+        >
+          从面试安排生成名单
         </Button>
         <Tooltip title={selectedUndecided > 0 ? "所选名单里有人还没录入决定，先批量录取或标记未通过" : ""}>
           <Button
@@ -949,7 +967,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         loading={loading}
         dataSource={list}
         pagination={false}
-        locale={{ emptyText: "暂无面试结果（可从「飞书同步」拉回，或等待面试完成后录入）" }}
+        locale={{ emptyText: "暂无面试结果 —— 点上方「从面试安排生成名单」生成待定列表，或从「飞书同步」拉回" }}
         rowSelection={{
           selectedRowKeys: selected,
           onChange: (keys) => setSelected(keys as number[]),

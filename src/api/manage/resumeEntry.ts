@@ -623,6 +623,15 @@ export const saveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> =
   }
 };
 
+/** 管理员为简历打分（0~100）。resume_score 此前只有飞书导出在读，没有写入口 */
+export const updateResumeScore = (resumeId: number, score: number) => {
+  return request({
+    url: `/api/resumes/${resumeId}/score`,
+    method: 'put',
+    data: { score },
+  });
+};
+
 export const updateResumeField = (fieldId: number, data: Partial<BackendResumeField>) => {
   return request({
     url: `/api/resumes/fields/${fieldId}`,
