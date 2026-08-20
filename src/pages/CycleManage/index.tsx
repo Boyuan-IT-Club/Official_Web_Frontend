@@ -178,7 +178,8 @@ const CycleManage: React.FC = () => {
               onClick: () => {
                 Modal.confirm({
                   title: "确认删除该周期？",
-                  content: "删除前请确认周期下没有简历/面试数据",
+                  // 后端已改软删除：带简历/面试数据的周期也能删，历史数据保留
+                  content: "删除后该周期从列表与投递入口消失；已有的简历、面试数据会保留，可联系管理员恢复。",
                   okText: "删除",
                   okType: "danger",
                   cancelText: "取消",
