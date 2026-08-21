@@ -119,7 +119,9 @@ export const SKINS: Skin[] = PALETTES.map((p) => ({
   theme: buildTheme(p),
 }));
 
-export const DEFAULT_SKIN_KEY = 'indigo';
+// 默认石墨深色：管理端多是长时间盯表格/评价表的场景，深色更耐看。
+// 注意这只影响没选过皮肤的新访客 —— 老用户的选择记在 localStorage，不会被改掉。
+export const DEFAULT_SKIN_KEY = 'graphite';
 
 /** 兼容不走皮肤上下文的调用方（如构建期静态引用） */
 export default SKINS[0].theme;
