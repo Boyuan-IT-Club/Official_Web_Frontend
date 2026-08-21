@@ -33,10 +33,10 @@
   },
   "scripts": {
     "start": "craco start",
-    "start:admin": "REACT_APP_MODE=admin REACT_APP_SITE_TITLE=博远社团管理后台 craco start",
+    "start:admin": "REACT_APP_MODE=admin REACT_APP_SITE_TITLE=博远信息技术社管理后台 craco start",
     "build": "npm run build:user && npm run build:admin",
     "build:user": "REACT_APP_MODE=user BUILD_PATH=build-user craco build",
-    "build:admin": "REACT_APP_MODE=admin REACT_APP_SITE_TITLE=博远社团管理后台 BUILD_PATH=build-admin craco build",
+    "build:admin": "REACT_APP_MODE=admin REACT_APP_SITE_TITLE=博远信息技术社管理后台 BUILD_PATH=build-admin craco build",
     "typecheck": "tsc --noEmit",
     "test": "craco test",
     "eject": "craco eject"
