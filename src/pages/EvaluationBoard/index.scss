@@ -18,3 +18,49 @@
     text-align: center;
   }
 }
+
+// ── 实时输入提示 ──────────────────────────────────────────────────────────
+// 「XXX 正在输入…」：跟在字段标题后面的一小行，带一个脉动的点。
+// 做得很轻：它每隔几秒就会出现又消失，重了会让整页一直在闪。
+.eval-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ant-color-primary, #1677ff);
+  vertical-align: middle;
+
+  &__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: eval-typing-pulse 1.1s ease-in-out infinite;
+  }
+}
+
+@keyframes eval-typing-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+// 有人正在改这个字段：淡淡描一圈，让人知道"这格现在有人动"
+.is-peer-typing {
+  box-shadow: 0 0 0 2px var(--ant-color-primary-border, #91caff) !important;
+  border-color: var(--ant-color-primary, #1677ff) !important;
+  transition: box-shadow 0.2s;
+}
+
+// 表格行里正在打字的同事：头像外圈加一道脉动光环，
+// 与「只是打开着看」的同事区分开
+.eval-peer-typing-ring {
+  border-radius: 50%;
+  animation: eval-ring-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes eval-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--ant-color-primary-border, #91caff); }
+  50%      { box-shadow: 0 0 0 3px var(--ant-color-primary-bg, #e6f4ff); }
+}

@@ -73,6 +73,16 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
     upcoming.forEach((r) => prefetchCandidateResume(cycleId, r.scheduleId));
   }, [open, cycleId, upcoming]);
 
+  // 关掉抽屉、或切到另一位候选人时立刻收回打字状态，
+  // 否则会在上一位那里留下一个永远亮着的「正在输入」
+  useEffect(() => {
+    if (open) return undefined;
+    board.setTyping(null);
+    return undefined;
+  }, [open, board]);
+
+  useEffect(() => () => { board.setTyping(null); }, [board]);
+
   const readComment = useCallback(
     () => (scheduleId ? board.readCell(scheduleId, COMMENT_COL) : ''),
     [board, scheduleId],
@@ -101,6 +111,23 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
 
   // 同时打开这位候选人的同事，编辑时可据此知道「现在还有谁在这一页上」
   const peersHere = board.peers.filter((p) => p.activeScheduleId === scheduleId);
+
+  // 谁正在输入哪个字段。限定在同一位候选人内 —— 别人在别的候选人上打字
+  // 与这一页无关，显示出来只会误导。
+  const typingOn = (field: string) =>
+    peersHere.filter((p) => p.typingField === field);
+
+  /** 字段旁的「XXX 正在输入…」。多人同时输入就并列显示 */
+  const TypingTag: React.FC<{ field: string }> = ({ field }) => {
+    const who = typingOn(field);
+    if (who.length === 0) return null;
+    return (
+      <span className="eval-typing">
+        <span className="eval-typing__dot" />
+        {who.map((p) => p.name).join('、')} 正在输入…
+      </span>
+    );
+  };
 
   const notEditableReason = () => {
     if (board.locked) return '评价表已锁定，当前为只读状态。';
@@ -143,6 +170,7 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
             <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>
               {column.label}
               <Text type="secondary" style={{ marginLeft: 4 }}>/ {column.maxScore}</Text>
+              <TypingTag field={column.id} />
             </div>
             <InputNumber
               min={0}
@@ -150,8 +178,13 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
               step={1}
               disabled={!editable}
               style={{ width: 120 }}
+              className={typingOn(column.id).length > 0 ? 'is-peer-typing' : undefined}
               value={scores[column.id] ?? null}
-              onChange={(value) => board.writeScore(scheduleId, column.id, value === null ? null : Number(value))}
+              onChange={(value) => {
+                board.setTyping(column.id);
+                board.writeScore(scheduleId, column.id, value === null ? null : Number(value));
+              }}
+              onBlur={() => board.setTyping(null)}
             />
           </div>
         ))}
@@ -172,13 +205,21 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
         <Button type="link" onClick={() => board.writeRecommendation(scheduleId, null)}>清除</Button>
       )}
 
-      <Divider orientation="left" plain>面试记录与评语</Divider>
+      <Divider orientation="left" plain>
+        面试记录与评语
+        <TypingTag field={COMMENT_COL} />
+      </Divider>
       <Input.TextArea
         rows={8}
         disabled={!editable}
+        className={typingOn(COMMENT_COL).length > 0 ? 'is-peer-typing' : undefined}
         placeholder="本场面试官共同记录候选人的表现、亮点与顾虑，输入即同步"
         value={comment}
-        onChange={(e) => setComment(e.target.value)}
+        onChange={(e) => {
+          board.setTyping(COMMENT_COL);
+          setComment(e.target.value);
+        }}
+        onBlur={() => board.setTyping(null)}
       />
 
       <Divider />
