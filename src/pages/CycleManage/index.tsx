@@ -20,6 +20,8 @@ import {
   MoreOutlined,
   PlusOutlined,
   SyncOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
@@ -182,7 +184,7 @@ const CycleManage: React.FC = () => {
     },
     {
       title: "操作",
-      width: 220,
+      width: 168,
       render: (_: unknown, record: RecruitmentCycle) => (
         <Space>
           <Button
@@ -196,34 +198,36 @@ const CycleManage: React.FC = () => {
           <Button type="link" size="small" onClick={() => setFieldsFor(record)}>
             简历字段
           </Button>
-          <Button
-            type="link"
-            size="small"
-            danger={record.isActive === 1}
-            loading={togglingId === record.cycleId}
-            onClick={() => {
-              const open = record.isActive === 1;
-              Modal.confirm({
-                title: open ? "停止该周期的简历投递？" : "重新开放该周期的投递？",
-                content: open
-                  ? "学生端将不再显示该周期，已填的草稿保留但无法再提交或修改；随时可以再开放。"
-                  : "学生端将重新显示该周期，可以提交与修改简历（还需在起止日期内）。",
-                okText: open ? "停止投递" : "开放投递",
-                okButtonProps: { danger: open },
-                cancelText: "取消",
-                onOk: () => toggleIntake(record),
-              });
-            }}
-          >
-            {record.isActive === 1 ? "停止投递" : "开放投递"}
-          </Button>
+          {/* 投递开关收进「···」菜单：它是偶发操作（一届只切一两次），
+              摊在操作列里和「编辑」「简历字段」抢位置，还顶着个红色 danger 样式，
+              比实际重要性显眼得多。当前状态在「投递」列的标签上已经看得见。 */}
           <Dropdown
             trigger={["click"]}
             menu={{
               items: [
+                {
+                  key: "intake",
+                  icon: record.isActive === 1 ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
+                  label: record.isActive === 1 ? "停止投递" : "开放投递",
+                },
+                { type: "divider" },
                 { key: "del", icon: <DeleteOutlined />, label: "删除周期", danger: true },
               ],
-              onClick: () => {
+              onClick: ({ key }) => {
+                if (key === "intake") {
+                  const open = record.isActive === 1;
+                  Modal.confirm({
+                    title: open ? "停止该周期的简历投递？" : "重新开放该周期的投递？",
+                    content: open
+                      ? "学生端将不再显示该周期，已填的草稿保留但无法再提交或修改；随时可以再开放。"
+                      : "学生端将重新显示该周期，可以提交与修改简历（还需在起止日期内）。",
+                    okText: open ? "停止投递" : "开放投递",
+                    okButtonProps: { danger: open },
+                    cancelText: "取消",
+                    onOk: () => toggleIntake(record),
+                  });
+                  return;
+                }
                 Modal.confirm({
                   title: "确认删除该周期？",
                   // 后端已改软删除：带简历/面试数据的周期也能删，历史数据保留
@@ -238,7 +242,12 @@ const CycleManage: React.FC = () => {
               },
             }}
           >
-            <Button type="text" size="small" icon={<MoreOutlined />} />
+            <Button
+              type="text"
+              size="small"
+              icon={<MoreOutlined />}
+              loading={togglingId === record.cycleId}
+            />
           </Dropdown>
         </Space>
       ),
