@@ -197,10 +197,16 @@ const EvaluationBoardPage: React.FC = () => {
             <span style={{ fontWeight: 500 }}>{name || `#${row.scheduleId}`}</span>
             {row.removed && <Tag color="red">已移出</Tag>}
             {peersOnRow(row.scheduleId).map((peer) => (
-              <Tooltip key={peer.clientId} title={`${peer.name} 正在查看`}>
-                <Avatar size={18} style={{ backgroundColor: peer.color, fontSize: 10 }}>
-                  {peer.name.slice(0, 1)}
-                </Avatar>
+              <Tooltip
+                key={peer.clientId}
+                title={peer.typingField ? `${peer.name} 正在输入` : `${peer.name} 正在查看`}
+              >
+                {/* 正在打字的人多一圈脉动光环，和「只是打开着看」区分开 */}
+                <span className={peer.typingField ? 'eval-peer-typing-ring' : undefined}>
+                  <Avatar size={18} style={{ backgroundColor: peer.color, fontSize: 10 }}>
+                    {peer.name.slice(0, 1)}
+                  </Avatar>
+                </span>
               </Tooltip>
             ))}
           </Space>
