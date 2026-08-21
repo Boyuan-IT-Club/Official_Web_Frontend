@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import PageHint from '@/components/PageHint';
 import {
   Alert,
   Button,
@@ -600,12 +601,7 @@ const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle }> = (
 
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="一键分配为幂等操作：只处理已填志愿但尚未分配的候选人，可放心重复执行。分不进任何场次的候选人会进入下方待调剂名单。"
-      />
+      <PageHint style={{ marginBottom: 12 }}>只处理未分配的候选人，可重复执行；分不进去的进入待调剂名单。</PageHint>
       <Space style={{ marginBottom: 16 }} size="large">
         <Button type="primary" icon={<ThunderboltOutlined />} loading={assigning} onClick={handleAssign}>
           一键分配本周期
@@ -717,12 +713,7 @@ const RescheduleTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="同意改期后，请在「分配与调剂」Tab 用人工调剂把该候选人改到新场次（按其期望时间窗）。"
-      />
+      <PageHint style={{ marginBottom: 12 }}>同意后需到「分配与调剂」手动改到新场次。</PageHint>
       <Table
         rowKey="requestId"
         size="middle"
@@ -919,12 +910,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
 
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="面试完成后点「从面试安排生成名单」得到待定列表（不依赖飞书），勾选后「批量录取」到指定部门或「批量标记未通过」，也可逐条录入/修改；飞书拉回仍然可用。决定录完后再勾选发送邮件通知（通过=录取通知，未通过=感谢信）。"
-      />
+      <PageHint style={{ marginBottom: 12 }}>先「生成名单」，再勾选批量录取或标记未通过，最后发通知。</PageHint>
       <Space style={{ marginBottom: 12 }} wrap>
         <Button
           type="primary"
@@ -1055,11 +1041,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         destroyOnClose
       >
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Alert
-            type="info"
-            showIcon
-            message="所选候选人将统一标记为「通过」，并录取进下面选择的部门。已有决定的人会被覆盖。"
-          />
+          <PageHint>统一标记为通过并录取进所选部门，已有决定会被覆盖。</PageHint>
           {selectedUndecided < selected.length && (
             <Alert
               type="warning"
@@ -1235,12 +1217,7 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message="推送与拉回都按【面试地点】分桶：每个地点对应一张飞书多维表格，面试官只看自己考场那张。先在下方为每个地点配好链接，再推送。"
-      />
+      <PageHint style={{ marginBottom: 16 }}>一个面试地点对应一张飞书表格。先配链接，再推送。</PageHint>
       <Space direction="vertical" size={16} style={{ width: "100%" }}>
         <Card
           size="small"
@@ -1421,11 +1398,7 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
         destroyOnClose
       >
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Alert
-            type="info"
-            showIcon
-            message="同一地点的多个场次共用这一个链接。留空并保存即清除配置，之后推送会跳过该地点。"
-          />
+          <PageHint>该地点的所有场次共用此链接；留空即清除配置。</PageHint>
           <Input
             placeholder="粘贴飞书多维表格链接"
             value={editUrl}

@@ -1,6 +1,7 @@
 // 候选人抽屉：面试时的主要工作面——左手简历、右手打分。
 // 同场次的面试官共用这一份评价，谁改都是改在同一处，改动实时可见。
 import React, { useCallback, useEffect, useState } from 'react';
+import PageHint from '@/components/PageHint';
 import {
   Alert, Avatar, Button, Descriptions, Divider, Drawer, Input, InputNumber,
   Radio, Space, Spin, Statistic, Tabs, Tag, Tooltip, Typography, message,
@@ -114,7 +115,7 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
 
   const evaluationTab = (
     <>
-      {blockedReason && <Alert type="info" showIcon message={blockedReason} style={{ marginBottom: 16 }} />}
+      {blockedReason && <PageHint style={{ marginBottom: 16 }}>{blockedReason}</PageHint>}
 
       {peersHere.length > 0 && (
         <Alert

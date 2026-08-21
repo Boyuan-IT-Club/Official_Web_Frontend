@@ -1,8 +1,16 @@
 // 评价汇总：一位候选人一行，署上本场共同参与的面试官，供「结果与通知」录入录取决定时参考。
 // 读的是物化后的 interview_evaluation，比协同文档滞后一个物化周期（默认 30 秒）。
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import PageHint from '@/components/PageHint';
 import {
-  Alert, Button, Empty, Input, Space, Table, Tag, Tooltip, Typography,
+  Button,
+  Empty,
+  Input,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
 } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import {
@@ -160,13 +168,7 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 
   if (error) {
     return (
-      <Alert
-        type="info"
-        showIcon
-        message="暂时看不到评价汇总"
-        description={`${error}。评价表开启并有面试官填写评价后，这里才会有数据。`}
-        action={<Button size="small" onClick={load}>重试</Button>}
-      />
+      <PageHint title="暂时看不到评价汇总" extra={<Button size="small" onClick={load}>重试</Button>}>{`${error}。评价表开启并有面试官填写评价后，这里才会有数据。`}</PageHint>
     );
   }
 

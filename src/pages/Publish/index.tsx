@@ -1,5 +1,6 @@
 // src/pages/Publish/index.tsx
 import { useNavigate } from 'react-router-dom';
+import PageHint from '@/components/PageHint';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Card,
@@ -1301,7 +1302,7 @@ const Publish: React.FC = () => {
                           已选择不能参加线下面试，无需预约时间；情况有变可随时回到本页修改。
                         </Text>
                       ) : openSlots.length === 0 ? (
-                        <Alert type="info" showIcon message="面试时间尚未开放，提交简历后可回到本页补填面试意向" />
+                        <PageHint>面试时间尚未开放，提交简历后可回到本页补填面试意向</PageHint>
                       ) : (
                         <Space direction="vertical" size={4}>
                           {openSlots.map((s) => (
@@ -1370,12 +1371,7 @@ const Publish: React.FC = () => {
           <div>
             {hasAnyExtractedField(extractedFields) ? (
               <>
-                <Alert
-                  message="以下信息从文件中自动提取，请核对后确认导入"
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
+                <PageHint style={{ marginBottom: 16 }}>以下信息从文件中自动提取，请核对后确认导入</PageHint>
                 <Table
                   dataSource={[
                     { label: '姓名', value: extractedFields.name },

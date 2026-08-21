@@ -55,7 +55,8 @@
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1",
       "^@routes$": "<rootDir>/src/router/user.tsx",
-      "^@theme$": "<rootDir>/src/theme/user.ts"
+      "^@theme$": "<rootDir>/src/theme/user.ts",
+      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js"
     }
   },
   "browserslist": {
