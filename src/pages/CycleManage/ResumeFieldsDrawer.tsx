@@ -7,7 +7,8 @@
 //      意味着新建招募周期后根本没法给它配字段——搬到周期列表里，
 //      配置天然绑定到你点开的那个周期，这个限制自然消失
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Drawer, Space, Spin, Tag, message } from 'antd';
+import PageHint from '@/components/PageHint';
+import { Button, Drawer, Space, Spin, Tag, message } from 'antd';
 import {
   DEFAULT_RESUME_FIELDS,
   getResumeFields,
@@ -95,12 +96,7 @@ const ResumeFieldsDrawer: React.FC<ResumeFieldsDrawerProps> = ({
       }
       extra={<Button onClick={load} loading={loading}>重新加载</Button>}
     >
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="字段按周期独立配置：改这里只影响本周期的投递表单，往届简历的展示不受影响。"
-      />
+      <PageHint style={{ marginBottom: 12 }}>字段按周期独立，改动只影响本周期的投递表单。</PageHint>
       {loading && fields.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 0' }}><Spin /></div>
       ) : (

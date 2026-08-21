@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Progress, Tag, Space, Table, Alert, Button, Empty, Typography, message } from 'antd';
+import PageHint from '@/components/PageHint';
+import { Card, Progress, Tag, Space, Table, Button, Empty, Typography, message } from 'antd';
 import { GithubOutlined, LinkOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import ScoreTrendChart from '@/components/ScoreTrendChart';
@@ -72,17 +73,16 @@ const Evaluations: React.FC = () => {
       <Title level={4} className="page-title">autograding 评测</Title>
 
       {unbound && (
-        <Alert
+        <PageHint
           className="bind-guide"
-          type="info"
-          showIcon
-          message="绑定 GitHub 账号后,你的 Autograder 评测会自动出现在这里"
-          action={
+          extra={
             <Button size="small" type="primary" onClick={() => navigate('/main/person')}>
               去绑定
             </Button>
           }
-        />
+        >
+          绑定 GitHub 账号后，你的 Autograder 评测会自动出现在这里
+        </PageHint>
       )}
 
       {loading && !latest && !history ? (

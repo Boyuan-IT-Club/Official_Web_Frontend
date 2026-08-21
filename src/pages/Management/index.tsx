@@ -1,6 +1,7 @@
 // src/pages/Management/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar, Alert } from 'antd';
+import PageHint from '@/components/PageHint';
+import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar } from 'antd';
 import {
   TeamOutlined,
   LockOutlined,
@@ -81,7 +82,14 @@ const Management: React.FC = () => {
   const [total, setTotal]       = useState(0);
 
   // ── Toolbar 状态 ──────────────────────────────────────────────────────────
-  const [searchText, setSearchText]         = useState('');
+  // 全局搜索跳过来时带着 ?q=：落地即是筛好的列表，不用再搜一遍
+  const [searchText, setSearchText]         = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('q') ?? '';
+    } catch {
+      return '';   // 极端环境下 URLSearchParams 不可用，退回空搜索
+    }
+  });
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedRole, setSelectedRole]     = useState('');
   const [selectedDept, setSelectedDept]     = useState('');
@@ -317,13 +325,7 @@ const Management: React.FC = () => {
               children: (
                 <>
                   {!canManage && (
-                    <Alert
-                      type="info"
-                      showIcon
-                      style={{ marginBottom: 12 }}
-                      message="只读模式"
-                      description="当前账号具有查看用户信息的权限,但不能执行录取、分配部门、冻结、删除等操作。需要这些操作请联系超级管理员。"
-                    />
+                    <PageHint style={{ marginBottom: 12 }} title="只读模式">可查看用户信息，但不能录取、分配部门、冻结或删除。</PageHint>
                   )}
                   <Toolbar
                     searchText={searchText}

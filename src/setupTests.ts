@@ -7,3 +7,6 @@ if (typeof globalThis.crypto === 'undefined') {
 }
 
 export {};
+
+// jest-dom 的自定义匹配器（toBeInTheDocument 等）。渲染型测试需要它。
+import '@testing-library/jest-dom';

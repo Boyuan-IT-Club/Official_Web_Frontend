@@ -620,11 +620,14 @@ export const saveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> =
       await batchUpdateResumeFields(toUpdate);
     }
   } catch (e: any) {
-    throw {
-      ...e,
-      message: `保存字段失败（新建 ${toCreate.length} 项 / 更新 ${toUpdate.length} 项）: `
-        + `${e?.message || '系统异常'}`,
-    };
+    // 抛真正的 Error 而不是字面量对象：字面量没有堆栈，控制台里只看到一个
+    // 光秃秃的对象，定位不到是哪一次调用失败（no-throw-literal 说的就是这个）。
+    // 原始字段照旧挂上去，调用方读 e.code 之类的行为不变；
+    // message 必须放在 assign 的最后一个源里 —— 否则 e 是普通对象时
+    // （axios 拦截器就抛这种）它自己的 message 会把这里的前缀覆盖掉。
+    const detail = `保存字段失败（新建 ${toCreate.length} 项 / 更新 ${toUpdate.length} 项）: `
+      + `${e?.message || '系统异常'}`;
+    throw Object.assign(new Error(detail), e, { message: detail });
   }
 };
 
