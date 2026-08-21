@@ -116,8 +116,12 @@ const Management: React.FC = () => {
     setLoading(true);
     try {
       const res: any = await getAllUsers({
-        page:     String((currentPage - 1) * currentPageSize),
-        pageSize: String(currentPageSize),
+        // 后端用 Spring Pageable：page 是 0 基页码、参数名必须是 size。
+        // 此前发的是偏移量 + pageSize：
+        //   第1页 page=0 碰巧对，但 pageSize 被忽略 → 永远只显示 10 条（11 个用户只见 10 个）
+        //   第2页 page=10 → Spring 当成第 10 页去查 → 空白
+        page: String(currentPage - 1),
+        size: String(currentPageSize),
         keyword:  keyword || undefined,
         status:   status  || undefined,
         role:     role    || undefined,

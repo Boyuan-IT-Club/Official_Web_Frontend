@@ -6,8 +6,12 @@ import { request } from '@/utils/request';
 // get: 获取用户信息列表——分页
 interface GetUsersParams {
   dept?: string;
+  /** 0 基页码 —— 后端是 Spring Pageable，不是偏移量也不是 1 基 */
   page?: string;
-  pageSize?: string;
+  /** 每页条数。参数名必须是 size，写 pageSize 会被后端忽略并回落到默认 10 条 */
+  size?: string;
+  /** 匹配姓名或学号 */
+  keyword?: string;
   role?: string;
   status?: string;
   [property: string]: any;
