@@ -7,8 +7,9 @@ import {
 } from 'antd';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import {
-  CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS, getCandidateResume,
+  CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS,
 } from '@/api/manage/interviewEvaluation';
+import { loadCandidateResume, prefetchCandidateResume } from './resumeCache';
 import {
   BoardRow, CollabBoard, COMMENT_COL, RECOMMENDATION_COL, STATUS_COL,
   useSharedText, weightedTotal,
@@ -25,10 +26,14 @@ export interface CandidateDrawerProps {
   row: BoardRow | null;
   board: CollabBoard;
   currentUserId: number;
+  /** 打分顺序上的完整名单，用于「下一位」跳转与预取 */
+  orderedRows?: BoardRow[];
+  /** 跳到名单里的另一位，不关抽屉 */
+  onJump?: (row: BoardRow) => void;
 }
 
 const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
-  open, onClose, cycleId, row, board, currentUserId,
+  open, onClose, cycleId, row, board, currentUserId, orderedRows, onJump,
 }) => {
   const [resume, setResume] = useState<CandidateResume | null>(null);
   const [resumeLoading, setResumeLoading] = useState(false);
@@ -38,19 +43,34 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
   const editable = row ? board.canEdit(row) : false;
   const scoreColumns = board.columns.filter((c) => c.type === 'score');
 
-  // 简历按需拉取：名单可能有几百人，没必要在列表阶段就把简历全取回来
+  // 简历按需拉取：名单可能有几百人，没必要在列表阶段就把简历全取回来。
+  // 走 resumeCache：同一位重复打开直接命中内存，不再每次一个完整往返。
   useEffect(() => {
     if (!open || !scheduleId) return;
     let cancelled = false;
     setResume(null);
     setResumeError(null);
     setResumeLoading(true);
-    getCandidateResume(cycleId, scheduleId)
-      .then((res) => { if (!cancelled) setResume(res?.data ?? null); })
+    loadCandidateResume(cycleId, scheduleId)
+      .then((data) => { if (!cancelled) setResume(data); })
       .catch((e: any) => { if (!cancelled) setResumeError(e?.message || '简历加载失败'); })
       .finally(() => { if (!cancelled) setResumeLoading(false); });
     return () => { cancelled = true; };
   }, [open, cycleId, scheduleId]);
+
+  // 打分顺序上的后几位：既用来渲染跳转按钮，也顺手预取，
+  // 面试官点「下一位」时简历已经在内存里
+  const upcoming = React.useMemo<BoardRow[]>(() => {
+    if (!orderedRows || !scheduleId) return [];
+    const at = orderedRows.findIndex((r) => r.scheduleId === scheduleId);
+    if (at < 0) return [];
+    return orderedRows.slice(at + 1, at + 4);
+  }, [orderedRows, scheduleId]);
+
+  useEffect(() => {
+    if (!open) return;
+    upcoming.forEach((r) => prefetchCandidateResume(cycleId, r.scheduleId));
+  }, [open, cycleId, upcoming]);
 
   const readComment = useCallback(
     () => (scheduleId ? board.readCell(scheduleId, COMMENT_COL) : ''),
@@ -193,6 +213,28 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
       onClose={onClose}
       width={720}
       destroyOnClose
+      /* 跳转按钮放在 footer：面试官打完一位直接点下一位，不用关抽屉回表格再找。
+         刻意做得轻——小号文字链，不与「提交评价」这类主操作抢注意力。 */
+      footer={upcoming.length === 0 ? null : (
+        <Space size={4} wrap style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>接下来</Text>
+          {upcoming.map((next) => {
+            const done = Number(board.readCell(next.scheduleId, STATUS_COL)) === EVALUATION_STATUS.SUBMITTED;
+            return (
+              <Button
+                key={next.scheduleId}
+                type="link"
+                size="small"
+                style={{ paddingInline: 4, fontSize: 12 }}
+                onClick={() => onJump?.(next)}
+              >
+                {done && <span style={{ marginRight: 2, color: '#52c41a' }}>✓</span>}
+                {next.candidateName || `#${next.scheduleId}`}
+              </Button>
+            );
+          })}
+        </Space>
+      )}
       title={
         <Space wrap>
           <span>{row.candidateName || `候选人 #${row.scheduleId}`}</span>

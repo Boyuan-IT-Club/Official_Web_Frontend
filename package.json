@@ -51,7 +51,12 @@
     "transformIgnorePatterns": [
       "[/\\\\]node_modules[/\\\\](?!(yjs|lib0|y-protocols)[/\\\\]).+\\.(js|jsx|mjs|cjs|ts|tsx)$",
       "^.+\\.module\\.(css|sass|scss)$"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^@routes$": "<rootDir>/src/router/user.tsx",
+      "^@theme$": "<rootDir>/src/theme/user.ts"
+    }
   },
   "browserslist": {
     "production": [

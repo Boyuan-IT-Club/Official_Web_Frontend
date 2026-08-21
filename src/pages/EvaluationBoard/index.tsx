@@ -16,6 +16,7 @@ import {
   getBoard, openBoard, setBoardLocked,
 } from '@/api/manage/interviewEvaluation';
 import CandidateDrawer from './CandidateDrawer';
+import { clearCandidateResumeCache } from './resumeCache';
 import DimensionSettings from './DimensionSettings';
 import { BoardRow, RowEvaluation, useCollabBoard } from './collab';
 import './index.scss';
@@ -168,6 +169,12 @@ const EvaluationBoardPage: React.FC = () => {
   const cycleOptions = cycles.map((c) => ({ value: c.cycleId, label: `${c.cycleName}（#${c.cycleId}）` }));
 
   // 打开详情的同时广播「我在看谁」，其他人的表格里会在该行出现我的头像
+  // 换周期时清掉简历缓存：不同周期的 scheduleId 各自独立，
+  // 缓存键虽含 cycleId 不会串，但留着旧周期的简历占内存也没意义
+  useEffect(() => {
+    clearCandidateResumeCache();
+  }, [cycleId]);
+
   const openRow = (row: BoardRow) => {
     setActiveRow(row);
     board.setActiveRow(row.scheduleId);
@@ -423,6 +430,8 @@ const EvaluationBoardPage: React.FC = () => {
         row={activeRow}
         board={board}
         currentUserId={currentUserId}
+        orderedRows={derivedRows}
+        onJump={openRow}
       />
 
       {isAdmin && (
