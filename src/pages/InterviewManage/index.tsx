@@ -16,6 +16,7 @@ import {
   Select,
   Space,
   Spin,
+  Collapse,
   Statistic,
   Table,
   Tabs,
@@ -1107,6 +1108,15 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
 };
 
 // ─── 飞书同步 Tab ────────────────────────────────────────────────────────────
+/** 任务状态的人话映射：面板上原来直接显示 SUCCESS/PARTIAL_SUCCESS 这类机器词 */
+const FEISHU_STATUS_TAG: Record<string, { color: string; text: string }> = {
+  PENDING: { color: "default", text: "排队中" },
+  RUNNING: { color: "processing", text: "执行中" },
+  SUCCESS: { color: "green", text: "已完成" },
+  PARTIAL_SUCCESS: { color: "orange", text: "部分成功" },
+  FAILED: { color: "red", text: "失败" },
+};
+
 const FEISHU_TERMINAL = ["SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
 
 const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
@@ -1286,22 +1296,37 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
           />
         </Card>
         <Card size="small" title="② 推送面试安排到飞书" type="inner">
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
-            <span style={{ fontSize: 13, color: "#666" }}>
-              按上表的地点分别推送到各自的表格。下面这一栏留空即为正常用法。
-            </span>
-            <Input
-              placeholder="（可选）覆盖：填了则忽略上表，把所有地点合并推到这一张表"
-              value={pushUrl}
-              onChange={(e) => setPushUrl(e.target.value)}
-            />
-            <Space wrap>
-              <Switch checked={forceUpdate} onChange={setForceUpdate} size="small" />
-              <span style={{ fontSize: 13, color: "#666" }}>强制覆盖已同步记录</span>
+          <Space direction="vertical" style={{ width: "100%" }} size={10}>
+            <Space wrap size={12}>
               <Button type="primary" onClick={handlePush} loading={running}>
                 {pushUrl.trim() ? "合并推送到单张表" : "按地点推送到飞书"}
               </Button>
+              <span style={{ fontSize: 13, color: "#8c8c8c" }}>
+                按上表的地点分别推送到各自的表格
+              </span>
             </Space>
+            <Space wrap size={6}>
+              <Switch checked={forceUpdate} onChange={setForceUpdate} size="small" />
+              <span style={{ fontSize: 13, color: "#8c8c8c" }}>强制覆盖已同步记录</span>
+            </Space>
+            {/* 长链接输入收进折叠区：正常用法根本不需要它，摊在页面上只是占地方 */}
+            <Collapse
+              ghost
+              size="small"
+              items={[{
+                key: "adv",
+                label: <span style={{ fontSize: 12, color: "#8c8c8c" }}>高级：合并推到单张表</span>,
+                children: (
+                  <Input
+                    size="small"
+                    allowClear
+                    placeholder="填了则忽略上表，把所有地点合并推到这一张表"
+                    value={pushUrl}
+                    onChange={(e) => setPushUrl(e.target.value)}
+                  />
+                ),
+              }]}
+            />
           </Space>
         </Card>
         <Card size="small" title="③ 从飞书拉回录取结果" type="inner">
@@ -1313,31 +1338,75 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
                 拉回全部地点
               </Button>
             </Space>
-            <span style={{ fontSize: 12, color: "#999" }}>
+            <span style={{ fontSize: 12, color: "#8c8c8c" }}>
               每个地点提交一个独立任务，逐个执行；下方进度区依次显示各任务结果。
             </span>
-            <Input
-              placeholder="（可选）只拉这一张表：填入链接后点右侧按钮"
-              value={pullUrl}
-              onChange={(e) => setPullUrl(e.target.value)}
-              addonAfter={
-                <span style={{ cursor: "pointer" }} onClick={handlePull}>拉这张</span>
-              }
+            <Collapse
+              ghost
+              size="small"
+              items={[{
+                key: "adv",
+                label: <span style={{ fontSize: 12, color: "#8c8c8c" }}>高级：只拉某一张表</span>,
+                children: (
+                  <Space.Compact style={{ width: "100%" }}>
+                    <Input
+                      size="small"
+                      allowClear
+                      placeholder="粘贴该表链接"
+                      value={pullUrl}
+                      onChange={(e) => setPullUrl(e.target.value)}
+                    />
+                    <Button size="small" onClick={handlePull} disabled={!pullUrl.trim()}>
+                      拉这张
+                    </Button>
+                  </Space.Compact>
+                ),
+              }]}
             />
           </Space>
         </Card>
         {task && (
-          <Card size="small" title={`任务 #${task.taskId} · ${task.status}`} type="inner">
+          <Card
+            size="small"
+            type="inner"
+            title={
+              <Space size={8}>
+                <span>同步任务 #{task.taskId}</span>
+                {FEISHU_STATUS_TAG[task.status]
+                  ? <Tag color={FEISHU_STATUS_TAG[task.status].color}>{FEISHU_STATUS_TAG[task.status].text}</Tag>
+                  : <Tag>{task.status}</Tag>}
+              </Space>
+            }
+          >
+            {/* 细进度条 + 一行紧凑计数：原来三个 antd Statistic 占了半屏，
+                而这里真正要看的只是「成/败/跳 各几条」 */}
             <Progress
+              size="small"
               percent={task.progressPercent ?? (FEISHU_TERMINAL.includes(task.status) ? 100 : 30)}
-              status={task.status === "FAILED" ? "exception" : FEISHU_TERMINAL.includes(task.status) ? "success" : "active"}
+              status={task.status === "FAILED" ? "exception"
+                : FEISHU_TERMINAL.includes(task.status) ? "success" : "active"}
+              style={{ marginBottom: 6 }}
             />
-            <Space size="large" style={{ marginTop: 8 }}>
-              <Statistic title="成功" value={task.importedCount ?? 0} valueStyle={{ fontSize: 18 }} />
-              <Statistic title="失败" value={task.failedCount ?? 0} valueStyle={{ fontSize: 18 }} />
-              <Statistic title="跳过" value={task.skippedCount ?? 0} valueStyle={{ fontSize: 18 }} />
+            <Space size={16} wrap style={{ fontSize: 13 }}>
+              <span><span style={{ color: "#8c8c8c" }}>成功 </span>
+                <b style={{ color: (task.importedCount ?? 0) > 0 ? "#52c41a" : undefined }}>
+                  {task.importedCount ?? 0}
+                </b></span>
+              <span><span style={{ color: "#8c8c8c" }}>失败 </span>
+                <b style={{ color: (task.failedCount ?? 0) > 0 ? "#ff4d4f" : undefined }}>
+                  {task.failedCount ?? 0}
+                </b></span>
+              <span><span style={{ color: "#8c8c8c" }}>跳过 </span>
+                <b>{task.skippedCount ?? 0}</b></span>
             </Space>
-            {task.errorMessage && <Alert type="error" style={{ marginTop: 8 }} message={task.errorMessage} />}
+            {task.errorMessage && (
+              <Alert
+                type="error"
+                showIcon
+                style={{ marginTop: 8 }}
+                message={<span style={{ fontSize: 13 }}>{task.errorMessage}</span>}
+              />
+            )}
           </Card>
         )}
       </Space>

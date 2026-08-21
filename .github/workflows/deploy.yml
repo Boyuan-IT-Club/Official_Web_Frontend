@@ -26,34 +26,57 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      # GENERATE_SOURCEMAP=false 有两个理由，都实测过：
+      #   1. 体积：source map 占产物的 ~78%（user 13MB 里 10MB、admin 10MB 里 8MB），
+      #      逐文件 scp 上传它们是部署耗时的主要来源
+      #   2. 安全：线上 /static/js/main.*.js.map 曾以 200 公开可下（实测 4.1MB），
+      #      里面能还原出原始 TS 源码
       - name: Build user site
         run: npm run build:user
         env:
           CI: false
+          GENERATE_SOURCEMAP: false
 
       - name: Build admin site
         run: npm run build:admin
         env:
           CI: false
+          GENERATE_SOURCEMAP: false
 
-      - name: Deploy user site (official.boyuan.club)
+      # 打成一个包再传。原来用 scp-action 逐文件上传 129 个文件，
+      # 每个文件一次 SSH 往返 —— 实测两站合计 426s，占整个部署 77%。
+      - name: Package build output
+        run: |
+          tar -czf build.tar.gz build-user build-admin
+          echo "包大小: $(du -h build.tar.gz | cut -f1)"
+
+      - name: Upload archive
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "build-user/*"
-          target: "/var/www/boyuan-web-frontend/"
-          strip_components: 1
-          rm: true
+          source: "build.tar.gz"
+          target: "/tmp/boyuan-deploy/"
 
-      - name: Deploy admin site (admin.boyuan.club)
-        uses: appleboy/scp-action@v0.1.7
+      # rsync -a --delete 复现原来 rm:true 的语义（清掉上一版残留的旧 chunk），
+      # 但它是本机文件操作，比逐文件 SSH 传输快几个数量级。
+      # 解包到临时目录再同步，中途失败不会让站点停在半新半旧的状态。
+      - name: Extract and publish
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "build-admin/*"
-          target: "/var/www/boyuan-admin/"
-          strip_components: 1
-          rm: true
+          script: |
+            set -euo pipefail
+            cd /tmp/boyuan-deploy
+            rm -rf staged && mkdir -p staged
+            tar -xzf build.tar.gz -C staged
+            test -f staged/build-user/index.html
+            test -f staged/build-admin/index.html
+            mkdir -p /var/www/boyuan-web-frontend /var/www/boyuan-admin
+            rsync -a --delete staged/build-user/ /var/www/boyuan-web-frontend/
+            rsync -a --delete staged/build-admin/ /var/www/boyuan-admin/
+            rm -rf staged build.tar.gz
+            echo "已发布：user $(find /var/www/boyuan-web-frontend -type f | wc -l) 个文件，admin $(find /var/www/boyuan-admin -type f | wc -l) 个文件"
