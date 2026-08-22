@@ -13,11 +13,10 @@ export interface CandidateProfileListRow {
   interviewLocation: string | null;
 }
 
-export const getCandidateProfiles = (cycleId?: number) => {
+export const getCandidateProfiles = () => {
   return request({
     url: `/api/admin/profiles`,
     method: 'get',
-    params: cycleId ? { cycleId } : undefined,
   });
 };
 
