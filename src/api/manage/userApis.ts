@@ -6,13 +6,14 @@ import { request } from '@/utils/request';
 // get: 获取用户信息列表——分页
 interface GetUsersParams {
   dept?: string;
-  /** 0 基页码 —— 后端是 Spring Pageable，不是偏移量也不是 1 基 */
+/** 0 基页码 —— 后端是 Spring Pageable，不是偏移量也不是 1 基 */
   page?: string;
   /** 每页条数。参数名必须是 size，写 pageSize 会被后端忽略并回落到默认 10 条 */
   size?: string;
   /** 匹配姓名或学号 */
   keyword?: string;
   role?: string;
+  roleGroup?: string;
   status?: string;
   [property: string]: any;
 }
@@ -22,6 +23,14 @@ export const getAllUsers = (params?: GetUsersParams) => {
     url: `/api/admin/users`,
     method: 'get',
     params,
+  });
+}
+
+// get: 用户分类统计（total/frozen/adminCount/memberCount/nonMemberCount）——独立于分页列表
+export const getUserStats = () => {
+  return request({
+    url: `/api/admin/users/stats`,
+    method: 'get',
   });
 }
 // post：为用户分配角色
