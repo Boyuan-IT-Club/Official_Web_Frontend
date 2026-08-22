@@ -1,5 +1,6 @@
 // src/pages/Management/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import PageHint from '@/components/PageHint';
 import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar, Alert, Segmented } from 'antd';
 import {
   TeamOutlined,
@@ -25,7 +26,7 @@ import {
 } from '@/api/manage/userApis';
 
 import { getToken, hasEffectiveJwtRoles } from '@/utils';
-import { hasPermission } from '@/utils/jwt';
+import { hasPermission, hasAnyPermission } from '@/utils/jwt';
 
 
 const { confirm } = Modal;
@@ -82,7 +83,14 @@ const Management: React.FC = () => {
   const [total, setTotal]       = useState(0);
 
   // ── Toolbar 状态 ──────────────────────────────────────────────────────────
-  const [searchText, setSearchText]         = useState('');
+  // 全局搜索跳过来时带着 ?q=：落地即是筛好的列表，不用再搜一遍
+  const [searchText, setSearchText]         = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('q') ?? '';
+    } catch {
+      return '';   // 极端环境下 URLSearchParams 不可用，退回空搜索
+    }
+  });
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedRole, setSelectedRole]     = useState('');
   const [selectedDept, setSelectedDept]     = useState('');
@@ -100,7 +108,11 @@ const Management: React.FC = () => {
   // ── 核心请求：分页列表 ────────────────────────────────────────────────────
   // 只读准入:管理员(ADMIN)角色只有 user:view,能读用户列表但一个写接口都调不动。
   // 后端是唯一权威(写接口仍要 admin:manage),这里收起入口只是免得点了才吃 403。
-  const canManage = hasPermission(getToken(), 'admin:manage');
+  // 用户写操作的新码是 user:manage（权限拆分 V23/V24）。必须双码判定：
+  // V24 已把 admin:manage 从所有角色收回，重新登录后的新令牌里只有新码 ——
+  // 只查旧码会让超管也看到「只读模式」（线上实际发生过）；
+  // 只查新码则会误伤还没重新登录的旧令牌。阶段三清理时收敛为只查 user:manage。
+  const canManage = hasAnyPermission(getToken(), ['user:manage', 'admin:manage']);
   // 角色管理的增删改查都要 role:assign,ADMIN 角色没有,不隐藏就是一个必然 403 的空 tab
   const canAssignRole = hasPermission(getToken(), 'role:assign');
 
@@ -116,8 +128,12 @@ const Management: React.FC = () => {
     setLoading(true);
     try {
       const res: any = await getAllUsers({
-        page:      String((currentPage - 1) * currentPageSize),
-        pageSize:  String(currentPageSize),
+// 后端用 Spring Pageable：page 是 0 基页码、参数名必须是 size。
+        // 此前发的是偏移量 + pageSize：
+        //   第1页 page=0 碰巧对，但 pageSize 被忽略 → 永远只显示 10 条（11 个用户只见 10 个）
+        //   第2页 page=10 → Spring 当成第 10 页去查 → 空白
+        page: String(currentPage - 1),
+        size: String(currentPageSize),
         keyword:   keyword || undefined,
         status:    status  || undefined,
         role:      role    || undefined,
@@ -323,13 +339,7 @@ const Management: React.FC = () => {
               children: (
                 <>
                   {!canManage && (
-                    <Alert
-                      type="info"
-                      showIcon
-                      style={{ marginBottom: 12 }}
-                      message="只读模式"
-                      description="当前账号具有查看用户信息的权限,但不能执行录取、分配部门、冻结、删除等操作。需要这些操作请联系超级管理员。"
-                    />
+                    <PageHint style={{ marginBottom: 12 }} title="只读模式">可查看用户信息，但不能录取、分配部门、冻结或删除。</PageHint>
                   )}
                   <div style={{ marginBottom: 12 }}>
                     <Segmented

@@ -9,13 +9,14 @@ import { LockOutlined, SettingOutlined, UnlockOutlined } from '@ant-design/icons
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { getToken, parseJwtPayload } from '@/utils';
-import { hasPermission } from '@/utils/jwt';
+import { hasAnyPermission } from '@/utils/jwt';
 import { RecruitmentCycle, getAllCycles } from '@/api/manage/cycleApis';
 import {
   EVALUATION_STATUS, EvaluationBoard as EvaluationBoardState, RECOMMENDATION_OPTIONS,
   getBoard, openBoard, setBoardLocked,
 } from '@/api/manage/interviewEvaluation';
 import CandidateDrawer from './CandidateDrawer';
+import { clearCandidateResumeCache } from './resumeCache';
 import DimensionSettings from './DimensionSettings';
 import { BoardRow, RowEvaluation, useCollabBoard } from './collab';
 import './index.scss';
@@ -47,7 +48,8 @@ const EvaluationBoardPage: React.FC = () => {
 
   const currentUserId = Number(userInfo?.userId ?? jwt?.userId ?? 0);
   const currentUserName = String(userInfo?.name || userInfo?.username || jwt?.sub || '我');
-  const isAdmin = hasPermission(token, 'resume:audit');
+  // 评价表管理级的新码是 interview:board:manage；resume:audit 为过渡兼容（阶段三移除）
+  const isAdmin = hasAnyPermission(token, ['interview:board:manage', 'resume:audit']);
 
   const [cycles, setCycles] = useState<RecruitmentCycle[]>([]);
   const [cycleId, setCycleId] = useState<number | undefined>();
@@ -167,6 +169,12 @@ const EvaluationBoardPage: React.FC = () => {
   const cycleOptions = cycles.map((c) => ({ value: c.cycleId, label: `${c.cycleName}（#${c.cycleId}）` }));
 
   // 打开详情的同时广播「我在看谁」，其他人的表格里会在该行出现我的头像
+  // 换周期时清掉简历缓存：不同周期的 scheduleId 各自独立，
+  // 缓存键虽含 cycleId 不会串，但留着旧周期的简历占内存也没意义
+  useEffect(() => {
+    clearCandidateResumeCache();
+  }, [cycleId]);
+
   const openRow = (row: BoardRow) => {
     setActiveRow(row);
     board.setActiveRow(row.scheduleId);
@@ -189,10 +197,16 @@ const EvaluationBoardPage: React.FC = () => {
             <span style={{ fontWeight: 500 }}>{name || `#${row.scheduleId}`}</span>
             {row.removed && <Tag color="red">已移出</Tag>}
             {peersOnRow(row.scheduleId).map((peer) => (
-              <Tooltip key={peer.clientId} title={`${peer.name} 正在查看`}>
-                <Avatar size={18} style={{ backgroundColor: peer.color, fontSize: 10 }}>
-                  {peer.name.slice(0, 1)}
-                </Avatar>
+              <Tooltip
+                key={peer.clientId}
+                title={peer.typingField ? `${peer.name} 正在输入` : `${peer.name} 正在查看`}
+              >
+                {/* 正在打字的人多一圈脉动光环，和「只是打开着看」区分开 */}
+                <span className={peer.typingField ? 'eval-peer-typing-ring' : undefined}>
+                  <Avatar size={18} style={{ backgroundColor: peer.color, fontSize: 10 }}>
+                    {peer.name.slice(0, 1)}
+                  </Avatar>
+                </span>
               </Tooltip>
             ))}
           </Space>
@@ -422,6 +436,8 @@ const EvaluationBoardPage: React.FC = () => {
         row={activeRow}
         board={board}
         currentUserId={currentUserId}
+        orderedRows={derivedRows}
+        onJump={openRow}
       />
 
       {isAdmin && (

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Button, Result } from 'antd';
 import { useRouteError } from 'react-router-dom';
+import { isChunkLoadError } from '@/utils/chunkError';
 
 /**
  * 路由级错误兜底：
@@ -9,9 +10,8 @@ import { useRouteError } from 'react-router-dom';
  */
 const RouteErrorBoundary: React.FC = () => {
   const error: any = useRouteError();
-  const isChunkError =
-    /Loading chunk .* failed|ChunkLoadError|Failed to fetch dynamically imported module/i
-      .test(String(error?.message ?? error ?? ''));
+
+  const isChunkError = isChunkLoadError(error);
 
   useEffect(() => {
     if (!isChunkError) return;

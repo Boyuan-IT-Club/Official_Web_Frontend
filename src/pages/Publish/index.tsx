@@ -1,4 +1,6 @@
 // src/pages/Publish/index.tsx
+import { useNavigate } from 'react-router-dom';
+import PageHint from '@/components/PageHint';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Card,
@@ -15,6 +17,7 @@ import {
   Table,
   Upload,
   Select,
+  Radio,
 } from 'antd';
 import {
   SendOutlined,
@@ -31,6 +34,7 @@ import {
   ImportOutlined,
   FileWordOutlined,
   UploadOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -43,10 +47,12 @@ import TechStackInput from './components/TechStackInput';
 import PhotoUpload from './components/PhotoUpload';
 import FormSection from './components/FormSection';
 import ResumeDisplay from '@/components/ResumeDisplay';
+import CycleSwitcher from '@/components/CycleSwitcher';
 import InterviewStatusCard from '@/components/InterviewStatusCard';
 import {
   PreferenceTimeSlot,
   getMyPreference,
+  getMySchedule,
   listOpenTimeSlots,
   submitPreference,
 } from '@/api/interviewPreference';
@@ -152,12 +158,28 @@ const isValidationError = (err: unknown): err is ValidationErrorLike => {
 };
 
 // 常量移出组件，避免每次渲染重新创建
-const DEFAULT_FIELD_ID_MAPPING: Record<string, number> = {
-  student_id: 16, name: 4, major: 5, email: 6, phone: 7,
-  grade: 8, gender: 9, expected_departments: 10, self_introduction: 11,
-  tech_stack: 12, project_experience: 13, expected_interview_time: 14,
-  personal_photo: 15, reason: 18, github: 19,
+/**
+ * 从后端返回的字段定义列表构造 fieldKey -> fieldId 映射。
+ *
+ * 这里原先是一张写死的表（name: 4, major: 5, grade: 8 …），那是**某一个周期**的
+ * 自增 ID。别的周期 resume_field_definition 是另一批 ID，照那张表写入会把值
+ * 存到错的字段上 —— 线上表现是简历详情里「姓名」空着、而「年级」显示成了人名。
+ *
+ * 拿不到定义时返回空映射，而不是猜 ID：写到错字段是不可逆的数据损坏，
+ * 什么都不写反而可以重填。此时投递页会显示「该周期还没有配置报名表单」。
+ */
+const buildFieldIdMapping = (list: unknown): Record<string, number> => {
+  // store 里存的就是数组本身：fetchResumeFields 返回 res.data，而 axios 拦截器
+  // 已经把响应解到业务体，所以这里拿到的是 data 数组。兼容一下信封形状以防调用方不同。
+  const arr = Array.isArray(list) ? list : (list as any)?.data;
+  if (!Array.isArray(arr) || arr.length === 0) return {};
+  const mapping: Record<string, number> = {};
+  arr.forEach((f: FieldDefinitionItem) => {
+    if (f?.fieldKey != null && f?.fieldId != null) mapping[f.fieldKey] = Number(f.fieldId);
+  });
+  return mapping;
 };
+
 
 const DEFAULT_FIRST_DEPT: OptionItem[] = [
   { value: '技术部', label: '技术部' }, { value: '媒体部', label: '媒体部' },
@@ -196,8 +218,40 @@ const parseJsonField = <T,>(raw: any, fallback: T): T => {
   try { return JSON.parse(String(raw)) as T; } catch { return fallback; }
 };
 
+/**
+ * 解析存成 JSON 的字段值，并**保证**结果是字符串数组。
+ *
+ * parseJsonField 的 <T> 只是类型断言 —— JSON.parse 运行时可能返回数字、对象、null，
+ * 而 TypeScript 挡不住脏数据。线上就因此整页崩过：某字段存的值是 123，
+ * JSON.parse 得到数字 123，塞进 techStackItems 后 exportResume 里的
+ * techStackItems.filter(Boolean) 直接 TypeError（TypeError: s.filter is not a function）。
+ *
+ * 凡是要喂给「按数组用」的 state，都必须走这里，不能只标个 <string[]> 就当数组。
+ */
+/** 同上，但保证结果是普通对象（非数组、非 null）。拿到数字虽然不崩，但字段会全变 undefined */
+const parseObjectField = <T extends object>(raw: unknown, fallback: T): T => {
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return fallback;
+    return parsed as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const parseStringArray = (raw: unknown, fallback: string[]): string[] => {
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (!Array.isArray(parsed)) return fallback;
+    return parsed.map((x) => (x == null ? '' : String(x)));
+  } catch {
+    return fallback;
+  }
+};
+
 const Publish: React.FC = () => {
   const dispatch = useDispatch<any>();
+  const navigate = useNavigate();
   const [form] = Form.useForm<any>();
 
   const [photoBase64, setPhotoBase64] = useState<string>('');
@@ -231,15 +285,10 @@ const Publish: React.FC = () => {
   const userInfo = useSelector((state: RootStateLike) => state.user.userInfo);
 
   // ---- O(1) Map 查找替代 O(n) array.find() ----
-  const fieldIdMapping = useMemo<Record<string, number>>(() => {
-    const data = (fieldDefinitions as any)?.data;
-    if (data && Array.isArray(data) && data.length > 0) {
-      const mapping: Record<string, number> = {};
-      data.forEach((field: FieldDefinitionItem) => { mapping[field.fieldKey] = field.fieldId; });
-      return mapping;
-    }
-    return DEFAULT_FIELD_ID_MAPPING;
-  }, [fieldDefinitions]);
+  const fieldIdMapping = useMemo<Record<string, number>>(
+    () => buildFieldIdMapping(fieldDefinitions),
+    [fieldDefinitions],
+  );
 
   const fieldValueMap = useMemo<Map<number, FieldValueLike>>(() => {
     const map = new Map<number, FieldValueLike>();
@@ -429,6 +478,19 @@ const Publish: React.FC = () => {
         setIsInitializing(false);
         return;
       }
+      // 切换周期（不是首次进入）时先清空表单与已加载的字段值。
+      // 必须显式清：下面填表单用的是 form.setFieldsValue(部分对象)，它只覆盖
+      // 传进去的键，不会清掉没传的键 —— 从填满的 A 切到空的 B 时，A 的答案会
+      // 以预填的样子留在 B 的表单里，用户很可能就那样提交了。
+      const isCycleSwitch = initedCidRef.current !== null && initedCidRef.current !== cid;
+      if (isCycleSwitch) {
+        dispatch(clearFieldValues());
+        form.resetFields();
+        setPhotoBase64('');
+        setTechStackItems(['']);
+        setDepartments({ first: '', second: '' });
+        setInterviewTimes({ first: '', second: '', canAttend: 'yes', customTime: '' });
+      }
       initedCidRef.current = cid;
 
       // 所有独立请求并行发起，大幅减少首屏加载时间
@@ -453,10 +515,14 @@ const Publish: React.FC = () => {
         const resumeId = resumeData.resumeId || resumeData.resume_id || resumeData.id;
         if (resumeId) dispatch(setResumeId(resumeId));
 
-        const photoFid = DEFAULT_FIELD_ID_MAPPING['personal_photo'];
-        const techFid = DEFAULT_FIELD_ID_MAPPING['tech_stack'];
-        const deptFid = DEFAULT_FIELD_ID_MAPPING['expected_departments'];
-        const interviewFid = DEFAULT_FIELD_ID_MAPPING['expected_interview_time'];
+        // 用本次刚取回的定义就地构造映射：不能按写死的 ID 去找，那是别的周期的编号。
+        // 也不用组件里的 fieldIdMapping —— 它来自 initData 自己 dispatch 的状态，
+        // 放进依赖会让本回调依赖自身的副作用。
+        const fidOf = buildFieldIdMapping(fieldsResult);
+        const photoFid = fidOf['personal_photo'];
+        const techFid = fidOf['tech_stack'];
+        const deptFid = fidOf['expected_departments'];
+        const interviewFid = fidOf['expected_interview_time'];
 
         const sf = resumeData.simpleFields;
         if (sf) {
@@ -465,19 +531,19 @@ const Publish: React.FC = () => {
 
           const techField = sf.find(f => f.fieldId === techFid);
           if (techField?.fieldValue) {
-            setTechStackItems(parseJsonField<string[]>(techField.fieldValue, ['']));
+            setTechStackItems(parseStringArray(techField.fieldValue, ['']));
           } else { setTechStackItems(['']); }
 
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
-            const arr = parseJsonField<string[]>(deptField.fieldValue, []);
+            const arr = parseStringArray(deptField.fieldValue, []);
             setDepartments({ first: arr[0] || '', second: arr[1] || '' });
           } else { setDepartments({ first: '', second: '' }); }
         }
 
         const interviewField = resolvedFieldValues.find(f => f.fieldId === interviewFid);
         if (interviewField?.fieldValue) {
-          setInterviewTimes(parseJsonField<InterviewTimesState>(interviewField.fieldValue, {
+          setInterviewTimes(parseObjectField<InterviewTimesState>(interviewField.fieldValue, {
             first: '', second: '', canAttend: 'yes', customTime: '',
           }));
         } else {
@@ -498,7 +564,7 @@ const Publish: React.FC = () => {
     } finally {
       setIsInitializing(false);
     }
-  }, [dispatch, cycleId]);
+  }, [dispatch, cycleId, form]);
 
   useEffect(() => { void initData(); }, [initData]);
 
@@ -572,18 +638,23 @@ const Publish: React.FC = () => {
   const [openSlots, setOpenSlots] = useState<PreferenceTimeSlot[]>([]);
   const [selectedSlotIds, setSelectedSlotIds] = useState<number[]>([]);
   const [deptNameToId, setDeptNameToId] = useState<Record<string, number>>({});
+  // 面试已安排（status=1）后意向锁定：算法已按旧志愿排完场次，此时再改
+  // 不会生效，只会让人以为改了。后端同样会拒（3613），这里是把入口一并收掉。
+  const [intentLocked, setIntentLocked] = useState(false);
 
   useEffect(() => {
     if (!cycleId) return;
     let cancelled = false;
     (async () => {
       try {
-        const [slots, depts, mine]: any[] = await Promise.all([
+        const [slots, depts, mine, sched]: any[] = await Promise.all([
           listOpenTimeSlots(cycleId).catch(() => null),
           getValidDept().catch(() => null),
           getMyPreference(cycleId).catch(() => null),
+          getMySchedule(cycleId).catch(() => null),
         ]);
         if (cancelled) return;
+        setIntentLocked(sched?.data?.status === 1);
         setOpenSlots(slots?.data ?? []);
         const mapping: Record<string, number> = {};
         (depts?.data ?? []).forEach((d: any) => { if (d?.deptName) mapping[d.deptName] = d.deptId; });
@@ -599,6 +670,14 @@ const Publish: React.FC = () => {
 
   /** 简历提交/更新成功后同步提交面试志愿（失败仅提醒，不影响简历） */
   const savePreferenceBestEffort = useCallback(async () => {
+    if (intentLocked) {
+      // 面试已安排，意向以既有安排为准；简历其它内容照常保存
+      return;
+    }
+    if (interviewTimes.canAttend === 'no') {
+      // 明确表示不能到场：不提交排期志愿，也不该拿「志愿未完整填写」去烦他
+      return;
+    }
     const firstDeptId = deptNameToId[departments.first];
     if (!firstDeptId || selectedSlotIds.length === 0) {
       message.warning('面试意向未完整填写（志愿部门/可面试时间），可稍后回到本页补填并更新简历');
@@ -615,7 +694,7 @@ const Publish: React.FC = () => {
       console.error('面试志愿提交失败:', e);
       message.warning(e?.message || '面试志愿提交失败，可稍后回到本页重新提交');
     }
-  }, [cycleId, departments, deptNameToId, selectedSlotIds]);
+  }, [cycleId, departments, deptNameToId, selectedSlotIds, intentLocked, interviewTimes.canAttend]);
 
   // 保存草稿：只持久化已填字段值，不做必填校验、不提交
   const [savingDraft, setSavingDraft] = useState(false);
@@ -752,13 +831,13 @@ const Publish: React.FC = () => {
         });
         const sf = resumeData.simpleFields;
         if (sf) {
-          const techFid = DEFAULT_FIELD_ID_MAPPING['tech_stack'];
-          const deptFid = DEFAULT_FIELD_ID_MAPPING['expected_departments'];
+          const techFid = fieldIdMapping['tech_stack'];
+          const deptFid = fieldIdMapping['expected_departments'];
           const techField = sf.find(f => f.fieldId === techFid);
-          setTechStackItems(techField?.fieldValue ? parseJsonField<string[]>(techField.fieldValue, ['']) : ['']);
+          setTechStackItems(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']);
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
-            const arr = parseJsonField<string[]>(deptField.fieldValue, []);
+            const arr = parseStringArray(deptField.fieldValue, []);
             setDepartments({ first: arr[0] || '', second: arr[1] || '' });
           } else { setDepartments({ first: '', second: '' }); }
         }
@@ -769,7 +848,7 @@ const Publish: React.FC = () => {
       message.error('加载简历数据失败，请刷新页面重试');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, cycleId, fieldValues]);
+  }, [dispatch, cycleId, fieldValues, fieldIdMapping]);
 
   const handleCancelEdit = useCallback(async (): Promise<void> => {
     try {
@@ -781,14 +860,14 @@ const Publish: React.FC = () => {
         await dispatch(fetchFieldValues(cycleId)).unwrap();
         const sf = resumeData.simpleFields;
         if (sf) {
-          const techFid = DEFAULT_FIELD_ID_MAPPING['tech_stack'];
-          const deptFid = DEFAULT_FIELD_ID_MAPPING['expected_departments'];
-          const photoFid = DEFAULT_FIELD_ID_MAPPING['personal_photo'];
+          const techFid = fieldIdMapping['tech_stack'];
+          const deptFid = fieldIdMapping['expected_departments'];
+          const photoFid = fieldIdMapping['personal_photo'];
           const techField = sf.find(f => f.fieldId === techFid);
-          setTechStackItems(techField?.fieldValue ? parseJsonField<string[]>(techField.fieldValue, ['']) : ['']);
+          setTechStackItems(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']);
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
-            const arr = parseJsonField<string[]>(deptField.fieldValue, []);
+            const arr = parseStringArray(deptField.fieldValue, []);
             setDepartments({ first: arr[0] || '', second: arr[1] || '' });
           } else { setDepartments({ first: '', second: '' }); }
           const photoField = sf.find(f => f.fieldId === photoFid);
@@ -804,7 +883,7 @@ const Publish: React.FC = () => {
       console.error('取消修改失败:', err);
       message.error('取消修改失败，请刷新页面');
     }
-  }, [dispatch, cycleId, form]);
+  }, [dispatch, cycleId, form, fieldIdMapping]);
 
   // ---- 导出处理 ----
   const exportData = useMemo(() => {
@@ -907,6 +986,19 @@ const Publish: React.FC = () => {
 
   return (
     <div className="publish-page">
+      {/* 周期切换放在 isEditing 分支之外：简历一提交页面就切到只读分支，
+          若只在编辑分支里渲染，投完第一个周期后另一个在招周期的入口就消失了。
+          原先是 Alert 里塞一个 Select —— 下拉会把另一个周期藏起来，而用户最初
+          的问题恰恰是「看不到另一个招募活动的入口」，藏进下拉等于没解决。 */}
+      <CycleSwitcher
+        cycles={openCycles}
+        value={Number(cycleId)}
+        onChange={(id) => dispatch(setSelectedCycle(id))}
+        statusOf={(id) =>
+          Number(id) === Number(cycleId) && !isEditing ? '已提交' : undefined
+        }
+      />
+
       {!isEditing ? (
         <div>
           <div className="questionnaire-header">
@@ -969,36 +1061,11 @@ const Publish: React.FC = () => {
             )}
           </div>
 
-          {/* 同时开放多个招募周期时让用户自己选：is_active 只表示「是否启用」，
-              往届周期为了查历史简历通常也保持启用，系统无法替用户判断该投哪个。
-              只有一个开放周期时不渲染，避免多出一个无意义的下拉。 */}
-          {openCycles.length > 1 && (
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
-              message="当前有多个招募周期正在进行"
-              description={
-                <Space wrap style={{ marginTop: 8 }}>
-                  <span>请选择要投递的周期：</span>
-                  <Select
-                    style={{ minWidth: 260 }}
-                    value={Number(cycleId)}
-                    onChange={(v) => dispatch(setSelectedCycle(Number(v)))}
-                    options={openCycles.map((c) => ({
-                      value: Number(c.cycleId),
-                      label: `${c.cycleName}（${c.startDate} ~ ${c.endDate}）`
-                        + (c.fieldCount === 0 ? ' · 未配置报名表单' : ''),
-                    }))}
-                  />
-                </Space>
-              }
-            />
-          )}
-
-          {/* 选中周期没有任何字段定义时，表单会渲染成一片空白且不报任何错
-              （/api/resumes/fields/{cycleId} 在无定义时返回 200 + 空数组）。
-              明确说出来，别让人对着空白页猜。 */}
+          {/* 选中周期没有任何字段定义时，下面的表单必须整块不渲染。
+              表单本身是写死的 JSX，isFieldEnabled 在拿不到配置时默认放行，
+              所以字段定义为空时它照样能填 —— 但 fieldIdMapping 也是空的，
+              填完提交一个字都存不进去，而且不报错。只挂个提示条不够，
+              必须把可填写的部分拿掉，否则就是在诱导用户白填一遍。 */}
           {fieldDefinitions.length === 0 && (
             <Alert
               type="warning"
@@ -1013,6 +1080,8 @@ const Publish: React.FC = () => {
             />
           )}
 
+          {fieldDefinitions.length > 0 && (
+          <>
           <div className="tips-button-container" style={{ marginBottom: 16, textAlign: 'center' }}>
             <Button type="default" icon={<QuestionCircleOutlined />} onClick={() => setShowTips(!showTips)} className="tips-toggle-button">
               填写提示 {showTips ? <CaretDownOutlined /> : <CaretDownOutlined rotate={-90} />}
@@ -1141,7 +1210,7 @@ const Publish: React.FC = () => {
                             value={departments.first}
                             onChange={(value: string) => handleDepartmentChange('first', value)}
                             options={firstDeptOptions}
-                            disabled={!canEdit}
+                            disabled={!canEdit || intentLocked}
                             required
                             className="compact-input"
                           />
@@ -1154,7 +1223,7 @@ const Publish: React.FC = () => {
                             value={departments.second}
                             onChange={(value: string) => handleDepartmentChange('second', value)}
                             options={secondDeptOptions}
-                            disabled={!canEdit}
+                            disabled={!canEdit || intentLocked}
                             disabledOptions={disabledSecondDepts}
                             className="compact-input"
                           />
@@ -1191,19 +1260,56 @@ const Publish: React.FC = () => {
                       size="small"
                       title="面试意向"
                       style={{ marginTop: 8, marginBottom: 20 }}
+                      extra={intentLocked && (
+                        <span className="intent-locked-pill"><LockOutlined /> 已锁定</span>
+                      )}
                     >
-                      <Text type="secondary" style={{ display: 'block', marginBottom: 10 }}>
-                        志愿部门取自上方「期望部门」的选择；请勾选你<b>能到场</b>的面试时间（可多选，选得越多越容易被安排到合适场次）。
-                      </Text>
-                      {openSlots.length === 0 ? (
-                        <Alert type="info" showIcon message="面试时间尚未开放，提交简历后可回到本页补填面试意向" />
+                      {intentLocked ? (
+                        /* 锁定提示放在真正被锁的这块里，而不是志愿选择区顶上一条黄色大警告 */
+                        <div className="intent-locked-note">
+                          <LockOutlined className="intent-locked-note__icon" />
+                          <div>
+                            <div className="intent-locked-note__title">面试已安排，志愿与时间以当前安排为准</div>
+                            <div className="intent-locked-note__desc">
+                              面试官将按安排等你。需要调整时间或部门，请到
+                              <a onClick={() => navigate('/main/interview-appointment')}>申请中心</a>
+                              提交改期申请。
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <Text type="secondary" style={{ display: 'block', marginBottom: 10 }}>
+                          志愿部门取自上方「期望部门」的选择；先确认能否到场，再勾选你<b>能到场</b>的面试时间（可多选，选得越多越容易被安排到合适场次）。
+                        </Text>
+                      )}
+
+                      {/* 能否参加线下面试：不能到场就不必预约时间，也不会进入排期 */}
+                      <div style={{ marginBottom: openSlots.length > 0 ? 10 : 0 }}>
+                        <span style={{ marginRight: 12 }}>能否参加线下面试<span style={{ color: '#ff4d4f' }}> *</span></span>
+                        <Radio.Group
+                          value={interviewTimes.canAttend}
+                          disabled={!canEdit || intentLocked}
+                          onChange={(e) => handleInterviewTimeChange('canAttend', e.target.value)}
+                          options={[
+                            { label: '能参加', value: 'yes' },
+                            { label: '不能参加', value: 'no' },
+                          ]}
+                        />
+                      </div>
+
+                      {interviewTimes.canAttend === 'no' ? (
+                        <Text type="secondary">
+                          已选择不能参加线下面试，无需预约时间；情况有变可随时回到本页修改。
+                        </Text>
+                      ) : openSlots.length === 0 ? (
+                        <PageHint>面试时间尚未开放，提交简历后可回到本页补填面试意向</PageHint>
                       ) : (
                         <Space direction="vertical" size={4}>
                           {openSlots.map((s) => (
-                            <label key={s.timeSlotId} style={{ cursor: canEdit ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <label key={s.timeSlotId} style={{ cursor: (canEdit && !intentLocked) ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 8 }}>
                               <input
                                 type="checkbox"
-                                disabled={!canEdit}
+                                disabled={!canEdit || intentLocked}
                                 checked={selectedSlotIds.includes(s.timeSlotId)}
                                 onChange={(e) => {
                                   setSelectedSlotIds((prev) =>
@@ -1241,6 +1347,8 @@ const Publish: React.FC = () => {
           </div>
 
           {/* 面试意向已并入上方表单（方案二），原独立预约面板移除 */}
+          </>
+          )}
         </div>
       )}
 
@@ -1263,12 +1371,7 @@ const Publish: React.FC = () => {
           <div>
             {hasAnyExtractedField(extractedFields) ? (
               <>
-                <Alert
-                  message="以下信息从文件中自动提取，请核对后确认导入"
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
+                <PageHint style={{ marginBottom: 16 }}>以下信息从文件中自动提取，请核对后确认导入</PageHint>
                 <Table
                   dataSource={[
                     { label: '姓名', value: extractedFields.name },

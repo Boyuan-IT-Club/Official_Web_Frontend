@@ -246,10 +246,20 @@ export interface InterviewResultItem {
   decision?: number; // 1通过 2未通过
   assignedDeptId?: number;
   decisionAt?: string;
+  /** 最近一次结果通知的发送时间；空 = 从未通知（V27 起后端返回） */
+  notifiedAt?: string;
 }
 
 export function listResults(params: { cycleId: number; name?: string; decision?: string; department?: string; page?: number; size?: number }) {
   return request({ url: '/api/interview/result/list', method: 'get', params });
+}
+
+/**
+ * 从本周期的生效面试安排生成结果名单（decision=0 待定），已有结果行的安排跳过（幂等）。
+ * 结果行此前只有飞书拉取会创建 —— 不接飞书「结果与通知」就是空的。
+ */
+export function seedResultsFromSchedules(cycleId: number) {
+  return request({ url: '/api/interview/result/seed-from-schedules', method: 'post', params: { cycleId } });
 }
 
 export function updateResult(resultId: number, data: { decision?: number; assignedDeptId?: number }) {

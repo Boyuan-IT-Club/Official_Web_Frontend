@@ -202,8 +202,8 @@ const AuthCard: FC = () => {
 
             // 管理端构建：要求账号持有管理类权限（JWT permissionCodes），否则拒绝进入
             if (process.env.REACT_APP_MODE === 'admin') {
-              const { hasAnyManagePermission } = await import('@/utils/jwt');
-              if (!hasAnyManagePermission(String(token))) {
+              const { hasConsoleAccess } = await import('@/utils/jwt');
+              if (!hasConsoleAccess(String(token))) {
                 localStorage.removeItem('token');
                 message.error('该账号没有管理权限，请使用管理员账号登录');
                 form.setFieldsValue({ password: '', code: '' });

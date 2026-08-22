@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import PageHint from '@/components/PageHint';
 import {
   Alert,
   Button,
@@ -16,6 +17,7 @@ import {
   Select,
   Space,
   Spin,
+  Collapse,
   Statistic,
   Table,
   Tabs,
@@ -43,6 +45,7 @@ import {
   listReschedules,
   InterviewResultItem,
   listResults,
+  seedResultsFromSchedules,
   listSchedulesRoster,
   listSessions,
   sendResultNotifications,
@@ -598,12 +601,7 @@ const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle }> = (
 
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="一键分配为幂等操作：只处理已填志愿但尚未分配的候选人，可放心重复执行。分不进任何场次的候选人会进入下方待调剂名单。"
-      />
+      <PageHint style={{ marginBottom: 12 }}>只处理未分配的候选人，可重复执行；分不进去的进入待调剂名单。</PageHint>
       <Space style={{ marginBottom: 16 }} size="large">
         <Button type="primary" icon={<ThunderboltOutlined />} loading={assigning} onClick={handleAssign}>
           一键分配本周期
@@ -715,12 +713,7 @@ const RescheduleTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="同意改期后，请在「分配与调剂」Tab 用人工调剂把该候选人改到新场次（按其期望时间窗）。"
-      />
+      <PageHint style={{ marginBottom: 12 }}>同意后需到「分配与调剂」手动改到新场次。</PageHint>
       <Table
         rowKey="requestId"
         size="middle"
@@ -902,6 +895,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
       }
       setNotifyOpen(false);
       setSelected([]);
+      load();   // 刷新「通知状态」列
     } catch (e: any) {
       message.error(e?.message || "发送失败");
     } finally {
@@ -916,12 +910,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
 
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="勾选候选人后可「批量录取」到指定部门，或「批量标记未通过」；也可逐条录入/修改。结果还可从「飞书同步」拉回。决定录完后再勾选发送邮件通知（通过=录取通知，未通过=感谢信）。"
-      />
+      <PageHint style={{ marginBottom: 12 }}>先「生成名单」，再勾选批量录取或标记未通过，最后发通知。</PageHint>
       <Space style={{ marginBottom: 12 }} wrap>
         <Button
           type="primary"
@@ -933,10 +922,35 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         <Button danger disabled={selected.length === 0} onClick={confirmBatchReject}>
           批量标记未通过
         </Button>
+        {/* 名单来源：结果行此前只有飞书拉取会创建，站内闭环靠这个按钮起步 */}
+        <Button
+          onClick={async () => {
+            try {
+              const res: any = await seedResultsFromSchedules(cycleId);
+              const created = res?.data?.created ?? 0;
+              message.success(created > 0
+                ? `已从面试安排生成 ${created} 行待定结果`
+                : '没有新的安排需要生成（已有结果行的安排会跳过）');
+              load();
+            } catch (e: any) {
+              message.error(e?.message || '生成失败');
+            }
+          }}
+        >
+          从面试安排生成名单
+        </Button>
         <Tooltip title={selectedUndecided > 0 ? "所选名单里有人还没录入决定，先批量录取或标记未通过" : ""}>
           <Button
             disabled={selected.length === 0 || selectedUndecided > 0}
-            onClick={() => { setCustomMsg(""); setNotifyOpen(true); }}
+            onClick={() => {
+              setCustomMsg("");
+              // 已通知过的人再点发送是重发 —— 说清楚，别让人误以为没发出去过
+              const resent = list.filter((r) => selected.includes(r.resultId) && r.notifiedAt).length;
+              if (resent > 0) {
+                message.info(`所选名单中 ${resent} 人此前已通知过，本次发送将向他们重发`);
+              }
+              setNotifyOpen(true);
+            }}
           >
             发送通知（已选 {selected.length}）
           </Button>
@@ -949,7 +963,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         loading={loading}
         dataSource={list}
         pagination={false}
-        locale={{ emptyText: "暂无面试结果（可从「飞书同步」拉回，或等待面试完成后录入）" }}
+        locale={{ emptyText: "暂无面试结果 —— 点上方「从面试安排生成名单」生成待定列表，或从「飞书同步」拉回" }}
         rowSelection={{
           selectedRowKeys: selected,
           onChange: (keys) => setSelected(keys as number[]),
@@ -967,6 +981,12 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
           { title: "录取部门", dataIndex: "assignedDeptId", width: 110, render: (v: number) => deptName(v) },
           { title: "决定时间", dataIndex: "decisionAt", width: 150,
             render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },
+          { title: "通知状态", dataIndex: "notifiedAt", width: 130,
+            render: (v: string) => v
+              ? <Tooltip title={`发送于 ${String(v).replace("T", " ").slice(0, 16)}`}>
+                  <Tag color="green">已通知</Tag>
+                </Tooltip>
+              : <Tag>未通知</Tag> },
           { title: "操作", width: 90,
             render: (_: unknown, r: InterviewResultItem) => (
               <Button type="link" size="small" onClick={() => openEditResult(r)}>录入/修改</Button>
@@ -1021,11 +1041,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
         destroyOnClose
       >
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Alert
-            type="info"
-            showIcon
-            message="所选候选人将统一标记为「通过」，并录取进下面选择的部门。已有决定的人会被覆盖。"
-          />
+          <PageHint>统一标记为通过并录取进所选部门，已有决定会被覆盖。</PageHint>
           {selectedUndecided < selected.length && (
             <Alert
               type="warning"
@@ -1074,6 +1090,15 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
 };
 
 // ─── 飞书同步 Tab ────────────────────────────────────────────────────────────
+/** 任务状态的人话映射：面板上原来直接显示 SUCCESS/PARTIAL_SUCCESS 这类机器词 */
+const FEISHU_STATUS_TAG: Record<string, { color: string; text: string }> = {
+  PENDING: { color: "default", text: "排队中" },
+  RUNNING: { color: "processing", text: "执行中" },
+  SUCCESS: { color: "green", text: "已完成" },
+  PARTIAL_SUCCESS: { color: "orange", text: "部分成功" },
+  FAILED: { color: "red", text: "失败" },
+};
+
 const FEISHU_TERMINAL = ["SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
 
 const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
@@ -1192,12 +1217,7 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 
   return (
     <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message="推送与拉回都按【面试地点】分桶：每个地点对应一张飞书多维表格，面试官只看自己考场那张。先在下方为每个地点配好链接，再推送。"
-      />
+      <PageHint style={{ marginBottom: 16 }}>一个面试地点对应一张飞书表格。先配链接，再推送。</PageHint>
       <Space direction="vertical" size={16} style={{ width: "100%" }}>
         <Card
           size="small"
@@ -1253,22 +1273,37 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
           />
         </Card>
         <Card size="small" title="② 推送面试安排到飞书" type="inner">
-          <Space direction="vertical" style={{ width: "100%" }} size={8}>
-            <span style={{ fontSize: 13, color: "#666" }}>
-              按上表的地点分别推送到各自的表格。下面这一栏留空即为正常用法。
-            </span>
-            <Input
-              placeholder="（可选）覆盖：填了则忽略上表，把所有地点合并推到这一张表"
-              value={pushUrl}
-              onChange={(e) => setPushUrl(e.target.value)}
-            />
-            <Space wrap>
-              <Switch checked={forceUpdate} onChange={setForceUpdate} size="small" />
-              <span style={{ fontSize: 13, color: "#666" }}>强制覆盖已同步记录</span>
+          <Space direction="vertical" style={{ width: "100%" }} size={10}>
+            <Space wrap size={12}>
               <Button type="primary" onClick={handlePush} loading={running}>
                 {pushUrl.trim() ? "合并推送到单张表" : "按地点推送到飞书"}
               </Button>
+              <span style={{ fontSize: 13, color: "#8c8c8c" }}>
+                按上表的地点分别推送到各自的表格
+              </span>
             </Space>
+            <Space wrap size={6}>
+              <Switch checked={forceUpdate} onChange={setForceUpdate} size="small" />
+              <span style={{ fontSize: 13, color: "#8c8c8c" }}>强制覆盖已同步记录</span>
+            </Space>
+            {/* 长链接输入收进折叠区：正常用法根本不需要它，摊在页面上只是占地方 */}
+            <Collapse
+              ghost
+              size="small"
+              items={[{
+                key: "adv",
+                label: <span style={{ fontSize: 12, color: "#8c8c8c" }}>高级：合并推到单张表</span>,
+                children: (
+                  <Input
+                    size="small"
+                    allowClear
+                    placeholder="填了则忽略上表，把所有地点合并推到这一张表"
+                    value={pushUrl}
+                    onChange={(e) => setPushUrl(e.target.value)}
+                  />
+                ),
+              }]}
+            />
           </Space>
         </Card>
         <Card size="small" title="③ 从飞书拉回录取结果" type="inner">
@@ -1280,31 +1315,75 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
                 拉回全部地点
               </Button>
             </Space>
-            <span style={{ fontSize: 12, color: "#999" }}>
+            <span style={{ fontSize: 12, color: "#8c8c8c" }}>
               每个地点提交一个独立任务，逐个执行；下方进度区依次显示各任务结果。
             </span>
-            <Input
-              placeholder="（可选）只拉这一张表：填入链接后点右侧按钮"
-              value={pullUrl}
-              onChange={(e) => setPullUrl(e.target.value)}
-              addonAfter={
-                <span style={{ cursor: "pointer" }} onClick={handlePull}>拉这张</span>
-              }
+            <Collapse
+              ghost
+              size="small"
+              items={[{
+                key: "adv",
+                label: <span style={{ fontSize: 12, color: "#8c8c8c" }}>高级：只拉某一张表</span>,
+                children: (
+                  <Space.Compact style={{ width: "100%" }}>
+                    <Input
+                      size="small"
+                      allowClear
+                      placeholder="粘贴该表链接"
+                      value={pullUrl}
+                      onChange={(e) => setPullUrl(e.target.value)}
+                    />
+                    <Button size="small" onClick={handlePull} disabled={!pullUrl.trim()}>
+                      拉这张
+                    </Button>
+                  </Space.Compact>
+                ),
+              }]}
             />
           </Space>
         </Card>
         {task && (
-          <Card size="small" title={`任务 #${task.taskId} · ${task.status}`} type="inner">
+          <Card
+            size="small"
+            type="inner"
+            title={
+              <Space size={8}>
+                <span>同步任务 #{task.taskId}</span>
+                {FEISHU_STATUS_TAG[task.status]
+                  ? <Tag color={FEISHU_STATUS_TAG[task.status].color}>{FEISHU_STATUS_TAG[task.status].text}</Tag>
+                  : <Tag>{task.status}</Tag>}
+              </Space>
+            }
+          >
+            {/* 细进度条 + 一行紧凑计数：原来三个 antd Statistic 占了半屏，
+                而这里真正要看的只是「成/败/跳 各几条」 */}
             <Progress
+              size="small"
               percent={task.progressPercent ?? (FEISHU_TERMINAL.includes(task.status) ? 100 : 30)}
-              status={task.status === "FAILED" ? "exception" : FEISHU_TERMINAL.includes(task.status) ? "success" : "active"}
+              status={task.status === "FAILED" ? "exception"
+                : FEISHU_TERMINAL.includes(task.status) ? "success" : "active"}
+              style={{ marginBottom: 6 }}
             />
-            <Space size="large" style={{ marginTop: 8 }}>
-              <Statistic title="成功" value={task.importedCount ?? 0} valueStyle={{ fontSize: 18 }} />
-              <Statistic title="失败" value={task.failedCount ?? 0} valueStyle={{ fontSize: 18 }} />
-              <Statistic title="跳过" value={task.skippedCount ?? 0} valueStyle={{ fontSize: 18 }} />
+            <Space size={16} wrap style={{ fontSize: 13 }}>
+              <span><span style={{ color: "#8c8c8c" }}>成功 </span>
+                <b style={{ color: (task.importedCount ?? 0) > 0 ? "#52c41a" : undefined }}>
+                  {task.importedCount ?? 0}
+                </b></span>
+              <span><span style={{ color: "#8c8c8c" }}>失败 </span>
+                <b style={{ color: (task.failedCount ?? 0) > 0 ? "#ff4d4f" : undefined }}>
+                  {task.failedCount ?? 0}
+                </b></span>
+              <span><span style={{ color: "#8c8c8c" }}>跳过 </span>
+                <b>{task.skippedCount ?? 0}</b></span>
             </Space>
-            {task.errorMessage && <Alert type="error" style={{ marginTop: 8 }} message={task.errorMessage} />}
+            {task.errorMessage && (
+              <Alert
+                type="error"
+                showIcon
+                style={{ marginTop: 8 }}
+                message={<span style={{ fontSize: 13 }}>{task.errorMessage}</span>}
+              />
+            )}
           </Card>
         )}
       </Space>
@@ -1319,11 +1398,7 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
         destroyOnClose
       >
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Alert
-            type="info"
-            showIcon
-            message="同一地点的多个场次共用这一个链接。留空并保存即清除配置，之后推送会跳过该地点。"
-          />
+          <PageHint>该地点的所有场次共用此链接；留空即清除配置。</PageHint>
           <Input
             placeholder="粘贴飞书多维表格链接"
             value={editUrl}

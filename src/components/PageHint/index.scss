@@ -1,0 +1,71 @@
+// 说明条：低对比度，不与主内容争注意力。
+// 颜色走 antd token 的 CSS 变量，跟着皮肤（含石墨深色）走，不写死浅色。
+.page-hint {
+  // 无底色、无边框：这些是常驻的一句话说明，不该在页面上占一整块。
+  // 只靠小字号 + 弱化的灰色与主内容区分。
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+
+  &__icon {
+    flex: none;
+    font-size: 12px;
+    color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  // 带标题时标题与正文并排，不做两行
+  &__title { display: inline; }
+  &__title + * { display: inline; }
+
+  &__title {
+    font-weight: 600;
+    color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+
+    // 标题与正文同一行读起来更紧凑；正文自动接在后面
+    &::after { content: "："; }
+  }
+
+  &__extra {
+    flex: none;
+    align-self: center;
+  }
+
+  // 说明里常出现的强调词：加重但不换色，避免又变成一块花的
+  // 强调词只加重、不换色，避免这一行又变花
+  b, strong {
+    font-weight: 600;
+    color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+  }
+
+  code {
+    padding: 0 4px;
+    font-size: 12px;
+    background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+    border-radius: 3px;
+  }
+
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 6px;
+    padding: 0;
+    font-size: 12px;
+    color: var(--ant-color-primary, #1677ff);
+    background: none;
+    border: none;
+    cursor: pointer;
+
+    &:hover { opacity: 0.75; }
+  }
+}

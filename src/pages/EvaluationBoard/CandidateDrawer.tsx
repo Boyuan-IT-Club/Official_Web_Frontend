@@ -1,14 +1,16 @@
 // 候选人抽屉：面试时的主要工作面——左手简历、右手打分。
 // 同场次的面试官共用这一份评价，谁改都是改在同一处，改动实时可见。
 import React, { useCallback, useEffect, useState } from 'react';
+import PageHint from '@/components/PageHint';
 import {
   Alert, Avatar, Button, Descriptions, Divider, Drawer, Input, InputNumber,
   Radio, Space, Spin, Statistic, Tabs, Tag, Tooltip, Typography, message,
 } from 'antd';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import {
-  CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS, getCandidateResume,
+  CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS,
 } from '@/api/manage/interviewEvaluation';
+import { loadCandidateResume, prefetchCandidateResume } from './resumeCache';
 import {
   BoardRow, CollabBoard, COMMENT_COL, RECOMMENDATION_COL, STATUS_COL,
   useSharedText, weightedTotal,
@@ -25,10 +27,14 @@ export interface CandidateDrawerProps {
   row: BoardRow | null;
   board: CollabBoard;
   currentUserId: number;
+  /** 打分顺序上的完整名单，用于「下一位」跳转与预取 */
+  orderedRows?: BoardRow[];
+  /** 跳到名单里的另一位，不关抽屉 */
+  onJump?: (row: BoardRow) => void;
 }
 
 const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
-  open, onClose, cycleId, row, board, currentUserId,
+  open, onClose, cycleId, row, board, currentUserId, orderedRows, onJump,
 }) => {
   const [resume, setResume] = useState<CandidateResume | null>(null);
   const [resumeLoading, setResumeLoading] = useState(false);
@@ -38,19 +44,44 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
   const editable = row ? board.canEdit(row) : false;
   const scoreColumns = board.columns.filter((c) => c.type === 'score');
 
-  // 简历按需拉取：名单可能有几百人，没必要在列表阶段就把简历全取回来
+  // 简历按需拉取：名单可能有几百人，没必要在列表阶段就把简历全取回来。
+  // 走 resumeCache：同一位重复打开直接命中内存，不再每次一个完整往返。
   useEffect(() => {
     if (!open || !scheduleId) return;
     let cancelled = false;
     setResume(null);
     setResumeError(null);
     setResumeLoading(true);
-    getCandidateResume(cycleId, scheduleId)
-      .then((res) => { if (!cancelled) setResume(res?.data ?? null); })
+    loadCandidateResume(cycleId, scheduleId)
+      .then((data) => { if (!cancelled) setResume(data); })
       .catch((e: any) => { if (!cancelled) setResumeError(e?.message || '简历加载失败'); })
       .finally(() => { if (!cancelled) setResumeLoading(false); });
     return () => { cancelled = true; };
   }, [open, cycleId, scheduleId]);
+
+  // 打分顺序上的后几位：既用来渲染跳转按钮，也顺手预取，
+  // 面试官点「下一位」时简历已经在内存里
+  const upcoming = React.useMemo<BoardRow[]>(() => {
+    if (!orderedRows || !scheduleId) return [];
+    const at = orderedRows.findIndex((r) => r.scheduleId === scheduleId);
+    if (at < 0) return [];
+    return orderedRows.slice(at + 1, at + 4);
+  }, [orderedRows, scheduleId]);
+
+  useEffect(() => {
+    if (!open) return;
+    upcoming.forEach((r) => prefetchCandidateResume(cycleId, r.scheduleId));
+  }, [open, cycleId, upcoming]);
+
+  // 关掉抽屉、或切到另一位候选人时立刻收回打字状态，
+  // 否则会在上一位那里留下一个永远亮着的「正在输入」
+  useEffect(() => {
+    if (open) return undefined;
+    board.setTyping(null);
+    return undefined;
+  }, [open, board]);
+
+  useEffect(() => () => { board.setTyping(null); }, [board]);
 
   const readComment = useCallback(
     () => (scheduleId ? board.readCell(scheduleId, COMMENT_COL) : ''),
@@ -81,6 +112,23 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
   // 同时打开这位候选人的同事，编辑时可据此知道「现在还有谁在这一页上」
   const peersHere = board.peers.filter((p) => p.activeScheduleId === scheduleId);
 
+  // 谁正在输入哪个字段。限定在同一位候选人内 —— 别人在别的候选人上打字
+  // 与这一页无关，显示出来只会误导。
+  const typingOn = (field: string) =>
+    peersHere.filter((p) => p.typingField === field);
+
+  /** 字段旁的「XXX 正在输入…」。多人同时输入就并列显示 */
+  const TypingTag: React.FC<{ field: string }> = ({ field }) => {
+    const who = typingOn(field);
+    if (who.length === 0) return null;
+    return (
+      <span className="eval-typing">
+        <span className="eval-typing__dot" />
+        {who.map((p) => p.name).join('、')} 正在输入…
+      </span>
+    );
+  };
+
   const notEditableReason = () => {
     if (board.locked) return '评价表已锁定，当前为只读状态。';
     if (board.status !== 'connected') return '尚未连上协同服务，暂时无法编辑。';
@@ -94,7 +142,7 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
 
   const evaluationTab = (
     <>
-      {blockedReason && <Alert type="info" showIcon message={blockedReason} style={{ marginBottom: 16 }} />}
+      {blockedReason && <PageHint style={{ marginBottom: 16 }}>{blockedReason}</PageHint>}
 
       {peersHere.length > 0 && (
         <Alert
@@ -122,6 +170,7 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
             <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>
               {column.label}
               <Text type="secondary" style={{ marginLeft: 4 }}>/ {column.maxScore}</Text>
+              <TypingTag field={column.id} />
             </div>
             <InputNumber
               min={0}
@@ -129,8 +178,13 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
               step={1}
               disabled={!editable}
               style={{ width: 120 }}
+              className={typingOn(column.id).length > 0 ? 'is-peer-typing' : undefined}
               value={scores[column.id] ?? null}
-              onChange={(value) => board.writeScore(scheduleId, column.id, value === null ? null : Number(value))}
+              onChange={(value) => {
+                board.setTyping(column.id);
+                board.writeScore(scheduleId, column.id, value === null ? null : Number(value));
+              }}
+              onBlur={() => board.setTyping(null)}
             />
           </div>
         ))}
@@ -151,13 +205,21 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
         <Button type="link" onClick={() => board.writeRecommendation(scheduleId, null)}>清除</Button>
       )}
 
-      <Divider orientation="left" plain>面试记录与评语</Divider>
+      <Divider orientation="left" plain>
+        面试记录与评语
+        <TypingTag field={COMMENT_COL} />
+      </Divider>
       <Input.TextArea
         rows={8}
         disabled={!editable}
+        className={typingOn(COMMENT_COL).length > 0 ? 'is-peer-typing' : undefined}
         placeholder="本场面试官共同记录候选人的表现、亮点与顾虑，输入即同步"
         value={comment}
-        onChange={(e) => setComment(e.target.value)}
+        onChange={(e) => {
+          board.setTyping(COMMENT_COL);
+          setComment(e.target.value);
+        }}
+        onBlur={() => board.setTyping(null)}
       />
 
       <Divider />
@@ -193,6 +255,28 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
       onClose={onClose}
       width={720}
       destroyOnClose
+      /* 跳转按钮放在 footer：面试官打完一位直接点下一位，不用关抽屉回表格再找。
+         刻意做得轻——小号文字链，不与「提交评价」这类主操作抢注意力。 */
+      footer={upcoming.length === 0 ? null : (
+        <Space size={4} wrap style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>接下来</Text>
+          {upcoming.map((next) => {
+            const done = Number(board.readCell(next.scheduleId, STATUS_COL)) === EVALUATION_STATUS.SUBMITTED;
+            return (
+              <Button
+                key={next.scheduleId}
+                type="link"
+                size="small"
+                style={{ paddingInline: 4, fontSize: 12 }}
+                onClick={() => onJump?.(next)}
+              >
+                {done && <span style={{ marginRight: 2, color: '#52c41a' }}>✓</span>}
+                {next.candidateName || `#${next.scheduleId}`}
+              </Button>
+            );
+          })}
+        </Space>
+      )}
       title={
         <Space wrap>
           <span>{row.candidateName || `候选人 #${row.scheduleId}`}</span>

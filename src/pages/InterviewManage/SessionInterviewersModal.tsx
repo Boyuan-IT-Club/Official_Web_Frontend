@@ -1,6 +1,7 @@
 // 绑定场次面试官：决定评价表里谁拥有自己的评分列，以及谁能看到该场次候选人的简历。
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Select, Spin, message } from 'antd';
+import PageHint from '@/components/PageHint';
+import { Modal, Select, Spin, message } from 'antd';
 import { getAllUsers } from '@/api/manage/userApis';
 import { bindSessionInterviewers, listSessionInterviewers } from '@/api/manage/interviewEvaluation';
 
@@ -73,13 +74,7 @@ const SessionInterviewersModal: React.FC<SessionInterviewersModalProps> = ({
       okText="保存"
       destroyOnClose
     >
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message="绑定后这些人才能在评价表里评分"
-        description="每位面试官在评价表中拥有属于自己的评分列，互不覆盖；他们也将获得本场次候选人的简历查看权限。改动会在几分钟内同步到正在使用的评价表。"
-      />
+      <PageHint style={{ marginBottom: 16 }} title="绑定后这些人才能在评价表里评分">每人一列评分互不覆盖，并获得本场候选人的简历查看权限。</PageHint>
       <Spin spinning={loading}>
         <Select
           mode="multiple"

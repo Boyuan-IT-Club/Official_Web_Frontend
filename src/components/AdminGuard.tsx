@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { message } from 'antd';
 import { Navigate } from 'react-router-dom';
 import { getToken } from '@/utils';
-import { hasAnyManagePermission } from '@/utils/jwt';
+import { hasConsoleAccess } from '@/utils/jwt';
 
 /**
  * 管理端准入守卫：要求已登录且 JWT 持有至少一个管理类权限码。
@@ -10,7 +10,7 @@ import { hasAnyManagePermission } from '@/utils/jwt';
  */
 export const AdminGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const token = getToken();
-  const allowed = hasAnyManagePermission(token);
+  const allowed = hasConsoleAccess(token);
 
   useEffect(() => {
     if (token && !allowed) {

@@ -20,6 +20,8 @@ import {
   MoreOutlined,
   PlusOutlined,
   SyncOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
@@ -131,6 +133,33 @@ const CycleManage: React.FC = () => {
     }
   };
 
+  // 停止/开放投递。后端在「新建简历」「提交简历」上都有守卫：周期不活跃或
+  // 不在起止日期内直接返回 3010，所以这个开关是真闸门，不只是隐藏入口。
+  // 此前只能进「编辑周期」把「是否活跃」改掉 —— 管理员根本找不到。
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const toggleIntake = async (record: RecruitmentCycle) => {
+    const open = record.isActive === 1;
+    setTogglingId(record.cycleId);
+    try {
+      await updateCycle({
+        cycleId: record.cycleId,
+        cycleName: record.cycleName,
+        academicYear: record.academicYear,
+        description: record.description,
+        startDate: record.startDate,
+        endDate: record.endDate,
+        status: record.status,
+        isActive: open ? 0 : 1,
+      } as any);
+      message.success(open ? "已停止投递：学生端不再显示该周期，也无法提交" : "已开放投递");
+      load();
+    } catch (e: any) {
+      message.error(e?.message || "操作失败");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const columns = [
     { title: "ID", dataIndex: "cycleId", width: 64 },
     { title: "名称", dataIndex: "cycleName" },
@@ -147,15 +176,15 @@ const CycleManage: React.FC = () => {
       },
     },
     {
-      title: "活跃",
+      title: "投递",
       dataIndex: "isActive",
       width: 80,
       render: (v: number) =>
-        v === 1 ? <Tag color="green">活跃</Tag> : <Tag>否</Tag>,
+        v === 1 ? <Tag color="green">投递开放</Tag> : <Tag>已停止</Tag>,
     },
     {
       title: "操作",
-      width: 220,
+      width: 168,
       render: (_: unknown, record: RecruitmentCycle) => (
         <Space>
           <Button
@@ -169,16 +198,40 @@ const CycleManage: React.FC = () => {
           <Button type="link" size="small" onClick={() => setFieldsFor(record)}>
             简历字段
           </Button>
+          {/* 投递开关收进「···」菜单：它是偶发操作（一届只切一两次），
+              摊在操作列里和「编辑」「简历字段」抢位置，还顶着个红色 danger 样式，
+              比实际重要性显眼得多。当前状态在「投递」列的标签上已经看得见。 */}
           <Dropdown
             trigger={["click"]}
             menu={{
               items: [
+                {
+                  key: "intake",
+                  icon: record.isActive === 1 ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
+                  label: record.isActive === 1 ? "停止投递" : "开放投递",
+                },
+                { type: "divider" },
                 { key: "del", icon: <DeleteOutlined />, label: "删除周期", danger: true },
               ],
-              onClick: () => {
+              onClick: ({ key }) => {
+                if (key === "intake") {
+                  const open = record.isActive === 1;
+                  Modal.confirm({
+                    title: open ? "停止该周期的简历投递？" : "重新开放该周期的投递？",
+                    content: open
+                      ? "学生端将不再显示该周期，已填的草稿保留但无法再提交或修改；随时可以再开放。"
+                      : "学生端将重新显示该周期，可以提交与修改简历（还需在起止日期内）。",
+                    okText: open ? "停止投递" : "开放投递",
+                    okButtonProps: { danger: open },
+                    cancelText: "取消",
+                    onOk: () => toggleIntake(record),
+                  });
+                  return;
+                }
                 Modal.confirm({
                   title: "确认删除该周期？",
-                  content: "删除前请确认周期下没有简历/面试数据",
+                  // 后端已改软删除：带简历/面试数据的周期也能删，历史数据保留
+                  content: "删除后该周期从列表与投递入口消失；已有的简历、面试数据会保留，可联系管理员恢复。",
                   okText: "删除",
                   okType: "danger",
                   cancelText: "取消",
@@ -189,7 +242,12 @@ const CycleManage: React.FC = () => {
               },
             }}
           >
-            <Button type="text" size="small" icon={<MoreOutlined />} />
+            <Button
+              type="text"
+              size="small"
+              icon={<MoreOutlined />}
+              loading={togglingId === record.cycleId}
+            />
           </Dropdown>
         </Space>
       ),
@@ -249,11 +307,11 @@ const CycleManage: React.FC = () => {
           >
             <DatePicker.RangePicker style={{ width: "100%" }} />
           </Form.Item>
-          <Form.Item name="isActive" label="是否活跃" initialValue={1}>
+          <Form.Item name="isActive" label="投递开关" initialValue={1}>
             <Select
               options={[
-                { value: 1, label: "活跃（学生端可见）" },
-                { value: 0, label: "不活跃" },
+                { value: 1, label: "开放投递（学生端可见，可提交/修改简历）" },
+                { value: 0, label: "停止投递（学生端不可见，无法提交）" },
               ]}
             />
           </Form.Item>

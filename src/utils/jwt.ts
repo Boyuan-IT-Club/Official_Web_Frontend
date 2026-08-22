@@ -38,12 +38,45 @@ export function getJwtPermissionCodes(token: string | null): string[] {
   return codes.map(String).map((c) => c.trim()).filter(Boolean);
 }
 
-/** 是否持有任一管理类权限（管理端准入判断） */
-export function hasAnyManagePermission(token: string | null): boolean {
-  return getJwtPermissionCodes(token).length > 0;
+/** 管理端准入的正式门票（后端 V23 起播种） */
+const CONSOLE_PERMISSION = 'console:access';
+
+/**
+ * 过渡期兼容：console:access 是权限拆分阶段一才新增的，此前签发的 JWT 里没有它。
+ * 若只认这一个码，当前在线的管理员会被直接挡在门外，且看到的是
+ * 「该账号没有管理权限」——完全误导。
+ *
+ * 这里保留一组明确的管理类权限作为兼容，而不是沿用原来的「有任意权限码即可」：
+ * 后者会把只持有 resume:view 的角色也放进来（那正是社员曾经能登进后台的原因）。
+ * resume:view 刻意不在这个列表里。
+ *
+ * 全员重新登录后（旧令牌过期即可），这个列表可以整块删掉，只留 CONSOLE_PERMISSION。
+ */
+const LEGACY_CONSOLE_PERMISSIONS = [
+  'admin:manage', 'user:view', 'user:manage', 'admin:grant', 'system:ops',
+  'resume:audit', 'cycle:manage', 'dept:manage', 'activity:manage',
+  'interview:evaluate', 'interview:schedule', 'interview:result',
+  'interview:board:manage', 'feishu:sync', 'evaluation:view',
+  'role:assign', 'permission:manage',
+];
+
+/** 能否进入管理端 */
+export function hasConsoleAccess(token: string | null): boolean {
+  const codes = getJwtPermissionCodes(token);
+  if (codes.includes(CONSOLE_PERMISSION)) return true;
+  return codes.some((c) => LEGACY_CONSOLE_PERMISSIONS.includes(c));
 }
 
 /** 是否持有指定权限码 */
 export function hasPermission(token: string | null, code: string): boolean {
   return getJwtPermissionCodes(token).includes(code);
+}
+
+/**
+ * 是否持有任一权限码。权限拆分期用它同时接受新旧码 ——
+ * 旧令牌里只有旧码、V24 后新签发的令牌里只有新码，单查任何一个都会误判。
+ */
+export function hasAnyPermission(token: string | null, codes: string[]): boolean {
+  const held = getJwtPermissionCodes(token);
+  return codes.some((c) => held.includes(c));
 }

@@ -89,6 +89,9 @@ export interface RowEvaluation {
   empty: boolean;
 }
 
+/** 停止输入多久后收回「正在输入」。太短会闪，太长会在对方停手后仍亮着 */
+const TYPING_IDLE_MS = 2500;
+
 export interface BoardPeer {
   clientId: number;
   userId: number;
@@ -96,6 +99,14 @@ export interface BoardPeer {
   color: string;
   /** 当前正在查看/编辑的候选人 */
   activeScheduleId: number | null;
+  /**
+   * 正在输入的字段（评语用 COMMENT_COL，维度评语用 note:{dimensionId}，
+   * 分数用列 id）。null 表示此刻没在打字。
+   *
+   * 靠「本地定时清除」而不是「远端判断时间戳过期」：过期判断要各端时钟一致，
+   * 而且没有新事件时不会重新渲染，头像会一直亮着。
+   */
+  typingField: string | null;
 }
 
 /** 在线状态的头像配色，按 userId 取模，保证同一个人到处都是同一个颜色 */
@@ -282,6 +293,12 @@ export interface CollabBoard {
   writeStatus: (scheduleId: number, status: number) => void;
   /** 广播我正在看哪位候选人 */
   setActiveRow: (scheduleId: number | null) => void;
+  /**
+   * 广播「我正在输入某个字段」。每次调用都会把自动清除的计时器推后，
+   * 停手 TYPING_IDLE_MS 后自动收回 —— 否则对方停下来不动，
+   * 别人看到的仍是「正在输入」。
+   */
+  setTyping: (field: string | null) => void;
 }
 
 /**
@@ -296,6 +313,7 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
   const docRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<HocuspocusProvider | null>(null);
 
+  const typingTimer = useRef<number | null>(null);
   const [status, setStatus] = useState<BoardStatus>('connecting');
   const [synced, setSynced] = useState(false);
   const [scopeReadOnly, setScopeReadOnly] = useState(false);
@@ -372,6 +390,7 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
           name: String(user.name ?? '匿名'),
           color: String(user.color ?? peerColor(Number(user.userId))),
           activeScheduleId: state?.active?.scheduleId ?? null,
+          typingField: state?.typing?.field ?? null,
         });
       });
       setPeers(list);
@@ -552,6 +571,32 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     providerRef.current?.awareness?.setLocalStateField('active', { scheduleId });
   }, []);
 
+  const setTyping = useCallback((field: string | null) => {
+    const awarenessRef = providerRef.current?.awareness;
+    if (!awarenessRef) return;
+
+    if (typingTimer.current !== null) {
+      window.clearTimeout(typingTimer.current);
+      typingTimer.current = null;
+    }
+    awarenessRef.setLocalStateField('typing', field ? { field } : null);
+    if (!field) return;
+
+    // 停手后自动收回。不这么做的话，对方看到的「正在输入」会一直挂着
+    typingTimer.current = window.setTimeout(() => {
+      typingTimer.current = null;
+      providerRef.current?.awareness?.setLocalStateField('typing', null);
+    }, TYPING_IDLE_MS);
+  }, []);
+
+  // 关掉抽屉/断开连接时把打字状态一起收掉，别留一个永久亮着的提示
+  useEffect(() => () => {
+    if (typingTimer.current !== null) {
+      window.clearTimeout(typingTimer.current);
+      typingTimer.current = null;
+    }
+  }, []);
+
   return {
     status,
     synced,
@@ -572,6 +617,7 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     writeRecommendation,
     writeStatus,
     setActiveRow,
+    setTyping,
   };
 }
 

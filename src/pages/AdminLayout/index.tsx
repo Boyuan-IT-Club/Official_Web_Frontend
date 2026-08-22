@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import GlobalSearch from '@/components/GlobalSearch';
 import {
   Layout as AntdLayout,
   Menu,
@@ -21,6 +22,7 @@ import {
   ExportOutlined,
   BgColorsOutlined,
   CheckOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -75,6 +77,20 @@ const AdminLayout: React.FC = () => {
       ).map(({ key, icon, label }) => ({ key, icon, label })),
     [permCodes]
   );
+
+  // 全局搜索：⌘K / Ctrl+K 打开。
+  // 只把当前账号有权进的页面喂给它 —— 搜出一个点进去 403 的页面毫无意义。
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -162,6 +178,15 @@ const AdminLayout: React.FC = () => {
       <AntdLayout style={{ marginLeft: collapsed ? 80 : 220, transition: "margin-left 0.2s" }}>
         <Header className="admin-header">
           <span className="admin-page-title">{currentTitle}</span>
+          <button
+            type="button"
+            className="admin-search-trigger"
+            onClick={() => setSearchOpen(true)}
+          >
+            <SearchOutlined />
+            <span className="admin-search-trigger__text">搜索</span>
+            <kbd>⌘K</kbd>
+          </button>
           <Dropdown menu={{ items: userMenuItems as any }} placement="bottomRight">
             <div className="admin-user">
               <Avatar size="small" icon={<UserOutlined />} src={userInfo?.avatar || undefined} />
@@ -174,6 +199,11 @@ const AdminLayout: React.FC = () => {
         <Content style={{ margin: 16, minHeight: "calc(100vh - 96px)" }}>
           <Outlet />
         </Content>
+        <GlobalSearch
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          pages={menuItems.map((m) => ({ key: String(m.key), label: String(m.label) }))}
+        />
       </AntdLayout>
     </AntdLayout>
   );
