@@ -16,6 +16,7 @@ import {
   FormOutlined,
   FlagOutlined,
   CodeOutlined,
+  ProfileOutlined,
   LogoutOutlined,
   ExportOutlined,
   BgColorsOutlined,
@@ -48,6 +49,7 @@ const MENU_DEFS: Array<{
   { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
   { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
+  { key: "/profiles", icon: <ProfileOutlined />, label: "候选档案", anyOf: ["resume:view", "evaluation:view"] },
 ];
 
 const AdminLayout: React.FC = () => {

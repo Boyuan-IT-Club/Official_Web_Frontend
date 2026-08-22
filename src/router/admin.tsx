@@ -19,6 +19,8 @@ const EvaluationBoard = lazy(() => import("@/pages/EvaluationBoard"));
 const EvaluationWorkspace = lazy(() => import("@/pages/EvaluationWorkspace"));
 const ActivityManage = lazy(() => import("@/pages/ActivityManage"));
 const EvaluationManage = lazy(() => import("@/pages/EvaluationManage"));
+const Profiles = lazy(() => import("@/pages/Profiles"));
+const ProfileDetail = lazy(() => import("@/pages/ProfileDetail"));
 
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}><Spin size="large" /></div>}>
@@ -75,6 +77,14 @@ const router = createBrowserRouter([
       {
         path: "evaluations",
         element: <LazyLoad><EvaluationManage /></LazyLoad>,
+      },
+      {
+        path: "profiles",
+        element: <LazyLoad><Profiles /></LazyLoad>,
+      },
+      {
+        path: "profiles/:userId",
+        element: <LazyLoad><ProfileDetail /></LazyLoad>,
       },
     ],
   },

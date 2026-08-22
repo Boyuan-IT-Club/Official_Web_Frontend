@@ -6,9 +6,11 @@ import { request } from '@/utils/request';
 // get: 获取用户信息列表——分页
 interface GetUsersParams {
   dept?: string;
+  keyword?: string;
   page?: string;
   pageSize?: string;
   role?: string;
+  roleGroup?: string;
   status?: string;
   [property: string]: any;
 }
@@ -18,6 +20,14 @@ export const getAllUsers = (params?: GetUsersParams) => {
     url: `/api/admin/users`,
     method: 'get',
     params,
+  });
+}
+
+// get: 用户分类统计（total/frozen/adminCount/memberCount/nonMemberCount）——独立于分页列表
+export const getUserStats = () => {
+  return request({
+    url: `/api/admin/users/stats`,
+    method: 'get',
   });
 }
 // post：为用户分配角色

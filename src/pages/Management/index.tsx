@@ -1,6 +1,6 @@
 // src/pages/Management/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar, Alert } from 'antd';
+import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar, Alert, Segmented } from 'antd';
 import {
   TeamOutlined,
   LockOutlined,
@@ -18,6 +18,7 @@ import DeptManage from './components/DeptManage';
 // 导入API
 import {
   getAllUsers,
+  getUserStats,
   getActiveRoles,
   batchAdmitAsMember,
   exportUsersExcel,
@@ -85,6 +86,8 @@ const Management: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedRole, setSelectedRole]     = useState('');
   const [selectedDept, setSelectedDept]     = useState('');
+  // 用户分组：''=全部, admin=管理员, member=社员, nonmember=非社员
+  const [selectedGroup, setSelectedGroup]   = useState('');
   const debouncedSearch = useDebounce(searchText);
   const debouncedDept   = useDebounce(selectedDept);
 
@@ -108,29 +111,22 @@ const Management: React.FC = () => {
     status: string,
     role: string,
     dept: string,
+    group: string,
   ) => {
     setLoading(true);
     try {
       const res: any = await getAllUsers({
-        page:     String((currentPage - 1) * currentPageSize),
-        pageSize: String(currentPageSize),
-        keyword:  keyword || undefined,
-        status:   status  || undefined,
-        role:     role    || undefined,
-        dept:     dept.trim() || undefined,
+        page:      String((currentPage - 1) * currentPageSize),
+        pageSize:  String(currentPageSize),
+        keyword:   keyword || undefined,
+        status:    status  || undefined,
+        role:      role    || undefined,
+        dept:      dept.trim() || undefined,
+        roleGroup: group   || undefined,
       });
       const data = res?.data;
       setUsers(data?.content ?? []);
       setTotal(data?.totalElements ?? 0);
-
-      if (currentPage === 1 && !keyword && !status) {
-        setStats({
-          total:     data?.totalElements  ?? 0,
-          frozen:    data?.frozenCount    ?? 0,
-          nonMember: data?.nonMemberCount ?? 0,
-          member:    data?.memberCount    ?? 0,
-        });
-      }
     } catch (e) {
       console.error(e);
       message.error('获取用户列表失败');
@@ -140,19 +136,36 @@ const Management: React.FC = () => {
     }
   }, []);
 
-  // ── 搜索/状态变化 → 回到第 1 页 ──────────────────────────────────────────
+  // ── 统计卡片（全量，独立于分页列表与筛选） ──────────────────────────────
+  const fetchStats = useCallback(async () => {
+    try {
+      const res: any = await getUserStats();
+      const d = res?.data;
+      setStats({
+        total:     Number(d?.total ?? 0),
+        frozen:    Number(d?.frozen ?? 0),
+        nonMember: Number(d?.nonMemberCount ?? 0),
+        member:    Number(d?.memberCount ?? 0),
+      });
+    } catch (e) {
+      console.error(e);
+      // 统计失败不阻断列表
+    }
+  }, []);
+
+  // ── 搜索/状态/分组变化 → 回到第 1 页 ──────────────────────────────────
   useEffect(() => {
     setPage(1);
     setSelectedRows([]);
-    fetchUsers(1, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept);
+    fetchUsers(1, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept, selectedGroup);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, selectedStatus, selectedRole, debouncedDept]);
+  }, [debouncedSearch, selectedStatus, selectedRole, debouncedDept, selectedGroup]);
 
   // ── 翻页/改 pageSize ──────────────────────────────────────────────────────
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
-    fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept);
+    fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept, selectedGroup);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize]);
 
@@ -189,6 +202,7 @@ const Management: React.FC = () => {
   // 注：管理端准入已由 AdminGuard 按 JWT permissionCodes 把关，无需在此重复告警
   useEffect(() => {
     fetchRoleOptions();
+    fetchStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -221,7 +235,7 @@ const Management: React.FC = () => {
           await batchAdmitAsMember(true, targets.map((u) => u.userId));
           message.success(`成功录取 ${targets.length} 名社员`);
           setSelectedRows([]);
-          fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept);
+          fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept, selectedGroup);
         } catch (e) {
           console.error(e);
           message.error('批量录取失败，请稍后重试');
@@ -317,6 +331,18 @@ const Management: React.FC = () => {
                       description="当前账号具有查看用户信息的权限,但不能执行录取、分配部门、冻结、删除等操作。需要这些操作请联系超级管理员。"
                     />
                   )}
+                  <div style={{ marginBottom: 12 }}>
+                    <Segmented
+                      value={selectedGroup}
+                      onChange={(v) => setSelectedGroup(String(v))}
+                      options={[
+                        { label: '全部', value: '' },
+                        { label: '管理员', value: 'admin' },
+                        { label: '社员', value: 'member' },
+                        { label: '非社员', value: 'nonmember' },
+                      ]}
+                    />
+                  </div>
                   <Toolbar
                     searchText={searchText}
                     onSearchChange={setSearchText}
@@ -332,7 +358,7 @@ const Management: React.FC = () => {
                     selectedRowIds={selectedRows.map((u) => u.userId)}
                     onClearSelection={() => setSelectedRows([])}
                     roleOptions={roleOptions}
-                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept)}
+                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept, selectedGroup)}
                     canManage={canManage}
                   />
                   <UserTable
@@ -342,7 +368,7 @@ const Management: React.FC = () => {
                     selectedRows={selectedRows}
                     onSelectionChange={setSelectedRows}
                     onView={handleViewUser}
-                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept)}
+                    refreshUsers={() => fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept, selectedGroup)}
                     canManage={canManage}
                     pagination={{
                       current: page,
