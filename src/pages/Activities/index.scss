@@ -35,7 +35,7 @@ $nav-size: 44px;          // 左右箭头按钮直径
   color: $text-color;
   width: 90%;
   max-width: 1000px;
-  border-radius: 0;
+  border-radius: t.$radius-card;
   border: 1px solid $text-color; // 手绘风粗边框
   box-shadow: t.$shadow-lg;
 
