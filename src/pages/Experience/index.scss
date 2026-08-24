@@ -25,11 +25,11 @@ $outer-bg: #e3f2fd;
   background-color: $bg-color; 
   padding: 3rem 3.5rem;        
   color: $text-color;
-  width: 90%;                  
-  max-width: 1000px;           
-  border-radius: t.$radius-pill;         
-  border: 1px solid $text-color; 
-  box-shadow: t.$shadow-lg; 
+  width: 90%;
+  max-width: 1000px;
+  border-radius: t.$radius-card;
+  border: 1px solid $text-color;
+  box-shadow: t.$shadow-lg;
   display: flex;
   flex-direction: column; 
 

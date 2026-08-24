@@ -1,7 +1,11 @@
 // 文件位置：src/pages/Activities/index.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Carousel } from 'antd';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { listActivities, Activity } from '@/api/manage/activityApis';
+import brainstormImg from '../../assets/activity-brainstorm.png';
+import ownerproImg from '../../assets/activity-ownerpro.png';
 import './index.scss';
 
 // --- 类型定义 ---
@@ -14,12 +18,13 @@ interface Announcement {
   description: string;
 }
 
-interface PastActivity {
-  id: number;
+interface SummarySlide {
+  key: string;
+  image: string;
   title: string;
+  subtitle: string;
   date: string;
-  imageUrl?: string;
-  summary: string;
+  url: string;
 }
 
 // --- 真实数据映射（/api/activity）---
@@ -38,17 +43,38 @@ const toAnnouncement = (a: Activity): Announcement => {
   };
 };
 
-const toPast = (a: Activity): PastActivity => ({
-  id: a.activityId,
-  title: a.title,
-  date: a.startTime ? a.startTime.slice(0, 7).replace('-', '年') + '月' : '',
-  imageUrl: a.coverImage,
-  summary: a.description || '',
-});
+// --- 活动总结轮播数据 ---
+const summarySlides: SummarySlide[] = [
+  {
+    key: 'brainstorm',
+    image: brainstormImg,
+    title: '活动总结｜头脑风暴',
+    subtitle: '博远信息技术社头脑风暴活动',
+    date: '2026 年 5 月',
+    url: 'https://mp.weixin.qq.com/s/k50ILKp_HUFv1t9YA6NoRg',
+  },
+  {
+    key: 'ownerpro',
+    image: ownerproImg,
+    title: 'Owner-pro 活动总结',
+    subtitle: '快来开启第一个项目！',
+    date: '2026 年 1 月',
+    url: 'https://mp.weixin.qq.com/s/7uP-LzlHMxTb8QtKD-oKKQ',
+  },
+];
+
+const tabOptions = [
+  { key: 'announcement', label: '最新公告' },
+  { key: 'summary', label: '往期精彩瞬间' },
+] as const;
+
+type TabKey = (typeof tabOptions)[number]['key'];
 
 const Activities: React.FC = () => {
+  const navigate = useNavigate();
+  const carouselRef = useRef<any>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('announcement');
   const [announcementsData, setAnnouncements] = useState<Announcement[]>([]);
-  const [pastActivitiesData, setPast] = useState<PastActivity[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,23 +84,17 @@ const Activities: React.FC = () => {
         const all: Activity[] = res?.data ?? [];
         const today = new Date().toISOString().slice(0, 10);
         const upcoming = all.filter((a) => !a.endTime || a.endTime >= today);
-        const past = all.filter((a) => a.endTime && a.endTime < today);
         upcoming.sort((a, b) => String(a.startTime ?? '').localeCompare(String(b.startTime ?? '')));
-        past.sort((a, b) => String(b.startTime ?? '').localeCompare(String(a.startTime ?? '')));
         setAnnouncements(upcoming.map(toAnnouncement));
-        setPast(past.map(toPast));
       })
       .catch(() => { /* 加载失败时页面显示空态 */ });
     return () => { cancelled = true; };
   }, []);
 
-  // 必须写在组件最顶层
-  const navigate = useNavigate();
-
   return (
     <div className="page-wrapper">
       <div className="activities-container">
-        
+
         {/* --- 顶部 Header --- */}
         <header className="page-header">
           <div className="title-area">
@@ -84,14 +104,23 @@ const Activities: React.FC = () => {
           <button className="back-btn" onClick={() => navigate(-1)}>返回</button>
         </header>
 
-        {/* --- 第一部分：活动公告 --- */}
-        <section className="section-block">
-          <div className="section-title-wrapper">
-            <h2>最新公告</h2>
-          </div>
-          <p className="section-description">了解更多动态:关注公众号ECNUCoder</p>
+        {/* --- 分类切换按钮 --- */}
+        <div className="filter-section">
+          {tabOptions.map((tab) => (
+            <button
+              key={tab.key}
+              className={`filter-btn ${activeTab === tab.key ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* --- 最新公告 --- */}
+        {activeTab === 'announcement' && (
           <div className="announcement-list">
-            {announcementsData.map(item => (
+            {announcementsData.map((item) => (
               <div className="announcement-card" key={item.id}>
                 <div className="card-header">
                   <h3>{item.title}</h3>
@@ -109,30 +138,61 @@ const Activities: React.FC = () => {
                 </div>
               </div>
             ))}
+            {announcementsData.length === 0 && (
+              <div className="empty-state">暂无最新公告，敬请期待 🎈</div>
+            )}
           </div>
-        </section>
+        )}
 
-        {/* --- 第二部分：往期回顾 --- */}
-        <section className="section-block">
-          <div className="section-title-wrapper">
-            <h2>往期精彩瞬间</h2>
-          </div>
-          
-          <div className="past-grid">
-            {pastActivitiesData.map(item => (
-              <div className="past-card" key={item.id}>
-                <div className="image-box">
-                  <img src={item.imageUrl} alt={item.title} />
-                  <div className="date-tag">{item.date}</div>
+        {/* --- 往期精彩瞬间：活动总结轮播 --- */}
+        {activeTab === 'summary' && (
+          <div className="carousel-wrap">
+            <Carousel
+              ref={carouselRef}
+              className="summary-carousel"
+              autoplay
+              autoplaySpeed={5000}
+              dots
+            >
+              {summarySlides.map((slide) => (
+                <div className="summary-slide" key={slide.key}>
+                  <a
+                    className="summary-link"
+                    href={slide.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <div className="slide-image">
+                      <img src={slide.image} alt={slide.title} />
+                    </div>
+                    <div className="slide-caption">
+                      <h3 className="slide-title">{slide.title}</h3>
+                      <p className="slide-subtitle">{slide.subtitle}</p>
+                      <span className="slide-date">{slide.date}</span>
+                    </div>
+                  </a>
                 </div>
-                <div className="text-box">
-                  <h3>{item.title}</h3>
-                  <p>{item.summary}</p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </Carousel>
+
+            <button
+              type="button"
+              className="carousel-nav carousel-nav--prev"
+              aria-label="上一张"
+              onClick={() => carouselRef.current?.prev()}
+            >
+              <LeftOutlined />
+            </button>
+            <button
+              type="button"
+              className="carousel-nav carousel-nav--next"
+              aria-label="下一张"
+              onClick={() => carouselRef.current?.next()}
+            >
+              <RightOutlined />
+            </button>
           </div>
-        </section>
+        )}
 
       </div>
     </div>

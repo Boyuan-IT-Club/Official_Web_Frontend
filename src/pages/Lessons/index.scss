@@ -27,9 +27,9 @@ $outer-bg: #e3f2fd;       // 外层满屏淡蓝色
   background-color: $bg-color; 
   padding: 3rem 3.5rem;        
   color: $text-color;
-  width: 90%;                  
-  max-width: 1000px;           
-  border-radius: t.$radius-pill;         
+  width: 90%;
+  max-width: 1000px;
+  border-radius: t.$radius-card;
   border: 1px solid $text-color; // 给整个大画板也加上手绘风粗边框
   box-shadow: t.$shadow-lg; // 大画板的偏移阴影
   
