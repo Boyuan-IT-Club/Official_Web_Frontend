@@ -10,14 +10,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Avatar, Button, Empty, Input, InputNumber, Result, Select, Space, Spin, Tag, Tooltip, message,
+  Alert, Avatar, Button, Card, Empty, Input, InputNumber, List, Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
 } from 'antd';
 import { ArrowLeftOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { getToken } from '@/utils';
 import { parseJwtPayload } from '@/utils/jwt';
 import ResumeQuickView from '@/components/ResumeQuickView';
-import { getCandidateResume, getEvaluationSummary } from '@/api/manage/interviewEvaluation';
+import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
 import {
   dimensionColId,
   dimensionNoteColId,
@@ -137,6 +137,20 @@ const EvaluationWorkspace: React.FC = () => {
     return () => { cancelled = true; };
   }, [cycleId, scheduleId]);
 
+  // 候选人的获奖经历 + Autograding 成绩（全部周期汇总），供面试官打分时参考。
+  // 取 row.userId（候选人），绝不能用当前用户的 userId（那是面试官自己）。
+  // 拉取失败静默——不影响打分本身。
+  const [candidateDetail, setCandidateDetail] = useState<CandidateProfileDetailForWorkspace | null>(null);
+  useEffect(() => {
+    const candidateUserId = Number(row?.userId);
+    if (!Number.isFinite(candidateUserId) || candidateUserId <= 0) return;
+    let cancelled = false;
+    getCandidateProfileDetail(candidateUserId)
+      .then((res) => { if (!cancelled) setCandidateDetail(res?.data ?? null); })
+      .catch(() => { /* 获奖/成绩拿不到不阻塞打分，静默 */ });
+    return () => { cancelled = true; };
+  }, [row?.userId]);
+
   // 维度署名：来自物化后的汇总接口（协同文档里不存作者，那是服务端旁路记录的）。
   // 因此署名会滞后于正在输入的内容，最多一个物化防抖周期（30s）；
   // 「谁正在编辑」由下面的在线成员实时体现，两者互补。
@@ -254,6 +268,49 @@ const EvaluationWorkspace: React.FC = () => {
           {resumeError
             ? <Alert type="error" showIcon message={resumeError} />
             : <ResumeQuickView resume={resume} emptyText="该候选人这一周期的简历没有填写内容" />}
+
+          {candidateDetail && (
+            <>
+              <div className="ws-pane-title" style={{ marginTop: 20 }}>Autograding 评测成绩</div>
+              {candidateDetail.submissions?.length ? (
+                <Table<CandidateSubmission>
+                  rowKey="id"
+                  size="small"
+                  pagination={false}
+                  dataSource={candidateDetail.submissions}
+                  columns={[
+                    { title: 'GitHub', dataIndex: 'githubUsername', key: 'github' },
+                    { title: '提交时间', dataIndex: 'evaluatedAt', key: 'time' },
+                    {
+                      title: '得分',
+                      key: 'score',
+                      render: (_: unknown, s: CandidateSubmission) =>
+                        s.maxScore ? `${s.totalScore ?? 0}/${s.maxScore}` : (String(s.totalScore ?? '—')),
+                    },
+                  ]}
+                />
+              ) : (
+                <Typography.Text type="secondary">暂无评测提交</Typography.Text>
+              )}
+
+              <div className="ws-pane-title" style={{ marginTop: 20 }}>获奖经历</div>
+              <List
+                size="small"
+                dataSource={candidateDetail.awards}
+                locale={{ emptyText: <Typography.Text type="secondary">暂无获奖记录</Typography.Text> }}
+                renderItem={(a: CandidateAward) => (
+                  <List.Item
+                    actions={a.awardTime ? [<Typography.Text type="secondary" key="t">{a.awardTime}</Typography.Text>] : undefined}
+                  >
+                    <List.Item.Meta
+                      title={a.awardName}
+                      description={a.description || undefined}
+                    />
+                  </List.Item>
+                )}
+              />
+            </>
+          )}
         </section>
 
         <section className="ws-pane ws-eval">

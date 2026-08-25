@@ -190,3 +190,39 @@ export function bindSessionInterviewers(sessionId: number, userIds: number[]) {
     data: { userIds },
   });
 }
+
+/**
+ * 打分工作台展示候选人获奖经历与 Autograding 评测成绩（全部周期汇总）。
+ * 走用户级聚合详情接口；后端已对该接口放开 interview:evaluate 权限（见 ADR-0002），
+ * 面试官可直接读，无需 resume:view。
+ */
+export interface CandidateAward {
+  awardId: number;
+  awardName: string;
+  awardTime?: string | null;
+  description?: string | null;
+}
+
+export interface CandidateSubmission {
+  id: number;
+  githubUsername?: string | null;
+  evaluatedAt?: string | null;
+  totalScore?: number | null;
+  maxScore?: number | null;
+  [key: string]: unknown;
+}
+
+export interface CandidateProfileDetailForWorkspace {
+  userId: number;
+  name: string | null;
+  username: string;
+  awards: CandidateAward[];
+  submissions: CandidateSubmission[];
+}
+
+export function getCandidateProfileDetail(userId: number) {
+  return call<CandidateProfileDetailForWorkspace>({
+    url: `/api/admin/profiles/${userId}`,
+    method: 'get',
+  });
+}
