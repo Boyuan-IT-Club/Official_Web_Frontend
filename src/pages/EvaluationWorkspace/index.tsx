@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Avatar, Button, Card, Empty, Input, InputNumber, List, Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
+  Alert, Avatar, Button, Empty, Input, InputNumber, List, Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
 } from 'antd';
 import { ArrowLeftOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
@@ -143,8 +143,12 @@ const EvaluationWorkspace: React.FC = () => {
   const [candidateDetail, setCandidateDetail] = useState<CandidateProfileDetailForWorkspace | null>(null);
   useEffect(() => {
     const candidateUserId = Number(row?.userId);
-    if (!Number.isFinite(candidateUserId) || candidateUserId <= 0) return;
+    if (!Number.isFinite(candidateUserId) || candidateUserId <= 0) {
+      setCandidateDetail(null);
+      return;
+    }
     let cancelled = false;
+    setCandidateDetail(null); // 切候选人先清空，避免残留上一位的数据
     getCandidateProfileDetail(candidateUserId)
       .then((res) => { if (!cancelled) setCandidateDetail(res?.data ?? null); })
       .catch(() => { /* 获奖/成绩拿不到不阻塞打分，静默 */ });
