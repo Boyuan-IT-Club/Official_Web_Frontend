@@ -32,26 +32,31 @@ export interface ExtractedFields {
   reason: string;
   tech_stack: string;
   project_experience: string;
+  first_department: string;
+  second_department: string;
   /** 原始全文，供用户参考 */
   rawText: string;
 }
 
 /** 中英文标签 → fieldKey 映射 */
+// 单行字段一律用 [ \t]* 而不是 \s*：\s 能匹配换行，
+// 「GitHub：」为空时会把下一行「第一志愿：项目部」整行吞进 GitHub 字段（线上实测踩坑）
 const LABEL_PATTERNS: Array<{ regex: RegExp; key: keyof ExtractedFields }> = [
-  { regex: /姓\s*名[：:]\s*(.+)/, key: 'name' },
-  { regex: /学\s*号[：:]\s*(.+)/, key: 'student_id' },
-  { regex: /性\s*别[：:]\s*(.+)/, key: 'gender' },
-  { regex: /年\s*级[：:]\s*(.+)/, key: 'grade' },
-  { regex: /专\s*业[：:]\s*(.+)/, key: 'major' },
-  { regex: /邮\s*箱[：:]\s*(.+)/, key: 'email' },
-  { regex: /电\s*话[：:]\s*(.+)/, key: 'phone' },
-  { regex: /手\s*机[号]?[：:]\s*(.+)/, key: 'phone' },
-  { regex: /GitHub[：:]\s*(.+)/i, key: 'github' },
-  { regex: /github[：:]\s*(.+)/i, key: 'github' },
-  { regex: /自我\s*介绍[：:]\s*([\s\S]+?)(?=(?:\n\s*(?:加入理由|技术栈|项目经验|技术能力|面试|志愿|联系方式|教育|经历|$))|$)/, key: 'self_introduction' },
-  { regex: /加入\s*理由[：:]\s*([\s\S]+?)(?=(?:\n\s*(?:自我介绍|技术栈|项目经验|技术能力|面试|志愿|联系方式|教育|经历|$))|$)/, key: 'reason' },
-  { regex: /技术\s*栈[：:]\s*(.+)/, key: 'tech_stack' },
-  { regex: /项目\s*经验[：:]\s*([\s\S]+?)(?=(?:\n\s*(?:自我介绍|加入理由|技术栈|技术能力|面试|志愿|联系方式|教育|经历|$))|$)/, key: 'project_experience' },
+  { regex: /姓\s*名[：:][ \t]*(.+)/, key: 'name' },
+  { regex: /学\s*号[：:][ \t]*(.+)/, key: 'student_id' },
+  { regex: /性\s*别[：:][ \t]*(.+)/, key: 'gender' },
+  { regex: /年\s*级[：:][ \t]*(.+)/, key: 'grade' },
+  { regex: /专\s*业[：:][ \t]*(.+)/, key: 'major' },
+  { regex: /邮\s*箱[：:][ \t]*(.+)/, key: 'email' },
+  { regex: /电\s*话[：:][ \t]*(.+)/, key: 'phone' },
+  { regex: /手\s*机[号]?[：:][ \t]*(.+)/, key: 'phone' },
+  { regex: /GitHub\s*主?页?[：:][ \t]*(.+)/i, key: 'github' },
+  { regex: /第一\s*志愿[：:][ \t]*(.+)/, key: 'first_department' },
+  { regex: /第二\s*志愿[：:][ \t]*(.+)/, key: 'second_department' },
+  { regex: /自我\s*介绍[：:]\s*([\s\S]+?)(?=(?:\n\s*(?:加入理由|技术栈|项目经验|技术能力|面试|第一志愿|第二志愿|志愿|联系方式|教育|经历|$))|$)/, key: 'self_introduction' },
+  { regex: /加入\s*理由[：:]\s*([\s\S]+?)(?=(?:\n\s*(?:自我介绍|技术栈|项目经验|技术能力|面试|第一志愿|第二志愿|志愿|联系方式|教育|经历|$))|$)/, key: 'reason' },
+  { regex: /技术\s*栈[：:][ \t]*(.+)/, key: 'tech_stack' },
+  { regex: /项目\s*经验[：:]\s*([\s\S]+?)(?=(?:\n\s*(?:自我介绍|加入理由|技术栈|技术能力|面试|第一志愿|第二志愿|志愿|联系方式|教育|经历|$))|$)/, key: 'project_experience' },
 ];
 
 /** 独立模式匹配（不依赖标签） */
@@ -106,6 +111,8 @@ export function extractFieldsFromText(text: string): ExtractedFields {
     reason: '',
     tech_stack: '',
     project_experience: '',
+    first_department: '',
+    second_department: '',
     rawText: text,
   };
 

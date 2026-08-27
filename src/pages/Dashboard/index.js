@@ -191,23 +191,44 @@ const Dashboard = () => {
         </Row>
       </div>
 
-      {/* 快捷入口 */}
+      {/* 快捷入口：申请者看投递/进度，社员看活动/评测——两拨人关心的事不一样 */}
       <div style={{ maxWidth: 960, margin: '12px auto 24px', padding: '0 16px' }}>
         <Row gutter={[12, 12]}>
-          <Col xs={8}>
-            <Card hoverable size="small" onClick={handleGoToResume} style={{ textAlign: 'center' }}>
-              <FileTextOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
-              <div style={{ marginTop: 6 }}>简历投递</div>
-              <Text type="secondary" style={{ fontSize: 12 }}>填写或修改</Text>
-            </Card>
-          </Col>
-          <Col xs={8}>
-            <Card hoverable size="small" onClick={() => navigate('/main/interview-appointment')} style={{ textAlign: 'center' }}>
-              <ScheduleOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
-              <div style={{ marginTop: 6 }}>申请进度</div>
-              <Text type="secondary" style={{ fontSize: 12 }}>时间线与结果</Text>
-            </Card>
-          </Col>
+          {isMember ? (
+            <>
+              <Col xs={8}>
+                <Card hoverable size="small" onClick={() => navigate('/Activities')} style={{ textAlign: 'center' }}>
+                  <ScheduleOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+                  <div style={{ marginTop: 6 }}>社团活动</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>公告 · 精彩瞬间</Text>
+                </Card>
+              </Col>
+              <Col xs={8}>
+                <Card hoverable size="small" onClick={() => navigate('/main/evaluations')} style={{ textAlign: 'center' }}>
+                  <FileTextOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+                  <div style={{ marginTop: 6 }}>autograding</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>评测成绩</Text>
+                </Card>
+              </Col>
+            </>
+          ) : (
+            <>
+              <Col xs={8}>
+                <Card hoverable size="small" onClick={handleGoToResume} style={{ textAlign: 'center' }}>
+                  <FileTextOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+                  <div style={{ marginTop: 6 }}>简历投递</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>填写或修改</Text>
+                </Card>
+              </Col>
+              <Col xs={8}>
+                <Card hoverable size="small" onClick={() => navigate('/main/interview-appointment')} style={{ textAlign: 'center' }}>
+                  <ScheduleOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+                  <div style={{ marginTop: 6 }}>申请进度</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>时间线与结果</Text>
+                </Card>
+              </Col>
+            </>
+          )}
           <Col xs={8}>
             <Card hoverable size="small" onClick={() => navigate('/main/person')} style={{ textAlign: 'center' }}>
               <UserOutlined style={{ fontSize: 22, color: '#1f76cc' }} />

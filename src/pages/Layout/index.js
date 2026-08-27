@@ -103,18 +103,19 @@ const MainLayout = () => {
     }
     return userInfo.avatar;
   };
-  // 根据用户角色动态生成菜单项
+  // 根据用户角色动态生成菜单项。已录取的社员不再参加招新，收起「简历投递」
+  const isMember = Boolean(userInfo?.isMember);
   const menuItems = [
     {
       key: "/main/dashboard",
       icon: <HomeOutlined />,
       label: "首页",
     },
-    {
+    ...(isMember ? [] : [{
       key: "/main/publish",
       icon: <FileTextOutlined />,
       label: "简历投递",
-    },
+    }]),
     {
       key: "/main/person",
       icon: <UserOutlined />,
