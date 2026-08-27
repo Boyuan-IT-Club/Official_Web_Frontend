@@ -83,6 +83,10 @@ export interface CandidateSummary {
   /** 各维度得分 {dimensionId: 得分} */
   scores: Record<number, number>;
   totalScore?: number;
+  /** 各维度独立评语 {dimensionId: 评语}——评价的主要内容在这里，comment 只是补充总评 */
+  dimensionNotes?: Record<number, string>;
+  /** 各维度评语作者 {dimensionId: {userId, name}} */
+  dimensionWriters?: Record<number, { userId: number; name?: string }>;
   comment?: string;
   /** 共同结论：1倾向通过 2待定 3不倾向 */
   recommendation?: number;

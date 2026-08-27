@@ -15,7 +15,7 @@ import {
 import { ArrowLeftOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { getToken } from '@/utils';
-import { parseJwtPayload } from '@/utils/jwt';
+import { hasAnyPermission, parseJwtPayload } from '@/utils/jwt';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
 import CollabTextArea from '../EvaluationBoard/CollabTextArea';
@@ -283,7 +283,21 @@ const EvaluationWorkspace: React.FC = () => {
 
       <div className="eval-ws-split">
         <section className="ws-pane ws-resume">
-          <div className="ws-pane-title">简历</div>
+          <div className="ws-pane-title">
+            简历
+            {row.resumeScore !== undefined && row.resumeScore !== null && (
+              <Tooltip
+                title={
+                  // 打分人署名只给管理员看，面试官只看到分数
+                  hasAnyPermission(token, ['resume:audit', 'interview:board:manage']) && row.resumeScoredByName
+                    ? `初筛打分：${row.resumeScoredByName}`
+                    : '简历初筛分'
+                }
+              >
+                <Tag color="geekblue" style={{ marginLeft: 8 }}>初筛 {row.resumeScore} 分</Tag>
+              </Tooltip>
+            )}
+          </div>
           {resumeError
             ? <Alert type="error" showIcon message={resumeError} />
             : <ResumeQuickView resume={resume} emptyText="该候选人这一周期的简历没有填写内容" />}

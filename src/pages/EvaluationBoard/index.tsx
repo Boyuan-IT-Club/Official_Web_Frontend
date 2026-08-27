@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Avatar, Badge, Button, Card, Checkbox, Empty, Input, InputNumber, Popconfirm,
-  Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
+  Radio, Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
 } from 'antd';
 import { LockOutlined, SettingOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -121,12 +121,15 @@ const EvaluationBoardPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [board.version, board.rows, board.columns]);
 
-  // 名单里出现过的面试地点。跟着行数据走：改场次地点后选项自动更新
+  // 名单里出现过的面试地点（含人数）。跟着行数据走：改场次地点后选项自动更新
   const locationOptions = useMemo(() => {
-    const set = new Set<string>();
-    derivedRows.forEach((row) => { if (row.location) set.add(row.location); });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'))
-      .map((value) => ({ value, label: value }));
+    const counts = new Map<string, number>();
+    derivedRows.forEach((row) => {
+      if (row.location) counts.set(row.location, (counts.get(row.location) ?? 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'zh-CN'))
+      .map(([value, count]) => ({ value, count, label: `${value}（${count}）` }));
   }, [derivedRows]);
 
   const visibleRows = useMemo(() => {
@@ -234,6 +237,19 @@ const EvaluationBoardPage: React.FC = () => {
           {row.location && <Text type="secondary" style={{ fontSize: 12 }}>{row.location}</Text>}
         </Space>
       ),
+    },
+    {
+      // 简历初筛分：面试官打分时的参考基线；打分人署名只对管理员显示
+      title: '简历分',
+      dataIndex: 'resumeScore',
+      width: 76,
+      render: (score: number | undefined, row: DerivedRow) => {
+        if (score === undefined || score === null) return <Text type="secondary">—</Text>;
+        const cell = <Text strong style={{ fontSize: 13 }}>{score}</Text>;
+        return isAdmin && row.resumeScoredByName
+          ? <Tooltip title={`${row.resumeScoredByName} 打分`}>{cell}</Tooltip>
+          : cell;
+      },
     },
     ...scoreColumns.map((column) => ({
       title: (
@@ -421,7 +437,22 @@ const EvaluationBoardPage: React.FC = () => {
             <Checkbox checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)}>
               只看未定稿的
             </Checkbox>
-            {locationOptions.length > 0 && (
+            {/* 地点少（常态是几个教室并行）用醒目的按钮组按地点分组，多了退回下拉 */}
+            {locationOptions.length > 0 && locationOptions.length <= 6 && (
+              <Radio.Group
+                optionType="button"
+                buttonStyle="solid"
+                size="small"
+                value={locationFilter ?? ''}
+                onChange={(e) => setLocationFilter(e.target.value || undefined)}
+              >
+                <Radio.Button value="">全部地点（{derivedRows.length}）</Radio.Button>
+                {locationOptions.map((o) => (
+                  <Radio.Button key={o.value} value={o.value}>{o.label}</Radio.Button>
+                ))}
+              </Radio.Group>
+            )}
+            {locationOptions.length > 6 && (
               <Select
                 allowClear
                 placeholder="全部地点"

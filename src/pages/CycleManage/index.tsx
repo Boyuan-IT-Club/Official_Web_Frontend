@@ -178,9 +178,17 @@ const CycleManage: React.FC = () => {
     {
       title: "投递",
       dataIndex: "isActive",
-      width: 80,
-      render: (v: number) =>
-        v === 1 ? <Tag color="green">投递开放</Tag> : <Tag>已停止</Tag>,
+      width: 90,
+      // 真实投递状态 = 启用开关 ∧ 今天在起止日期内（与后端 findOpenForApplication /
+      // requireCycleOpen 同一判定）。原先只看开关：过了结束日期仍显示「投递开放」，
+      // 学生那边其实早就投不进来了，管理员据此误判"时间不统一"
+      render: (v: number, record: any) => {
+        if (v !== 1) return <Tag>已停止</Tag>;
+        const today = dayjs().format("YYYY-MM-DD");
+        if (record.startDate && today < record.startDate) return <Tag color="blue">未开始</Tag>;
+        if (record.endDate && today > record.endDate) return <Tag color="orange">已截止</Tag>;
+        return <Tag color="green">投递开放</Tag>;
+      },
     },
     {
       title: "操作",

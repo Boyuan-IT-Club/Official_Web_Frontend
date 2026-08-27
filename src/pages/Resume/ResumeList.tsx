@@ -35,6 +35,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import { getAllCycles } from '@/api/manage/cycleApis';
+import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import './index.scss';
 
 const { Text, Title } = Typography;
@@ -486,11 +487,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
               grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 3 }}
               renderItem={(resume) => {
                 const statusInfo = getStatusInfo(resume.status);
-                const name = getFieldValueFromResume(resume, '姓名');
+                // 身份信息以简历字段优先、注册账号兜底：空草稿没有任何字段值，
+                // 但姓名/邮箱注册时就有，不该显示成「未提供」
+                const name = getFieldValueFromResume(resume, '姓名') || (resume as any).userName;
                 const major = getFieldValueFromResume(resume, '专业');
                 const rawDeptValue = getFieldValueFromResume(resume, '期望部门');
                 const parsedDept = parseExpectedDepartments(rawDeptValue);
-                const email = getFieldValueFromResume(resume, '邮箱');
+                const email = getFieldValueFromResume(resume, '邮箱') || (resume as any).userEmail;
 
                 return (
                   <List.Item key={String(resume.resumeId)}>
@@ -501,13 +504,24 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         <Button type="link" icon={<EyeOutlined />} onClick={() => handleViewResume(resume)}>
                           查看
                         </Button>,
-                        <Button
-                          type="link"
-                          icon={<DownloadOutlined />}
-                          onClick={() => handleDownloadResume(resume.resumeId)}
+                        <Dropdown
+                          menu={{
+                            items: [
+                              { key: 'pdf', label: '下载 PDF', onClick: () => handleDownloadResume(resume.resumeId) },
+                              {
+                                key: 'word',
+                                label: '下载 Word',
+                                onClick: () =>
+                                  exportResumeAsDOCX(buildExportDataFromSimpleFields((resume as any).simpleFields, {
+                                    userName: (resume as any).userName,
+                                    userEmail: (resume as any).userEmail,
+                                  })),
+                              },
+                            ],
+                          }}
                         >
-                          下载
-                        </Button>,
+                          <Button type="link" icon={<DownloadOutlined />}>下载</Button>
+                        </Dropdown>,
                       ]}
                     >
                       <Card.Meta

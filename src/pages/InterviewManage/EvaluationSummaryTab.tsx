@@ -157,12 +157,38 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
     },
   ];
 
+  // 展开行 = 完整面试记录。评价按维度拆分后，主要内容在 dimensionNotes 里，
+  // comment 只是可选的总评——原先只渲染 comment，导致明明写了评价却显示「没有面试记录」
   const expanded = (row: CandidateSummary) => {
-    if (!row.comment) {
+    const notes = dimensions
+      .map((dimension) => ({
+        dimension,
+        note: row.dimensionNotes?.[dimension.dimensionId]?.trim(),
+        writer: row.dimensionWriters?.[dimension.dimensionId]?.name,
+      }))
+      .filter((item) => item.note);
+
+    if (notes.length === 0 && !row.comment?.trim()) {
       return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="本场还没有填写面试记录" />;
     }
     return (
-      <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>{row.comment}</Paragraph>
+      <Space direction="vertical" size={10} style={{ width: '100%' }}>
+        {notes.map(({ dimension, note, writer }) => (
+          <div key={dimension.dimensionId}>
+            <Space size={8}>
+              <Text strong style={{ fontSize: 13 }}>{dimension.name}</Text>
+              {writer && <Text type="secondary" style={{ fontSize: 12 }}>{writer} 记录</Text>}
+            </Space>
+            <Paragraph style={{ margin: '2px 0 0', whiteSpace: 'pre-wrap' }}>{note}</Paragraph>
+          </div>
+        ))}
+        {row.comment?.trim() && (
+          <div>
+            <Text strong style={{ fontSize: 13 }}>总体结论</Text>
+            <Paragraph style={{ margin: '2px 0 0', whiteSpace: 'pre-wrap' }}>{row.comment}</Paragraph>
+          </div>
+        )}
+      </Space>
     );
   };
 

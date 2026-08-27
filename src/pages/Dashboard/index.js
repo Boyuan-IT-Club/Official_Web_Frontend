@@ -91,6 +91,9 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const resumeState = useSelector((state) => state.resume);
+  const { userInfo } = useSelector((state) => state.user);
+  // 已录取的社员不再参加招新，进度卡（完善简历→提交→面试→结果）对他们没有意义
+  const isMember = Boolean(userInfo?.isMember);
   const [hasInterview, setHasInterview] = useState(false);
 
   // 进入首页先拉一次「当前开放投递的周期」列表。
@@ -162,10 +165,12 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* 招新进度卡（方案三）：随时知道自己进行到哪一步 */}
-      <div style={{ maxWidth: 960, margin: '8px auto 0', padding: '0 16px' }}>
-        <RecruitProgressCard cycleId={selectedCycleId ?? 2} resumeStatus={resumeState?.resume?.status ?? null} />
-      </div>
+      {/* 招新进度卡（方案三）：随时知道自己进行到哪一步。已是社员的不再显示 */}
+      {!isMember && (
+        <div style={{ maxWidth: 960, margin: '8px auto 0', padding: '0 16px' }}>
+          <RecruitProgressCard cycleId={selectedCycleId ?? 2} resumeStatus={resumeState?.resume?.status ?? null} />
+        </div>
+      )}
 
       {/* 工作台：面试提醒 + 最新活动（无面试安排时活动卡自动铺满整行） */}
       <div style={{ maxWidth: 960, margin: '12px auto 0', padding: '0 16px' }}>

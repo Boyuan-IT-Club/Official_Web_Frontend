@@ -297,3 +297,48 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
     padding: 12px; // 与 Publish 一致
   }
 }
+// ── 简历打分面板 ─────────────────────────────────────────────────────────
+// 打分是审核动线的主操作，独占一行、放在简历内容上方，
+// 而不是原先塞在卡片 extra 里的一个小输入框（几乎没人注意到）。
+.resume-score-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 14px 20px;
+  background: linear-gradient(90deg, #f0f5ff 0%, #ffffff 60%);
+  border: 1px solid #adc6ff;
+  border-radius: 10px;
+
+  .score-panel-main {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .score-panel-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d39c4;
+  }
+
+  .score-panel-value {
+    font-size: 30px;
+    font-weight: 700;
+    color: #1d39c4;
+    font-variant-numeric: tabular-nums;
+
+    &--empty {
+      font-size: 16px;
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  .score-panel-by {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+  }
+}
