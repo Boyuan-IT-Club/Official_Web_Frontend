@@ -63,6 +63,7 @@ const EvaluationBoardPage: React.FC = () => {
   const [keyword, setKeyword] = useState('');
   const [onlyMine, setOnlyMine] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
+  const [locationFilter, setLocationFilter] = useState<string | undefined>();
   const [activeRow, setActiveRow] = useState<BoardRow | null>(null);
   const [dimensionOpen, setDimensionOpen] = useState(false);
 
@@ -120,15 +121,24 @@ const EvaluationBoardPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [board.version, board.rows, board.columns]);
 
+  // 名单里出现过的面试地点。跟着行数据走：改场次地点后选项自动更新
+  const locationOptions = useMemo(() => {
+    const set = new Set<string>();
+    derivedRows.forEach((row) => { if (row.location) set.add(row.location); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+      .map((value) => ({ value, label: value }));
+  }, [derivedRows]);
+
   const visibleRows = useMemo(() => {
     const text = keyword.trim().toLowerCase();
     return derivedRows.filter((row) => {
       if (onlyMine && !row.interviewerUserIds.includes(currentUserId)) return false;
       if (onlyPending && row.submitted) return false;
+      if (locationFilter && row.location !== locationFilter) return false;
       if (!text) return true;
       return `${row.candidateName}${row.account ?? ''}${row.deptName ?? ''}`.toLowerCase().includes(text);
     });
-  }, [derivedRows, keyword, onlyMine, onlyPending, currentUserId]);
+  }, [derivedRows, keyword, onlyMine, onlyPending, locationFilter, currentUserId]);
 
   const myPendingCount = useMemo(
     () => derivedRows.filter((row) => row.interviewerUserIds.includes(currentUserId) && !row.submitted).length,
@@ -217,8 +227,13 @@ const EvaluationBoardPage: React.FC = () => {
     {
       title: '面试时间',
       dataIndex: 'interviewTime',
-      width: 140,
-      render: (v: string) => <Text style={{ fontSize: 12 }}>{fmtDateTime(v)}</Text>,
+      width: 150,
+      render: (v: string, row: DerivedRow) => (
+        <Space direction="vertical" size={0}>
+          <Text style={{ fontSize: 12 }}>{fmtDateTime(v)}</Text>
+          {row.location && <Text type="secondary" style={{ fontSize: 12 }}>{row.location}</Text>}
+        </Space>
+      ),
     },
     ...scoreColumns.map((column) => ({
       title: (
@@ -406,6 +421,16 @@ const EvaluationBoardPage: React.FC = () => {
             <Checkbox checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)}>
               只看未定稿的
             </Checkbox>
+            {locationOptions.length > 0 && (
+              <Select
+                allowClear
+                placeholder="全部地点"
+                style={{ minWidth: 140 }}
+                value={locationFilter}
+                options={locationOptions}
+                onChange={(v) => setLocationFilter(v)}
+              />
+            )}
             {myPendingCount > 0 && (
               <Text type="secondary">我负责的候选人里还有 {myPendingCount} 位未定稿</Text>
             )}

@@ -234,6 +234,7 @@ const EvaluationWorkspace: React.FC = () => {
         {row.deptName && <Tag color="processing">{row.deptName}</Tag>}
         <span className="ws-meta">
           {row.account || '—'} · {row.interviewTime ? String(row.interviewTime).replace('T', ' ').slice(5, 16) : '时间未定'}
+          {row.location ? ` · ${row.location}` : ''}
         </span>
         <span className="ws-total">加权总分 {total ?? '—'}</span>
 
