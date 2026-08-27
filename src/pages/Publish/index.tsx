@@ -33,6 +33,7 @@ import {
   ExclamationCircleOutlined,
   ImportOutlined,
   FileWordOutlined,
+  FilePdfOutlined,
   UploadOutlined,
   LockOutlined,
 } from '@ant-design/icons';
@@ -78,6 +79,7 @@ import type { UserInfo } from '@/store/modules/user';
 import {
   buildExportData,
   exportResumeAsDOCX,
+  exportResumeAsPDF,
 } from '@/utils/exportResume';
 import {
   importResumeFile,
@@ -906,6 +908,12 @@ const Publish: React.FC = () => {
     await exportResumeAsDOCX(exportData);
   }, [exportData]);
 
+  const handleExportPDF = useCallback(async (): Promise<void> => {
+    const rid = resume?.resume_id || resume?.id;
+    if (!rid) { message.warning('简历尚未创建，先保存一次草稿再导出 PDF'); return; }
+    await exportResumeAsPDF(Number(rid), exportData.name);
+  }, [resume, exportData.name]);
+
   // ---- 导入处理 ----
   const handleImportFile = useCallback(async (file: File): Promise<void> => {
     setImportLoading(true);
@@ -1040,9 +1048,12 @@ const Publish: React.FC = () => {
             techStackItems={techStackItems}
           />
           <div style={{ marginTop: 24, textAlign: 'center', padding: '16px', borderTop: '1px solid #f0f0f0' }}>
-            <Space>
+            <Space wrap>
               <Button icon={<FileWordOutlined />} size="large" onClick={handleExportDOCX}>
-                导出 DOCX
+                导出 Word
+              </Button>
+              <Button icon={<FilePdfOutlined />} size="large" onClick={handleExportPDF}>
+                导出 PDF
               </Button>
               {canEdit && (
                 <Button type="primary" icon={<EditOutlined />} onClick={handleEdit} size="large">
@@ -1123,18 +1134,30 @@ const Publish: React.FC = () => {
             </Card>
           )}
 
-          {/* 导入导出工具栏 */}
-          <div className="import-export-toolbar" style={{ marginBottom: 16, textAlign: 'center' }}>
-            <Space>
+          {/* 离线填写面板：导出模板 → Word 里填写 → 导入自动回填 */}
+          <div className="offline-fill-panel">
+            <div className="offline-fill-text">
+              <div className="offline-fill-title"><ImportOutlined /> 不想在网页里填？</div>
+              <div className="offline-fill-desc">
+                导出 Word 模板离线填写，回来点「导入」即可按字段自动回填；也支持导入你已有的
+                Word / PDF 简历，系统会尽量识别对应内容。
+              </div>
+            </div>
+            <Space wrap>
               <Button icon={<FileWordOutlined />} onClick={handleExportDOCX}>
-                导出 DOCX
+                导出 Word 模板
+              </Button>
+              <Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>
+                导出 PDF
               </Button>
               <Button
+                type="primary"
+                ghost
                 icon={<ImportOutlined />}
                 loading={importLoading}
                 onClick={() => fileInputRef.current?.click()}
               >
-                导入文件
+                导入已填写的文件
               </Button>
               <input
                 ref={fileInputRef}

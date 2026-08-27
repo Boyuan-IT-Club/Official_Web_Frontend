@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal, InputNumber, message } from 'antd';
 import { updateResumeScore } from '@/api/manage/resumeEntry';
+import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import {
   UserOutlined,
   IdcardOutlined,
@@ -215,7 +216,19 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
         </Button>
         <Space>
           <Button type="default" icon={<DownloadOutlined />} onClick={() => onDownload?.(resume.resumeId)}>
-            下载PDF
+            下载 PDF
+          </Button>
+          <Button
+            type="default"
+            icon={<DownloadOutlined />}
+            onClick={() =>
+              exportResumeAsDOCX(buildExportDataFromSimpleFields(resume.simpleFields as any, {
+                userName: (resume as any).userName,
+                userEmail: (resume as any).userEmail,
+              }))
+            }
+          >
+            下载 Word
           </Button>
         </Space>
       </div>

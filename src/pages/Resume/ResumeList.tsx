@@ -35,6 +35,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import { getAllCycles } from '@/api/manage/cycleApis';
+import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import './index.scss';
 
 const { Text, Title } = Typography;
@@ -503,13 +504,24 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         <Button type="link" icon={<EyeOutlined />} onClick={() => handleViewResume(resume)}>
                           查看
                         </Button>,
-                        <Button
-                          type="link"
-                          icon={<DownloadOutlined />}
-                          onClick={() => handleDownloadResume(resume.resumeId)}
+                        <Dropdown
+                          menu={{
+                            items: [
+                              { key: 'pdf', label: '下载 PDF', onClick: () => handleDownloadResume(resume.resumeId) },
+                              {
+                                key: 'word',
+                                label: '下载 Word',
+                                onClick: () =>
+                                  exportResumeAsDOCX(buildExportDataFromSimpleFields((resume as any).simpleFields, {
+                                    userName: (resume as any).userName,
+                                    userEmail: (resume as any).userEmail,
+                                  })),
+                              },
+                            ],
+                          }}
                         >
-                          下载
-                        </Button>,
+                          <Button type="link" icon={<DownloadOutlined />}>下载</Button>
+                        </Dropdown>,
                       ]}
                     >
                       <Card.Meta

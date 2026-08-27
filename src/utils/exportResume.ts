@@ -1,6 +1,15 @@
 // src/utils/exportResume.ts
+//
+// 简历导出（Word）：不再依赖 public/resume_template.docx 的段落 ID 魔法，
+// 整个 .docx 包在这里从零构建，版式与后端 PDF 同一设计语言
+// （深蓝横幅 + 双列信息栅格 + 品牌色小节）。
+//
+// 这份文件同时是「离线填写模板」：所有字段都以「标签：值」输出，空字段留白，
+// 用户在 Word 里填完，回到投递页导入即可按标签回填（importResume.ts 按同一组
+// 标签正则解析——两边的标签必须逐字一致，改动要成对改）。
 import JSZip from 'jszip';
 import { message } from 'antd';
+import { request } from '@/utils';
 
 export interface ResumeExportData {
   name: string; studentId: string; gender: string; grade: string;
@@ -55,6 +64,54 @@ export function buildExportData(
   };
 }
 
+/** 管理端从 ResumeDTO.simpleFields（字段标签→值）拼导出数据，与投递页共用同一台 Word 生成器 */
+export function buildExportDataFromSimpleFields(
+  simpleFields: Array<{ fieldLabel?: string; fieldValue?: string }> | undefined,
+  fallback?: { userName?: string; userEmail?: string },
+): ResumeExportData {
+  const byLabel = new Map<string, string>();
+  (simpleFields ?? []).forEach((f) => {
+    if (f.fieldLabel && f.fieldValue != null) byLabel.set(f.fieldLabel, String(f.fieldValue));
+  });
+  const val = (...labels: string[]) => {
+    for (const label of labels) {
+      const v = byLabel.get(label);
+      if (v && v.trim()) return v;
+    }
+    return '';
+  };
+  const parseArr = (raw: string): string[] => {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p.map(String) : []; } catch { return []; }
+  };
+  const depts = parseArr(val('期望部门'));
+  const photo = [...byLabel.values()].find((v) => v.startsWith('data:image/')) ?? '';
+  return {
+    name: val('姓名') || fallback?.userName || '',
+    studentId: val('学号'), gender: val('性别'), grade: val('年级'), major: val('专业'),
+    email: val('邮箱') || fallback?.userEmail || '',
+    phone: val('手机号', '电话', '手机'), github: val('GitHub主页', 'GitHub'),
+    firstDepartment: depts[0] ?? val('第一志愿'), secondDepartment: depts[1] ?? val('第二志愿'),
+    selfIntroduction: val('自我介绍', '个人简介'), reason: val('加入理由', '加入原因'),
+    techStack: parseArr(val('技术栈')),
+    projectExperience: val('项目经验'),
+    photoBase64: photo,
+  };
+}
+
+// ─── OOXML 构件 ──────────────────────────────────────────────────────────────
+
+/** 设计令牌：与后端 PdfExportUtil 的配色保持同一语言 */
+const C = {
+  brand: '1F3A60',      // 深蓝横幅
+  brandSub: 'C8D7EB',   // 横幅副标题
+  accent: '1F76CC',     // 品牌蓝（小节标题/竖条）
+  label: '6E7887',      // 标签灰
+  text: '232830',       // 正文深色
+  body: '373E48',       // 长文本
+  line: 'E1E8F0',       // 浅分隔线
+  hint: '9AA3AF',       // 提示灰
+} as const;
+
 function escXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -70,46 +127,57 @@ function runInner(text: unknown): string {
 
 interface RunOpts { bold?: boolean; color?: string; sz?: number; }
 
-/** 构造一个 run 元素（支持多行、字号、颜色、加粗）。text 可为非字符串，内部会做 String 转换 */
 function run(text: unknown, opts: RunOpts = {}): string {
-  const { bold = false, color = '262626', sz = 21 } = opts;
+  const { bold = false, color = C.text, sz = 21 } = opts;
   const b = bold ? '<w:b/><w:bCs/>' : '';
-  return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="微软雅黑"/>${b}<w:color w:val="${color}"/><w:sz w:val="${sz}"/></w:rPr>${runInner(text)}</w:r>`;
+  return `<w:r><w:rPr><w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:eastAsia="微软雅黑"/>${b}<w:color w:val="${color}"/><w:sz w:val="${sz}"/></w:rPr>${runInner(text)}</w:r>`;
 }
 
-/** 「标签：值」两个 run，标签加粗、值深色 */
-function labelValue(label: string, value: unknown, sz: number): string {
-  const labelColor = sz === 20 ? '595959' : '262626';
-  return run(label, { bold: true, color: labelColor, sz }) + run(value, { color: '262626', sz });
+interface ParaOpts {
+  align?: 'center' | 'left' | 'right';
+  /** 行距（240=单倍），长文本用 360 */
+  line?: number;
+  before?: number; after?: number;
+  /** 左侧品牌色竖条（小节标题用） */
+  accentBar?: boolean;
 }
 
-/** 构造一个段落（center=居中，left=左对齐） */
-function paragraph(inner: string, align: 'center' | 'left' = 'center'): string {
-  const jc = align === 'center' ? '<w:jc w:val="center"/>' : '';
-  return `<w:p><w:pPr>${jc}</w:pPr>${inner}</w:p>`;
+function para(inner: string, opts: ParaOpts = {}): string {
+  const { align, line, before, after, accentBar } = opts;
+  const jc = align ? `<w:jc w:val="${align}"/>` : '';
+  const spacing = `<w:spacing${before != null ? ` w:before="${before}"` : ''}${after != null ? ` w:after="${after}"` : ''}${line != null ? ` w:line="${line}" w:lineRule="auto"` : ''}/>`;
+  const bar = accentBar
+    ? `<w:pBdr><w:left w:val="single" w:sz="18" w:space="6" w:color="${C.accent}"/></w:pBdr>`
+    : '';
+  return `<w:p><w:pPr>${spacing}${bar}${jc}</w:pPr>${inner}</w:p>`;
 }
 
-/** 取出单元格的 <w:tcPr>（保留列宽/合并/边框等属性） */
-function cellPr(cellXml: string): string {
-  const m = cellXml.match(/<w:tcPr[\s\S]*?<\/w:tcPr>/);
-  return m ? m[0] : '';
+/** 「标签：值」——同一段落输出，保证导入侧 mammoth/pdf.js 提取出「标签：值」整行 */
+function labeledPara(label: string, value: string, opts: ParaOpts = {}): string {
+  return para(
+    run(`${label}：`, { bold: true, color: C.label, sz: 20 }) + run(value ?? '', { color: C.text, sz: 21 }),
+    { after: 60, ...opts },
+  );
 }
 
-/** 用新内容整体重写单元格，仅保留 <w:tcPr> */
-function rewriteCell(cellXml: string, innerXml: string): string {
-  return `<w:tc>${cellPr(cellXml)}${innerXml}</w:tc>`;
+/** 表格单元格：可设底部浅线与内边距 */
+function cell(innerParas: string, opts: { width?: number; bottomLine?: boolean; fill?: string; vAlign?: string } = {}): string {
+  const { width, bottomLine = false, fill, vAlign } = opts;
+  const w = width != null ? `<w:tcW w:w="${width}" w:type="dxa"/>` : '<w:tcW w:w="0" w:type="auto"/>';
+  const borders = `<w:tcBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:right w:val="nil"/><w:bottom w:val="${bottomLine ? 'single' : 'nil'}"${bottomLine ? ` w:sz="4" w:color="${C.line}"` : ''}/></w:tcBorders>`;
+  const shd = fill ? `<w:shd w:val="clear" w:fill="${fill}"/>` : '';
+  const va = vAlign ? `<w:vAlign w:val="${vAlign}"/>` : '';
+  const margins = '<w:tcMar><w:top w:w="90" w:type="dxa"/><w:bottom w:w="90" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar>';
+  return `<w:tc><w:tcPr>${w}${borders}${shd}${va}${margins}</w:tcPr>${innerParas}</w:tc>`;
 }
 
-/** 替换指定 paraId 段落的 run 内容，保留其 pPr（缩进/行距/边框等） */
-function replacePara(xml: string, paraId: string, innerXml: string): string {
-  const re = new RegExp(`<w:p w14:paraId="${paraId}"[^>]*>[\\s\\S]*?</w:p>`);
-  const m = xml.match(re);
-  if (!m) return xml;
-  const pPr = (m[0].match(/<w:pPr[\s\S]*?<\/w:pPr>/) || [''])[0];
-  return xml.replace(re, `<w:p w14:paraId="${paraId}">${pPr}${innerXml}</w:p>`);
+function table(rows: string[], opts: { widths?: number[] } = {}): string {
+  const grid = opts.widths
+    ? `<w:tblGrid>${opts.widths.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`
+    : '';
+  return `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>${grid}${rows.join('')}</w:tbl>`;
 }
 
-/** 从 base64 中提取二进制数据 */
 function base64ToUint8(b64: string): Uint8Array {
   const raw = atob(b64);
   const arr = new Uint8Array(raw.length);
@@ -117,100 +185,128 @@ function base64ToUint8(b64: string): Uint8Array {
   return arr;
 }
 
-// 社团简历.docx（官方列表版模板）里各值段落的 paraId
-const PID = {
-  name: '12ACC151',
-  studentId: '504F9911',
-  gender: '73CF0EA6',
-  major: '66303FE3',
-  grade: '7FD7AD0F',
-  github: '6522EAB5',
-  email: '6E40EF02',
-  phone: '463C10B1',
-  firstDept: '73170630',
-  secondDept: '257BBD37',
-  interview: '7ADCF665',
-  tech: '4016DA15',
-  intro: '46C9D947',
-} as const;
+/** 照片 drawing（内联图片，3:4 证件照比例） */
+function photoDrawing(relId: string): string {
+  const emuW = 1080000, emuH = 1440000; // ~30×40mm
+  return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${emuW}" cy="${emuH}"/><wp:docPr id="101" name="photo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="101" name="photo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
+}
 
-async function fillTemplate(data: ResumeExportData): Promise<Blob> {
-  const resp = await fetch('/resume_template.docx');
-  if (!resp.ok) throw new Error('模板加载失败');
-  const zip = await JSZip.loadAsync(await resp.arrayBuffer());
-  let xml = await zip.file('word/document.xml')!.async('string');
+/** 组装 word/document.xml 正文 */
+function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean): string {
+  const body: string[] = [];
 
-  // 各字段「有值才替换」，无值保留模板占位符原样
-  if (data.name) {
-    xml = replacePara(xml, PID.name,
-      run(data.name, { bold: true, color: '2060C0', sz: 44 }));
+  // ── 深蓝横幅：姓名 + 社团名（照片嵌在横幅右侧，白边衬托）──
+  const nameShown = data.name || '（姓名）';
+  const bannerLeft = cell(
+    para(run(nameShown, { bold: true, color: 'FFFFFF', sz: 44 }), { after: 40 })
+    + para(run('博远信息技术社 · 招新申请简历', { color: C.brandSub, sz: 18 })),
+    { fill: C.brand, vAlign: 'center' },
+  );
+  const bannerCells = hasPhoto
+    ? bannerLeft + cell(para(photoDrawing('rIdPhoto'), { align: 'right' }), { fill: C.brand, vAlign: 'center', width: 2000 })
+    : bannerLeft;
+  body.push(table([`<w:tr>${bannerCells}</w:tr>`], hasPhoto ? { widths: [7600, 2000] } : undefined));
+
+  // ── 填写说明：这份文件同时是离线填写模板 ──
+  body.push(para(
+    run('提示：本文件可离线填写——在各「标签：」后补全内容并保存，回到官网「简历投递」页点「导入已填写的文件」即可自动回填对应字段。', { color: C.hint, sz: 17 }),
+    { before: 120, after: 160 },
+  ));
+
+  // ── 基本信息栅格：两列，浅底线分行 ──
+  const pairs: Array<[string, string]> = [
+    ['姓名', data.name], ['学号', data.studentId],
+    ['性别', data.gender], ['年级', data.grade],
+    ['专业', data.major], ['邮箱', data.email],
+    ['手机号', data.phone], ['GitHub', data.github],
+    ['第一志愿', data.firstDepartment], ['第二志愿', data.secondDepartment],
+  ];
+  const rows: string[] = [];
+  for (let i = 0; i < pairs.length; i += 2) {
+    const left = pairs[i];
+    const right = pairs[i + 1];
+    rows.push(`<w:tr>${
+      cell(labeledPara(left[0], left[1]), { bottomLine: true })
+    }${
+      right ? cell(labeledPara(right[0], right[1]), { bottomLine: true }) : cell(para(run('')), { bottomLine: true })
+    }</w:tr>`);
   }
-  if (data.studentId) xml = replacePara(xml, PID.studentId, labelValue('学号：', String(data.studentId), 20));
-  if (data.gender) xml = replacePara(xml, PID.gender, labelValue('性别：', data.gender, 20));
-  if (data.major) xml = replacePara(xml, PID.major, labelValue('专业：', data.major, 20));
-  if (data.grade) xml = replacePara(xml, PID.grade, labelValue('年级：', data.grade, 20));
-  if (data.github) xml = replacePara(xml, PID.github, labelValue('GitHub主页：', data.github, 20));
+  // 技术栈单独一行贯通两列（顿号分隔，导入侧按同格式拆回数组）
+  rows.push(`<w:tr>${cell(labeledPara('技术栈', data.techStack.join('、')), { bottomLine: true })}${cell(para(run('')), { bottomLine: true })}</w:tr>`);
+  body.push(table(rows, { widths: [4800, 4800] }));
 
-  if (data.email) xml = replacePara(xml, PID.email, labelValue('邮箱：', data.email, 21));
-  if (data.phone) xml = replacePara(xml, PID.phone, labelValue('手机号：', data.phone, 21));
-
-  if (data.firstDepartment) xml = replacePara(xml, PID.firstDept, labelValue('第一志愿：', data.firstDepartment, 21));
-  if (data.secondDepartment) xml = replacePara(xml, PID.secondDept, labelValue('第二志愿：', data.secondDepartment, 21));
-  if (data.interviewTimes) {
-    const can = data.interviewTimes.canAttend === 'no' ? '不能参加' : '能参加';
-    xml = replacePara(xml, PID.interview, labelValue('能否参加线下面试：', can, 21));
-  }
-
-  const techLines: string[] = [];
-  if (data.techStack.length) techLines.push('技术栈：' + data.techStack.join('、'));
-  if (data.projectExperience) techLines.push('项目经验：' + data.projectExperience);
-  if (techLines.length) xml = replacePara(xml, PID.tech, run(techLines.join('\n'), { sz: 21 }));
-
-  const introLines: string[] = [];
-  if (data.selfIntroduction) introLines.push(data.selfIntroduction);
-  if (data.reason) introLines.push('加入理由：' + data.reason);
-  if (introLines.length) xml = replacePara(xml, PID.intro, run(introLines.join('\n'), { sz: 21 }));
-
-  // ─── 照片 ───
-  if (data.photoBase64) {
-    const m = data.photoBase64.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (m) {
-      const ext = m[1] === 'png' ? 'png' : 'jpeg';
-      zip.file(`word/media/image1.${ext}`, base64ToUint8(m[2]));
-      // 更新 relationships
-      let rels = await zip.file('word/_rels/document.xml.rels')!.async('string');
-      rels = rels.replace('</Relationships>',
-        `<Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.${ext}"/></Relationships>`);
-      zip.file('word/_rels/document.xml.rels', rels);
-      // 更新 content types
-      let ct = await zip.file('[Content_Types].xml')!.async('string');
-      if (!ct.includes(`Extension="${ext}"`)) {
-        ct = ct.replace('</Types>', `<Default Extension="${ext}" ContentType="image/${ext === 'png' ? 'png' : 'jpeg'}"/></Types>`);
-        zip.file('[Content_Types].xml', ct);
-      }
-      // 替换「照片」单元格内容为图片段落（保留 tcPr 边框）
-      const emuW = 1143000, emuH = 1524000; // 120×160px
-      const id = Math.floor(Math.random() * 90000 + 10000);
-      const drawing = `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${emuW}" cy="${emuH}"/><wp:docPr id="${id}" name="photo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${id}" name="photo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId10" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
-      xml = xml.replace(/<w:tc>[\s\S]*?<\/w:tc>/g, (cell) =>
-        cell.includes('<w:t>照片</w:t>') ? rewriteCell(cell, paragraph(drawing, 'center')) : cell
-      );
-    }
+  // ── 长文小节：品牌色竖条标题（标题带冒号，导入按标签取到下一小节前）──
+  const sections: Array<[string, string]> = [
+    ['自我介绍', data.selfIntroduction],
+    ['项目经验', data.projectExperience],
+    ['加入理由', data.reason],
+  ];
+  for (const [title, content] of sections) {
+    body.push(para(run(`${title}：`, { bold: true, color: C.accent, sz: 24 }), { before: 260, after: 100, accentBar: true }));
+    // 空小节输出空行而不是占位文案——占位文字会被「导入」当成真实内容回填
+    body.push(para(run(content || '', { color: C.body, sz: 21 }), { line: 360, after: 120 }));
+    if (!content) body.push(para(run(''), { after: 120 }));
   }
 
-  zip.file('word/document.xml', xml);
+  const sect = '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1000" w:right="1100" w:bottom="1000" w:left="1100" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${body.join('')}${sect}</w:body></w:document>`;
+}
+
+async function buildDocx(data: ResumeExportData): Promise<Blob> {
+  const zip = new JSZip();
+  const photo = data.photoBase64?.match(/^data:image\/(\w+);base64,(.+)$/) || null;
+  const ext = photo ? (photo[1] === 'png' ? 'png' : 'jpeg') : null;
+
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${ext ? `<Default Extension="${ext}" ContentType="image/${ext === 'png' ? 'png' : 'jpeg'}"/>` : ''}<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+
+  zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${photo ? `<Relationship Id="rIdPhoto" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/photo.${ext}"/>` : ''}</Relationships>`);
+
+  if (photo) zip.file(`word/media/photo.${ext}`, base64ToUint8(photo[2]));
+
+  zip.file('word/document.xml', buildDocumentXml(data, !!photo));
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+
+/** 仅供测试：验证手拼 OOXML 的包结构（Word 对畸形包零容忍） */
+export const __buildDocxForTest = buildDocx;
+
+function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export async function exportResumeAsDOCX(data: ResumeExportData): Promise<void> {
   try {
-    const blob = await fillTemplate(data);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = data.name ? `个人简历_${data.name}.docx` : '个人简历.docx';
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    message.success('简历导出成功');
+    const blob = await buildDocx(data);
+    const empty = !data.name && !data.studentId && !data.selfIntroduction;
+    saveBlob(blob, empty ? '博远招新简历模板.docx' : `博远招新简历_${data.name || '未命名'}.docx`);
+    message.success(empty ? '空白模板已导出，填写后可导入自动回填' : 'Word 简历导出成功');
   } catch (e: any) { console.error(e); message.error(e?.message || '导出失败'); }
+}
+
+/** 后端渲染的 PDF（与 Word 同一版式语言），本人或管理员可导 */
+export async function exportResumeAsPDF(resumeId: number, name?: string): Promise<void> {
+  try {
+    const res: any = await request({
+      url: `/api/resumes/export/pdf/${resumeId}`,
+      method: 'get',
+      responseType: 'blob',
+    });
+    const blob: Blob = res?.data instanceof Blob ? res.data : res;
+    saveBlob(blob, name ? `博远招新简历_${name}.pdf` : `博远招新简历_${resumeId}.pdf`);
+    message.success('PDF 简历导出成功');
+  } catch (e: any) {
+    console.error(e);
+    message.error(e?.message || 'PDF 导出失败');
+  }
 }
