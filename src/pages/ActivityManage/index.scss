@@ -1,0 +1,15 @@
+// 活动管理：富文本编辑器的尺寸约束。
+// Quill 默认随内容无限长高，弹窗里必须给编辑区一个滚动上限。
+.activity-detail-editor {
+  .ql-container {
+    min-height: 220px;
+    max-height: 420px;
+    overflow-y: auto;
+    font-size: 14px;
+  }
+
+  // 编辑区里的图片别按原图尺寸铺出去
+  .ql-editor img {
+    max-width: 100%;
+  }
+}

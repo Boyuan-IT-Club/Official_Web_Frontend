@@ -16,6 +16,7 @@ import Dashboard from "../pages/Dashboard";
 import ClubIntro from "../pages/ClubIntro";
 import Lessons from "../pages/Lessons";
 import Activities from "../pages/Activities";
+import ActivityDetail from "../pages/ActivityDetail";
 import Experience from "../pages/Experience";
 
 // 按需懒加载重型页面 — 减少首屏 bundle 体积
@@ -84,6 +85,11 @@ const router = createBrowserRouter([
   {
     path: "/Activities",
     element: <Activities />,
+  },
+  {
+    // 活动图文详情：链接可直接分享，公开访问
+    path: "/Activities/:id",
+    element: <ActivityDetail />,
   },
   {
     path: "/Experience",
