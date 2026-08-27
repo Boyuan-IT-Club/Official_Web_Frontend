@@ -33,12 +33,6 @@ import {
   updateCycle,
 } from "@/api/manage/cycleApis";
 
-const STATUS_TAG: Record<number, { color: string; text: string }> = {
-  1: { color: "default", text: "未开始" },
-  2: { color: "processing", text: "进行中" },
-  3: { color: "success", text: "已结束" },
-};
-
 const CycleManage: React.FC = () => {
   const [list, setList] = useState<RecruitmentCycle[]>([]);
   const [loading, setLoading] = useState(false);
@@ -170,9 +164,17 @@ const CycleManage: React.FC = () => {
       title: "状态",
       dataIndex: "status",
       width: 90,
-      render: (s: number) => {
-        const t = STATUS_TAG[s] || { color: "default", text: `状态${s}` };
-        return <Tag color={t.color}>{t.text}</Tag>;
+      // 阶段按起止日期推导，不再读手工维护的 status 字段——那个字段没人记得更新，
+      // 会出现「已结束」和旁边按日期算的「投递开放」同框打架的怪相
+      render: (_s: number, record: any) => {
+        const today = dayjs().format("YYYY-MM-DD");
+        if (record.startDate && today < record.startDate) {
+          return <Tag color="default">未开始</Tag>;
+        }
+        if (record.endDate && today > record.endDate) {
+          return <Tag color="success">已结束</Tag>;
+        }
+        return <Tag color="processing">进行中</Tag>;
       },
     },
     {

@@ -155,7 +155,7 @@ function para(inner: string, opts: ParaOpts = {}): string {
 /** 「标签：值」——同一段落输出，保证导入侧 mammoth/pdf.js 提取出「标签：值」整行 */
 function labeledPara(label: string, value: string, opts: ParaOpts = {}): string {
   return para(
-    run(`${label}：`, { bold: true, color: C.label, sz: 20 }) + run(value ?? '', { color: C.text, sz: 21 }),
+    run(`${label}：`, { color: C.label, sz: 19 }) + run(value ?? '', { bold: true, color: C.text, sz: 21 }),
     { after: 60, ...opts },
   );
 }
@@ -167,7 +167,7 @@ function cell(innerParas: string, opts: { width?: number; bottomLine?: boolean; 
   const borders = `<w:tcBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:right w:val="nil"/><w:bottom w:val="${bottomLine ? 'single' : 'nil'}"${bottomLine ? ` w:sz="4" w:color="${C.line}"` : ''}/></w:tcBorders>`;
   const shd = fill ? `<w:shd w:val="clear" w:fill="${fill}"/>` : '';
   const va = vAlign ? `<w:vAlign w:val="${vAlign}"/>` : '';
-  const margins = '<w:tcMar><w:top w:w="90" w:type="dxa"/><w:bottom w:w="90" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar>';
+  const margins = '<w:tcMar><w:top w:w="110" w:type="dxa"/><w:bottom w:w="110" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar>';
   return `<w:tc><w:tcPr>${w}${borders}${shd}${va}${margins}</w:tcPr>${innerParas}</w:tc>`;
 }
 
@@ -191,26 +191,29 @@ function photoDrawing(relId: string): string {
   return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${emuW}" cy="${emuH}"/><wp:docPr id="101" name="photo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="101" name="photo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
 }
 
-/** 组装 word/document.xml 正文 */
-function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean): string {
+/** 组装 word/document.xml 正文。extras：本周期的自定义字段（标签→值），跟随简历字段配置 */
+function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Array<[string, string]> = []): string {
   const body: string[] = [];
 
-  // ── 深蓝横幅：姓名 + 社团名（照片嵌在横幅右侧，白边衬托）──
+  // ── 页眉区：大号姓名 + 灰色副标题，右侧证件照；不用大色块，打印件更耐看 ──
   const nameShown = data.name || '（姓名）';
-  const bannerLeft = cell(
-    para(run(nameShown, { bold: true, color: 'FFFFFF', sz: 44 }), { after: 40 })
-    + para(run('博远信息技术社 · 招新申请简历', { color: C.brandSub, sz: 18 })),
-    { fill: C.brand, vAlign: 'center' },
+  const headLeft = cell(
+    para(run(nameShown, { bold: true, color: C.text, sz: 52 }), { after: 60 })
+    + para(run('博远信息技术社 · 招新申请简历', { color: C.accent, sz: 19 })),
+    { vAlign: 'center' },
   );
-  const bannerCells = hasPhoto
-    ? bannerLeft + cell(para(photoDrawing('rIdPhoto'), { align: 'right' }), { fill: C.brand, vAlign: 'center', width: 2000 })
-    : bannerLeft;
-  body.push(table([`<w:tr>${bannerCells}</w:tr>`], hasPhoto ? { widths: [7600, 2000] } : undefined));
+  const headCells = hasPhoto
+    ? headLeft + cell(para(photoDrawing('rIdPhoto'), { align: 'right' }), { vAlign: 'center', width: 1900 })
+    : headLeft;
+  body.push(table([`<w:tr>${headCells}</w:tr>`], hasPhoto ? { widths: [7700, 1900] } : undefined));
+
+  // 品牌色粗分隔线：靠段落底边框画，比色块横幅克制
+  body.push(`<w:p><w:pPr><w:spacing w:before="60" w:after="40"/><w:pBdr><w:bottom w:val="single" w:sz="14" w:space="1" w:color="${C.accent}"/></w:pBdr></w:pPr></w:p>`);
 
   // ── 填写说明：这份文件同时是离线填写模板 ──
   body.push(para(
-    run('提示：本文件可离线填写——在各「标签：」后补全内容并保存，回到官网「简历投递」页点「导入已填写的文件」即可自动回填对应字段。', { color: C.hint, sz: 17 }),
-    { before: 120, after: 160 },
+    run('本文件可离线填写：在各「标签：」后补全内容并保存，回到官网「简历投递」页点「导入已填写的文件」即可自动回填。', { color: C.hint, sz: 16 }),
+    { before: 60, after: 200 },
   ));
 
   // ── 基本信息栅格：两列，浅底线分行 ──
@@ -242,10 +245,18 @@ function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean): string {
     ['加入理由', data.reason],
   ];
   for (const [title, content] of sections) {
-    body.push(para(run(`${title}：`, { bold: true, color: C.accent, sz: 24 }), { before: 260, after: 100, accentBar: true }));
+    body.push(para(run(`${title}：`, { bold: true, color: C.accent, sz: 23 }), { before: 300, after: 110, accentBar: true }));
     // 空小节输出空行而不是占位文案——占位文字会被「导入」当成真实内容回填
-    body.push(para(run(content || '', { color: C.body, sz: 21 }), { line: 360, after: 120 }));
+    body.push(para(run(content || '', { color: C.body, sz: 21 }), { line: 380, after: 120 }));
     if (!content) body.push(para(run(''), { after: 120 }));
+  }
+
+  // ── 本周期的自定义字段：简历字段是按周期配置的，导出跟着配置走，不漏字段 ──
+  if (extras.length > 0) {
+    body.push(para(run('其他信息：', { bold: true, color: C.accent, sz: 23 }), { before: 300, after: 110, accentBar: true }));
+    for (const [label, value] of extras) {
+      body.push(labeledPara(label, value, { after: 90 }));
+    }
   }
 
   const sect = '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1000" w:right="1100" w:bottom="1000" w:left="1100" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>';
@@ -253,7 +264,7 @@ function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean): string {
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${body.join('')}${sect}</w:body></w:document>`;
 }
 
-async function buildDocx(data: ResumeExportData): Promise<Blob> {
+async function buildDocx(data: ResumeExportData, extras: Array<[string, string]> = []): Promise<Blob> {
   const zip = new JSZip();
   const photo = data.photoBase64?.match(/^data:image\/(\w+);base64,(.+)$/) || null;
   const ext = photo ? (photo[1] === 'png' ? 'png' : 'jpeg') : null;
@@ -269,7 +280,7 @@ async function buildDocx(data: ResumeExportData): Promise<Blob> {
 
   if (photo) zip.file(`word/media/photo.${ext}`, base64ToUint8(photo[2]));
 
-  zip.file('word/document.xml', buildDocumentXml(data, !!photo));
+  zip.file('word/document.xml', buildDocumentXml(data, !!photo, extras));
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 
@@ -285,9 +296,9 @@ function saveBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export async function exportResumeAsDOCX(data: ResumeExportData): Promise<void> {
+export async function exportResumeAsDOCX(data: ResumeExportData, extras: Array<[string, string]> = []): Promise<void> {
   try {
-    const blob = await buildDocx(data);
+    const blob = await buildDocx(data, extras);
     const empty = !data.name && !data.studentId && !data.selfIntroduction;
     saveBlob(blob, empty ? '博远招新简历模板.docx' : `博远招新简历_${data.name || '未命名'}.docx`);
     message.success(empty ? '空白模板已导出，填写后可导入自动回填' : 'Word 简历导出成功');

@@ -610,6 +610,32 @@ const Publish: React.FC = () => {
   }, [fieldValues, isEditing, fieldIdMapping, departments, interviewTimes,
       isFieldEnabled, getFieldValue, form]);
 
+  // 第一次进入填写页弹一次「怎么填」的提示，之后不再打扰（按账号记）
+  useEffect(() => {
+    if (!isEditing || isInitializing) return;
+    const uid = userInfo?.userId;
+    if (!uid) return;
+    const key = `boyuan.tip.publish.v1:${uid}`;
+    try {
+      if (localStorage.getItem(key) === '1') return;
+      localStorage.setItem(key, '1');
+    } catch { return; }
+    Modal.info({
+      title: '填写小贴士',
+      width: 480,
+      okText: '开始填写',
+      content: (
+        <ul style={{ paddingLeft: 18, lineHeight: 2, margin: '8px 0 0' }}>
+          <li>姓名、学号、邮箱、GitHub 已从你的账号资料自动带入，可直接修改；</li>
+          <li>带 <span style={{ color: '#ff4d4f' }}>*</span> 的是必填项，填完点「提交申请」才算投递成功；</li>
+          <li>不想在网页里填？顶部可导出 Word 模板离线填写，回来导入自动回填；</li>
+          <li>随时点「保存草稿」，内容不会丢，提交后在截止前仍可修改。</li>
+        </ul>
+      ),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, isInitializing, userInfo?.userId]);
+
   // 从登录信息自动补全姓名、学号（邮箱前缀）、邮箱、手机号。
   // 说明：不限定编辑态——查看态也需要有值；且只在该字段当前为空时补，
   // 不覆盖用户自己填过的内容。补进 redux 后随「保存草稿/提交」一并落库。
@@ -622,6 +648,7 @@ const Publish: React.FC = () => {
     };
     fillIfEmpty('name', userInfo.name);
     fillIfEmpty('phone', userInfo.phone);
+    fillIfEmpty('github', userInfo.github);
     if (userInfo.email) {
       fillIfEmpty('email', userInfo.email);
       fillIfEmpty('student_id', userInfo.studentId ?? String(userInfo.email).split('@')[0]);
@@ -904,15 +931,45 @@ const Publish: React.FC = () => {
     return buildExportData(fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64);
   }, [fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64]);
 
+  // 本周期的自定义字段（标准键之外）：简历字段按周期配置，导出必须跟着走，
+  // 否则「表里填了、导出的 Word 里没有」
+  const exportExtras = useMemo<Array<[string, string]>>(() => {
+    const KNOWN = new Set(['name', 'student_id', 'gender', 'grade', 'major', 'email', 'phone',
+      'github', 'tech_stack', 'self_introduction', 'reason', 'project_experience',
+      'expected_departments', 'expected_interview_time', 'personal_photo', 'photo']);
+    const list: Array<[string, string]> = [];
+    (fieldDefinitions ?? []).forEach((def: any) => {
+      const key = def.fieldKey ?? def.field_key;
+      const label = def.fieldLabel ?? def.field_label;
+      const id = def.fieldId ?? def.field_id;
+      if (!label || !id || (key && KNOWN.has(key))) return;
+      const raw: any = fieldValueMap.get(Number(id));
+      const v = raw && typeof raw === 'object' ? raw.fieldValue : raw;
+      const text = v == null ? '' : String(v);
+      if (!text.trim() || text.startsWith('data:image/')) return;
+      list.push([String(label), text]);
+    });
+    return list;
+  }, [fieldDefinitions, fieldValueMap]);
+
+  const exportIsEmpty = useMemo(() =>
+    !exportData.name && !exportData.studentId && !exportData.selfIntroduction
+    && !exportData.projectExperience && exportExtras.length === 0,
+  [exportData, exportExtras]);
+
   const handleExportDOCX = useCallback(async (): Promise<void> => {
-    await exportResumeAsDOCX(exportData);
-  }, [exportData]);
+    await exportResumeAsDOCX(exportData, exportExtras);
+  }, [exportData, exportExtras]);
 
   const handleExportPDF = useCallback(async (): Promise<void> => {
     const rid = resume?.resume_id || resume?.id;
     if (!rid) { message.warning('简历尚未创建，先保存一次草稿再导出 PDF'); return; }
+    if (exportIsEmpty) {
+      // 常见困惑：当前选中的是新周期的空草稿，导出的 PDF 自然「什么都没有」
+      message.warning('当前周期的简历还没有内容，导出的 PDF 将只有空白模板样式');
+    }
     await exportResumeAsPDF(Number(rid), exportData.name);
-  }, [resume, exportData.name]);
+  }, [resume, exportData.name, exportIsEmpty]);
 
   // ---- 导入处理 ----
   const handleImportFile = useCallback(async (file: File): Promise<void> => {
@@ -956,6 +1013,14 @@ const Publish: React.FC = () => {
         importedCount++;
       }
     });
+
+    // 特殊处理：志愿部门写进 departments 状态（随提交一并保存）
+    if (extractedFields.first_department || extractedFields.second_department) {
+      setDepartments((prev) => ({
+        first: extractedFields.first_department?.trim() || prev.first,
+        second: extractedFields.second_department?.trim() || prev.second,
+      }));
+    }
 
     // 特殊处理：技术栈需要更新 techStackItems 状态
     if (extractedFields.tech_stack) {
@@ -1137,27 +1202,27 @@ const Publish: React.FC = () => {
           {/* 离线填写面板：导出模板 → Word 里填写 → 导入自动回填 */}
           <div className="offline-fill-panel">
             <div className="offline-fill-text">
-              <div className="offline-fill-title"><ImportOutlined /> 不想在网页里填？</div>
-              <div className="offline-fill-desc">
-                导出 Word 模板离线填写，回来点「导入」即可按字段自动回填；也支持导入你已有的
-                Word / PDF 简历，系统会尽量识别对应内容。
-              </div>
+              <span className="offline-fill-title"><ImportOutlined /> 离线填写</span>
+              <span className="offline-fill-desc">
+                导出模板 → Word 里填写 → 导入自动回填；也可导入已有的 Word / PDF 简历
+              </span>
             </div>
-            <Space wrap>
-              <Button icon={<FileWordOutlined />} onClick={handleExportDOCX}>
-                导出 Word 模板
+            <Space wrap size={6}>
+              <Button size="small" icon={<FileWordOutlined />} onClick={handleExportDOCX}>
+                Word 模板
               </Button>
-              <Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>
-                导出 PDF
+              <Button size="small" icon={<FilePdfOutlined />} onClick={handleExportPDF}>
+                PDF
               </Button>
               <Button
+                size="small"
                 type="primary"
                 ghost
                 icon={<ImportOutlined />}
                 loading={importLoading}
                 onClick={() => fileInputRef.current?.click()}
               >
-                导入已填写的文件
+                导入回填
               </Button>
               <input
                 ref={fileInputRef}
@@ -1419,6 +1484,8 @@ const Publish: React.FC = () => {
                 <Table
                   dataSource={[
                     { label: '姓名', value: extractedFields.name },
+                    { label: '第一志愿', value: extractedFields.first_department },
+                    { label: '第二志愿', value: extractedFields.second_department },
                     { label: '学号', value: extractedFields.student_id },
                     { label: '性别', value: extractedFields.gender },
                     { label: '年级', value: extractedFields.grade },
