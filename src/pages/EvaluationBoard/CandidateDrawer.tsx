@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import PageHint from '@/components/PageHint';
 import {
-  Alert, Avatar, Button, Descriptions, Divider, Drawer, Input, InputNumber,
+  Alert, Avatar, Button, Descriptions, Divider, Drawer, InputNumber,
   Radio, Space, Spin, Statistic, Tabs, Tag, Tooltip, Typography, message,
 } from 'antd';
 import ResumeQuickView from '@/components/ResumeQuickView';
@@ -11,6 +11,7 @@ import {
   CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS,
 } from '@/api/manage/interviewEvaluation';
 import { loadCandidateResume, prefetchCandidateResume } from './resumeCache';
+import CollabTextArea from './CollabTextArea';
 import {
   BoardRow, CollabBoard, COMMENT_COL, RECOMMENDATION_COL, STATUS_COL,
   useSharedText, weightedTotal,
@@ -209,17 +210,16 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
         面试记录与评语
         <TypingTag field={COMMENT_COL} />
       </Divider>
-      <Input.TextArea
+      <CollabTextArea
+        board={board}
+        scheduleId={scheduleId}
+        field={COMMENT_COL}
         rows={8}
         disabled={!editable}
         className={typingOn(COMMENT_COL).length > 0 ? 'is-peer-typing' : undefined}
         placeholder="本场面试官共同记录候选人的表现、亮点与顾虑，输入即同步"
         value={comment}
-        onChange={(e) => {
-          board.setTyping(COMMENT_COL);
-          setComment(e.target.value);
-        }}
-        onBlur={() => board.setTyping(null)}
+        onChange={(e) => setComment(e.target.value)}
       />
 
       <Divider />

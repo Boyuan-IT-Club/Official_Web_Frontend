@@ -32,7 +32,7 @@ const ROW: BoardRow = {
 
 const peer = (over: Partial<BoardPeer>): BoardPeer => ({
   clientId: 1, userId: 7, name: '高兴昊', color: '#f50',
-  activeScheduleId: 11, typingField: null, ...over,
+  activeScheduleId: 11, typingField: null, cursor: null, ...over,
 });
 
 const makeBoard = (over: Partial<CollabBoard> = {}): CollabBoard => ({
@@ -50,6 +50,9 @@ const makeBoard = (over: Partial<CollabBoard> = {}): CollabBoard => ({
   writeStatus: jest.fn(),
   setActiveRow: jest.fn(),
   setTyping: jest.fn(),
+  setCursor: jest.fn(),
+  clearCursor: jest.fn(),
+  resolveCursor: () => null,
   ...over,
 } as CollabBoard);
 
