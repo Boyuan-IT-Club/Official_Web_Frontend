@@ -72,6 +72,8 @@ export interface BoardRow {
   deptId?: number;
   deptName?: string;
   sessionId?: number;
+  /** 面试地点（取自场次） */
+  location?: string;
   interviewTime?: string;
   interviewerUserIds: number[];
   /** 已被移出名单，保留已填评价但置灰 */
@@ -298,6 +300,7 @@ function readRows(doc: Y.Doc): BoardRow[] {
       deptId: info.get('deptId') as number | undefined,
       deptName: info.get('deptName') as string | undefined,
       sessionId: info.get('sessionId') as number | undefined,
+      location: info.get('location') as string | undefined,
       interviewTime: info.get('interviewTime') as string | undefined,
       interviewerUserIds: Array.isArray(interviewerUserIds) ? interviewerUserIds.map(Number) : [],
       removed: info.get('removed') === true,
