@@ -43,12 +43,16 @@
     font-size: 15px;
     font-weight: 600;
     color: #1c1c1f;
+    // 吃掉全部剩余空间：右侧的搜索/指引/账号聚成一组，
+    // 否则 space-between 会把四个元素平摊开
+    margin-right: auto;
   }
 
   .admin-user {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-left: 12px;
     padding: 4px 8px;
     border-radius: 8px;
     cursor: pointer;

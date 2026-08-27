@@ -123,6 +123,32 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         color: $text-color;
       }
 
+      // 右侧一组：使用指引 + 用户菜单。顶栏是 space-between，
+      // 不包一层的话新按钮会被挤到正中间
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: t.$gap-xs;
+      }
+
+      // 「使用指引」入口做得轻：常驻但不抢注意力
+      .header-help {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: t.$text-sm;
+        color: rgba(0, 0, 0, 0.45);
+        padding: 4px 8px;
+        border-radius: t.$radius-sm;
+        cursor: pointer;
+        transition: all t.$dur-base t.$ease;
+
+        &:hover {
+          color: $tech-blue;
+          background: rgba(0, 0, 0, 0.04);
+        }
+      }
+
       .header-user {
         display: flex;
         align-items: center;
@@ -176,6 +202,16 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
 
       .tech-header {
         padding: 0 t.$gap-sm;
+
+        // 窄屏收掉指引入口的文字，只留图标
+        .header-help {
+          font-size: 0;
+          gap: 0;
+
+          .anticon {
+            font-size: t.$text-sm;
+          }
+        }
 
         .header-user {
           .username {
