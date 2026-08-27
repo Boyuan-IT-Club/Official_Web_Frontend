@@ -92,6 +92,21 @@ export interface RowEvaluation {
 /** 停止输入多久后收回「正在输入」。太短会闪，太长会在对方停手后仍亮着 */
 const TYPING_IDLE_MS = 2500;
 
+/**
+ * 一位同事在某个文本字段里的光标/选区。
+ *
+ * anchor/head 存的是 Yjs 相对位置（RelativePosition）的 JSON 而不是普通下标：
+ * 两个人同时编辑同一段评语时，普通下标会因为对方的插入/删除而指错字，
+ * 相对位置钉在字符上，文本怎么变都指向原来那个缝隙。
+ * null 表示该格还没有 Y.Text（谁都没写过字），此时光标就在 0 处。
+ */
+export interface PeerCursor {
+  scheduleId: number;
+  field: string;
+  anchor: object | null;
+  head: object | null;
+}
+
 export interface BoardPeer {
   clientId: number;
   userId: number;
@@ -107,6 +122,8 @@ export interface BoardPeer {
    * 而且没有新事件时不会重新渲染，头像会一直亮着。
    */
   typingField: string | null;
+  /** 正在聚焦的文本框里的光标/选区，没聚焦文本框时为 null */
+  cursor: PeerCursor | null;
 }
 
 /** 在线状态的头像配色，按 userId 取模，保证同一个人到处都是同一个颜色 */
@@ -183,6 +200,67 @@ export function applyTextDiff(text: Y.Text, next: string): void {
   if (deleteLength > 0) text.delete(start, deleteLength);
   const inserted = next.slice(start, next.length - tail);
   if (inserted) text.insert(start, inserted);
+}
+
+function cellOf(doc: Y.Doc, scheduleId: number, field: string): unknown {
+  const rowMap = doc.getMap<Y.Map<any>>('rows').get(String(scheduleId));
+  return rowMap instanceof Y.Map ? rowMap.get(field) : undefined;
+}
+
+/**
+ * 把「某格文本里的第 N 个字符间隙」编码成可广播的光标状态。
+ * 该格还不是 Y.Text（没人写过字）时退化为 null，解码端按 0 处理。
+ */
+export function encodeCursor(
+  doc: Y.Doc,
+  scheduleId: number,
+  field: string,
+  anchor: number,
+  head: number,
+): PeerCursor {
+  const cell = cellOf(doc, scheduleId, field);
+  if (!(cell instanceof Y.Text)) {
+    return { scheduleId, field, anchor: null, head: null };
+  }
+  const clamp = (index: number) => Math.max(0, Math.min(index, cell.length));
+  return {
+    scheduleId,
+    field,
+    anchor: Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(cell, clamp(anchor))),
+    head: Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(cell, clamp(head))),
+  };
+}
+
+/**
+ * 把同事广播的光标解回当前文档里的下标。
+ * 位置钉不回这格文本时（比如那格在他离线期间被整个重建）返回 null，宁可不画也别画错。
+ */
+export function decodeCursor(
+  doc: Y.Doc,
+  cursor: PeerCursor,
+): { anchor: number; head: number } | null {
+  if (cursor.anchor === null || cursor.head === null) {
+    return { anchor: 0, head: 0 };
+  }
+  const cell = cellOf(doc, cursor.scheduleId, cursor.field);
+  if (!(cell instanceof Y.Text)) return null;
+
+  const resolve = (raw: object): number | null => {
+    try {
+      const abs = Y.createAbsolutePositionFromRelativePosition(
+        Y.createRelativePositionFromJSON(raw),
+        doc,
+      );
+      return abs && abs.type === cell ? abs.index : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const anchor = resolve(cursor.anchor);
+  const head = resolve(cursor.head);
+  if (anchor === null || head === null) return null;
+  return { anchor, head };
 }
 
 function readColumns(doc: Y.Doc): BoardColumn[] {
@@ -299,6 +377,16 @@ export interface CollabBoard {
    * 别人看到的仍是「正在输入」。
    */
   setTyping: (field: string | null) => void;
+  /**
+   * 广播我在某个文本字段里的光标/选区（选区收起时 anchor === head）。
+   * 与 typing 不同，光标不做超时自动收回——人在字段里停着不动，
+   * 光标就该一直立在那里；离开字段时调 clearCursor。
+   */
+  setCursor: (scheduleId: number, field: string, anchor: number, head: number) => void;
+  /** 收回自己的光标（失焦/关闭面板时调用） */
+  clearCursor: () => void;
+  /** 把同事广播的光标解成当前文本里的下标；解不出来（已失效）返回 null */
+  resolveCursor: (peer: BoardPeer) => { anchor: number; head: number } | null;
 }
 
 /**
@@ -391,6 +479,7 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
           color: String(user.color ?? peerColor(Number(user.userId))),
           activeScheduleId: state?.active?.scheduleId ?? null,
           typingField: state?.typing?.field ?? null,
+          cursor: state?.cursor ?? null,
         });
       });
       setPeers(list);
@@ -589,6 +678,23 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     }, TYPING_IDLE_MS);
   }, []);
 
+  const setCursor = useCallback((scheduleId: number, field: string, anchor: number, head: number) => {
+    const doc = docRef.current;
+    const awarenessRef = providerRef.current?.awareness;
+    if (!doc || !awarenessRef) return;
+    awarenessRef.setLocalStateField('cursor', encodeCursor(doc, scheduleId, field, anchor, head));
+  }, []);
+
+  const clearCursor = useCallback(() => {
+    providerRef.current?.awareness?.setLocalStateField('cursor', null);
+  }, []);
+
+  const resolveCursor = useCallback((peer: BoardPeer) => {
+    const doc = docRef.current;
+    if (!doc || !peer.cursor) return null;
+    return decodeCursor(doc, peer.cursor);
+  }, []);
+
   // 关掉抽屉/断开连接时把打字状态一起收掉，别留一个永久亮着的提示
   useEffect(() => () => {
     if (typingTimer.current !== null) {
@@ -618,6 +724,9 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     writeStatus,
     setActiveRow,
     setTyping,
+    setCursor,
+    clearCursor,
+    resolveCursor,
   };
 }
 

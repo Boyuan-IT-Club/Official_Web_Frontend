@@ -1,0 +1,58 @@
+// 协同文本框里同事光标的皮肤。结构说明见 CollabTextArea.tsx 顶部注释。
+.collab-ta {
+  position: relative;
+
+  // 铺在 textarea 上的镜像：文字透明，只借浏览器的排版来定位光标与选区。
+  // 边框宽度从 textarea 拷来但画成透明，保证内容盒与真身逐像素对齐。
+  &__mirror {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    color: transparent;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    border-style: solid;
+    border-color: transparent;
+    z-index: 1;
+  }
+
+  &__selection {
+    border-radius: 2px;
+  }
+
+  &__marker {
+    display: inline;
+  }
+
+  // 同事的光标：一根他专属颜色的细竖线。不做闪烁——闪的是「我的」光标，
+  // 别人的光标一闪，很容易误以为是自己的落点。
+  &__caret {
+    position: absolute;
+    width: 2px;
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  // 顶在光标上的名旗。第一行放不下时由 --below 翻到光标下方
+  &__flag {
+    position: absolute;
+    left: -1px;
+    bottom: 100%;
+    font-size: 10px;
+    line-height: 16px;
+    color: #fff;
+    padding: 0 5px;
+    border-radius: 3px 3px 3px 0;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  &__flag--below {
+    bottom: auto;
+    top: 100%;
+    border-radius: 0 3px 3px 3px;
+  }
+}

@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Avatar, Button, Empty, Input, InputNumber, List, Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
+  Alert, Avatar, Button, Empty, InputNumber, List, Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
 } from 'antd';
 import { ArrowLeftOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
@@ -18,7 +18,9 @@ import { getToken } from '@/utils';
 import { parseJwtPayload } from '@/utils/jwt';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
+import CollabTextArea from '../EvaluationBoard/CollabTextArea';
 import {
+  COMMENT_COL,
   dimensionColId,
   dimensionNoteColId,
   peerColor,
@@ -81,7 +83,10 @@ const DimensionCard: React.FC<{
           </Tooltip>
         )}
       </div>
-      <Input.TextArea
+      <CollabTextArea
+        board={board}
+        scheduleId={scheduleId}
+        field={dimensionNoteColId(dimensionId)}
         value={note}
         onChange={(e) => setNote(e.target.value)}
         disabled={disabled}
@@ -119,6 +124,15 @@ const EvaluationWorkspace: React.FC = () => {
     () => board.rows.find((r) => r.scheduleId === scheduleId),
     [board.rows, scheduleId],
   );
+
+  // 广播「我在这位候选人上」：评价表页的行内头像、抽屉里的同伴提示都靠它。
+  // 原先只有抽屉会广播，从工作台进来的人对同事是隐身的。
+  const { setActiveRow } = board;
+  useEffect(() => {
+    if (!board.synced || !Number.isFinite(scheduleId)) return undefined;
+    setActiveRow(scheduleId);
+    return () => setActiveRow(null);
+  }, [board.synced, setActiveRow, scheduleId]);
 
   const dimensionColumns = useMemo(
     () => board.columns.filter((c) => c.type === 'score' && c.dimensionId != null),
@@ -355,7 +369,10 @@ const EvaluationWorkspace: React.FC = () => {
                 <span className="ws-last-edit">最后修改：{lastEditedByName}</span>
               )}
             </div>
-            <Input.TextArea
+            <CollabTextArea
+              board={board}
+              scheduleId={scheduleId}
+              field={COMMENT_COL}
               value={overallComment}
               onChange={(e) => setOverallComment(e.target.value)}
               disabled={!editable}
