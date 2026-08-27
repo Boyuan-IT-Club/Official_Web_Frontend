@@ -16,6 +16,9 @@ interface Announcement {
   location: string;
   status: '报名中' | '即将开始' | '进行中';
   description: string;
+  cover?: string;
+  /** 有图文详情才显示「查看详情」，纯占位活动没有可看的 */
+  hasDetail: boolean;
 }
 
 interface SummarySlide {
@@ -40,6 +43,8 @@ const toAnnouncement = (a: Activity): Announcement => {
     location: a.location || '地点待定',
     status,
     description: a.description || '',
+    cover: a.coverImage || undefined,
+    hasDetail: Boolean(a.detailContent),
   };
 };
 
@@ -122,6 +127,15 @@ const Activities: React.FC = () => {
           <div className="announcement-list">
             {announcementsData.map((item) => (
               <div className="announcement-card" key={item.id}>
+                {item.cover && (
+                  <img
+                    className="card-cover"
+                    src={item.cover}
+                    alt={item.title}
+                    onClick={() => item.hasDetail && navigate(`/Activities/${item.id}`)}
+                    style={item.hasDetail ? { cursor: 'pointer' } : undefined}
+                  />
+                )}
                 <div className="card-header">
                   <h3>{item.title}</h3>
                   <span className={`status-badge ${item.status === '报名中' ? 'pulse' : ''}`}>
@@ -133,9 +147,16 @@ const Activities: React.FC = () => {
                   <p className="info-line">📍 <strong>地点：</strong>{item.location}</p>
                   <p className="desc">{item.description}</p>
                 </div>
-                <div className="card-footer">
-                  <button className="action-btn">立即了解 / 报名</button>
-                </div>
+                {item.hasDetail && (
+                  <div className="card-footer">
+                    <button
+                      className="action-btn"
+                      onClick={() => navigate(`/Activities/${item.id}`)}
+                    >
+                      查看图文详情
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {announcementsData.length === 0 && (

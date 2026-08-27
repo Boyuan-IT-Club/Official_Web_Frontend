@@ -4,7 +4,10 @@ import { request } from '@/utils';
 export interface Activity {
   activityId: number;
   title: string;
+  /** 列表卡片上的纯文本摘要 */
   description?: string;
+  /** 图文详情：富文本 HTML，服务端已按白名单消毒，图片以 URL 内嵌 */
+  detailContent?: string;
   category?: string;
   coverImage?: string;
   startTime?: string;      // yyyy-MM-dd
@@ -24,6 +27,10 @@ export function listActivities() {
   return request({ url: '/api/activity', method: 'get' });
 }
 
+export function getActivity(id: number) {
+  return request({ url: `/api/activity/${id}`, method: 'get' });
+}
+
 export function createActivity(data: Partial<Activity>) {
   return request({ url: '/api/activity', method: 'post', data });
 }
@@ -34,4 +41,11 @@ export function updateActivity(id: number, data: Partial<Activity>) {
 
 export function deleteActivity(id: number) {
   return request({ url: `/api/activity/${id}`, method: 'delete' });
+}
+
+/** 上传活动图片（封面/正文插图），返回 { url, objectKey }，需 activity:manage */
+export function uploadActivityImage(file: File) {
+  const data = new FormData();
+  data.append('file', file);
+  return request({ url: '/api/activity/image', method: 'post', data });
 }

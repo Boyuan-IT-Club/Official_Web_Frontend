@@ -101,7 +101,9 @@ const CollabTextArea: React.FC<CollabTextAreaProps> = ({
     });
   }, []);
 
-  // 每次渲染后量一遍各个零宽 span 的落点；量出来没变就不触发下一轮渲染
+  // 每次渲染后量一遍各个零宽 span 的落点——文本、光标、宽度任何变化都会影响落点，
+  // 所以刻意不写依赖数组；下面的相等性守卫保证量出来没变时不触发下一轮渲染。
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const next: Record<number, { left: number; top: number; height: number }> = {};
     markerRefs.current.forEach((el, clientId) => {
