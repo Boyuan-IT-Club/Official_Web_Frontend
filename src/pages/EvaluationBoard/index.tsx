@@ -235,6 +235,19 @@ const EvaluationBoardPage: React.FC = () => {
         </Space>
       ),
     },
+    {
+      // 简历初筛分：面试官打分时的参考基线；打分人署名只对管理员显示
+      title: '简历分',
+      dataIndex: 'resumeScore',
+      width: 76,
+      render: (score: number | undefined, row: DerivedRow) => {
+        if (score === undefined || score === null) return <Text type="secondary">—</Text>;
+        const cell = <Text strong style={{ fontSize: 13 }}>{score}</Text>;
+        return isAdmin && row.resumeScoredByName
+          ? <Tooltip title={`${row.resumeScoredByName} 打分`}>{cell}</Tooltip>
+          : cell;
+      },
+    },
     ...scoreColumns.map((column) => ({
       title: (
         <Tooltip title={`满分 ${column.maxScore}，权重 ${column.weight}`}>

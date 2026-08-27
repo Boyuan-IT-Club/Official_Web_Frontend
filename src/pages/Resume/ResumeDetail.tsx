@@ -220,48 +220,63 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
         </Space>
       </div>
 
+      {/* 简历打分面板：审核动线的主操作，做成整行显眼面板而不是角落小控件。
+          resume_score 的唯一写入口；署名与时间来自后端（V30 起记录）。 */}
+      <div className="resume-score-panel">
+        <div className="score-panel-main">
+          <span className="score-panel-label">简历评分</span>
+          <span className={`score-panel-value${savedScore == null ? ' score-panel-value--empty' : ''}`}>
+            {savedScore == null ? '未打分' : savedScore}
+          </span>
+          {(resume as any)?.scoredByName && (
+            <span className="score-panel-by">
+              {(resume as any).scoredByName} 打分
+              {(resume as any)?.scoredAt ? ` · ${String((resume as any).scoredAt).replace('T', ' ').slice(0, 16)}` : ''}
+            </span>
+          )}
+        </div>
+        <Space size={8}>
+          <InputNumber
+            min={0}
+            max={100}
+            size="large"
+            placeholder="0~100"
+            value={score}
+            onChange={(v) => setScore(v == null ? undefined : Number(v))}
+            style={{ width: 110 }}
+            onPressEnter={() => { /* 交给保存按钮统一处理，避免重复提交 */ }}
+          />
+          <Button
+            size="large"
+            type="primary"
+            loading={scoreSaving}
+            disabled={score == null || score === savedScore}
+            onClick={async () => {
+              if (score == null) return;
+              setScoreSaving(true);
+              try {
+                await updateResumeScore(Number(resume.resumeId), score);
+                setSavedScore(score);
+                message.success(`已打分 ${score}`);
+              } catch (e: any) {
+                message.error(e?.message || '打分失败');
+              } finally {
+                setScoreSaving(false);
+              }
+            }}
+          >
+            {savedScore == null ? '保存打分' : '更新打分'}
+          </Button>
+        </Space>
+      </div>
+
       <div className="resume-detail-content">
         <Card
           className="resume-display-card"
           extra={
-            <Space size="middle">
-              {/* 简历打分：resume_score 此前没有任何写入口，这里是唯一入口 */}
-              <Space size={4}>
-                <span style={{ color: '#8c8c8c', fontSize: 13 }}>简历评分</span>
-                <InputNumber
-                  min={0}
-                  max={100}
-                  size="small"
-                  value={score}
-                  onChange={(v) => setScore(v == null ? undefined : Number(v))}
-                  style={{ width: 72 }}
-                />
-                <Button
-                  size="small"
-                  type="primary"
-                  loading={scoreSaving}
-                  disabled={score == null || score === savedScore}
-                  onClick={async () => {
-                    if (score == null) return;
-                    setScoreSaving(true);
-                    try {
-                      await updateResumeScore(Number(resume.resumeId), score);
-                      setSavedScore(score);
-                      message.success(`已打分 ${score}`);
-                    } catch (e: any) {
-                      message.error(e?.message || '打分失败');
-                    } finally {
-                      setScoreSaving(false);
-                    }
-                  }}
-                >
-                  保存
-                </Button>
-              </Space>
-              <Tag icon={statusInfo.icon} color={statusInfo.color} style={{ fontSize: '14px' }}>
-                {statusInfo.text}
-              </Tag>
-            </Space>
+            <Tag icon={statusInfo.icon} color={statusInfo.color} style={{ fontSize: '14px' }}>
+              {statusInfo.text}
+            </Tag>
           }
         >
           <div className="resume-header">

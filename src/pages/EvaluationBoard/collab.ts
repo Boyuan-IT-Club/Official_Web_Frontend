@@ -74,6 +74,10 @@ export interface BoardRow {
   sessionId?: number;
   /** 面试地点（取自场次） */
   location?: string;
+  /** 简历初筛分（管理员在简历审核里打的 0~100） */
+  resumeScore?: number;
+  /** 简历打分人姓名；只对有管理权限的端展示 */
+  resumeScoredByName?: string;
   interviewTime?: string;
   interviewerUserIds: number[];
   /** 已被移出名单，保留已填评价但置灰 */
@@ -301,6 +305,8 @@ function readRows(doc: Y.Doc): BoardRow[] {
       deptName: info.get('deptName') as string | undefined,
       sessionId: info.get('sessionId') as number | undefined,
       location: info.get('location') as string | undefined,
+      resumeScore: info.get('resumeScore') as number | undefined,
+      resumeScoredByName: info.get('resumeScoredByName') as string | undefined,
       interviewTime: info.get('interviewTime') as string | undefined,
       interviewerUserIds: Array.isArray(interviewerUserIds) ? interviewerUserIds.map(Number) : [],
       removed: info.get('removed') === true,
