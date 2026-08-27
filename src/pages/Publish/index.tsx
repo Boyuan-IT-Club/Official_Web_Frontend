@@ -267,6 +267,9 @@ const Publish: React.FC = () => {
   // 已按哪个周期初始化过（见 initData 里的去重说明）
   const initedCidRef = useRef<number | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  // 当前查看的周期已停止投递：整页转只读。后端同样会拒绝写入，
+  // 这里是给用户一个明确的说法，而不是点了按钮才报错
+  const [cycleClosed, setCycleClosed] = useState<boolean>(false);
 
   // ---- 导入导出相关状态 ----
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
@@ -445,8 +448,15 @@ const Publish: React.FC = () => {
   }, [resume]);
 
   const canEdit = useMemo<boolean>(() => {
+    // 周期停止投递后一律只读——与后端 assertCycleOpen 的闸口保持一致
+    if (cycleClosed) return false;
     return resume?.status === 1 || resume?.status === 2;
-  }, [resume]);
+  }, [resume, cycleClosed]);
+
+  // 周期关闭时若正处于编辑态（比如编辑中跨过了截止时刻），强制退回只读视图
+  useEffect(() => {
+    if (cycleClosed) setIsEditing(false);
+  }, [cycleClosed]);
 
   const disabledSecondDepts = useMemo<string[]>(() => {
     if (!departments.first || departments.first === '无') return [];
@@ -470,6 +480,8 @@ const Publish: React.FC = () => {
       const cid = openIds.includes(Number(cycleId))
         ? Number(cycleId)
         : (openIds.length > 0 ? openIds[0] : cycleId);
+      // 没有任何开放周期时 cid 会回退到历史周期——那只用于展示，必须锁死编辑
+      setCycleClosed(!openIds.includes(Number(cid)));
 
       // fetchOpenCycles 的 reducer 也会把 store 里的 cycleId 校正到开放列表内，
       // 那会让本 effect 因 cycleId 变化再跑一次。这里记下已初始化的周期，
@@ -1005,9 +1017,18 @@ const Publish: React.FC = () => {
             <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
               博远信息技术社招新申请表
             </Title>
+            {cycleClosed && (
+              <Alert
+                message="本周期已停止投递"
+                description="招募周期已结束，简历不可再修改或提交，以下内容仅供查看。"
+                type="warning" showIcon style={{ marginBottom: 16 }}
+              />
+            )}
             <Alert
               message="简历信息"
-              description={`您的简历状态：${statusText}。${resume?.status === 2 ? '在审核开始前您可以修改简历。' : '当前状态无法修改，如需修改请联系管理员。'}`}
+              description={`您的简历状态：${statusText}。${cycleClosed
+                ? '本周期已停止投递，内容仅供查看。'
+                : resume?.status === 2 ? '在审核开始前您可以修改简历。' : '当前状态无法修改，如需修改请联系管理员。'}`}
               type="info" showIcon style={{ marginBottom: 16 }}
             />
           </div>
