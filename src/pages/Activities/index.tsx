@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { Carousel } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { listActivities, Activity } from '@/api/manage/activityApis';
-import brainstormImg from '../../assets/activity-brainstorm.png';
-import ownerproImg from '../../assets/activity-ownerpro.png';
 import './index.scss';
 
 // --- 类型定义 ---
@@ -48,25 +46,8 @@ const toAnnouncement = (a: Activity): Announcement => {
   };
 };
 
-// --- 活动总结轮播数据 ---
-const summarySlides: SummarySlide[] = [
-  {
-    key: 'brainstorm',
-    image: brainstormImg,
-    title: '活动总结｜头脑风暴',
-    subtitle: '博远信息技术社头脑风暴活动',
-    date: '2026 年 5 月',
-    url: 'https://mp.weixin.qq.com/s/k50ILKp_HUFv1t9YA6NoRg',
-  },
-  {
-    key: 'ownerpro',
-    image: ownerproImg,
-    title: 'Owner-pro 活动总结',
-    subtitle: '快来开启第一个项目！',
-    date: '2026 年 1 月',
-    url: 'https://mp.weixin.qq.com/s/7uP-LzlHMxTb8QtKD-oKKQ',
-  },
-];
+// --- 活动总结轮播数据（暂无内容，后续接入真实数据）---
+const summarySlides: SummarySlide[] = [];
 
 const tabOptions = [
   { key: 'announcement', label: '最新公告' },
@@ -168,50 +149,56 @@ const Activities: React.FC = () => {
         {/* --- 往期精彩瞬间：活动总结轮播 --- */}
         {activeTab === 'summary' && (
           <div className="carousel-wrap">
-            <Carousel
-              ref={carouselRef}
-              className="summary-carousel"
-              autoplay
-              autoplaySpeed={5000}
-              dots
-            >
-              {summarySlides.map((slide) => (
-                <div className="summary-slide" key={slide.key}>
-                  <a
-                    className="summary-link"
-                    href={slide.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <div className="slide-image">
-                      <img src={slide.image} alt={slide.title} />
+            {summarySlides.length === 0 ? (
+              <div className="empty-state">暂无精彩瞬间，敬请期待 📸</div>
+            ) : (
+              <>
+                <Carousel
+                  ref={carouselRef}
+                  className="summary-carousel"
+                  autoplay
+                  autoplaySpeed={5000}
+                  dots
+                >
+                  {summarySlides.map((slide) => (
+                    <div className="summary-slide" key={slide.key}>
+                      <a
+                        className="summary-link"
+                        href={slide.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <div className="slide-image">
+                          <img src={slide.image} alt={slide.title} />
+                        </div>
+                        <div className="slide-caption">
+                          <h3 className="slide-title">{slide.title}</h3>
+                          <p className="slide-subtitle">{slide.subtitle}</p>
+                          <span className="slide-date">{slide.date}</span>
+                        </div>
+                      </a>
                     </div>
-                    <div className="slide-caption">
-                      <h3 className="slide-title">{slide.title}</h3>
-                      <p className="slide-subtitle">{slide.subtitle}</p>
-                      <span className="slide-date">{slide.date}</span>
-                    </div>
-                  </a>
-                </div>
-              ))}
-            </Carousel>
+                  ))}
+                </Carousel>
 
-            <button
-              type="button"
-              className="carousel-nav carousel-nav--prev"
-              aria-label="上一张"
-              onClick={() => carouselRef.current?.prev()}
-            >
-              <LeftOutlined />
-            </button>
-            <button
-              type="button"
-              className="carousel-nav carousel-nav--next"
-              aria-label="下一张"
-              onClick={() => carouselRef.current?.next()}
-            >
-              <RightOutlined />
-            </button>
+                <button
+                  type="button"
+                  className="carousel-nav carousel-nav--prev"
+                  aria-label="上一张"
+                  onClick={() => carouselRef.current?.prev()}
+                >
+                  <LeftOutlined />
+                </button>
+                <button
+                  type="button"
+                  className="carousel-nav carousel-nav--next"
+                  aria-label="下一张"
+                  onClick={() => carouselRef.current?.next()}
+                >
+                  <RightOutlined />
+                </button>
+              </>
+            )}
           </div>
         )}
 

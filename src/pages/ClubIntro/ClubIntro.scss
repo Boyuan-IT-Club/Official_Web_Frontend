@@ -43,11 +43,12 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
 // ---------------- 原有框架（现改造为变窄的内部画板） ----------------
 .boyuan-container {
   background-color: $bg-color; // 内部底色设为白色，与外层蓝形成对比
-  padding: 2rem 3.5rem;        // 调整内边距，让内容更聚拢
+  padding: 3rem 3.5rem;        // 调整内边距，让内容更聚拢
   color: $text-color;
   width: 90%;                  // 保证移动端不贴边
   max-width: 1000px;           // 最大宽度从 1400px 调小到 1000px，实现“变窄”效果
-  border-radius: t.$radius-pill;         // 给内部框架加个大圆角
+  border-radius: t.$radius-card;         // 卡片圆角，与其它页面统一
+  border: 1px solid $text-color;         // 与其它页面统一的细边框
   box-shadow: t.$shadow-lg; // 加一层柔和的阴影，像一张悬浮的白纸
   
   display: flex;
@@ -130,15 +131,61 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
   .intro-section {
     @include card-style;
 
-    .intro-content {
-      border: 2px dashed rgba($text-color, 0.3);
-      // 因为外层变成白色了，这里稍微加一点灰蓝底色让框内更突出
-      background-color: rgba($primary-color, 0.05); 
-      min-height: 180px; 
-      border-radius: $border-radius;
-      padding: 2rem;
-      font-size: 1.05rem;
-      line-height: 1.8; 
+    .intro-text {
+      p {
+        margin: 0 0 1.2em;
+        text-indent: 2em;          // 每段首行缩进
+        font-size: 0.98rem;
+        line-height: 1.9;
+        color: lighten($text-color, 12%);
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .hl {
+          color: $primary-color;
+          font-weight: bold;
+        }
+      }
+    }
+
+    .intro-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 1.5rem;
+
+      .intro-card {
+        border: 2px solid rgba($text-color, 0.1);
+        border-radius: $border-radius;
+        padding: 24px 22px;
+        background-color: rgba($primary-color, 0.03);
+        transition: all 0.3s ease;
+
+        &:hover {
+          border-color: $primary-color;
+          background-color: rgba($primary-color, 0.06);
+          transform: translateY(-3px);
+          box-shadow: 4px 4px 0px rgba($primary-color, 0.12);
+        }
+
+        .intro-card-title {
+          margin: 0 0 12px;
+          text-align: center;
+          font-size: 1.1rem;
+          font-weight: bold;
+          color: $primary-color;
+          letter-spacing: 1px;
+        }
+
+        .intro-card-desc {
+          margin: 0;
+          font-size: 0.9rem;
+          line-height: 1.8;
+          color: lighten($text-color, 15%);
+        }
+      }
     }
   }
 
@@ -160,6 +207,7 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
         gap: 25px;
         background: $card-bg;
         transition: background t.$dur-base ease, border-color t.$dur-base ease, transform t.$dur-fast ease;
+        cursor: pointer;
 
         &:hover {
           border-color: $primary-color;
@@ -199,11 +247,114 @@ $outer-bg: #e3f2fd;       // 柔和的淡蓝色
             color: lighten($text-color, 30%);
             line-height: 1.4;
           }
+
+          .dept-more {
+            margin-top: 8px;
+            font-size: 0.78rem;
+            color: $action-color;
+            opacity: 0;
+            transform: translateY(2px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+          }
         }
+      }
+
+      .dept-card:hover .dept-more {
+        opacity: 1;
+        transform: translateY(0);
       }
     }
   }
+}
+
+// --- 部门详情弹窗内容（Modal 通过 portal 渲染到 body 下，样式需写到 .boyuan-container 外） ---
+.dept-detail {
+  padding: 4px 0 0;
+
+  .dept-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+
+    .dept-detail-icon {
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      color: $primary-color;
+      background-color: lighten($primary-color, 45%);
+      border: 2px solid $primary-color;
+    }
+
+    .dept-detail-heading {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      h3 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: $primary-color;
+        letter-spacing: 1px;
+      }
+
+      span {
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: $action-color;
+      }
+    }
+
+    .dept-detail-close {
+      margin-left: auto;
+      align-self: flex-start;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: rgba($text-color, 0.08);
+      color: $text-color;
+      font-size: 1.2rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba($primary-color, 0.12);
+        color: $primary-color;
+        transform: rotate(90deg);
+      }
+    }
   }
+
+  .dept-detail-body {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.9;
+    color: $text-color;
+    padding: 16px 18px;
+    background-color: rgba($primary-color, 0.04);
+    border-left: 3px solid $primary-color;
+    border-radius: 0 8px 8px 0;
+  }
+}
+
+// --- 移动端适配 ---
+@media (max-width: 768px) {
+  .boyuan-container {
+    padding: 1.5rem 1.2rem;
+  }
+
+  .intro-section .intro-cards {
+    grid-template-columns: 1fr;
+  }
+}
 
 // 本页白面（由 content-container 拆卡后补）
 // 外层 .content-container 不再提供白底（原先是"一个白色大卡包住所有内容"，

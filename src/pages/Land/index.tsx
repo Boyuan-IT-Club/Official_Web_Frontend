@@ -141,7 +141,7 @@ const Land: React.FC = () => {
                 <span className="placeholder-text">关于我们</span>
               </div>
               <div className="card-body">
-                <h2>社团成就</h2>
+                <h2>社团介绍</h2>
                 <p>八年积淀，硕果累累。我们致力于打造校园内最专业的技术交流社区。</p>
                 <button className="card-btn" onClick={() => navigate('/club-intro')}>查看详情</button>
               </div>
@@ -226,7 +226,7 @@ const Land: React.FC = () => {
             <div>
               <h3>联系我们</h3>
               <ul>
-                <li>邮箱: contact@boyuan.org</li>
+                <li>邮箱：cr@stu.ecnu.edu.cn</li>
                 <li>地址: 上海市中山北路3663号</li>
               </ul>
             </div>
