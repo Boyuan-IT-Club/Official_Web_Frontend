@@ -16,6 +16,7 @@ import {
   Spin,
   Alert,
   Modal,
+  Tooltip
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -112,6 +113,13 @@ const parseExpectedDepartments = (rawValue: unknown): string => {
 
   if (departments.length === 0) return '';
   return departments.join(', ');
+};
+
+/** 分数配色：只分三档，避免变成一片花的调色盘 */
+const scoreColor = (score: number): string => {
+  if (score >= 85) return 'green';
+  if (score >= 60) return 'blue';
+  return 'orange';
 };
 
 const ResumeList: React.FC<ResumeListProps> = ({
@@ -532,6 +540,22 @@ const ResumeList: React.FC<ResumeListProps> = ({
                             <Tag icon={statusInfo.icon} color={statusInfo.color}>
                               {statusInfo.text}
                             </Tag>
+                            {/* 分数直接摆在封面：批量筛简历时最想先看到的就是它，
+                                否则要逐个点进详情才知道谁打过分。
+                                未打分显示灰色「未评分」，一眼看出还剩谁要处理。 */}
+                            {(resume as any).resumeScore != null ? (
+                              <Tooltip
+                                title={(resume as any).scoredByName
+                                  ? `${(resume as any).scoredByName} 评分`
+                                  : '已评分'}
+                              >
+                                <Tag color={scoreColor((resume as any).resumeScore)}>
+                                  {(resume as any).resumeScore} 分
+                                </Tag>
+                              </Tooltip>
+                            ) : (
+                              <Tag>未评分</Tag>
+                            )}
                           </Space>
                         }
                         description={

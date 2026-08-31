@@ -1,6 +1,6 @@
 // src/pages/Resume/index.tsx
-import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import ResumeList from './ResumeList';
 import ResumeDetail from './ResumeDetail';
@@ -13,7 +13,7 @@ type SimpleField = {
   fieldValue?: string;
 };
 
-type ResumeItem = {
+export type ResumeItem = {
   resumeId: string | number;
   status: number;
   submittedAt?: string | number | Date | null;
@@ -21,6 +21,31 @@ type ResumeItem = {
   // 不修改后端返回结构：放行其他字段
   [key: string]: any;
 };
+
+/**
+ * 顺序里的下一位「未打分」同学。
+ *
+ * 从当前这位往后找，找不到就从头绕一圈 —— 打到列表末尾时通常还有前面
+ * 跳过的人没打，不回绕就得手动返回列表再翻。
+ * 刻意排除当前这位本人：刚打完分时 store 里那条已被 patch 成有分数，
+ * 但如果调用方顺序不同（比如先跳转后同步），不排除会绕回同一个人。
+ *
+ * @returns 下一位未打分的人；全部打完或列表为空时返回 null
+ */
+export function findNextUngraded(
+  resumes: ResumeItem[],
+  current: ResumeItem | null,
+): ResumeItem | null {
+  if (!current || !resumes || resumes.length === 0) return null;
+  const at = resumes.findIndex((r) => String(r.resumeId) === String(current.resumeId));
+  const ordered = at < 0
+    ? resumes
+    : [...resumes.slice(at + 1), ...resumes.slice(0, at)];
+  return ordered.find(
+    (r) => (r as any).resumeScore == null
+      && String(r.resumeId) !== String(current.resumeId),
+  ) ?? null;
+}
 
 const Resume: React.FC = () => {
   const dispatch = useDispatch<any>();
@@ -38,6 +63,26 @@ const Resume: React.FC = () => {
     }
     setSelectedResume(resumeObject);
   };
+
+  // 当前列表（ResumeList 已经把它放进 store，这里直接复用，
+  // 免得为了「下一位」再拉一次接口、还可能和列表的筛选条件不一致）
+  const resumes = useSelector((state: any) => state.resume?.resumes ?? []) as ResumeItem[];
+
+  /**
+   * 顺序里的下一位「未打分」同学。
+   *
+   * 从当前这位往后找，找不到就从头找一遍（回绕）—— 打到列表末尾时通常还有
+   * 前面跳过的人没打，不回绕的话就得手动返回列表再翻。
+   * 返回 null 表示全部打完了。
+   */
+  const nextUngraded = useMemo<ResumeItem | null>(
+    () => findNextUngraded(resumes, selectedResume),
+    [resumes, selectedResume],
+  );
+
+  const handleNextUngraded = useCallback((): void => {
+    if (nextUngraded) setSelectedResume(nextUngraded);
+  }, [nextUngraded]);
 
   const handleBackToList = (): void => {
     // eslint-disable-next-line no-console
@@ -74,6 +119,14 @@ const Resume: React.FC = () => {
           resume={selectedResume}
           onBack={handleBackToList}
           onDownload={handleDownload}
+          nextUngradedName={
+            nextUngraded
+              ? (nextUngraded as any).simpleFields?.find(
+                (f: SimpleField) => f.fieldKey === 'name',
+              )?.fieldValue ?? `简历 #${nextUngraded.resumeId}`
+              : null
+          }
+          onNextUngraded={nextUngraded ? handleNextUngraded : undefined}
         />
       ) : (
         <ResumeList

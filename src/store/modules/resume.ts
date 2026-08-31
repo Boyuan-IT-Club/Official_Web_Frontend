@@ -538,6 +538,28 @@ const resumeSlice = createSlice({
     setResumeStatus: (state, action: PayloadAction<number>) => {
       if (state.resume) state.resume.status = action.payload;
     },
+
+    /**
+     * 打分成功后就地更新列表里那一条。
+     *
+     * 不这么做的话：列表里那条仍是 resumeScore=null，「下一位未打分」会把
+     * 刚打完的人再算进去、绕回同一个人；返回列表也还显示「未评分」。
+     * 只改这三个字段，不重拉整页 —— 重拉会丢掉当前滚动位置与筛选态。
+     */
+    patchResumeScore: (
+      state,
+      action: PayloadAction<{ resumeId: ID; resumeScore: number; scoredByName?: string | null; scoredAt?: string | null }>,
+    ) => {
+      const { resumeId, resumeScore, scoredByName, scoredAt } = action.payload;
+      const hit = state.resumes?.find(
+        (r: any) => String(r.resumeId) === String(resumeId),
+      );
+      if (hit) {
+        hit.resumeScore = resumeScore;
+        if (scoredByName !== undefined) hit.scoredByName = scoredByName;
+        if (scoredAt !== undefined) hit.scoredAt = scoredAt;
+      }
+    },
     clearFieldValues: (state) => {
       state.fieldValues = [];
     },
@@ -854,6 +876,7 @@ export const {
   setResumeEditable,
   setResumeId,
   setResumeStatus,
+  patchResumeScore,
   clearFieldValues,
   clearCurrentResume,
   resetAdminError,
@@ -884,6 +907,7 @@ export const resumeActions = {
   setResumeEditable,
   setResumeId,
   setResumeStatus,
+  patchResumeScore,
   clearFieldValues,
   clearCurrentResume,
   resetAdminError,
