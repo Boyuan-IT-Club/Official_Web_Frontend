@@ -423,7 +423,11 @@ const Management: React.FC = () => {
         {viewUser && (
           <Descriptions column={1} bordered size="small">
             <Descriptions.Item label="头像/昵称">
-              <Avatar size="small" style={{ backgroundColor: '#4da6ff', marginRight: 8 }}>
+              <Avatar
+                size="small"
+                src={viewUser.avatar || undefined}
+                style={{ backgroundColor: '#4da6ff', marginRight: 8 }}
+              >
                 {(viewUser.name || viewUser.username || '?').slice(0, 1)}
               </Avatar>
               {viewUser.name || '未填写'}
