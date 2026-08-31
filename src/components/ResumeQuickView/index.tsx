@@ -1,6 +1,7 @@
 // 简历速览：把简历的动态字段（simpleFields）排版成一页纸的紧凑视图。
 // 学生端在「我的申请」里看自己的简历，管理端在面试评价表里速览候选人，共用这一份排版。
 import React from 'react';
+import { sortByCanonicalOrder, specOf } from '@/config/resumeFieldRegistry';
 import { Space, Tag, Typography } from 'antd';
 import './index.scss';
 
@@ -20,14 +21,13 @@ export interface ResumeQuickViewProps {
   emptyText?: string;
 }
 
-const BASIC_KEYS = ['student_id', 'email', 'phone', 'grade', 'gender', 'major', 'github'];
-
-const LONG_KEYS = [
-  { key: 'self_introduction', title: '个人简介' },
-  { key: 'introduction', title: '个人简介' },
-  { key: 'project_experience', title: '项目经验' },
-  { key: 'reason', title: '加入原因' },
-];
+// 字段顺序与分组统一走 resumeFieldRegistry —— 这里原来另有一套
+// BASIC_KEYS / LONG_KEYS，与配置抽屉、投递表单、导出各不相同。
+//
+// 顺带修掉旧写法的一个 bug：LONG_KEYS 里 self_introduction 与 introduction
+// 的标题都写成「个人简介」，而按标题去重会让两者只显示一个 ——
+// 学生填了自我介绍又填了个人简介时，其中一份被静默吞掉。
+// 现在标题取后端的 fieldLabel（回落到规范表），不再自造。
 
 const renderFieldValue = (v?: string | null): React.ReactNode => {
   if (!v) return <span style={{ color: '#bbb' }}>未填写</span>;
@@ -67,9 +67,15 @@ const ResumeQuickView: React.FC<ResumeQuickViewProps> = ({ resume, emptyText }) 
   filled.forEach((f) => { if (f.fieldKey) byKey[f.fieldKey] = f; });
   const photo = filled.find((f) => isImg(f.fieldValue));
 
-  const usedKeys = new Set(['name', 'personal_photo', 'expected_departments', 'tech_stack',
-    ...BASIC_KEYS, ...LONG_KEYS.map((x) => x.key)]);
-  const seenTitles = new Set<string>();
+  // 头部与技术栈单独呈现，正文里不再重复
+  const headerKeys = new Set(['name', 'personal_photo', 'expected_departments', 'tech_stack']);
+
+  // 按规范顺序排一遍，再分成「并排的键值对」与「独占一块的长文本」
+  const ordered = sortByCanonicalOrder(filled).filter(
+    (f) => !headerKeys.has(f.fieldKey ?? '') && !isImg(f.fieldValue),
+  );
+  const basics = ordered.filter((f) => !specOf(f.fieldKey ?? '')?.longText);
+  const longs = ordered.filter((f) => specOf(f.fieldKey ?? '')?.longText);
 
   return (
     <div className="resume-view">
@@ -86,10 +92,12 @@ const ResumeQuickView: React.FC<ResumeQuickViewProps> = ({ resume, emptyText }) 
       </div>
 
       <div className="rv-basics">
-        {BASIC_KEYS.map((k) => byKey[k] && (
-          <div className="rv-basic-item" key={k}>
-            <span className="rv-label">{byKey[k].fieldLabel || k}</span>
-            <span className="rv-value">{String(byKey[k].fieldValue)}</span>
+        {basics.map((f) => (
+          <div className="rv-basic-item" key={f.fieldId ?? f.fieldKey}>
+            <span className="rv-label">
+              {f.fieldLabel || specOf(f.fieldKey ?? '')?.label || f.fieldKey}
+            </span>
+            <span className="rv-value">{renderFieldValue(f.fieldValue)}</span>
           </div>
         ))}
       </div>
@@ -103,22 +111,12 @@ const ResumeQuickView: React.FC<ResumeQuickViewProps> = ({ resume, emptyText }) 
         </div>
       )}
 
-      {LONG_KEYS.map(({ key, title }) => {
-        const f = byKey[key];
-        if (!f || seenTitles.has(title)) return null;
-        seenTitles.add(title);
-        return (
-          <div className="rv-section" key={key}>
-            <div className="rv-section-title">{title}</div>
-            <div className="rv-prose">{String(f.fieldValue)}</div>
-          </div>
-        );
-      })}
-
-      {filled.filter((f) => !usedKeys.has(f.fieldKey ?? '') && !isImg(f.fieldValue)).map((f) => (
+      {longs.map((f) => (
         <div className="rv-section" key={f.fieldId ?? f.fieldKey}>
-          <div className="rv-section-title">{f.fieldLabel || f.fieldKey}</div>
-          <div className="rv-prose">{renderFieldValue(f.fieldValue)}</div>
+          <div className="rv-section-title">
+            {f.fieldLabel || specOf(f.fieldKey ?? '')?.label || f.fieldKey}
+          </div>
+          <div className="rv-prose">{String(f.fieldValue)}</div>
         </div>
       ))}
     </div>

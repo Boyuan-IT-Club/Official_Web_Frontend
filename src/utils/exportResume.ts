@@ -15,7 +15,7 @@ export interface ResumeExportData {
   name: string; studentId: string; gender: string; grade: string;
   major: string; email: string; phone: string; github: string;
   firstDepartment: string; secondDepartment: string;
-  selfIntroduction: string; reason: string;
+  selfIntroduction: string; reason: string; introduction?: string;
   techStack: string[]; projectExperience: string;
   photoBase64?: string;
   interviewTimes?: { first: string; second: string; canAttend: 'yes' | 'no' };
@@ -59,6 +59,7 @@ export function buildExportData(
     phone: getVal('phone'), github: getVal('github'),
     firstDepartment: departments.first || '', secondDepartment: departments.second || '',
     selfIntroduction: getVal('self_introduction'), reason: getVal('reason'),
+    introduction: getVal('introduction'),
     techStack, projectExperience: getVal('project_experience'),
     photoBase64: photoBase64 || '', interviewTimes: it,
   };
@@ -91,7 +92,12 @@ export function buildExportDataFromSimpleFields(
     email: val('邮箱') || fallback?.userEmail || '',
     phone: val('手机号', '电话', '手机'), github: val('GitHub主页', 'GitHub'),
     firstDepartment: depts[0] ?? val('第一志愿'), secondDepartment: depts[1] ?? val('第二志愿'),
-    selfIntroduction: val('自我介绍', '个人简介'), reason: val('加入理由', '加入原因'),
+    // 自我介绍与个人简介是两个独立字段，各自成节。
+    // 原来 selfIntroduction 回落到「个人简介」——两者都填时，个人简介
+    // 会被静默丢掉（查看视图也有同样的毛病，一并修了）。
+    selfIntroduction: val('自我介绍'),
+    introduction: val('个人简介'),
+    reason: val('加入理由', '加入原因'),
     techStack: parseArr(val('技术栈')),
     projectExperience: val('项目经验'),
     photoBase64: photo,
@@ -239,10 +245,14 @@ function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Arr
   body.push(table(rows, { widths: [4800, 4800] }));
 
   // ── 长文小节：品牌色竖条标题（标题带冒号，导入按标签取到下一小节前）──
+  // 顺序与 resumeFieldRegistry 一致（自我介绍 10 → 加入理由 11 → 个人简介 12
+  // → 项目经验 20）。原来是「自我介绍 / 项目经验 / 加入理由」，与配置抽屉、
+  // 投递表单、查看视图各不相同；「个人简介」更是整个漏在导出之外。
   const sections: Array<[string, string]> = [
     ['自我介绍', data.selfIntroduction],
-    ['项目经验', data.projectExperience],
     ['加入理由', data.reason],
+    ['个人简介', data.introduction ?? ''],
+    ['项目经验', data.projectExperience],
   ];
   for (const [title, content] of sections) {
     body.push(para(run(`${title}：`, { bold: true, color: C.accent, sz: 23 }), { before: 300, after: 110, accentBar: true }));
