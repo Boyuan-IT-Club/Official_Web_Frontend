@@ -390,3 +390,27 @@ $nav-size: 44px;          // 左右箭头按钮直径
     border-radius: t.$radius-sm;
   }
 }
+
+// 无封面的往期活动：用渐变底 + 标题撑住轮播位，不留破图
+.summary-slide .slide-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: $slide-img-h;
+  background: linear-gradient(135deg, #2980b9 0%, #4c5886 100%);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 4px;
+
+  @media (max-width: 768px) {
+    height: $slide-img-h-mobile;
+  }
+}
+
+.summary-slide .slide-more {
+  margin-left: 12px;
+  color: #2980b9;
+  font-weight: 600;
+}

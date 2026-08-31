@@ -21,11 +21,13 @@ interface Announcement {
 
 interface SummarySlide {
   key: string;
-  image: string;
+  image?: string;
   title: string;
   subtitle: string;
   date: string;
-  url: string;
+  /** 有图文详情时点击进入 /Activities/:id */
+  activityId?: number;
+  hasDetail?: boolean;
 }
 
 // --- 真实数据映射（/api/activity）---
@@ -46,8 +48,17 @@ const toAnnouncement = (a: Activity): Announcement => {
   };
 };
 
-// --- 活动总结轮播数据（暂无内容，后续接入真实数据）---
-const summarySlides: SummarySlide[] = [];
+// 已结束的活动 → 「往期精彩瞬间」轮播。最新公告只放未结束的，
+// 往期的从这里回顾——否则办完的活动在两个标签页都无处安放
+const toSlide = (a: Activity): SummarySlide => ({
+  key: String(a.activityId),
+  image: a.coverImage || undefined,
+  title: a.title,
+  subtitle: a.description || '',
+  date: a.startTime ? a.startTime.slice(0, 7).replace('-', ' 年 ') + ' 月' : '',
+  activityId: a.activityId,
+  hasDetail: Boolean(a.detailContent),
+});
 
 const tabOptions = [
   { key: 'announcement', label: '最新公告' },
@@ -61,6 +72,7 @@ const Activities: React.FC = () => {
   const carouselRef = useRef<any>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('announcement');
   const [announcementsData, setAnnouncements] = useState<Announcement[]>([]);
+  const [summarySlides, setSummarySlides] = useState<SummarySlide[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +84,10 @@ const Activities: React.FC = () => {
         const upcoming = all.filter((a) => !a.endTime || a.endTime >= today);
         upcoming.sort((a, b) => String(a.startTime ?? '').localeCompare(String(b.startTime ?? '')));
         setAnnouncements(upcoming.map(toAnnouncement));
+        // 已结束的进「往期精彩瞬间」，新近的排前面
+        const past = all.filter((a) => a.endTime && a.endTime < today);
+        past.sort((a, b) => String(b.endTime ?? '').localeCompare(String(a.endTime ?? '')));
+        setSummarySlides(past.map(toSlide));
       })
       .catch(() => { /* 加载失败时页面显示空态 */ });
     return () => { cancelled = true; };
@@ -162,21 +178,25 @@ const Activities: React.FC = () => {
                 >
                   {summarySlides.map((slide) => (
                     <div className="summary-slide" key={slide.key}>
-                      <a
+                      <div
                         className="summary-link"
-                        href={slide.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        style={slide.hasDetail ? { cursor: 'pointer' } : undefined}
+                        onClick={() => slide.hasDetail && navigate(`/Activities/${slide.activityId}`)}
                       >
                         <div className="slide-image">
-                          <img src={slide.image} alt={slide.title} />
+                          {slide.image
+                            ? <img src={slide.image} alt={slide.title} />
+                            : <div className="slide-image-placeholder">{slide.title.slice(0, 8)}</div>}
                         </div>
                         <div className="slide-caption">
                           <h3 className="slide-title">{slide.title}</h3>
                           <p className="slide-subtitle">{slide.subtitle}</p>
-                          <span className="slide-date">{slide.date}</span>
+                          <span className="slide-date">
+                            {slide.date}
+                            {slide.hasDetail && <span className="slide-more">查看图文详情 →</span>}
+                          </span>
                         </div>
-                      </a>
+                      </div>
                     </div>
                   ))}
                 </Carousel>
