@@ -1,3 +1,5 @@
+import { useDispatch } from 'react-redux';
+import { resumeActions } from '@/store/modules/resume';
 import React, { useState } from 'react';
 import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal, InputNumber, message } from 'antd';
 import { updateResumeScore } from '@/api/manage/resumeEntry';
@@ -144,10 +146,16 @@ type ResumeDetailProps = {
   onDownload?: (resumeId: string | number) => void;
   /** 返回按钮文案，默认「返回列表」 */
   backText?: string;
+  /** 顺序里下一位未打分同学的姓名；null 表示都打完了 */
+  nextUngradedName?: string | null;
+  /** 跳到下一位未打分同学。未提供表示没有下一位 */
+  onNextUngraded?: () => void;
 };
 
 // --- 主要组件 ---
-const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText }) => {
+const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded }) => {
+  const dispatch = useDispatch<any>();
+
   // 打分控件的本地状态（savedScore 用于禁用未变更时的保存键）
   const initialScore = (resume as any)?.resumeScore ?? undefined;
   const [score, setScore] = useState<number | undefined>(initialScore);
@@ -268,9 +276,24 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
               if (score == null) return;
               setScoreSaving(true);
               try {
-                await updateResumeScore(Number(resume.resumeId), score);
+                const res: any = await updateResumeScore(Number(resume.resumeId), score);
                 setSavedScore(score);
-                message.success(`已打分 ${score}`);
+                // 同步列表里的那一条，否则「下一位未打分」会把刚打完的人
+                // 再算进去、绕回同一个人；返回列表也还显示「未评分」
+                dispatch(resumeActions.patchResumeScore({
+                  resumeId: resume.resumeId as any,
+                  resumeScore: score,
+                  scoredByName: res?.data?.scoredByName ?? undefined,
+                  scoredAt: res?.data?.scoredAt ?? undefined,
+                }));
+                // 打完直接送到下一位未打分的人：批量打分时这是最高频的动线，
+                // 不用回列表再找。没有下一位就只提示打完了。
+                if (onNextUngraded) {
+                  message.success(`已打分 ${score}，跳到${nextUngradedName ? `「${nextUngradedName}」` : '下一位'}`);
+                  onNextUngraded();
+                } else {
+                  message.success(`已打分 ${score}，本页简历都打完了`);
+                }
               } catch (e: any) {
                 message.error(e?.message || '打分失败');
               } finally {
@@ -279,6 +302,16 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
             }}
           >
             {savedScore == null ? '保存打分' : '更新打分'}
+          </Button>
+          {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位 */}
+          <Button
+            size="large"
+            disabled={!onNextUngraded}
+            onClick={() => onNextUngraded?.()}
+          >
+            {onNextUngraded
+              ? `下一位${nextUngradedName ? `：${nextUngradedName}` : '未打分'}`
+              : '已全部打分'}
           </Button>
         </Space>
       </div>
