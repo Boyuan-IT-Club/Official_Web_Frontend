@@ -273,6 +273,7 @@ const Publish: React.FC = () => {
   // 这里是给用户一个明确的说法，而不是点了按钮才报错
   const [cycleClosed, setCycleClosed] = useState<boolean>(false);
 
+
   // ---- 导入导出相关状态 ----
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
   const [extractedFields, setExtractedFields] = useState<ExtractedFields | null>(null);
@@ -288,6 +289,10 @@ const Publish: React.FC = () => {
   );
 
   const userInfo = useSelector((state: RootStateLike) => state.user.userInfo);
+
+  // 已录取的社员不再参加招新。页面照常可进（藏掉入口只会让人以为功能坏了），
+  // 但一律只读并在顶部说明原因。
+  const isMember = Boolean(userInfo?.isMember);
 
   // ---- O(1) Map 查找替代 O(n) array.find() ----
   const fieldIdMapping = useMemo<Record<string, number>>(
@@ -452,13 +457,15 @@ const Publish: React.FC = () => {
   const canEdit = useMemo<boolean>(() => {
     // 周期停止投递后一律只读——与后端 assertCycleOpen 的闸口保持一致
     if (cycleClosed) return false;
+    // 社员无需投递：只读，不参与招新流程
+    if (isMember) return false;
     return resume?.status === 1 || resume?.status === 2;
-  }, [resume, cycleClosed]);
+  }, [resume, cycleClosed, isMember]);
 
   // 周期关闭时若正处于编辑态（比如编辑中跨过了截止时刻），强制退回只读视图
   useEffect(() => {
-    if (cycleClosed) setIsEditing(false);
-  }, [cycleClosed]);
+    if (cycleClosed || isMember) setIsEditing(false);
+  }, [cycleClosed, isMember]);
 
   const disabledSecondDepts = useMemo<string[]>(() => {
     if (!departments.first || departments.first === '无') return [];
@@ -514,7 +521,8 @@ const Publish: React.FC = () => {
             console.error('加载字段配置失败:', err); return null;
           }),
           dispatch(fetchResumeFields(cid)).unwrap(),
-          dispatch(fetchOrCreateResume(cid)).unwrap(),
+          // 社员只查看，不该因为打开这页就被建出一条空简历
+          dispatch(fetchOrCreateResume({ cycleId: cid, readOnly: isMember })).unwrap(),
           dispatch(fetchFieldValues(cid)).unwrap(),
         ]);
 
@@ -578,7 +586,9 @@ const Publish: React.FC = () => {
     } finally {
       setIsInitializing(false);
     }
-  }, [dispatch, cycleId, form]);
+    // isMember 必须在依赖里：userInfo 是异步到的，首次运行时可能还是 false，
+    // 漏掉它会让社员在 userInfo 到达前那一轮被建出空简历
+  }, [dispatch, cycleId, form, isMember]);
 
   useEffect(() => { void initData(); }, [initData]);
 
@@ -1090,13 +1100,20 @@ const Publish: React.FC = () => {
             <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
               博远信息技术社招新申请表
             </Title>
-            {cycleClosed && (
+            {isMember ? (
+              <Alert
+                message="您已是社员，无需投递简历"
+                description="本页仅供查看。招新面向尚未加入的同学，你已经在社里了 —— 如果是想帮忙看简历或参与面试，联系管理员开通对应权限即可。"
+                type="success" showIcon style={{ marginBottom: 16 }}
+              />
+            ) : cycleClosed && (
               <Alert
                 message="本周期已停止投递"
                 description="招募周期已结束，简历不可再修改或提交，以下内容仅供查看。"
                 type="warning" showIcon style={{ marginBottom: 16 }}
               />
             )}
+            {!isMember && (
             <Alert
               message="简历信息"
               description={`您的简历状态：${statusText}。${cycleClosed
@@ -1104,6 +1121,7 @@ const Publish: React.FC = () => {
                 : resume?.status === 2 ? '在审核开始前您可以修改简历。' : '当前状态无法修改，如需修改请联系管理员。'}`}
               type="info" showIcon style={{ marginBottom: 16 }}
             />
+            )}
           </div>
           <ResumeDisplay
             fieldValues={fieldValues}

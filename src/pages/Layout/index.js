@@ -103,19 +103,19 @@ const MainLayout = () => {
     }
     return userInfo.avatar;
   };
-  // 根据用户角色动态生成菜单项。已录取的社员不再参加招新，收起「简历投递」
-  const isMember = Boolean(userInfo?.isMember);
+  // 菜单对所有人一致。社员看得到「简历投递」，进去是只读并带一句说明 ——
+  // 直接把入口藏掉会让人以为功能坏了或自己没权限，反而要来问。
   const menuItems = [
     {
       key: "/main/dashboard",
       icon: <HomeOutlined />,
       label: "首页",
     },
-    ...(isMember ? [] : [{
+    {
       key: "/main/publish",
       icon: <FileTextOutlined />,
       label: "简历投递",
-    }]),
+    },
     {
       key: "/main/person",
       icon: <UserOutlined />,

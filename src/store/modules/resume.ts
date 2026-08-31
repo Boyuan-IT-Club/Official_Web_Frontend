@@ -156,14 +156,25 @@ export const fetchMyResumeReadonly = createAsyncThunk<any, ID, ThunkApiConfig>(
 );
 
 // 获取或创建简历
-export const fetchOrCreateResume = createAsyncThunk<any, ID, ThunkApiConfig>(
+/**
+ * 取当前周期的简历；没有就建一份。
+ *
+ * readOnly=true 时只取不建 —— 社员会打开投递页（只读查看），
+ * 不该因为看一眼就在本周期给他凭空建出一条空简历。
+ */
+export const fetchOrCreateResume = createAsyncThunk<any, ID | { cycleId: ID; readOnly?: boolean }, ThunkApiConfig>(
   "resume/fetchOrCreateResume",
-  async (cycleId, { rejectWithValue }) => {
+  async (arg, { rejectWithValue }) => {
+    const cycleId = typeof arg === 'object' && arg !== null && 'cycleId' in arg ? arg.cycleId : (arg as ID);
+    const readOnly = typeof arg === 'object' && arg !== null && 'readOnly' in arg ? Boolean(arg.readOnly) : false;
     try {
       const res = await request.get(`/api/resumes/cycle/${cycleId}`);
       return res.data;
     } catch (error: any) {
       if (error?.response?.status === 404) {
+        if (readOnly) {
+          return null;   // 只读场景：没有就是没有，不创建
+        }
         try {
           const createRes = await request.post(`/api/resumes/cycle/${cycleId}`);
           return createRes.data;
