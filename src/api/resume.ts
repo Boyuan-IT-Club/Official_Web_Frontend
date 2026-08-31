@@ -17,3 +17,8 @@ export const updateResumeFields = (cycleId: number, fields: any[]) => {
     data: { fields },
   });
 };
+
+/** 本人历届申请（各周期的简历概要，按周期倒序）。已软删除的周期后端已过滤 */
+export const getMyResumes = () => {
+  return request({ url: '/api/resumes/my', method: 'get' });
+};

@@ -36,6 +36,7 @@ import {
   FilePdfOutlined,
   UploadOutlined,
   LockOutlined,
+  CheckCircleFilled,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -49,6 +50,7 @@ import PhotoUpload from './components/PhotoUpload';
 import FormSection from './components/FormSection';
 import ResumeDisplay from '@/components/ResumeDisplay';
 import CycleSwitcher from '@/components/CycleSwitcher';
+import { getMyResumes } from '@/api/resume';
 import InterviewStatusCard from '@/components/InterviewStatusCard';
 import {
   PreferenceTimeSlot,
@@ -293,6 +295,51 @@ const Publish: React.FC = () => {
   // 已录取的社员不再参加招新。页面照常可进（藏掉入口只会让人以为功能坏了），
   // 但一律只读并在顶部说明原因。
   const isMember = Boolean(userInfo?.isMember);
+
+  /**
+   * 本人历届申请。用于把「投过但已结束」的周期也放进切换器 ——
+   * 否则周期一关，之前投的那份就再也翻不到了（只能去个人主页找）。
+   */
+  const [myResumes, setMyResumes] = useState<Array<{
+    cycleId: number; cycleName?: string; academicYear?: string; status?: number;
+  }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getMyResumes()
+      .then((res: any) => { if (!cancelled) setMyResumes(res?.data ?? []); })
+      .catch(() => { /* 取不到历史不影响本周期投递 */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  /**
+   * 切换器要展示的周期 = 当前开放的 ∪ 我投过的。
+   * 开放的排前面（还能投的更要紧），历史的按周期号倒序跟在后面。
+   */
+  const switchableCycles = useMemo(() => {
+    const openList = (openCycles ?? []).map((c) => ({
+      cycleId: Number(c.cycleId),
+      cycleName: c.cycleName,
+      fieldCount: (c as any).fieldCount,
+      isOpen: true,
+    }));
+    const openIds = new Set(openList.map((c) => c.cycleId));
+    const past = myResumes
+      .filter((r) => r.cycleId != null && !openIds.has(Number(r.cycleId)))
+      .map((r) => ({
+        cycleId: Number(r.cycleId),
+        cycleName: r.cycleName || `招募周期 #${r.cycleId}`,
+        fieldCount: undefined as any,
+        isOpen: false,
+      }))
+      .sort((a, b) => b.cycleId - a.cycleId);
+    return [...openList, ...past];
+  }, [openCycles, myResumes]);
+
+  /** 我在该周期投过没有（切换器上标「已投递」用） */
+  const submittedCycleIds = useMemo(
+    () => new Set(myResumes.map((r) => Number(r.cycleId))),
+    [myResumes],
+  );
 
   // ---- O(1) Map 查找替代 O(n) array.find() ----
   const fieldIdMapping = useMemo<Record<string, number>>(
@@ -1086,12 +1133,15 @@ const Publish: React.FC = () => {
           原先是 Alert 里塞一个 Select —— 下拉会把另一个周期藏起来，而用户最初
           的问题恰恰是「看不到另一个招募活动的入口」，藏进下拉等于没解决。 */}
       <CycleSwitcher
-        cycles={openCycles}
+        cycles={switchableCycles as any}
         value={Number(cycleId)}
         onChange={(id) => dispatch(setSelectedCycle(id))}
-        statusOf={(id) =>
-          Number(id) === Number(cycleId) && !isEditing ? '已提交' : undefined
-        }
+        openCount={(openCycles ?? []).length}
+        statusOf={(id) => {
+          const open = (openCycles ?? []).some((c) => Number(c.cycleId) === Number(id));
+          if (!open) return '已结束 · 可查看';
+          return submittedCycleIds.has(Number(id)) ? '已投递' : undefined;
+        }}
       />
 
       {!isEditing ? (
@@ -1101,11 +1151,18 @@ const Publish: React.FC = () => {
               博远信息技术社招新申请表
             </Title>
             {isMember ? (
-              <Alert
-                message="您已是社员，无需投递简历"
-                description="本页仅供查看。招新面向尚未加入的同学，你已经在社里了 —— 如果是想帮忙看简历或参与面试，联系管理员开通对应权限即可。"
-                type="success" showIcon style={{ marginBottom: 16 }}
-              />
+              /* 不用 antd Alert：它的 message 会继承外层的居中，
+                 description 却是左对齐，两行错位很难看（用户反馈过）。
+                 这里自己排一张卡片，图标与文字统一左对齐。 */
+              <div className="member-notice">
+                <span className="member-notice__badge"><CheckCircleFilled /></span>
+                <div className="member-notice__body">
+                  <div className="member-notice__title">您已是社员，无需投递简历</div>
+                  <div className="member-notice__desc">
+                    本页仅供查看历届投递内容。想帮忙看简历或参与面试，联系管理员开通权限即可。
+                  </div>
+                </div>
+              </div>
             ) : cycleClosed && (
               <Alert
                 message="本周期已停止投递"
