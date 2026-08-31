@@ -208,7 +208,15 @@ const UserTable: React.FC<UserTableProps> = ({
       key: 'name',
       render: (text: string, record: User) => (
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#4da6ff', flexShrink: 0 }} />
+          {/* 之前这里写死了通用人形图标、根本没传 src —— 所有人的头像都显示不出来。
+              src 取后端解析好的地址（COS 直链或 /api/files/...）；
+              加载失败时 antd 自动回落到 icon，历史遗留的 /uploads/... 死链
+              因此只会退回图标，不会显示裂图。 */}
+          <Avatar
+            src={record.avatar || undefined}
+            icon={<UserOutlined />}
+            style={{ backgroundColor: '#4da6ff', flexShrink: 0 }}
+          />
           <div style={{ marginLeft: 12 }}>
             <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center' }}>
               {text || record.username || '未知昵称'}
