@@ -283,7 +283,8 @@ const Publish: React.FC = () => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const {
-    cycleId, openCycles, fieldDefinitions, resume, fieldValues, submitting, updating, error,
+    cycleId, cycleUserPicked: userPickedCycle,
+    openCycles, fieldDefinitions, resume, fieldValues, submitting, updating, error,
   } = useSelector((state: RootStateLike) => state.resume);
 
   const { fields: configFields, loading: configLoading } = useSelector(
@@ -530,10 +531,14 @@ const Publish: React.FC = () => {
       setIsInitializing(true);
 
       // 解析本次要投的周期：可能同时有多个周期开放，用户选中的那个优先，
-      // 选中项不在开放列表里（首次进入、或上次选的周期已截止）才回退到最新一个
+      // 选中项不在开放列表里（首次进入、或上次选的周期已截止）才回退到最新一个。
+      //
+      // 但用户显式点过切换器就一律尊重他的选择 —— 切换器里也列已结束的周期
+      // 供查看历史投递，不判断这个的话，点已结束的卡片会被立刻弹回第一个
+      // 开放周期（线上实测到的 bug）。
       const open = await dispatch(fetchOpenCycles()).unwrap().catch(() => [] as typeof openCycles);
       const openIds = (open ?? []).map((c) => Number(c.cycleId));
-      const cid = openIds.includes(Number(cycleId))
+      const cid = (userPickedCycle || openIds.includes(Number(cycleId)))
         ? Number(cycleId)
         : (openIds.length > 0 ? openIds[0] : cycleId);
       // 没有任何开放周期时 cid 会回退到历史周期——那只用于展示，必须锁死编辑
@@ -635,7 +640,7 @@ const Publish: React.FC = () => {
     }
     // isMember 必须在依赖里：userInfo 是异步到的，首次运行时可能还是 false，
     // 漏掉它会让社员在 userInfo 到达前那一轮被建出空简历
-  }, [dispatch, cycleId, form, isMember]);
+  }, [dispatch, cycleId, form, isMember, userPickedCycle]);
 
   useEffect(() => { void initData(); }, [initData]);
 
