@@ -155,7 +155,14 @@ const SortableItem: React.FC<{
 
   const watchedLabel = Form.useWatch(['fields', name, 'fieldLabel'], form);
   const fieldLabel = watchedLabel || '未命名字段';
-  const sortOrder = form.getFieldValue(['fields', name, 'sortOrder']) || index + 1;
+  // 卡片上显示「第几个」，不是原始 sortOrder。
+  //
+  // 原来直接显示 sortOrder，于是底层数据的问题全暴露在界面上：
+  //   - 缺号：废弃字段(第一面试时间)被列表过滤掉，它占的号就成了空洞（16 → 18）
+  //   - 重号：历史周期里存在重复的 sortOrder（周期 1、4 实测各有两对）
+  // 展示位置序号后，看到的永远是连续的 1..N；真正的 sortOrder 仍可在
+  // 展开后的「排列序号」里编辑，拖拽排序也照旧写它。
+  const displayIndex = index + 1;
   const fieldType = Form.useWatch(['fields', name, 'fieldType'], form);
   const placeholder = Form.useWatch(['fields', name, 'placeholder'], form);
   const options = Form.useWatch(['fields', name, 'options'], form) || [];
@@ -213,7 +220,7 @@ const SortableItem: React.FC<{
             >
               <MenuOutlined />
             </div>
-            <Text type="secondary" className="resume-field-panel__field-index">{sortOrder}.</Text>
+            <Text type="secondary" className="resume-field-panel__field-index">{displayIndex}.</Text>
           </Space>
         }
         extra={
