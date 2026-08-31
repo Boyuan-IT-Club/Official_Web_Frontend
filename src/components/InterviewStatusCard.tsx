@@ -49,17 +49,32 @@ const InterviewStatusCard: React.FC<{ cycleId: number }> = ({ cycleId }) => {
     );
   }
 
+  // 面试时间已过就别再喊「请准时参加」——按时间切换文案
+  const interviewPassed = schedule?.interviewTime
+    ? new Date(String(schedule.interviewTime).replace(' ', 'T')).getTime() < Date.now()
+    : false;
+
   return (
     <Card size="small" title={<><CalendarOutlined /> 面试安排</>}>
       {schedule?.interviewTime ? (
         <>
-          <Alert
-            type="success"
-            showIcon
-            icon={<CheckCircleTwoTone twoToneColor="#52c41a" />}
-            message="面试已安排，请准时参加"
-            style={{ marginBottom: 12 }}
-          />
+          {interviewPassed ? (
+            <Alert
+              type="info"
+              showIcon
+              icon={<ClockCircleOutlined />}
+              message="本场面试已结束，结果将通过邮件通知，也可在首页查看进度"
+              style={{ marginBottom: 12 }}
+            />
+          ) : (
+            <Alert
+              type="success"
+              showIcon
+              icon={<CheckCircleTwoTone twoToneColor="#52c41a" />}
+              message="面试已安排，请准时参加"
+              style={{ marginBottom: 12 }}
+            />
+          )}
           <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label="面试时间">
               {String(schedule.interviewTime).replace('T', ' ').slice(0, 16)}

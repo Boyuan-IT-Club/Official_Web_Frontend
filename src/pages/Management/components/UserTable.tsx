@@ -360,7 +360,8 @@ const UserTable: React.FC<UserTableProps> = ({
       destroyOnClose
     >
       <div style={{ marginBottom: 8, color: '#8c8c8c', fontSize: 12 }}>
-        勾选即持有、取消勾选即移除，保存后整体生效（权限为所选角色的并集）
+        勾选即持有、取消勾选即移除，保存后整体生效（权限为所选角色的并集）。
+        「社员」由部门分配自动管理（分配部门即录取、取消分配即移除），这里不可手选。
       </div>
       <Select
         mode="multiple"
@@ -371,7 +372,9 @@ const UserTable: React.FC<UserTableProps> = ({
         optionFilterProp="children"
       >
         {roleOptions.map((r) => (
-          <Option key={r.value} value={r.value}>{r.label}</Option>
+          <Option key={r.value} value={r.value} disabled={r.label === '社员'}>
+            {r.label}{r.label === '社员' ? '（随部门分配自动管理）' : ''}
+          </Option>
         ))}
       </Select>
     </Modal>
