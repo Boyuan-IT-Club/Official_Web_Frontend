@@ -72,6 +72,15 @@ export interface ResumeState {
   // 用户提交简历相关
   /** 当前选中的投递周期。同时开放多个时由用户在投递页选择 */
   cycleId: number;
+  /**
+   * 当前周期是不是用户自己点选的。
+   *
+   * 自动校正（把不在开放列表里的选择拉回第一个开放周期）本来是为了处理
+   * 「上次留下的失效周期」；但现在切换器里也列已结束的周期供查看历史投递，
+   * 用户点了它就会被这套校正立刻弹回去（线上实测到）。
+   * 有了这个标记，校正只作用于默认值，不再和显式点击对抗。
+   */
+  cycleUserPicked: boolean;
   /** 当前开放投递的周期列表（启用中且今天在起止日期内） */
   openCycles: OpenCycle[];
   fields: any[];
@@ -467,6 +476,7 @@ const initialState: ResumeState = {
   // 这个初始值只在「还没拿到开放周期列表」的瞬间用一下；拿到后一律被覆盖。
   // 不要依赖它 —— 它是周期动态化之前的硬编码遗留。
   cycleId: 2,
+  cycleUserPicked: false,
   openCycles: [],
   fields: [],
   fieldDefinitions: [],
@@ -596,6 +606,8 @@ const resumeSlice = createSlice({
     /** 用户在投递页手动切换周期 */
     setSelectedCycle: (state, action: PayloadAction<number>) => {
       state.cycleId = Number(action.payload);
+      // 显式点选：此后不再被「校正回开放列表」的逻辑改掉
+      state.cycleUserPicked = true;
     },
     setSearchParams: (
       state,
@@ -610,9 +622,10 @@ const resumeSlice = createSlice({
         const list = action.payload ?? [];
         state.openCycles = list;
         // 只在当前选中项不在开放列表里时才改动选择，否则用户手选的周期会被
-        // 后续任何一次刷新悄悄重置掉
+        // 后续任何一次刷新悄悄重置掉。
+        // 用户显式点过就完全不动 —— 他可能正在看一个已结束周期的历史投递。
         const stillOpen = list.some((c) => Number(c.cycleId) === Number(state.cycleId));
-        if (!stillOpen && list.length > 0) {
+        if (!state.cycleUserPicked && !stillOpen && list.length > 0) {
           state.cycleId = Number(list[0].cycleId);
         }
       })
