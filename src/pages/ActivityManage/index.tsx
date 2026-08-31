@@ -287,7 +287,7 @@ const ActivityManage: React.FC = () => {
             </Form.Item>
           </Space>
           <Space size={16} wrap style={{ display: "flex" }}>
-            <Form.Item name="range" label="活动起止日期">
+            <Form.Item name="range" label="活动起止日期" extra="可留空，官网将显示「时间待定」">
               <DatePicker.RangePicker />
             </Form.Item>
             <Form.Item name="signupRange" label="报名起止日期">
