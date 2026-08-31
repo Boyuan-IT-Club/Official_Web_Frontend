@@ -140,6 +140,23 @@ const UserTable: React.FC<UserTableProps> = ({
     }
   };
 
+  /** 取消分配：后端按「dept 键存在但为 null」识别为清空 */
+  const handleClearDept = async () => {
+    if (!deptModalUser) return;
+    setDeptSaving(true);
+    try {
+      await batchUpdateUserDept([deptModalUser.userId], null);
+      message.success(`已取消 ${deptModalUser.name || deptModalUser.username} 的部门分配`);
+      setDeptModalUser(null);
+      refreshUsers();
+    } catch (e) {
+      console.error(e);
+      message.error('取消分配失败');
+    } finally {
+      setDeptSaving(false);
+    }
+  };
+
   const handleAssignDept = async () => {
     if (!deptModalUser || !deptModalValue) return;
     setDeptSaving(true);
@@ -362,10 +379,26 @@ const UserTable: React.FC<UserTableProps> = ({
       title={deptModalUser ? `分配部门：${deptModalUser.name || deptModalUser.username}` : ''}
       open={!!deptModalUser}
       onOk={handleAssignDept}
-      okButtonProps={{ disabled: !deptModalValue }}
+      okButtonProps={{ disabled: !deptModalValue || deptModalValue === deptModalUser?.dept }}
+      okText="保存"
       confirmLoading={deptSaving}
       onCancel={() => setDeptModalUser(null)}
       destroyOnClose
+      /* 取消分配放在左下角：它是反向操作，不该和「保存」并排抢位置；
+         只有当前确实分了部门才出现，没分的时候这个按钮没有意义。 */
+      footer={(_, { OkBtn, CancelBtn }) => (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {deptModalUser?.dept && (
+            <Button danger type="text" loading={deptSaving} onClick={handleClearDept}>
+              取消分配
+            </Button>
+          )}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <CancelBtn />
+            <OkBtn />
+          </div>
+        </div>
+      )}
     >
       <Select
         style={{ width: '100%' }}
@@ -373,7 +406,14 @@ const UserTable: React.FC<UserTableProps> = ({
         value={deptModalValue}
         onChange={setDeptModalValue}
         options={deptOptions}
+        allowClear
+        onClear={() => setDeptModalValue(undefined)}
       />
+      {deptModalUser?.dept && (
+        <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
+          当前部门：{deptModalUser.dept}
+        </div>
+      )}
     </Modal>
     <Table<User>
       rowSelection={canManage ? {
