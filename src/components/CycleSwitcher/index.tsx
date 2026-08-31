@@ -12,6 +12,8 @@ export interface CycleSwitcherProps {
   compact?: boolean;
   /** 每个周期的附加状态文字，如「已提交」，key 为 cycleId */
   statusOf?: (cycleId: number) => string | undefined;
+  /** 列表里正在开放的个数；给了它标题会区分「在招」与「历史」 */
+  openCount?: number;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface CycleSwitcherProps {
  * 只有一个开放周期时返回 null：那种情况下没有任何可切的，多一个控件只是噪音。
  */
 const CycleSwitcher: React.FC<CycleSwitcherProps> = ({
-  cycles, value, onChange, compact = false, statusOf,
+  cycles, value, onChange, compact = false, statusOf, openCount,
 }) => {
   if (!cycles || cycles.length < 2) return null;
 
@@ -32,10 +34,18 @@ const CycleSwitcher: React.FC<CycleSwitcherProps> = ({
     <div className={`cycle-switcher${compact ? ' is-compact' : ''}`}>
       {!compact && (
         <div className="cycle-switcher__head">
+          {/* 列表里可能混着已结束的周期（供查看历史投递），
+              标题据此区分，别把「已结束」也说成「正在进行」 */}
           <span className="cycle-switcher__title">
-            同时有 <b>{cycles.length}</b> 个招募活动正在进行
+            {openCount != null && openCount < cycles.length
+              ? <>可查看 <b>{cycles.length}</b> 个招募周期{openCount > 0 ? <>，其中 <b>{openCount}</b> 个在招</> : null}</>
+              : <>同时有 <b>{cycles.length}</b> 个招募活动正在进行</>}
           </span>
-          <span className="cycle-switcher__hint">每个周期各投一份，互不影响</span>
+          <span className="cycle-switcher__hint">
+            {openCount != null && openCount < cycles.length
+              ? '已结束的周期仅供查看当时投递的内容'
+              : '每个周期各投一份，互不影响'}
+          </span>
         </div>
       )}
 

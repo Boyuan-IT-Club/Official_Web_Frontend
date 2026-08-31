@@ -480,3 +480,53 @@
     color: rgba(0, 0, 0, 0.45);
   }
 }
+
+// ── 社员提示卡 ────────────────────────────────────────────────────────────
+// 不用 antd Alert：它的 message 会继承页面标题区的居中、description 却左对齐，
+// 两行错位（用户反馈"太丑"）。这里自己排，图标与文字统一左对齐。
+.member-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  text-align: left;                       // 抵消标题区的 center
+  background: linear-gradient(135deg, #f2fbf5 0%, #f7fbff 100%);
+  border: 1px solid #d8f0e0;
+  border-radius: 12px;
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+    color: #fff;
+    background: linear-gradient(135deg, #52c41a 0%, #3faf6f 100%);
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(82, 196, 26, 0.28);
+  }
+
+  &__body { flex: 1; min-width: 0; }
+
+  &__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f3d2b;
+    line-height: 1.5;
+  }
+
+  &__desc {
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #5a6b60;
+  }
+
+  @media (max-width: 560px) {
+    padding: 12px 14px;
+    &__title { font-size: 14px; }
+  }
+}
