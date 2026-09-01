@@ -107,6 +107,7 @@ $outer-bg: #e3f2fd;
           width: 70px;
           height: 70px;
           border-radius: 50%;
+          object-fit: cover; // 头像图片裁剪为居中填充，避免竖图被拉伸
           border: 1px solid $text-color;
           background-color: #f1f2f6; // 头像底色
           margin-bottom: 10px;

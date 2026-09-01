@@ -8,6 +8,8 @@ import seniorJinjiabao from '../../assets/senior-jinjiabao.png';
 import seniorShixiaolei from '../../assets/senior-shixiaolei.png';
 import seniorLishuai from '../../assets/senior-lishuai.png';
 import seniorAnyi from '../../assets/senior-anyi.png';
+import seniorWuzekai from '../../assets/senior-wuzekai.jpg';
+import seniorYexiaoliang from '../../assets/senior-yexiaoliang.jpg';
 
 // --- 类型定义 ---
 interface ExperienceItem {
@@ -50,14 +52,34 @@ const mockData: ExperienceItem[] = [
   },
   {
     id: 5,
-    name: '2024级 陈睿',
-    intro: '2024 级，博远信息技术社 2025-2026 学年社长。',
-    share: '主动一点、大胆一点，多去尝试、多去交流。你在这里留下的每一份努力，都会变成照亮别人的光。',
+    name: '22级 武泽恺',
+    avatar: seniorWuzekai,
+    intro: '22 级，博远信息技术社 2023-2024 学年社长。',
+    share: '把社团当成自己的作品，认真对待每一次分享与交流。坚持下去，你会看到自己和他人的共同成长。',
   },
   {
     id: 6,
-    name: '2025级 欧阳天贻',
-    intro: '2025 级，博远信息技术社 2026-2027 学年社长。',
+    name: '23级 叶晓良',
+    avatar: seniorYexiaoliang,
+    intro: '23 级，博远信息技术社 2024-2025 学年社长。',
+    share: '这里不只有代码与技术，更有一群志同道合的伙伴。保持热爱、敢于担当，社团因你而更精彩。',
+  },
+  {
+    id: 7,
+    name: '23级 付宇豪',
+    intro: '23 级，博远信息技术社 2024-2025 学年副社长。',
+    share: '每一次活动背后都是用心与协作。踏实做事、真诚待人，你在社团留下的每一步都算数。',
+  },
+  {
+    id: 8,
+    name: '24级 陈睿',
+    intro: '24 级，博远信息技术社 2025-2026 学年社长。',
+    share: '主动一点、大胆一点，多去尝试、多去交流。你在这里留下的每一份努力，都会变成照亮别人的光。',
+  },
+  {
+    id: 9,
+    name: '25级 欧阳天贻',
+    intro: '25 级，博远信息技术社 2026-2027 学年社长。',
     share: '接过接力棒，也接过一份热爱。希望你在这里找到归属，也找到更好的自己。',
   },
 ];
