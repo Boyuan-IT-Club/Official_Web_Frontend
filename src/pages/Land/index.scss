@@ -189,7 +189,7 @@ body {
       border-right: 2px dashed rgba($text-main, 0.2);
 
       &.placeholder-blue { background: rgba($light-blue-bg, 0.3); color: $primary-blue; }
-      &.placeholder-gray { background: rgba($text-sub, 0.1); color: $text-sub; }
+      &.placeholder-gray { background: rgba(#60a5fa, 0.12); color: #60a5fa; }
       &.placeholder-green { background: rgba(#1a50c4, 0.1); color: #1a50c4; } 
       &.placeholder-purple { background: rgba(#3371e4, 0.1); color: #3371e4; } 
       
