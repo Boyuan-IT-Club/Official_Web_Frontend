@@ -51,6 +51,7 @@ import FormSection from './components/FormSection';
 import ResumeDisplay from '@/components/ResumeDisplay';
 import CycleSwitcher from '@/components/CycleSwitcher';
 import { getMyResumes } from '@/api/resume';
+import { getQaGroupQrCode } from '@/api/manage/cycleApis';
 import InterviewStatusCard from '@/components/InterviewStatusCard';
 import {
   PreferenceTimeSlot,
@@ -296,6 +297,18 @@ const Publish: React.FC = () => {
   // 已录取的社员不再参加招新。页面照常可进（藏掉入口只会让人以为功能坏了），
   // 但一律只读并在顶部说明原因。
   const isMember = Boolean(userInfo?.isMember);
+
+  // 招新答疑群二维码：还在犹豫或有疑问的同学可以直接进群问，
+  // 比让他们翻公众号或者猜要顺手得多
+  const [qaQr, setQaQr] = useState<{ imageUrl: string; remark?: string } | null>(null);
+  useEffect(() => {
+    if (!cycleId) return undefined;
+    let cancelled = false;
+    getQaGroupQrCode(Number(cycleId))
+      .then((res: any) => { if (!cancelled) setQaQr(res?.data ?? null); })
+      .catch(() => { /* 没配二维码不影响填简历 */ });
+    return () => { cancelled = true; };
+  }, [cycleId]);
 
   /**
    * 本人历届申请。用于把「投过但已结束」的周期也放进切换器 ——
@@ -1155,6 +1168,17 @@ const Publish: React.FC = () => {
             <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
               博远信息技术社招新申请表
             </Title>
+            {qaQr?.imageUrl && !isMember && (
+              <div className="qa-group-hint">
+                <img className="qa-group-hint__qr" src={qaQr.imageUrl} alt="招新答疑群二维码" />
+                <div className="qa-group-hint__body">
+                  <div className="qa-group-hint__title">填写遇到问题？扫码进答疑群</div>
+                  <div className="qa-group-hint__desc">
+                    {qaQr.remark || '招新答疑群'}　·　有任何疑问都可以在群里直接问我们
+                  </div>
+                </div>
+              </div>
+            )}
             {isMember ? (
               /* 不用 antd Alert：它的 message 会继承外层的居中，
                  description 却是左对齐，两行错位很难看（用户反馈过）。

@@ -264,7 +264,28 @@ const InterviewAppointment: React.FC = () => {
                 showIcon
                 icon={<CheckCircleTwoTone twoToneColor="#52c41a" />}
                 message={<span>🎉 恭喜！你已被<b>{result.assignedDeptName || '社团'}</b>录取</span>}
-                description={`结果时间：${fmtDT(result.decisionAt)}。欢迎加入博远，后续安排请留意邮件与群通知。`}
+                description={
+                  <>
+                    <div>结果时间：{fmtDT(result.decisionAt)}。欢迎加入博远！</div>
+                    {/* 二维码放在这里而不是只发邮件：邮件默认拦截外链图片，
+                        很多同学根本看不到码；网站上一定看得到。 */}
+                    {Array.isArray((result as any).qrCodes) && (result as any).qrCodes.length > 0 ? (
+                      <div className="admit-qrs">
+                        <div className="admit-qrs__tip">扫码入群，开始一起干活（doge）</div>
+                        <div className="admit-qrs__list">
+                          {(result as any).qrCodes.map((qr: any) => (
+                            <div className="admit-qr" key={qr.imageUrl}>
+                              <img className="admit-qr__img" src={qr.imageUrl} alt={qr.label} />
+                              <div className="admit-qr__label">{qr.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 6 }}>后续安排请留意邮件与群通知。</div>
+                    )}
+                  </>
+                }
                 style={{ marginTop: 4 }}
               />
             ) : (

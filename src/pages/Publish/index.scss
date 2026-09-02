@@ -530,3 +530,42 @@
     &__title { font-size: 14px; }
   }
 }
+
+// ── 招新答疑群 ────────────────────────────────────────────────────────────
+.qa-group-hint {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  text-align: left;                    // 抵消标题区的 center
+  background: #f7f9ff;
+  border: 1px solid #e3e9fb;
+  border-radius: 12px;
+
+  &__qr {
+    flex: none;
+    width: 84px;
+    height: 84px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 8px;
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2d3748;
+  }
+
+  &__desc {
+    font-size: 12.5px;
+    color: #6b7280;
+    margin-top: 3px;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 560px) {
+    &__qr { width: 68px; height: 68px; }
+  }
+}

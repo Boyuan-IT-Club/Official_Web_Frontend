@@ -74,3 +74,9 @@ export function deleteCycle(cycleId: number) {
 export function refreshCycleStatuses() {
   return request({ url: '/api/cycles/update-statuses', method: 'post' });
 }
+
+
+/** 招新答疑群二维码，简历填写页展示。没配则 data 为 null */
+export function getQaGroupQrCode(cycleId: number) {
+  return request({ url: '/api/recruitment/qrcodes/qa', method: 'get', params: { cycleId } });
+}
