@@ -1,4 +1,5 @@
 // 文件位置：src/pages/Experiences/index.tsx
+import { safeBack } from '@/utils/safeBack';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Avatar } from 'antd';
@@ -97,7 +98,7 @@ function Experiences() {
             <h1>学长学姐经验分享</h1>
             <p>————听听他们怎么说</p>
           </div>
-          <button className="back-btn" onClick={() => navigate(-1)}>返回</button>
+          <button className="back-btn" onClick={() => safeBack(navigate, '/')}>返回</button>
         </header>
 
         {/* --- 经验卡片列表 --- */}

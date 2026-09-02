@@ -2,6 +2,7 @@
 // 正文是管理端富文本编辑器的产出，服务端入库前已按白名单消毒；
 // 这里再过一遍 DOMPurify 才交给 dangerouslySetInnerHTML——双保险，
 // 万一有老数据绕过了服务端消毒（或未来接口被误改），展示端也不放行脚本。
+import { safeBack } from '@/utils/safeBack';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
@@ -39,7 +40,10 @@ const ActivityDetail: React.FC = () => {
     <div className="activity-detail-wrapper">
       <div className="activity-detail-container">
         <header className="detail-header">
-          <button className="back-btn" onClick={() => navigate('/Activities')}>← 返回活动列表</button>
+          {/* 用 safeBack 而不是 navigate('/Activities')：后者是 push，
+              会把「列表」再压一条进历史，和列表页的 navigate(-1) 形成来回打转
+              （列表→详情→返回→在列表点返回又回到详情）。 */}
+          <button className="back-btn" onClick={() => safeBack(navigate, '/Activities')}>← 返回活动列表</button>
         </header>
 
         {error && <div className="detail-empty">{error} 🎈</div>}
