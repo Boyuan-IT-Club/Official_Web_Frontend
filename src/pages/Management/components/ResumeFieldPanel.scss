@@ -1,14 +1,20 @@
+// 简历字段配置面板。
+//
+// 颜色统一走 antd token 的 CSS 变量：这里原来是 36 处写死的浅色值
+// （#fafafa / #e1e5ea / #1f3a60…），在石墨深色皮肤下是浅底上的浅字，
+// 整个面板几乎读不出来。fallback 保留原值，浅色皮肤下观感不变。
+
 .field-options-editor {
   padding: 12px;
-  background: #fafafa;
-  border: 1px dashed #d9d9d9;
+  background: var(--ant-color-fill-quaternary, #fafafa);
+  border: 1px dashed var(--ant-color-border, #d9d9d9);
   border-radius: 6px;
 }
 
 // ── 编辑简历字段面板：统一到品牌深蓝 + 中性灰，去掉旧版亮蓝 ──────────────────
 .resume-field-panel {
-  background: #fafbfc;
-  border: 1px solid #e1e5ea;
+  background: var(--ant-color-fill-quaternary, #fafbfc);
+  border: 1px solid var(--ant-color-border-secondary, #e1e5ea);
   border-radius: 10px;
   padding: 20px 24px;
   min-height: 400px;
@@ -21,19 +27,19 @@
     flex-wrap: wrap;
     padding-bottom: 16px;
     margin-bottom: 16px;
-    border-bottom: 1px solid #e1e5ea;
+    border-bottom: 1px solid var(--ant-color-border-secondary, #e1e5ea);
   }
 
   &__title {
     font-size: 18px;
     font-weight: 700;
-    color: #1f3a60;
+    color: var(--ant-color-text, #1f3a60);
   }
 
   &__subtitle {
     margin-top: 4px;
     font-size: 13px;
-    color: #80868b;
+    color: var(--ant-color-text-tertiary, #80868b);
   }
 
   // 两栏主体：左栏题型面板 + 中间题目流
@@ -51,8 +57,8 @@
     height: calc(100vh - 140px);
     display: flex;
     flex-direction: column;
-    background: #ffffff;
-    border: 1px solid #e1e5ea;
+    background: var(--ant-color-bg-container, #ffffff);
+    border: 1px solid var(--ant-color-border-secondary, #e1e5ea);
     border-radius: 10px;
     padding: 16px;
   }
@@ -60,13 +66,13 @@
   &__sidebar-title {
     font-size: 14px;
     font-weight: 700;
-    color: #1f3a60;
+    color: var(--ant-color-text, #1f3a60);
     margin-bottom: 12px;
   }
 
   &__sidebar-label {
     font-size: 12px;
-    color: #80868b;
+    color: var(--ant-color-text-tertiary, #80868b);
     margin-bottom: 6px;
   }
 
@@ -91,25 +97,25 @@
     align-items: center;
     gap: 8px;
     padding: 9px 12px;
-    background: #fafbfc;
-    border: 1px solid #e1e5ea;
+    background: var(--ant-color-fill-quaternary, #fafbfc);
+    border: 1px solid var(--ant-color-border-secondary, #e1e5ea);
     border-radius: 8px;
     cursor: pointer;
     font-size: 13px;
-    color: #1a1a1a;
+    color: var(--ant-color-text, #1a1a1a);
     text-align: left;
     transition: all 0.2s ease;
 
     &:hover {
-      border-color: #1f3a60;
-      background: #eaeff7;
-      color: #1f3a60;
+      border-color: var(--ant-color-text, #1f3a60);
+      background: var(--ant-color-primary-bg, #eaeff7);
+      color: var(--ant-color-text, #1f3a60);
     }
   }
 
   &__type-icon {
     display: inline-flex;
-    color: #1f3a60;
+    color: var(--ant-color-text, #1f3a60);
     font-size: 14px;
   }
 
@@ -123,20 +129,20 @@
   &__category {
     margin-bottom: 24px;
     border-radius: 12px;
-    border: 1px solid #c9d4e5;
+    border: 1px solid var(--ant-color-primary-border, #c9d4e5);
 
     .ant-card-head {
       position: sticky;
       top: 0;
       z-index: 1000;
-      background: #eaeff7;
-      border-bottom: 1px solid #c9d4e5;
+      background: var(--ant-color-primary-bg, #eaeff7);
+      border-bottom: 1px solid var(--ant-color-primary-border, #c9d4e5);
       border-radius: 12px 12px 0 0;
       box-shadow: 0 2px 6px rgba(31, 58, 96, 0.08);
     }
 
     .ant-card-body {
-      background: #ffffff;
+      background: var(--ant-color-bg-container, #ffffff);
     }
 
     // 折叠态：body 不显示
@@ -154,7 +160,7 @@
   &__category-name {
     font-size: 15px;
     font-weight: 600;
-    color: #1f3a60;
+    color: var(--ant-color-text, #1f3a60);
   }
 
   // 字段卡片：白底 + 悬浮微阴影；整体降级到低层级，避免盖住分类吸顶标题
@@ -163,7 +169,7 @@
     z-index: 1;
 
     .ant-card-head {
-      background: #fafbfc;
+      background: var(--ant-color-fill-quaternary, #fafbfc);
     }
 
     .ant-card-head-title {
@@ -178,16 +184,16 @@
     cursor: grab;
     padding: 4px 8px;
     border-radius: 4px;
-    background: #f1f3f6;
+    background: var(--ant-color-fill-tertiary, #f1f3f6);
     display: inline-flex;
     align-items: center;
-    color: #999;
+    color: var(--ant-color-text-quaternary, #999);
     font-size: 16px;
     flex: 0 0 auto;
 
     &:hover {
-      background: #eaeff7;
-      color: #1f3a60;
+      background: var(--ant-color-primary-bg, #eaeff7);
+      color: var(--ant-color-text, #1f3a60);
     }
   }
 
@@ -195,7 +201,7 @@
   &__field-index {
     flex: 0 0 auto;
     font-size: 14px;
-    color: #9aa0a6;
+    color: var(--ant-color-text-tertiary, #9aa0a6);
     min-width: 24px;
     text-align: right;
   }
@@ -204,7 +210,7 @@
   &__field-name {
     font-size: 15px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--ant-color-text, #1a1a1a);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -217,8 +223,8 @@
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #80868b;
-    background: #f1f3f6;
+    color: var(--ant-color-text-tertiary, #80868b);
+    background: var(--ant-color-fill-tertiary, #f1f3f6);
     padding: 1px 8px;
     border-radius: 4px;
   }
@@ -230,13 +236,13 @@
 
     .ant-form-item-label > label {
       font-size: 16px;
-      color: #1a1a1a;
+      color: var(--ant-color-text, #1a1a1a);
     }
 
     .ant-input,
     .ant-input-affix-wrapper,
     .ant-select-selector {
-      background: #fafafa;
+      background: var(--ant-color-fill-quaternary, #fafafa);
       font-size: 15px;
     }
 
@@ -279,7 +285,7 @@
     align-items: center;
     gap: 8px;
     padding: 40px 20px;
-    color: #999;
+    color: var(--ant-color-text-quaternary, #999);
     text-align: center;
   }
 }
@@ -295,7 +301,7 @@
 
     > label {
       font-size: 12px;
-      color: #80868b;
+      color: var(--ant-color-text-tertiary, #80868b);
     }
   }
 
