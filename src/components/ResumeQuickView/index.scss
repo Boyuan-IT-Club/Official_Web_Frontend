@@ -1,79 +1,132 @@
 @use "../../styles/tokens" as t;
 
-// 简历速览排版
+// 简历速览。
+//
+// 两处一起改掉的老问题：
+//   1. 颜色全是写死的浅色值（#1f3a60 / #9aa3af / #eef2f7…），在石墨深色皮肤下
+//      是浅底上的浅字，几乎读不出来。改走 antd token 的 CSS 变量，跟随皮肤。
+//   2. 基本信息用 `white-space: nowrap + ellipsis`，长邮箱和 GitHub 链接会被
+//      直接截断，看简历的人得把鼠标悬上去才知道全貌。改为允许换行。
 .resume-view {
+  --rv-accent: var(--ant-color-primary, #1f76cc);
+
+  // ── 抬头：姓名 + 志愿标签 + 证件照 ──
   .rv-head {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 12px;
-    padding-bottom: 14px;
-    border-bottom: 2px solid #1f76cc;
-    margin-bottom: 14px;
+    gap: 16px;
+    padding-bottom: 16px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--ant-color-split, rgba(5, 5, 5, .06));
+    position: relative;
+
+    // 强调只留一小段，不再是贯穿整行的粗蓝线 —— 那条线在深色皮肤下
+    // 尤其扎眼，且把「姓名」区和内容切得太硬
+    &::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      width: 44px;
+      height: 2px;
+      background: var(--rv-accent);
+      border-radius: 2px;
+    }
 
     .rv-name {
-      font-size: 22px;
-      font-weight: 700;
-      color: #1f3a60;
+      font-size: 24px;
+      font-weight: 650;
+      line-height: 1.25;
+      letter-spacing: -.01em;
+      color: var(--ant-color-text, rgba(0, 0, 0, .88));
     }
 
     .rv-sub {
-      margin-top: 6px;
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
     .rv-photo {
-      width: 72px;
-      height: 96px;
+      width: 76px;
+      height: 100px;
       object-fit: cover;
-      border-radius: t.$radius-control;
-      border: 1px solid #e5e9f0;
+      border-radius: 8px;
+      border: 1px solid var(--ant-color-border-secondary, #e5e9f0);
       flex-shrink: 0;
     }
   }
 
+  // ── 基本信息：标签在上、值在下，比左右并排更好扫读 ──
   .rv-basics {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px 16px;
-    margin-bottom: 6px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px 20px;
+    margin-bottom: 4px;
 
     .rv-basic-item {
       display: flex;
-      gap: 8px;
-      font-size: 13px;
+      flex-direction: column;
+      gap: 3px;
       min-width: 0;
 
       .rv-label {
-        color: #9aa3af;
-        flex-shrink: 0;
+        font-size: 11.5px;
+        letter-spacing: .04em;
+        color: var(--ant-color-text-tertiary, rgba(0, 0, 0, .45));
       }
 
       .rv-value {
-        color: #2b3038;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        font-size: 13.5px;
+        color: var(--ant-color-text, rgba(0, 0, 0, .88));
+        // 允许换行：长邮箱与 GitHub 链接原来被 ellipsis 截断，
+        // 看简历的人得悬停才知道全貌
+        word-break: break-word;
+        overflow-wrap: anywhere;
       }
     }
   }
 
+  // ── 长文小节 ──
   .rv-section {
-    margin-top: 16px;
+    margin-top: 22px;
 
     .rv-section-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
       font-size: 13px;
       font-weight: 600;
-      color: #1f76cc;
-      padding-bottom: 4px;
-      border-bottom: 1px solid #eef2f7;
-      margin-bottom: 8px;
+      color: var(--ant-color-text-secondary, rgba(0, 0, 0, .65));
+      margin-bottom: 9px;
+
+      // 竖条代替下划线：小节之间的分隔靠间距，标题只需要一个锚点
+      &::before {
+        content: "";
+        width: 3px;
+        height: 13px;
+        background: var(--rv-accent);
+        border-radius: 2px;
+      }
     }
 
     .rv-prose {
-      font-size: 13px;
-      line-height: 1.8;
-      color: #3c434d;
+      font-size: 13.5px;
+      line-height: 1.85;
+      color: var(--ant-color-text-secondary, rgba(0, 0, 0, .65));
       white-space: pre-wrap;
+      word-break: break-word;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .rv-head {
+      gap: 12px;
+
+      .rv-name { font-size: 20px; }
+      .rv-photo { width: 62px; height: 82px; }
     }
   }
 }
