@@ -1,4 +1,5 @@
 
+import { safeBack } from '@/utils/safeBack';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './index.scss'; 
@@ -46,7 +47,7 @@ const Lessons: React.FC = () => {
             <p>在这里重温博远社团的精彩技术讲座吧！</p>
           </div>
           {/* 这里点击返回上一页或主页 */}
-          <button className="back-btn" onClick={() => navigate(-1)}>返回</button>
+          <button className="back-btn" onClick={() => safeBack(navigate, '/')}>返回</button>
         </header>
 
         <div className="filter-section">

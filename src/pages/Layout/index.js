@@ -14,6 +14,7 @@ import {
   CodeOutlined,
   LogoutOutlined,
   QuestionCircleOutlined,
+  ScheduleOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -115,6 +116,13 @@ const MainLayout = () => {
       key: "/main/publish",
       icon: <FileTextOutlined />,
       label: "简历投递",
+    },
+    {
+      // 申请中心此前只有页面没有入口 —— 只能从个人主页「我的申请」绕进去，
+      // 而它恰恰是投完简历后最常回来看的页面（审核进度、面试安排、改期）
+      key: "/main/interview-appointment",
+      icon: <ScheduleOutlined />,
+      label: "申请进度",
     },
     {
       key: "/main/person",

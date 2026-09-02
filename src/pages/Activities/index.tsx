@@ -1,4 +1,5 @@
 // 文件位置：src/pages/Activities/index.tsx
+import { safeBack } from '@/utils/safeBack';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Carousel } from 'antd';
@@ -103,7 +104,9 @@ const Activities: React.FC = () => {
             <h1>🎉 社团活动大本营</h1>
             <p>在这里发现最新好玩的活动，回顾我们的精彩瞬间！</p>
           </div>
-          <button className="back-btn" onClick={() => navigate(-1)}>返回</button>
+          {/* 同样走 safeBack：直接从分享链接打开列表时，navigate(-1) 会把人
+              退出本站（回到搜索结果或空白页），有兜底才稳。 */}
+          <button className="back-btn" onClick={() => safeBack(navigate, '/')}>返回</button>
         </header>
 
         {/* --- 分类切换按钮 --- */}
