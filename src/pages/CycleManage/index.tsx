@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import ResumeFieldsDrawer from "./ResumeFieldsDrawer";
+import QrCodesDrawer from "./QrCodesDrawer";
 import {
   Button,
   Card,
@@ -22,6 +23,7 @@ import {
   SyncOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
+  QrcodeOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
@@ -73,6 +75,8 @@ const CycleManage: React.FC = () => {
       academicYear: record.academicYear,
       range: [dayjs(record.startDate), dayjs(record.endDate)],
       isActive: record.isActive,
+      waitingRoom: record.waitingRoom,
+      contactInfo: record.contactInfo,
     });
     setModalOpen(true);
   };
@@ -88,6 +92,9 @@ const CycleManage: React.FC = () => {
       startDate: start.format("YYYY-MM-DD"),
       endDate: end.format("YYYY-MM-DD"),
       isActive: values.isActive,
+      // 显式传 null 而不是省略：后端据此判断「清空」还是「不动」
+      waitingRoom: values.waitingRoom?.trim() || null,
+      contactInfo: values.contactInfo?.trim() || null,
     };
     setSaving(true);
     try {
@@ -131,6 +138,7 @@ const CycleManage: React.FC = () => {
   // 不在起止日期内直接返回 3010，所以这个开关是真闸门，不只是隐藏入口。
   // 此前只能进「编辑周期」把「是否活跃」改掉 —— 管理员根本找不到。
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [qrFor, setQrFor] = useState<RecruitmentCycle | null>(null);
   const toggleIntake = async (record: RecruitmentCycle) => {
     const open = record.isActive === 1;
     setTogglingId(record.cycleId);
@@ -216,6 +224,11 @@ const CycleManage: React.FC = () => {
             menu={{
               items: [
                 {
+                  key: "qrcodes",
+                  icon: <QrcodeOutlined />,
+                  label: "二维码配置",
+                },
+                {
                   key: "intake",
                   icon: record.isActive === 1 ? <PauseCircleOutlined /> : <PlayCircleOutlined />,
                   label: record.isActive === 1 ? "停止投递" : "开放投递",
@@ -224,6 +237,10 @@ const CycleManage: React.FC = () => {
                 { key: "del", icon: <DeleteOutlined />, label: "删除周期", danger: true },
               ],
               onClick: ({ key }) => {
+                if (key === "qrcodes") {
+                  setQrFor(record);
+                  return;
+                }
                 if (key === "intake") {
                   const open = record.isActive === 1;
                   Modal.confirm({
@@ -325,11 +342,37 @@ const CycleManage: React.FC = () => {
               ]}
             />
           </Form.Item>
+          {/* 招新通知用的两项配置。放在周期上而不是全局：每届都会换，
+              挂全局要年年手改，历史周期发出去的内容也无从追溯。 */}
+          <Form.Item
+            name="waitingRoom"
+            label="候场教室"
+            tooltip="面试提醒邮件里会写「请提前 10 分钟抵达 XXX 候场」。留空则邮件里不出现这一行"
+          >
+            <Input placeholder="如：教书院202（同一周期通常只有一间）" allowClear />
+          </Form.Item>
+          <Form.Item
+            name="contactInfo"
+            label="负责人联系方式"
+            tooltip="附在未录取通知邮件末尾。留空则不出现"
+          >
+            <Input.TextArea
+              rows={2}
+              placeholder="如：丁华烨　微信 dinghuaye　邮箱 xxx@stu.ecnu.edu.cn"
+              allowClear
+            />
+          </Form.Item>
           <Form.Item name="description" label="描述">
             <Input.TextArea rows={3} maxLength={200} />
           </Form.Item>
         </Form>
       </Modal>
+      <QrCodesDrawer
+        open={!!qrFor}
+        cycleId={qrFor?.cycleId ?? null}
+        cycleName={qrFor?.cycleName}
+        onClose={() => setQrFor(null)}
+      />
       <ResumeFieldsDrawer
         open={!!fieldsFor}
         cycleId={fieldsFor?.cycleId ?? null}

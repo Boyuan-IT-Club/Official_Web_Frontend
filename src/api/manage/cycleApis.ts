@@ -12,6 +12,10 @@ export interface RecruitmentCycle {
   isActive: number; // 1活跃
   createdAt?: string;
   updatedAt?: string;
+  /** 候场教室（V33） */
+  waitingRoom?: string | null;
+  /** 本届负责人联系方式（V33） */
+  contactInfo?: string | null;
 }
 
 export interface CyclePayload {
@@ -23,6 +27,43 @@ export interface CyclePayload {
   academicYear: string;
   status?: number;
   isActive?: number;
+  /** 候场教室，面试提醒邮件里用；同一周期通常只有一间 */
+  waitingRoom?: string | null;
+  /** 本届负责人联系方式，未录取通知邮件末尾附上 */
+  contactInfo?: string | null;
+}
+
+/** 招新二维码。qrType: DEPT / MAIN_GROUP / QA_GROUP */
+export interface RecruitmentQrCode {
+  id: number;
+  cycleId: number;
+  qrType: 'DEPT' | 'MAIN_GROUP' | 'QA_GROUP';
+  deptId: number;
+  imageUrl: string;
+  remark?: string | null;
+}
+
+export function listQrCodes(cycleId: number) {
+  return request({ url: '/api/recruitment/qrcodes', method: 'get', params: { cycleId } });
+}
+
+/**
+ * 上传或替换一张二维码。同一 (周期,类型,部门) 只保留一张。
+ * 走 multipart，不能设 Content-Type —— 浏览器要自己带 boundary。
+ */
+export function uploadQrCode(params: {
+  cycleId: number; qrType: string; deptId?: number; remark?: string; file: File;
+}) {
+  const fd = new FormData();
+  fd.append('file', params.file);
+  const query: Record<string, any> = { cycleId: params.cycleId, qrType: params.qrType };
+  if (params.deptId != null) query.deptId = params.deptId;
+  if (params.remark) query.remark = params.remark;
+  return request({ url: '/api/recruitment/qrcodes', method: 'post', params: query, data: fd });
+}
+
+export function deleteQrCode(id: number) {
+  return request({ url: `/api/recruitment/qrcodes/${id}`, method: 'delete' });
 }
 
 export function getCyclesPage(params: { page?: number; size?: number }) {
