@@ -138,3 +138,41 @@
     border-radius: t.$radius-sm;
   }
 }
+
+// ── 录取后的入群二维码 ──────────────────────────────────────────────────
+// 邮件默认拦截外链图片，很多同学在邮箱里看不到码；网站上一定看得到。
+.admit-qrs {
+  margin-top: 12px;
+
+  &__tip {
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: var(--ant-color-text-secondary, rgba(0, 0, 0, .65));
+  }
+
+  &__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+}
+
+.admit-qr {
+  width: 132px;
+  text-align: center;
+
+  &__img {
+    width: 132px;
+    height: 132px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+    border-radius: 8px;
+  }
+
+  &__label {
+    font-size: 12.5px;
+    margin-top: 6px;
+    color: var(--ant-color-text-secondary, rgba(0, 0, 0, .65));
+  }
+}
