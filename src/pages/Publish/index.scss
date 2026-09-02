@@ -19,28 +19,66 @@
       contain: layout style;
 
       .questionnaire-form {
+        // 每个分区独立成一张浅底卡片。
+        //
+        // 原来只靠一条 2px 灰线分隔，二十来个字段连成一整片，填到中间
+        // 完全不知道自己在哪一段；分区成卡之后「基本信息 / 个人陈述 /
+        // 志愿选择」各是一块，扫一眼就知道还剩几段。
         .form-section {
-          margin-bottom: 32px;
+          margin-bottom: 20px;
+          // 左右内边距刻意收窄：卡片已经有边框在分区，边距只需喘息感。
+          // 给到 22px 时输入框会明显变窄（窄屏上尤其明显，占位文字都被截断），
+          // 而输入框宽度对填表的影响远大于这点留白。
+          padding: 18px 14px 4px;
+          background: #fcfdff;
+          border: 1px solid #eef1f8;
+          border-radius: 12px;
+
+          @media (max-width: 560px) {
+            // 手机上横向空间最紧张，边距再让一半出来给输入框
+            padding: 14px 10px 2px;
+            margin-bottom: 14px;
+            border-radius: 10px;
+          }
 
           .section-title {
             display: flex;
             align-items: center;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #f0f0f0;
+            gap: 8px;
+            margin-bottom: 18px;
+            padding-bottom: 0;
+            border-bottom: none;      // 卡片边界已经在分隔，不必再画线
+            font-size: 15px;
+            font-weight: 600;
+            color: #2d3748;
+
+            // 竖条锚点，比整行下划线安静
+            &::before {
+              content: "";
+              flex: none;
+              width: 3px;
+              height: 15px;
+              background: #6c7ae0;
+              border-radius: 2px;
+            }
 
             .anticon {
-              margin-right: 8px;
-              color: #1890ff;
+              margin-right: 0;
+              font-size: 15px;
+              color: #6c7ae0;
             }
           }
         }
 
         .form-actions {
-          margin-top: 32px;
-          padding-top: 16px;
-          border-top: 1px solid #f0f0f0;
+          position: sticky;
+          bottom: 0;
+          z-index: 2;
+          margin-top: 28px;
+          padding: 14px 0;
           text-align: center;
+          background: linear-gradient(to top, #fff 62%, rgba(255, 255, 255, 0));
+          border-top: 1px solid #eef1f8;
         }
       }
     }
