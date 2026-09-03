@@ -161,7 +161,15 @@ const DataDrivenFields: React.FC<DataDrivenFieldsProps> = ({
         return (
           <SelectField
             label={label}
-            name={key}
+            /*
+              表单字段名必须沿用 first_department / second_department，
+              不能用字段自己的 key。antd 的 Form.Item name= 会用表单 store 里的值
+              覆盖传进去的 value，而投递页是按这两个旧名 setFieldsValue 的
+              （见 index.tsx 的 form.setFieldsValue({first_department...})）。
+              改成 first_choice 之后 store 里查无此项，下拉就永远是空的 ——
+              「部门填不上」就是这么来的。
+            */
+            name={which === 'second' ? 'second_department' : 'first_department'}
             placeholder={placeholder || (which === 'first' ? '请选择第一志愿部门' : '请选择第二志愿部门（选填）')}
             value={departments[which]}
             onChange={(value: string) => onDepartmentChange(which, value)}
@@ -239,22 +247,43 @@ const DataDrivenFields: React.FC<DataDrivenFieldsProps> = ({
 
   const groups = groupByCategory(fields);
 
+  /** 普通字段流：短控件并排两列，长文本与专属控件独占一行。 */
+  const fieldFlow = (list: RenderableField[]) => (
+    <Row gutter={16}>
+      {list.map((field) => {
+        const half = isHalfWidth(widgetOf(field));
+        return (
+          <Col key={field.fieldKey} xs={24} md={half ? 12 : 24}>
+            {renderOne(field)}
+          </Col>
+        );
+      })}
+    </Row>
+  );
+
   return (
     <>
-      {groups.map(({ category, label, fields: groupFields }) => (
-        <FormSection key={category} title={label} icon={SECTION_ICON[category]}>
-          <Row gutter={16}>
-            {groupFields.map((field) => {
-              const half = isHalfWidth(widgetOf(field));
-              return (
-                <Col key={field.fieldKey} xs={24} md={half ? 12 : 24}>
-                  {renderOne(field)}
-                </Col>
-              );
-            })}
-          </Row>
-        </FormSection>
-      ))}
+      {groups.map(({ category, label, fields: groupFields }) => {
+        /*
+          照片是这一区的「侧栏」而不是流里的一项：它竖着占掉整个基本信息区的
+          右侧一栏，和左边的姓名/学号那些并列。
+          数据驱动改造时我把它当成普通整宽字段排进流里，结果它掉到了所有
+          文字字段的下面 —— 用户圈出来的正是它原本该在的位置。
+        */
+        const photo = groupFields.find((f) => widgetOf(f) === 'photo');
+        const rest = photo ? groupFields.filter((f) => f !== photo) : groupFields;
+
+        return (
+          <FormSection key={category} title={label} icon={SECTION_ICON[category]}>
+            {photo ? (
+              <Row gutter={24}>
+                <Col xs={24} md={16}>{fieldFlow(rest)}</Col>
+                <Col xs={24} md={8}>{renderOne(photo)}</Col>
+              </Row>
+            ) : fieldFlow(rest)}
+          </FormSection>
+        );
+      })}
     </>
   );
 };

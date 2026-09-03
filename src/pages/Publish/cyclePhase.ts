@@ -42,3 +42,28 @@ export function daysUntil(startDate: string | null | undefined, today: Date): nu
   const diff = Math.round((start.getTime() - midnight.getTime()) / 86400000);
   return diff > 0 ? diff : null;
 }
+
+/**
+ * 决定投递页要展示哪个周期。
+ *
+ * 顺序有讲究：用户点过切换器就一律听他的（切换器里也列已结束的周期供查看历史）；
+ * 否则优先开放中的；**没有任何开放周期时落到「最快要开始的那个」**，
+ * 而不是 store 里那个写死的默认周期。
+ *
+ * 最后一步是线上事故的修复：招新间歇期没有开放周期，页面拿着默认周期
+ * （既不开放也早已截止）去请求简历，后端一律回 3010，前端弹两个红色报错框。
+ * 而此时明明有已排期的下一届 —— 该给的是预告，不是报错。
+ */
+export function resolveActiveCycleId(
+  storeCycleId: number | null | undefined,
+  openIds: number[],
+  upcomingIds: number[],
+  userPicked: boolean,
+): number | null | undefined {
+  const id = Number(storeCycleId);
+  if (userPicked) return storeCycleId;
+  if (openIds.includes(id)) return storeCycleId;
+  if (openIds.length > 0) return openIds[0];
+  if (upcomingIds.length > 0) return upcomingIds[0];
+  return storeCycleId;
+}
