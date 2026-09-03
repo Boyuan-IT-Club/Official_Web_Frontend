@@ -984,6 +984,16 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
           { title: "姓名", dataIndex: "userId", width: 110,
             render: (uid: number) => nameMap[uid]?.name || nameMap[uid]?.username || `用户#${uid}` },
           { title: "学号", dataIndex: "userId", width: 120, render: (uid: number) => nameMap[uid]?.username || "-" },
+          {
+            title: "面试", dataIndex: "scheduleId", width: 96,
+            // 没有面试安排的人此前根本进不了这张表（结果行要求挂在一场面试上）。
+            // 现在他们也在名单里，标出来免得管理员以为是数据错乱。
+            render: (v: number | null) => (v == null
+              ? <Tooltip title="未参加线下面试（本人选择不能参加，或未被排上场次）">
+                  <Tag color="orange">无面试</Tag>
+                </Tooltip>
+              : <Tag>已面试</Tag>),
+          },
           { title: "结果", dataIndex: "decision", width: 90,
             render: (d: number) => d != null
               ? <Tag color={DECISION_TAG[d]?.color}>{DECISION_TAG[d]?.text ?? d}</Tag>
