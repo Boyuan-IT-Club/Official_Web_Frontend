@@ -42,6 +42,7 @@ import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
 import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
+import ResumeAttachments from '@/components/ResumeAttachments';
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
 import ResumeDisplay from '@/components/ResumeDisplay';
 import CycleSwitcher from '@/components/CycleSwitcher';
@@ -1554,6 +1555,18 @@ const Publish: React.FC = () => {
                       disabledSecondDepts={disabledSecondDepts}
                       intentLocked={intentLocked}
                     />
+
+                    {/*
+                      其它附件：作品集、成绩单这类没法塞进表单字段的材料。
+                      放在字段之后、面试意向之前 —— 它属于「简历内容」的收尾，
+                      而面试意向走的是另一条接口，不是简历的一部分。
+                    */}
+                    <div style={{ marginTop: 8, marginBottom: 20 }}>
+                      <ResumeAttachments
+                        resumeId={Number(resume?.resume_id || resume?.id) || null}
+                        canEdit={canEdit}
+                      />
+                    </div>
 
                     {/* ── 面试意向（方案二：随简历一次提交）── */}
                     <Card

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal, InputNumber, message } from 'antd';
 import { updateResumeScore } from '@/api/manage/resumeEntry';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
+import ResumeAttachments from '@/components/ResumeAttachments';
 import {
   UserOutlined,
   IdcardOutlined,
@@ -473,6 +474,15 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
             </Col>
           </Row>
         </Card>
+
+        {/*
+          候选人上传的补充材料。面试官只看不改（canEdit 不传即为 false）：
+          能预览的直接在弹窗里看，不能预览的（Word、压缩包这类浏览器打不开的）
+          给下载。
+        */}
+        <div style={{ marginTop: 16 }}>
+          <ResumeAttachments resumeId={Number(resume.resumeId) || null} />
+        </div>
       </div>
     </div>
   );
