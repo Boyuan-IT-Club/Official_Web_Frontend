@@ -167,6 +167,28 @@ export interface ScheduleRosterItem {
   deptName?: string;
 }
 
+export interface OfflineUnavailableItem {
+  userId: number;
+  resumeId: number;
+  name?: string | null;
+  username?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  /** 学生自己填的说明，可能为空 */
+  note?: string | null;
+  resumeStatus?: number | null;
+}
+
+/**
+ * 无法参加线下面试的同学名单。
+ *
+ * 这批人不会被自动排进场次，管理员得单独约线上面试——在此之前他们在
+ * 管理端是「看不见」的：既不在已分配名单里，也不在任何场次下。
+ */
+export function listOfflineUnavailable(cycleId: number) {
+  return request({ url: `/api/interview/admin/cycles/${cycleId}/offline-unavailable`, method: 'get' });
+}
+
 /** 查询某周期已分配名单（可按场次过滤），按面试时间排序 */
 export function listSchedulesRoster(cycleId: number, sessionId?: number) {
   return request({
@@ -250,6 +272,12 @@ export interface InterviewResultItem {
   resumeId?: number | null;
   /** 最近一次结果通知的发送时间；空 = 从未通知（V27 起后端返回） */
   notifiedAt?: string;
+  /**
+   * 联表查出来的展示字段。优先用它，别再去「面试安排名册」里凑名字——
+   * 没有面试安排的同学不在那份名册里，会退化成「用户#14」。
+   */
+  userName?: string;
+  departmentName?: string;
 }
 
 export function listResults(params: { cycleId: number; name?: string; decision?: string; department?: string; page?: number; size?: number }) {

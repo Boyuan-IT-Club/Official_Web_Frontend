@@ -24,6 +24,7 @@ import {
   Tag,
   TimePicker,
   message,
+  Typography,
 } from "antd";
 import { DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -47,6 +48,8 @@ import {
   listResults,
   seedResultsFromSchedules,
   listSchedulesRoster,
+  listOfflineUnavailable,
+  OfflineUnavailableItem,
   listSessions,
   sendResultNotifications,
   batchDecision,
@@ -982,7 +985,14 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
         }}
         columns={[
           { title: "姓名", dataIndex: "userId", width: 110,
-            render: (uid: number) => nameMap[uid]?.name || nameMap[uid]?.username || `用户#${uid}` },
+            /*
+              姓名优先取结果接口自己带回来的 userName。
+              原先只从「面试安排名册」里查，而没有面试安排的同学不在那份名册里
+              （V34 之后他们也进结果名单了），姓名就退化成「用户#14」——
+              尽管库里明明存着他的名字。名册只作兜底。
+            */
+            render: (uid: number, r: InterviewResultItem) =>
+              r.userName || nameMap[uid]?.name || nameMap[uid]?.username || `用户#${uid}` },
           { title: "学号", dataIndex: "userId", width: 120, render: (uid: number) => nameMap[uid]?.username || "-" },
           {
             title: "面试", dataIndex: "scheduleId", width: 96,
@@ -1015,7 +1025,9 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
       />
 
       <Modal
-        title={editing ? `录入结果：${nameMap[editing.userId]?.name || `用户#${editing.userId}`}` : ""}
+        title={editing
+          ? `录入结果：${editing.userName || nameMap[editing.userId]?.name || `用户#${editing.userId}`}`
+          : ""}
         open={!!editing}
         onOk={saveResult}
         confirmLoading={saving}
@@ -1431,6 +1443,62 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 };
 
 // ─── 页面主体 ────────────────────────────────────────────────────────────────
+/**
+ * 无法参加线下面试的同学。
+ *
+ * 这批人不会被自动排进场次，管理员得单独约线上面试——在此之前他们在
+ * 管理端是「看不见」的：既不在已分配名单里，也不在任何场次下，
+ * 只能靠翻每一份简历才发现。
+ */
+const OfflineUnavailableTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycleId, refreshToken }) => {
+  const [list, setList] = useState<OfflineUnavailableItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res: any = await listOfflineUnavailable(cycleId);
+      setList(res?.data ?? []);
+    } catch (e: any) {
+      message.error(e?.message || "加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [cycleId]);
+
+  useEffect(() => { void load(); }, [load, refreshToken]);
+
+  return (
+    <>
+      <PageHint>
+        这些同学选了「不能参加线下面试」，不会被自动排进场次，需要单独约线上面试。
+        「说明」是他们自己填的，据此联系更省事。
+      </PageHint>
+      <Table
+        rowKey="userId"
+        size="small"
+        loading={loading}
+        dataSource={list}
+        locale={{ emptyText: "本周期没有选择「不能参加线下面试」的同学" }}
+        columns={[
+          { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: OfflineUnavailableItem) => v || r.username || `用户#${r.userId}` },
+          { title: "学号", dataIndex: "username", width: 130, render: (v: string) => v || "-" },
+          { title: "邮箱", dataIndex: "email", width: 220, render: (v: string) => v || "-" },
+          { title: "手机", dataIndex: "phone", width: 130, render: (v: string) => v || "-" },
+          {
+            title: "说明",
+            dataIndex: "note",
+            // 说明是这张表存在的意义，给它最宽的一列
+            render: (v: string) => v
+              ? <span style={{ whiteSpace: "pre-wrap" }}>{v}</span>
+              : <Typography.Text type="secondary">未填写</Typography.Text>,
+          },
+        ]}
+      />
+    </>
+  );
+};
+
 const InterviewManage: React.FC = () => {
   const [cycles, setCycles] = useState<RecruitmentCycle[]>([]);
   const [cycleId, setCycleId] = useState<number | undefined>();
@@ -1504,6 +1572,7 @@ const InterviewManage: React.FC = () => {
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} refreshToken={tabTokens.assign ?? 0} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} refreshToken={tabTokens.reschedule ?? 0} /> },
             { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} /> },
+            { key: "offline", label: "无法线下", children: <OfflineUnavailableTab cycleId={cycleId} refreshToken={tabTokens.offline ?? 0} /> },
             { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.results ?? 0} /> },
             { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
           ]}

@@ -18,6 +18,7 @@ import {
   Upload,
   Select,
   Radio,
+  Input,
 } from 'antd';
 import {
   SendOutlined,
@@ -1605,6 +1606,24 @@ const Publish: React.FC = () => {
                               你选择了不能参加线下面试，因此<b>不会被自动安排到面试场次</b>。
                               请通过招新答疑群或邮件联系我们，我们会为你安排线上面试或其他时间。
                               <div style={{ marginTop: 4 }}>情况有变可随时回到本页改回「能参加」。</div>
+                              {/*
+                                让他把原因写下来，管理端直接能看到。
+                                否则管理员只知道「这人不能线下」，得挨个去问为什么、
+                                什么时候方便——而这些学生本来就是最难联系上的一批。
+                                复用 expected_interview_time 里既有的 customTime 字段，
+                                不新增简历字段（那会连带动配置、导出、导入好几处）。
+                              */}
+                              <div style={{ marginTop: 10 }}>
+                                <Input.TextArea
+                                  rows={2}
+                                  maxLength={200}
+                                  showCount
+                                  disabled={!canEdit || intentLocked}
+                                  placeholder="说明一下情况，方便我们安排（如：在外地实习，工作日晚上或周末线上都可以）"
+                                  value={interviewTimes.customTime}
+                                  onChange={(e) => handleInterviewTimeChange('customTime', e.target.value)}
+                                />
+                              </div>
                             </>
                           }
                         />
