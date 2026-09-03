@@ -3,7 +3,7 @@
 // 为什么按周期配：群每一届都会换。挂全局要年年手改，而且历史周期发出去的
 // 录取通知里是哪个群，事后无从追溯。
 import React, { useCallback, useEffect, useState } from 'react';
-import { Drawer, Upload, Button, Spin, message, Popconfirm, Input } from 'antd';
+import { Drawer, Upload, Button, Spin, message, Popconfirm, Input, Image } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import PageHint from '@/components/PageHint';
 import {
@@ -143,7 +143,15 @@ const QrCodesDrawer: React.FC<QrCodesDrawerProps> = ({ open, cycleId, cycleName,
 
                 <div className="qr-slot__body">
                   {code ? (
-                    <img className="qr-slot__img" src={code.imageUrl} alt={slot.title} />
+                    /* 同学生端：用 antd Image 才点得开、放得大。
+                       管理员上传后要核对「扫出来是不是这个群」，
+                       缩略图那么小根本核对不了 */
+                    <Image
+                      className="qr-slot__img"
+                      src={code.imageUrl}
+                      alt={slot.title}
+                      preview={{ mask: <span className="qr-slot__mask">点击放大</span> }}
+                    />
                   ) : (
                     <div className="qr-slot__empty">未上传</div>
                   )}

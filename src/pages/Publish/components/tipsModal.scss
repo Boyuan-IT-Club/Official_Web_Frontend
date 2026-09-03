@@ -1,0 +1,103 @@
+// 填写提示弹窗。刻度走 _tokens，不新起一套。
+@use "../../../styles/tokens" as t;
+
+.tips-modal {
+  .ant-modal-body { padding-top: 4px; }
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    gap: t.$gap-sm;
+    padding-bottom: t.$gap-md;
+    margin-bottom: t.$gap-md;
+    border-bottom: t.$border-hairline;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    color: #fff;
+    background: linear-gradient(135deg, #2f7fe0 0%, #1f56b0 100%);
+    border-radius: 50%;
+  }
+
+  &__title {
+    font-size: t.$text-title;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #1f3a60;
+  }
+
+  &__sub {
+    margin-top: 2px;
+    font-size: t.$text-sm;
+    color: #8c96a5;
+  }
+
+  &__list {
+    // 自己画序号，去掉 ol 的默认标记与缩进
+    max-height: 58vh;          // 条目多时弹窗不该长到屏幕外
+    overflow-y: auto;
+    margin: 0;
+    padding: 0 4px 0 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: flex;
+    align-items: flex-start;
+    gap: t.$gap-sm;
+    padding: t.$gap-sm 0;
+
+    & + & { border-top: 1px dashed #eef1f5; }
+  }
+
+  &__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    font-size: t.$text-caption;
+    font-weight: 600;
+    // 序号是数字，等宽避免 1 和 10 宽度不一导致标题左右错开
+    font-variant-numeric: tabular-nums;
+    color: #2f7fe0;
+    background: #eaf2fd;
+    border-radius: 50%;
+  }
+
+  &__body { min-width: 0; }   // 允许长文本收缩换行而不撑破弹窗
+
+  &__item-title {
+    font-size: t.$text-body;
+    font-weight: 600;
+    color: #1f3a60;
+  }
+
+  &__item-desc {
+    margin-top: 3px;
+    font-size: t.$text-sm;
+    line-height: 1.75;
+    color: #5b6675;
+  }
+
+  &__foot {
+    padding-top: t.$gap-md;
+    margin-top: t.$gap-xs;
+    text-align: right;
+    border-top: t.$border-hairline;
+  }
+
+  @media (max-width: 560px) {
+    &__list { max-height: 50vh; }
+    &__title { font-size: t.$text-subtitle; }
+  }
+}

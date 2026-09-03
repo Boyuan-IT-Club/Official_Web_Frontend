@@ -32,7 +32,21 @@
     overflow: hidden;
   }
 
-  &__img { width: 100%; height: 100%; object-fit: contain; }
+  // antd Image 会外包一层 .ant-image；尺寸挂在那一层，
+  // 否则外层塌成默认宽度，图片就不在格子中间了
+  .ant-image {
+    width: 100%;
+    height: 100%;
+  }
+
+  &__img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    cursor: pointer;          // 可点得先从指针上看出来
+  }
+
+  &__mask { font-size: 12px; }
 
   &__empty {
     font-size: 13px;
