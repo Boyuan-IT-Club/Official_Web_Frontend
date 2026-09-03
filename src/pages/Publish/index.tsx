@@ -18,13 +18,13 @@ import {
   Upload,
   Select,
   Radio,
+  Image,
 } from 'antd';
 import {
   SendOutlined,
   EditOutlined,
   SaveOutlined,
   QuestionCircleOutlined,
-  CaretDownOutlined,
   EyeOutlined,
   ExclamationCircleOutlined,
   ImportOutlined,
@@ -42,6 +42,8 @@ import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
 import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
+import QaGroupHint from './components/QaGroupHint';
+import TipsModal from './components/TipsModal';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
 import ResumeDisplay from '@/components/ResumeDisplay';
@@ -261,15 +263,15 @@ const Publish: React.FC = () => {
   const [showSubmitConfirm, setShowSubmitConfirm] = useState<boolean>(false);
   const [isPhotoCompressing, setIsPhotoCompressing] = useState<boolean>(false);
   /**
-   * 填写提示：第一次进来自动展开，之后记住不再自动展开。
+   * 填写提示：第一次填简历时自动弹一次，之后记住不再自动弹，
+   * 但随时可以点「填写提示」按钮重新打开。
    *
-   * 原来默认收起、要手动点开 —— 第一次填简历的人根本不知道有这么个东西，
-   * 那些注意事项也就白写了。但每次都展开又会挡住老用户改简历的路，
-   * 所以只自动展开一次，记在 localStorage 里。
-   * 用户仍可随时手动点开/收起，那不影响这个标记。
+   * 原先是个折叠卡且默认收起 —— 第一次填的人根本不知道有这东西，
+   * 注意事项白写了；展开后它又长长地插在表单顶上，把要填的内容推下去。
+   * 改成弹窗：该看见的时候占满注意力，看完就走开。
    */
   const TIPS_SEEN_KEY = 'boyuan.publish.tipsSeen';
-  const [showTips, setShowTips] = useState<boolean>(() => {
+  const [tipsOpen, setTipsOpen] = useState<boolean>(() => {
     try {
       return localStorage.getItem(TIPS_SEEN_KEY) !== '1';
     } catch {
@@ -277,14 +279,14 @@ const Publish: React.FC = () => {
     }
   });
 
-  // 首次自动展开后立刻记账，不等用户手动收起 —— 他可能直接开始填、
-  // 中途刷新，那时不该再展开一次
+  // 首次弹出后立刻记账，不等用户点关闭 —— 他可能直接刷新或返回，
+  // 那时不该再弹一次
   useEffect(() => {
-    if (!showTips) return;
+    if (!tipsOpen) return;
     try {
       localStorage.setItem(TIPS_SEEN_KEY, '1');
     } catch {
-      /* 存不了就只在本次会话内不再自动展开 */
+      /* 存不了就只在本次会话内不再自动弹 */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1341,17 +1343,7 @@ const Publish: React.FC = () => {
             <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
               博远信息技术社招新申请表
             </Title>
-            {qaQr?.imageUrl && !isMember && (
-              <div className="qa-group-hint">
-                <img className="qa-group-hint__qr" src={qaQr.imageUrl} alt="招新答疑群二维码" />
-                <div className="qa-group-hint__body">
-                  <div className="qa-group-hint__title">填写遇到问题？扫码进答疑群</div>
-                  <div className="qa-group-hint__desc">
-                    {qaQr.remark || '招新答疑群'}　·　有任何疑问都可以在群里直接问我们
-                  </div>
-                </div>
-              </div>
-            )}
+            {!isMember && <QaGroupHint imageUrl={qaQr?.imageUrl} remark={qaQr?.remark} />}
             {isMember ? (
               /* 不用 antd Alert：它的 message 会继承外层的居中，
                  description 却是左对齐，两行错位很难看（用户反馈过）。
@@ -1431,6 +1423,9 @@ const Publish: React.FC = () => {
             <Text type="secondary" style={{ textAlign: 'center', display: 'block', marginBottom: 24 }}>
               {isSubmitted ? '修改简历信息' : '欢迎加入博远信息技术社，请填写以下信息完成申请'}
             </Text>
+            {/* 填写中同样要给答疑入口——这里才是最可能有疑问的时候。
+                原先它只写在「查看已投递简历」那一支里，草稿状态完全看不到。 */}
+            {!isMember && <QaGroupHint imageUrl={qaQr?.imageUrl} remark={qaQr?.remark} />}
             {isSubmitted && (
               <div className="edit-mode-bar">
                 <span className="edit-mode-dot" />
@@ -1466,24 +1461,19 @@ const Publish: React.FC = () => {
           {fieldDefinitions.length > 0 && (
           <>
           <div className="tips-button-container" style={{ marginBottom: 16, textAlign: 'center' }}>
-            <Button type="default" icon={<QuestionCircleOutlined />} onClick={() => setShowTips(!showTips)} className="tips-toggle-button">
-              填写提示 {showTips ? <CaretDownOutlined /> : <CaretDownOutlined rotate={-90} />}
+            {/* 提示改成弹窗后，这里只留一个随时可点的入口，
+                和右上角「使用指引」一个用法 */}
+            <Button
+              type="default"
+              icon={<QuestionCircleOutlined />}
+              onClick={() => setTipsOpen(true)}
+              className="tips-toggle-button"
+            >
+              填写提示
             </Button>
           </div>
 
-          {showTips && (
-            <Card size="small" className="tips-card" style={{ marginBottom: 24, background: '#fafafa' }}>
-              <div className="tips-header" style={{ color: '#1f3a60', fontWeight: 'bold', marginBottom: 12 }}>填写注意事项</div>
-              <div className="tips-content">
-                {TIPS_CONTENT.map((tip, index) => (
-                  <div key={index} className="tip-item" style={{ marginBottom: '12px' }}>
-                    <strong style={{ color: '#1f3a60', display: 'block' }}>{tip.title}:</strong>
-                    <span style={{ color: '#595959', lineHeight: '1.6' }}>{tip.content}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
+          <TipsModal open={tipsOpen} onClose={() => setTipsOpen(false)} tips={TIPS_CONTENT} />
 
           {/* 离线填写面板：导出模板 → Word 里填写 → 导入自动回填 */}
           <div className="offline-fill-panel">
