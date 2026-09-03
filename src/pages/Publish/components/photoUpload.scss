@@ -1,0 +1,43 @@
+// 个人照片上传框。
+//
+// 证件照是竖版 3:4，框子必须比宽高一点，否则预览会把人脸裁掉一截；
+// antd picture-card 的默认值是正方形。
+//
+// 样式挂在组件自己的类上而不是外层容器：原先那条 120×160 的规则写在
+// .photo-container 下，投递表单改成数据驱动、那个包裹层没了之后整块失效，
+// 框子悄悄变回方的。跟着组件走就不会再有这种「换个容器样式就没了」。
+@use "../../../styles/tokens" as t;
+
+.photo-upload {
+  .ant-upload,
+  .ant-upload.ant-upload-select {
+    // 3:4 竖版，比原来的 120×160 再长一点
+    width: 132px !important;
+    height: 184px !important;
+    margin: 0 !important;
+    border-radius: t.$radius-control;
+    box-shadow: t.$shadow-sm;
+    overflow: hidden;
+  }
+
+  .ant-upload-select > .ant-upload {
+    width: 100%;
+    height: 100%;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    // cover 而不是 contain：证件照按框裁切比留白好看，
+    // 且上传前已按比例压缩过
+    object-fit: cover;
+  }
+
+  @media (max-width: 480px) {
+    .ant-upload,
+    .ant-upload.ant-upload-select {
+      width: 112px !important;
+      height: 156px !important;
+    }
+  }
+}

@@ -3,6 +3,7 @@ import React from 'react';
 import { Upload, Spin, Form, Typography } from 'antd';
 import type { UploadProps } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
+import './photoUpload.scss';
 
 const { Text } = Typography;
 
@@ -30,7 +31,13 @@ const PhotoUpload: React.FC<Props> = React.memo(({
 
   return (
     <Form.Item label={label} name="personal_photo" className="photo-label">
-      <div style={{ textAlign: 'center' }}>
+      {/*
+        尺寸样式挂在这个类上，不再依赖外层的 .photo-container ——
+        那个包裹层在投递表单改成数据驱动之后就没了，原来那条 120×160 的规则
+        整块失效，照片框退回 antd picture-card 的方形默认值。
+        样式跟着组件走，换容器就不会再悄悄失效。
+      */}
+      <div className="photo-upload" style={{ textAlign: 'center' }}>
         <Upload
           name="personal_photo"
           listType="picture-card"
