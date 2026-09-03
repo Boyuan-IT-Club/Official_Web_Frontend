@@ -18,7 +18,6 @@ import {
   Upload,
   Select,
   Radio,
-  Image,
 } from 'antd';
 import {
   SendOutlined,
@@ -44,6 +43,7 @@ import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } 
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
 import TipsModal from './components/TipsModal';
 import StatusNotice from './components/StatusNotice';
+import { resolveResumeNotice } from './resumeNotice';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
 import ResumeDisplay from '@/components/ResumeDisplay';
@@ -1282,19 +1282,14 @@ const Publish: React.FC = () => {
     );
   }
 
-  // 「可不可以改」由 canEdit 说了算，不能写死在状态标签里。
-  // 原先 case 2 硬编码成「已提交（可修改）」，周期一旦停止投递，
-  // 页面就会一边说「不可再修改」一边说「可修改」——用户报的正是这个矛盾。
-  const statusLabel = (() => {
-    switch (resume?.status) {
-      case 2: return '已提交';
-      case 3: return '评审中';
-      case 4: return '通过';
-      case 5: return '未通过';
-      default: return '草稿';
-    }
-  })();
-  const statusText = `${statusLabel}（${canEdit ? '可修改' : '不可修改'}）`;
+  // 顶部状态条说什么、什么语气，统一由 resolveResumeNotice 判定。
+  // 这些组合有十来种（周期三态 × 简历五状态），塞在 JSX 的三元里
+  // 既没法测也看不出漏了哪种，所以抽成纯函数放在 resumeNotice.ts。
+  const resumeNotice = resolveResumeNotice({
+    cyclePhase,
+    status: resume?.status as any,
+    canEdit,
+  });
 
   /*
     周期还没开始，且本人在这一届也没有简历：整页就只说一件事——还没开始。
@@ -1364,37 +1359,20 @@ const Publish: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ) : cyclePhase === 'upcoming' ? (
-              /* 已经投过、随后管理员把开始时间往后推的情形：简历还在，
-                 但周期回到了「未开始」。说「已结束」是错的。 */
+            ) : !isMember && (
+              /*
+                只此一条。原先这里三条、页面下方按简历状态还有三条，
+                同一份简历会同时冒出两三个框反复说「不可修改」——
+                顶部刚说完「评审中（不可修改）」，往下翻还有个黄框
+                再说一遍「已进入审核阶段，暂时无法修改」。
+                说什么、什么语气由 resolveResumeNotice 判定（有测试）。
+              */
               <StatusNotice
-                tone="muted"
-                title="本周期尚未开始"
-                description="管理员调整了开放时间，本轮招募还未开始，简历暂时不可修改或提交，以下内容仅供查看。"
+                tone={resumeNotice.tone}
+                title={resumeNotice.title}
+                badge={resumeNotice.badge}
+                description={resumeNotice.description}
               />
-            ) : cycleClosed && (
-              <StatusNotice
-                tone="warning"
-                title="本周期已停止投递"
-                description="招募周期已结束，简历不可再修改或提交，以下内容仅供查看。"
-              />
-            )}
-            {!isMember && (
-            /*
-              状态值提出来做成 chip：「已提交（不可修改）」是这一条里
-              唯一要被一眼扫到的信息，塞在整句话中间反而找不着。
-              语气跟着可编辑性走——还能改就是 info，改不了就是 muted，
-              免得一条蓝色提示同时用来说两种相反的处境。
-            */
-            <StatusNotice
-              tone={canEdit ? 'info' : 'muted'}
-              title="简历状态"
-              badge={statusText}
-              description={cyclePhase === 'upcoming'
-                ? '本周期尚未开始，开放后即可继续修改。'
-                : cycleClosed ? '本周期已停止投递，内容仅供查看。'
-                : resume?.status === 2 ? '在审核开始前你可以修改简历。' : '当前状态无法修改，如需修改请联系管理员。'}
-            />
             )}
           </div>
           <ResumeDisplay
@@ -1419,9 +1397,6 @@ const Publish: React.FC = () => {
               )}
             </Space>
           </div>
-          {resume?.status === 3 && <Alert message="简历正在审核中" description="您的简历已进入审核阶段，暂时无法修改。" type="warning" showIcon style={{ marginTop: 24 }} />}
-          {resume?.status === 4 && <Alert message="简历已通过" description="恭喜！您的简历已通过审核，无法修改。" type="success" showIcon style={{ marginTop: 24 }} />}
-          {resume?.status === 5 && <Alert message="简历未通过" description="很遗憾，您的简历未通过审核，无法修改。" type="error" showIcon style={{ marginTop: 24 }} />}
 
           {/* 面试安排状态（志愿/分配结果，真实接口） */}
           <div style={{ marginTop: 24 }}>
