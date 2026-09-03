@@ -10,6 +10,7 @@
 import JSZip from 'jszip';
 import { message } from 'antd';
 import { request } from '@/utils';
+import logoMarkUrl from '@/assets/logo-mark.png';
 
 export interface ResumeExportData {
   name: string; studentId: string; gender: string; grade: string;
@@ -197,15 +198,45 @@ function photoDrawing(relId: string): string {
   return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${emuW}" cy="${emuH}"/><wp:docPr id="101" name="photo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="101" name="photo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
 }
 
+/**
+ * 社徽 drawing。跟在副标题「博远信息技术社」前面，与文字同高，
+ * 不单独占一行——文档的主角是姓名，logo 只是署名，和 PDF 导出保持一致。
+ */
+function logoDrawing(relId: string): string {
+  // 1pt = 12700 EMU；副标题 sz:19（=9.5pt），社徽取 12pt 略高于文字
+  const emuH = 12 * 12700;
+  const emuW = Math.round((emuH * LOGO_ASPECT));
+  return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${emuW}" cy="${emuH}"/><wp:docPr id="102" name="logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="102" name="logo"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
+}
+
+/** 裁掉留白后的社徽宽高比（116×120）。 */
+const LOGO_ASPECT = 116 / 120;
+
+/**
+ * 取打包进来的社徽字节。走 fetch 而不是把 base64 硬编进源码：
+ * 这个图本来就是站点左上角那枚，浏览器早已缓存，读它不产生额外网络往返。
+ * 拿不到就返回 null——少一个 logo 不该让简历导不出来。
+ */
+async function loadLogoBytes(): Promise<Uint8Array | null> {
+  try {
+    const res = await fetch(logoMarkUrl);
+    if (!res.ok) return null;
+    return new Uint8Array(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
 /** 组装 word/document.xml 正文。extras：本周期的自定义字段（标签→值），跟随简历字段配置 */
-function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Array<[string, string]> = []): string {
+function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Array<[string, string]> = [], hasLogo = false): string {
   const body: string[] = [];
 
   // ── 页眉区：大号姓名 + 灰色副标题，右侧证件照；不用大色块，打印件更耐看 ──
   const nameShown = data.name || '（姓名）';
   const headLeft = cell(
     para(run(nameShown, { bold: true, color: C.text, sz: 52 }), { after: 60 })
-    + para(run('博远信息技术社 · 招新申请简历', { color: C.accent, sz: 19 })),
+    + para((hasLogo ? logoDrawing('rIdLogo') + run(' ', { sz: 19 }) : '')
+        + run('博远信息技术社 · 招新申请简历', { color: C.accent, sz: 19 })),
     { vAlign: 'center' },
   );
   const headCells = hasPhoto
@@ -278,19 +309,21 @@ async function buildDocx(data: ResumeExportData, extras: Array<[string, string]>
   const zip = new JSZip();
   const photo = data.photoBase64?.match(/^data:image\/(\w+);base64,(.+)$/) || null;
   const ext = photo ? (photo[1] === 'png' ? 'png' : 'jpeg') : null;
+  const logo = await loadLogoBytes();
 
   zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${ext ? `<Default Extension="${ext}" ContentType="image/${ext === 'png' ? 'png' : 'jpeg'}"/>` : ''}<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${ext && ext !== 'png' ? `<Default Extension="${ext}" ContentType="image/jpeg"/>` : ''}${ext === 'png' || logo ? '<Default Extension="png" ContentType="image/png"/>' : ''}<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
 
   zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
 
   zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${photo ? `<Relationship Id="rIdPhoto" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/photo.${ext}"/>` : ''}</Relationships>`);
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${photo ? `<Relationship Id="rIdPhoto" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/photo.${ext}"/>` : ''}${logo ? '<Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.png"/>' : ''}</Relationships>`);
 
   if (photo) zip.file(`word/media/photo.${ext}`, base64ToUint8(photo[2]));
+  if (logo) zip.file('word/media/logo.png', logo);
 
-  zip.file('word/document.xml', buildDocumentXml(data, !!photo, extras));
+  zip.file('word/document.xml', buildDocumentXml(data, !!photo, extras, !!logo));
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 
