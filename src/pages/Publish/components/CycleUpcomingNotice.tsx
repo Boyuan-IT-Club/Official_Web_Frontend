@@ -20,6 +20,14 @@ export interface CycleUpcomingNoticeProps {
   /** 该周期已配置的字段数；为 0 说明表单还没配好 */
   fieldCount?: number;
   onBack?: () => void;
+  /**
+   * 同时已排期的全部周期。管理员可以一次排好几届，
+   * 只显示落点那一届的话其余的在用户端就凭空消失了。
+   * 少于两届时不渲染切换器 —— 没得切，多一个控件只是噪音。
+   */
+  siblings?: Array<{ cycleId: number; cycleName: string; startDate?: string | null }>;
+  currentCycleId?: number;
+  onPick?: (cycleId: number) => void;
   /** 注入「今天」便于测试；默认取当前时间 */
   today?: Date;
 }
@@ -35,8 +43,10 @@ function formatRange(start?: string | null, end?: string | null): string {
 
 const CycleUpcomingNotice: React.FC<CycleUpcomingNoticeProps> = ({
   cycleName, description, startDate, endDate, fieldCount, onBack, today,
+  siblings, currentCycleId, onPick,
 }) => {
   const days = daysUntil(startDate, today ?? new Date());
+  const others = siblings ?? [];
 
   return (
     <div className="cycle-upcoming">
@@ -70,6 +80,26 @@ const CycleUpcomingNotice: React.FC<CycleUpcomingNoticeProps> = ({
         */}
         {fieldCount === 0 && (
           <p className="cycle-upcoming__hint">报名表单还在准备中，开放时即可填写。</p>
+        )}
+
+        {others.length > 1 && (
+          <div className="cycle-upcoming__tabs" role="tablist">
+            {others.map((c) => {
+              const active = Number(c.cycleId) === Number(currentCycleId);
+              return (
+                <button
+                  key={c.cycleId}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`cycle-upcoming__tab${active ? ' is-active' : ''}`}
+                  onClick={() => !active && onPick?.(Number(c.cycleId))}
+                >
+                  {c.cycleName}
+                </button>
+              );
+            })}
+          </div>
         )}
 
         {onBack && (

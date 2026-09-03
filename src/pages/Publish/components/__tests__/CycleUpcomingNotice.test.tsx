@@ -66,4 +66,55 @@ describe('招募周期预告', () => {
     expect(buttons).toHaveLength(1);
     expect(buttons[0]).toHaveTextContent('返回首页');
   });
+
+  it('同时排了好几届时给出切换标签', () => {
+    // 原来只显示落点那一届，其余的在用户端凭空消失
+    const onPick = jest.fn();
+    render(
+      <CycleUpcomingNotice
+        cycleName="2026 春季招新"
+        startDate="2026-09-10"
+        today={TODAY}
+        currentCycleId={6}
+        siblings={[
+          { cycleId: 6, cycleName: '2026 春季招新', startDate: '2026-09-10' },
+          { cycleId: 7, cycleName: '2026 秋季招新', startDate: '2026-10-08' },
+        ]}
+        onPick={onPick}
+      />,
+    );
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((t) => t.textContent)).toEqual(['2026 春季招新', '2026 秋季招新']);
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.click(tabs[1]);
+    expect(onPick).toHaveBeenCalledWith(7);
+  });
+
+  it('点当前这届不重复触发切换', () => {
+    const onPick = jest.fn();
+    render(
+      <CycleUpcomingNotice
+        startDate="2026-09-10" today={TODAY} currentCycleId={6} onPick={onPick}
+        siblings={[
+          { cycleId: 6, cycleName: 'A', startDate: '2026-09-10' },
+          { cycleId: 7, cycleName: 'B', startDate: '2026-10-08' },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getAllByRole('tab')[0]);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it('只有一届时不渲染切换标签', () => {
+    // 没得切，多一个控件只是噪音
+    render(
+      <CycleUpcomingNotice
+        startDate="2026-09-10" today={TODAY} currentCycleId={6}
+        siblings={[{ cycleId: 6, cycleName: 'A', startDate: '2026-09-10' }]}
+      />,
+    );
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+  });
 });

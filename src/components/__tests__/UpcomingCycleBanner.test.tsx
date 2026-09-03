@@ -21,16 +21,27 @@ describe('下一届招新预告条', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('取最快开始的那届（后端已按 start_date 升序）', () => {
+  it('多届已排期时全部列出，最快的那届在最前并带倒计时', () => {
+    // 原来只渲染 cycles[0]，管理员同时排了好几届时其余的凭空消失
     render(
       <UpcomingCycleBanner
-        cycles={[cycle({ cycleName: '三天后' , startDate: '2026-09-06' }),
+        cycles={[cycle({ cycleName: '三天后', startDate: '2026-09-06' }),
                  cycle({ cycleId: 10, cycleName: '一个月后', startDate: '2026-10-03' })]}
         today={TODAY}
       />,
     );
     expect(screen.getByText('三天后')).toBeInTheDocument();
-    expect(screen.queryByText('一个月后')).not.toBeInTheDocument();
+    expect(screen.getByText('一个月后')).toBeInTheDocument();
+    expect(screen.getByText('共 2 届已排期')).toBeInTheDocument();
+
+    // 只有最近那届给倒计时的完整措辞，其余压成一行
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText(/30 天后/)).toBeInTheDocument();
+  });
+
+  it('只有一届时不显示「共 N 届」', () => {
+    render(<UpcomingCycleBanner cycles={[cycle()]} today={TODAY} />);
+    expect(screen.queryByText(/共 .* 届已排期/)).not.toBeInTheDocument();
   });
 
   it('缺开始日期时只报日期待定，不硬凑倒计时', () => {

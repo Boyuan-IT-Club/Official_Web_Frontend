@@ -140,6 +140,39 @@
     color: rgba(232, 238, 252, 0.45);
   }
 
+  // 多届已排期时的切换标签。放在返回按钮上方、正文之后：
+  // 这一屏的主角是倒计时，切换是次要动作
+  &__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: t.$gap-xs;
+    margin-top: t.$gap-lg;
+    padding-top: t.$gap-md;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+  }
+
+  &__tab {
+    padding: 4px 14px;
+    font-size: t.$text-sm;
+    color: rgba(232, 238, 252, 0.70);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: t.$radius-pill;
+    cursor: pointer;
+    transition: background-color t.$dur-base t.$ease, color t.$dur-base t.$ease,
+                border-color t.$dur-base t.$ease;
+
+    &:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
+
+    &.is-active {
+      color: #0f1d38;
+      background: #9ec5ff;
+      border-color: #9ec5ff;
+      cursor: default;
+    }
+  }
+
   &__back {
     margin-top: t.$gap-lg;
     color: #dbe7ff;

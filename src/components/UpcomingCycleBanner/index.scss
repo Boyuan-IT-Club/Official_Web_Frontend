@@ -5,7 +5,7 @@
 
 .upcoming-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: t.$gap-sm;
   padding: t.$gap-sm t.$gap-md;
   color: #e8eefc;
@@ -50,6 +50,41 @@
     border-radius: t.$radius-pill;
   }
 
+  &__count {
+    padding: 1px 8px;
+    font-size: t.$text-caption;
+    font-weight: 400;
+    color: rgba(232, 238, 252, 0.66);
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: t.$radius-pill;
+  }
+
+  // 其余已排期的几届：压成一行一条，不与最近那届抢注意力
+  &__rest {
+    margin: t.$gap-xs 0 0;
+    padding: t.$gap-xs 0 0;
+    list-style: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+
+    li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: t.$gap-xs;
+      font-size: t.$text-sm;
+      line-height: 1.9;
+      color: rgba(232, 238, 252, 0.60);
+    }
+  }
+
+  &__rest-name { color: rgba(232, 238, 252, 0.85); }
+
+  &__rest-when {
+    // 日期与天数每天变化，等宽数字避免整列左右跳动
+    font-variant-numeric: tabular-nums;
+  }
+
+  // 横幅本身改为顶端对齐：多届时内容变高，图标不该跟着垂直居中飘到中间
   &__meta {
     margin-top: 2px;
     font-size: t.$text-sm;
