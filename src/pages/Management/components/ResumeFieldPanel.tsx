@@ -387,8 +387,10 @@ const CategoryCard: React.FC<{
     }
   });
 
-  // 为当前分类的字段创建拖拽ID
-  const items = categoryFieldsWithMeta.map((_, idx) => `category-${category}-field-${idx}`);
+  // 拖拽 ID 里编的必须是**全局下标**，不能是分类内序号。
+  // handleDragEnd 解析出这个数字后是拿它去索引整个 fields 数组的，
+  // 编分类内序号的话，第一个分类之外的拖拽全都会移错行。
+  const items = categoryFieldsWithMeta.map(({ globalIndex }) => `category-${category}-field-${globalIndex}`);
 
   const titleNode = (
     <Space>
@@ -431,12 +433,18 @@ const CategoryCard: React.FC<{
       extra={collapseBtn}
     >
       {!collapsed && (
-        <DndContext>
-          <SortableContext items={items} strategy={verticalListSortingStrategy}>
-            {categoryFieldsWithMeta.map(({ meta, globalIndex }, idx) => (
+        /*
+          这里只能有 SortableContext，不能再套一层 DndContext。
+          外层已经有一个带 sensors 与 onDragEnd 的 DndContext 了；
+          内层这个是空壳（没 sensors、没 onDragEnd），
+          而嵌套的 DndContext 会把拖拽事件截走自己处理 ——
+          结果就是拖得动、松手什么也不发生。管理端字段拖不动就是这个原因。
+        */
+        <SortableContext items={items} strategy={verticalListSortingStrategy}>
+            {categoryFieldsWithMeta.map(({ meta, globalIndex }) => (
               <SortableItem
                 key={meta.key}
-                id={`category-${category}-field-${idx}`}
+                id={`category-${category}-field-${globalIndex}`}
                 field={fields[globalIndex]}
                 index={globalIndex}
                 form={form}
@@ -445,9 +453,8 @@ const CategoryCard: React.FC<{
                 onSortOrderChange={onSortOrderChange}
                 fieldTypeOptions={fieldTypeOptions}
               />
-            ))}
-          </SortableContext>
-        </DndContext>
+          ))}
+        </SortableContext>
       )}
     </Card>
   );

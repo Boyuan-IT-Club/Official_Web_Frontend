@@ -40,7 +40,7 @@ import { compressImage } from '@/utils/imageCompress';
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
 import { specOf } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
-import { CyclePhase, resolveCyclePhase, isCycleWritable } from './cyclePhase';
+import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
 import ResumeDisplay from '@/components/ResumeDisplay';
@@ -575,9 +575,8 @@ const Publish: React.FC = () => {
       ]);
       const openIds = (open ?? []).map((c) => Number(c.cycleId));
       const upcomingIds = (upcoming ?? []).map((c) => Number(c.cycleId));
-      const cid = (userPickedCycle || openIds.includes(Number(cycleId)))
-        ? Number(cycleId)
-        : (openIds.length > 0 ? openIds[0] : cycleId);
+      // 落点规则与理由见 resolveActiveCycleId（有回归测试）
+      const cid = Number(resolveActiveCycleId(cycleId, openIds, upcomingIds, userPickedCycle));
 
       // 没有任何开放周期时 cid 会回退到历史/未开始周期——那只用于展示，必须锁死编辑
       const phase = resolveCyclePhase(cid, openIds, upcomingIds);
@@ -620,7 +619,19 @@ const Publish: React.FC = () => {
           loadOrCreateResume: () =>
             // 未开始的周期同样只读：不该因为点进来看一眼预告就凭空建出一条空简历
             dispatch(fetchOrCreateResume({ cycleId: cid, readOnly: isMember || !isCycleWritable(phase) }))
-              .unwrap(),
+              .unwrap()
+              /*
+                周期不开放时后端一律回 3010（该招募周期未开放投递）——
+                在未开始/已截止的周期上这是**预期结果**，不是故障。
+                原来它会冒到 initData 的 catch 里弹两个红色报错框：
+                一个「该招募周期未开放投递」，一个「加载简历信息失败: …」。
+                页面本来就用提示条说明了周期状态，再叠两个红框只是吓人。
+                只有开放中的周期才让错误照常抛出。
+              */
+              .catch((err: any) => {
+                if (isCycleWritable(phase)) throw err;
+                return null;
+              }),
           loadFieldValues: () => dispatch(fetchFieldValues(cid)).unwrap(),
         });
 
@@ -692,8 +703,14 @@ const Publish: React.FC = () => {
 
   // 错误处理
   useEffect(() => {
-    if (error) { message.error(error); dispatch(resetError()); }
-  }, [error, dispatch]);
+    if (!error) return;
+    // 「周期未开放投递」在未开始/已截止的周期上是预期结果，不是故障。
+    // store 里的 error 不带状态码，只能按文案识别；漏判也只是多弹一个提示，
+    // 不会掩盖真正的失败（真失败的那条仍会照常弹）。
+    const expected = !isCycleWritable(cyclePhase) && error.includes('该招募周期未开放投递');
+    if (!expected) message.error(error);
+    dispatch(resetError());
+  }, [error, dispatch, cyclePhase]);
 
   // 当字段值变化时更新表单
   useEffect(() => {

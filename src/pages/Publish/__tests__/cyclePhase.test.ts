@@ -1,4 +1,4 @@
-import { resolveCyclePhase, isCycleWritable, daysUntil } from '../cyclePhase';
+import { resolveCyclePhase, isCycleWritable, daysUntil, resolveActiveCycleId } from '../cyclePhase';
 
 describe('招募周期的三态判定', () => {
   it('在开放列表里 → open', () => {
@@ -61,5 +61,39 @@ describe('daysUntil', () => {
 
   it('跨月不出错', () => {
     expect(daysUntil('2026-10-01', today)).toBe(28);
+  });
+});
+
+describe('投递页落在哪个周期', () => {
+  it('用户点过切换器就听他的，哪怕那个周期已结束', () => {
+    // 切换器里也列已结束的周期供查看历史投递
+    expect(resolveActiveCycleId(2, [5], [9], true)).toBe(2);
+  });
+
+  it('store 里的周期正在开放就用它', () => {
+    expect(resolveActiveCycleId(5, [5, 6], [9], false)).toBe(5);
+  });
+
+  it('store 里的周期不开放，但有别的开放周期 → 落到开放的第一个', () => {
+    expect(resolveActiveCycleId(2, [5, 6], [9], false)).toBe(5);
+  });
+
+  it('一个开放周期都没有时，落到最快要开始的那个（线上事故的修复点）', () => {
+    // 招新间歇期：store 的默认周期既不开放也早已截止，拿它去请求简历
+    // 后端一律回 3010，页面弹两个红色报错框。此时明明有已排期的下一届。
+    expect(resolveActiveCycleId(2, [], [6, 7], false)).toBe(6);
+  });
+
+  it('既没有开放也没有预告时才回退到 store 的默认值', () => {
+    expect(resolveActiveCycleId(2, [], [], false)).toBe(2);
+  });
+
+  it('落到预告周期后，判定结果必须是 upcoming 且不可写', () => {
+    // 两个函数要串得起来：落点选了预告周期，phase 就得跟着是 upcoming，
+    // 否则页面还是会去请求一个不该请求的周期
+    const cid = Number(resolveActiveCycleId(2, [], [6, 7], false));
+    const phase = resolveCyclePhase(cid, [], [6, 7]);
+    expect(phase).toBe('upcoming');
+    expect(isCycleWritable(phase)).toBe(false);
   });
 });

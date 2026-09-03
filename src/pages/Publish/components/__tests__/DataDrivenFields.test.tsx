@@ -160,4 +160,43 @@ describe('投递表单的数据驱动渲染', () => {
     expect(cols).toHaveLength(2);
     cols.forEach((c) => expect(c.className).toContain('ant-col-md-12'));
   });
+
+  it('照片是基本信息区的右侧栏，不排进字段流', () => {
+    // 数据驱动改造时它被当成普通整宽字段排进流里，掉到了所有文字字段下面。
+    // 它应当竖着占右侧一栏（md=8），与左边的姓名/学号并列。
+    const { container } = renderFields([
+      f('name', { fieldLabel: '姓名' }),
+      f('student_id', { fieldLabel: '学号' }),
+      f('personal_photo', { fieldLabel: '个人照片' }),
+    ]);
+
+    const cols = Array.from(container.querySelectorAll('.form-section > .ant-row > .ant-col'));
+    expect(cols).toHaveLength(2);
+    expect(cols[0].className).toContain('ant-col-md-16');   // 文字字段
+    expect(cols[1].className).toContain('ant-col-md-8');    // 照片
+
+    // 照片确实在右栏里，而不是落在左栏的流末尾
+    expect(cols[1].textContent).toContain('个人照片');
+    expect(cols[0].textContent).not.toContain('个人照片');
+  });
+
+  it('没有照片字段时不产生空的右侧栏', () => {
+    const { container } = renderFields([f('name', { fieldLabel: '姓名' })]);
+    const cols = Array.from(container.querySelectorAll('.form-section > .ant-row > .ant-col'));
+    expect(cols.every((c) => !c.className.includes('ant-col-md-8'))).toBe(true);
+  });
+
+  it('志愿下拉的表单字段名沿用 first_department / second_department', () => {
+    // antd 的 Form.Item name= 会用表单 store 里的值覆盖传入的 value，
+    // 而投递页是按这两个旧名 setFieldsValue 的。改成 first_choice 之后
+    // store 里查无此项，下拉永远是空的——线上「部门填不上」就是这么来的。
+    const { container } = renderFields([
+      f('first_choice', { fieldLabel: '第一志愿' }),
+      f('second_choice', { fieldLabel: '第二志愿' }),
+    ]);
+    const ids = Array.from(container.querySelectorAll('[id]')).map((el) => el.id);
+    expect(ids).toContain('first_department');
+    expect(ids).toContain('second_department');
+    expect(ids).not.toContain('first_choice');
+  });
 });
