@@ -4,7 +4,8 @@ import {
   type PayloadAction,
 } from "@reduxjs/toolkit";
 import { request } from "@/utils";
-import { getOpenCycles, type OpenCycle } from "@/api/manage/cycleApis";
+import { getOpenCycles,
+  getUpcomingCycles, type OpenCycle } from "@/api/manage/cycleApis";
 
 /** ===== Types ===== */
 
@@ -145,6 +146,23 @@ export const fetchOpenCycles = createAsyncThunk<OpenCycle[], void, ThunkApiConfi
       return Array.isArray(list) ? (list as OpenCycle[]) : [];
     } catch (e: any) {
       return rejectWithValue(e?.message ?? "获取开放周期失败");
+    }
+  },
+);
+
+/**
+ * 即将开放的周期（预告用）。单独一条而不是并进 openCycles：
+ * openCycles 的 id 集合是「能不能投」的闸门，混进去就能投一个还没开始的周期。
+ */
+export const fetchUpcomingCycles = createAsyncThunk<OpenCycle[], void, ThunkApiConfig>(
+  "resume/fetchUpcomingCycles",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res: any = await getUpcomingCycles();
+      const list = res?.data ?? [];
+      return Array.isArray(list) ? (list as OpenCycle[]) : [];
+    } catch (e: any) {
+      return rejectWithValue(e?.message ?? "获取即将开放的周期失败");
     }
   },
 );

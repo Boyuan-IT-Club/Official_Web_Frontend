@@ -24,6 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { fetchMyResumeReadonly, fetchOpenCycles, setSelectedCycle } from '@/store/modules/resume';
 import RecruitProgressCard from '@/components/RecruitProgressCard';
 import CycleSwitcher from '@/components/CycleSwitcher';
+import UpcomingCycleBanner from '@/components/UpcomingCycleBanner';
+import { getUpcomingCycles } from '@/api/manage/cycleApis';
 import InterviewReminderCard from '@/components/InterviewReminderCard';
 import ActivitiesPreviewCard from '@/components/ActivitiesPreviewCard';
 import './index.scss';
@@ -110,6 +112,17 @@ const Dashboard = () => {
   // 重拉它那三个接口，但 resumeStatus 是从这里传进去的）。
   const selectedCycleId = resumeState?.cycleId ?? null;
 
+  // 下一届招新预告。单独取而不是并进 openCycles：那个列表是「能不能投」的闸门。
+  // 取不到就当没有下一届，静默跳过——预告缺失不该影响首页其余部分。
+  const [upcomingCycles, setUpcomingCycles] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    getUpcomingCycles()
+      .then((res) => { if (!cancelled) setUpcomingCycles(res?.data ?? []); })
+      .catch(() => { /* 预告拿不到就不显示 */ });
+    return () => { cancelled = true; };
+  }, []);
+
   // 选了「不能参加线下面试」的同学不会被排进线下场次，进度卡要换成线上路线。
   // 这个值藏在另一个字段的 JSON 里，解析见 readCanAttendOffline。
   const canAttendOffline = React.useMemo(
@@ -161,6 +174,15 @@ const Dashboard = () => {
           </Text>
         </div>
       </div>
+
+      {/* 下一届招新预告：未开始的周期以前在用户端完全不可见（切换器只列开放中的），
+          「下一届什么时候开始」只能靠群里问。没有已排期的下一届时组件自己返回 null。
+          社员不参加招新，不给他们看。 */}
+      {!isMember && upcomingCycles.length > 0 && (
+        <div style={{ maxWidth: 960, margin: '16px auto 0', padding: '0 16px' }}>
+          <UpcomingCycleBanner cycles={upcomingCycles} />
+        </div>
+      )}
 
       {/* 多周期同时在招时，首页也能切 —— 进度卡跟着切换的周期走。
           只有一个开放周期时 CycleSwitcher 自己返回 null，不占位。 */}

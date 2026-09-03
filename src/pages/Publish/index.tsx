@@ -40,6 +40,8 @@ import { compressImage } from '@/utils/imageCompress';
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
 import { specOf } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
+import { CyclePhase, resolveCyclePhase, isCycleWritable } from './cyclePhase';
+import CycleUpcomingNotice from './components/CycleUpcomingNotice';
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
 import ResumeDisplay from '@/components/ResumeDisplay';
 import CycleSwitcher from '@/components/CycleSwitcher';
@@ -68,9 +70,11 @@ import {
   fetchFieldValues,
   clearFieldValues,
   fetchOpenCycles,
+  fetchUpcomingCycles,
   setSelectedCycle,
 } from '@/store/modules/resume';
 import { fetchResumeFieldsConfig, ResumeField } from '@/store/modules/resumeFields';
+import type { OpenCycle } from '@/api/manage/cycleApis';
 import type { UserInfo } from '@/store/modules/user';
 import {
   buildExportData,
@@ -294,7 +298,14 @@ const Publish: React.FC = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   // 当前查看的周期已停止投递：整页转只读。后端同样会拒绝写入，
   // 这里是给用户一个明确的说法，而不是点了按钮才报错
-  const [cycleClosed, setCycleClosed] = useState<boolean>(false);
+  /**
+   * 周期三态。原先只有 cycleClosed 一个布尔：不在开放列表里就算「已结束」，
+   * 于是管理员把开始时间往后推时，页面照样说「招募周期已结束」，
+   * 而旁边的简历状态还写着「已提交（可修改）」——两句话自相矛盾。
+   */
+  const [cyclePhase, setCyclePhase] = useState<CyclePhase>('open');
+  const [upcomingCycle, setUpcomingCycle] = useState<OpenCycle | null>(null);
+  const cycleClosed = cyclePhase !== 'open';
 
 
   // ---- 导入导出相关状态 ----
@@ -557,13 +568,23 @@ const Publish: React.FC = () => {
       // 但用户显式点过切换器就一律尊重他的选择 —— 切换器里也列已结束的周期
       // 供查看历史投递，不判断这个的话，点已结束的卡片会被立刻弹回第一个
       // 开放周期（线上实测到的 bug）。
-      const open = await dispatch(fetchOpenCycles()).unwrap().catch(() => [] as typeof openCycles);
+      const [open, upcoming] = await Promise.all([
+        dispatch(fetchOpenCycles()).unwrap().catch(() => [] as typeof openCycles),
+        // 预告列表拿不到不该拖垮整页：最坏情况是未开始的周期退化成「已结束」的旧行为
+        dispatch(fetchUpcomingCycles()).unwrap().catch(() => [] as typeof openCycles),
+      ]);
       const openIds = (open ?? []).map((c) => Number(c.cycleId));
+      const upcomingIds = (upcoming ?? []).map((c) => Number(c.cycleId));
       const cid = (userPickedCycle || openIds.includes(Number(cycleId)))
         ? Number(cycleId)
         : (openIds.length > 0 ? openIds[0] : cycleId);
-      // 没有任何开放周期时 cid 会回退到历史周期——那只用于展示，必须锁死编辑
-      setCycleClosed(!openIds.includes(Number(cid)));
+
+      // 没有任何开放周期时 cid 会回退到历史/未开始周期——那只用于展示，必须锁死编辑
+      const phase = resolveCyclePhase(cid, openIds, upcomingIds);
+      setCyclePhase(phase);
+      setUpcomingCycle(phase === 'upcoming'
+        ? (upcoming ?? []).find((c) => Number(c.cycleId) === Number(cid)) ?? null
+        : null);
 
       // fetchOpenCycles 的 reducer 也会把 store 里的 cycleId 校正到开放列表内，
       // 那会让本 effect 因 cycleId 变化再跑一次。这里记下已初始化的周期，
@@ -597,7 +618,9 @@ const Publish: React.FC = () => {
           loadFields: () => dispatch(fetchResumeFields(cid)).unwrap(),
           // 社员只查看，不该因为打开这页就被建出一条空简历
           loadOrCreateResume: () =>
-            dispatch(fetchOrCreateResume({ cycleId: cid, readOnly: isMember })).unwrap(),
+            // 未开始的周期同样只读：不该因为点进来看一眼预告就凭空建出一条空简历
+            dispatch(fetchOrCreateResume({ cycleId: cid, readOnly: isMember || !isCycleWritable(phase) }))
+              .unwrap(),
           loadFieldValues: () => dispatch(fetchFieldValues(cid)).unwrap(),
         });
 
@@ -1193,15 +1216,41 @@ const Publish: React.FC = () => {
     );
   }
 
-  const statusText = (() => {
+  // 「可不可以改」由 canEdit 说了算，不能写死在状态标签里。
+  // 原先 case 2 硬编码成「已提交（可修改）」，周期一旦停止投递，
+  // 页面就会一边说「不可再修改」一边说「可修改」——用户报的正是这个矛盾。
+  const statusLabel = (() => {
     switch (resume?.status) {
-      case 2: return '已提交（可修改）';
-      case 3: return '评审中（不可修改）';
-      case 4: return '通过（不可修改）';
-      case 5: return '未通过（不可修改）';
+      case 2: return '已提交';
+      case 3: return '评审中';
+      case 4: return '通过';
+      case 5: return '未通过';
       default: return '草稿';
     }
   })();
+  const statusText = `${statusLabel}（${canEdit ? '可修改' : '不可修改'}）`;
+
+  /*
+    周期还没开始，且本人在这一届也没有简历：整页就只说一件事——还没开始。
+    再往下渲染一张空表单或一份空简历没有任何意义。
+
+    已经有简历的情况（投过之后管理员把开始时间往后推）不走这里：
+    那份简历得让人看得到，上面的 Alert 已经说明了周期状态。
+  */
+  if (cyclePhase === 'upcoming' && !resume) {
+    return (
+      <div className="publish-page">
+        <CycleUpcomingNotice
+          cycleName={upcomingCycle?.cycleName}
+          description={upcomingCycle?.description}
+          startDate={upcomingCycle?.startDate}
+          endDate={upcomingCycle?.endDate}
+          fieldCount={upcomingCycle?.fieldCount}
+          onBack={() => navigate('/main/dashboard')}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="publish-page">
@@ -1251,6 +1300,14 @@ const Publish: React.FC = () => {
                   </div>
                 </div>
               </div>
+            ) : cyclePhase === 'upcoming' ? (
+              /* 已经投过、随后管理员把开始时间往后推的情形：简历还在，
+                 但周期回到了「未开始」。说「已结束」是错的。 */
+              <Alert
+                message="本周期尚未开始"
+                description="管理员调整了开放时间，本轮招募还未开始，简历暂时不可修改或提交，以下内容仅供查看。"
+                type="info" showIcon style={{ marginBottom: 16 }}
+              />
             ) : cycleClosed && (
               <Alert
                 message="本周期已停止投递"
@@ -1261,8 +1318,9 @@ const Publish: React.FC = () => {
             {!isMember && (
             <Alert
               message="简历信息"
-              description={`您的简历状态：${statusText}。${cycleClosed
-                ? '本周期已停止投递，内容仅供查看。'
+              description={`您的简历状态：${statusText}。${cyclePhase === 'upcoming'
+                ? '本周期尚未开始，开放后即可继续修改。'
+                : cycleClosed ? '本周期已停止投递，内容仅供查看。'
                 : resume?.status === 2 ? '在审核开始前您可以修改简历。' : '当前状态无法修改，如需修改请联系管理员。'}`}
               type="info" showIcon style={{ marginBottom: 16 }}
             />
