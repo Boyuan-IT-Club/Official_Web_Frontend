@@ -262,7 +262,34 @@ const Publish: React.FC = () => {
   const [photoBase64, setPhotoBase64] = useState<string>('');
   const [showSubmitConfirm, setShowSubmitConfirm] = useState<boolean>(false);
   const [isPhotoCompressing, setIsPhotoCompressing] = useState<boolean>(false);
-  const [showTips, setShowTips] = useState<boolean>(false);
+  /**
+   * 填写提示：第一次进来自动展开，之后记住不再自动展开。
+   *
+   * 原来默认收起、要手动点开 —— 第一次填简历的人根本不知道有这么个东西，
+   * 那些注意事项也就白写了。但每次都展开又会挡住老用户改简历的路，
+   * 所以只自动展开一次，记在 localStorage 里。
+   * 用户仍可随时手动点开/收起，那不影响这个标记。
+   */
+  const TIPS_SEEN_KEY = 'boyuan.publish.tipsSeen';
+  const [showTips, setShowTips] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(TIPS_SEEN_KEY) !== '1';
+    } catch {
+      return false;   // 隐私模式下读不到就按「看过」处理，别每次都弹
+    }
+  });
+
+  // 首次自动展开后立刻记账，不等用户手动收起 —— 他可能直接开始填、
+  // 中途刷新，那时不该再展开一次
+  useEffect(() => {
+    if (!showTips) return;
+    try {
+      localStorage.setItem(TIPS_SEEN_KEY, '1');
+    } catch {
+      /* 存不了就只在本次会话内不再自动展开 */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [techStackItems, setTechStackItems] = useState<string[]>(['']);
   const [departments, setDepartments] = useState<DepartmentsState>({ first: '', second: '' });
   const [interviewTimes, setInterviewTimes] = useState<InterviewTimesState>({
@@ -1511,9 +1538,21 @@ const Publish: React.FC = () => {
                       </div>
 
                       {interviewTimes.canAttend === 'no' ? (
-                        <Text type="secondary">
-                          已选择不能参加线下面试，无需预约时间；情况有变可随时回到本页修改。
-                        </Text>
+                        /* 不只是「无需预约」——选了不能线下参加的人不会进排期，
+                           必须让他知道要主动联系，否则他会一直等一个不会来的面试通知 */
+                        <Alert
+                          type="warning"
+                          showIcon
+                          style={{ marginTop: 4 }}
+                          message="请及时与管理员联系"
+                          description={
+                            <>
+                              你选择了不能参加线下面试，因此<b>不会被自动安排到面试场次</b>。
+                              请通过招新答疑群或邮件联系我们，我们会为你安排线上面试或其他时间。
+                              <div style={{ marginTop: 4 }}>情况有变可随时回到本页改回「能参加」。</div>
+                            </>
+                          }
+                        />
                       ) : openSlots.length === 0 ? (
                         <PageHint>面试时间尚未开放，提交简历后可回到本页补填面试意向</PageHint>
                       ) : (

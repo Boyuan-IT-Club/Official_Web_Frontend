@@ -31,7 +31,8 @@ export interface InterviewSession {
 }
 
 export interface AssignedItem {
-  scheduleId: number;
+  /** 面试安排 ID；V34 起可为空 —— 不能线下参加或未被排上场次的人没有安排 */
+  scheduleId: number | null;
   resumeId: number;
   userId: number;
   name: string;
@@ -246,6 +247,7 @@ export interface InterviewResultItem {
   decision?: number; // 1通过 2未通过
   assignedDeptId?: number;
   decisionAt?: string;
+  resumeId?: number | null;
   /** 最近一次结果通知的发送时间；空 = 从未通知（V27 起后端返回） */
   notifiedAt?: string;
 }
