@@ -168,9 +168,15 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
           <Upload beforeUpload={handleUpload} showUploadList={false} multiple>
             <Button size="small" icon={<UploadOutlined />} loading={busy}>上传附件</Button>
           </Upload>
-          <Text type="secondary" className="resume-attachments__count">
-            {items.length > 0 ? `已上传 ${items.length}/10` : '选填'}
-          </Text>
+          {/*
+            不写「选填」：表单里不带红星就是选填，重复说一遍反而像在强调
+            这栏有什么特殊。只在真的传了东西时报个数，让人知道离上限还有多少。
+          */}
+          {items.length > 0 && (
+            <Text type="secondary" className="resume-attachments__count">
+              已上传 {items.length}/10
+            </Text>
+          )}
         </div>
       )}
 
