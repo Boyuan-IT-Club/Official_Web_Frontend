@@ -171,7 +171,10 @@ export interface OfflineUnavailableItem {
   userId: number;
   resumeId: number;
   name?: string | null;
+  /** 登录用户名。多数同学等于学号，但早期账号是名字拼音，别拿它当学号显示 */
   username?: string | null;
+  /** 简历里填的学号。这才是「学号」该显示的值 */
+  studentId?: string | null;
   email?: string | null;
   phone?: string | null;
   /** 学生自己填的说明，可能为空 */
