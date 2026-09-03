@@ -18,6 +18,12 @@ export const enum FieldCategory {
   Preference = 3,
   Interview = 4,
   Skill = 5,
+  /**
+   * 规范表里没有的字段（管理员自己加的）归到这里，而不是并进基本信息。
+   * 数字取大是为了让它排在所有已知分区之后——自定义问题跟在标准字段后面，
+   * 混进「基本信息」里会读着莫名其妙（「实验室经历」跟在学号后面）。
+   */
+  Custom = 9,
 }
 
 export const CATEGORY_LABEL: Record<number, string> = {
@@ -26,6 +32,7 @@ export const CATEGORY_LABEL: Record<number, string> = {
   [FieldCategory.Preference]: '志愿选择',
   [FieldCategory.Interview]: '面试安排',
   [FieldCategory.Skill]: '技术能力',
+  [FieldCategory.Custom]: '其他信息',
 };
 
 /**
@@ -121,7 +128,7 @@ export function groupByCategory<T extends { fieldKey?: string; sortOrder?: numbe
   const sorted = sortByCanonicalOrder(fields);
   const buckets = new Map<number, T[]>();
   sorted.forEach((f) => {
-    const cat = specOf(f.fieldKey ?? '')?.category ?? FieldCategory.Basic;
+    const cat = specOf(f.fieldKey ?? '')?.category ?? FieldCategory.Custom;
     if (!buckets.has(cat)) buckets.set(cat, []);
     buckets.get(cat)!.push(f);
   });

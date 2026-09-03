@@ -23,10 +23,6 @@ import {
   SendOutlined,
   EditOutlined,
   SaveOutlined,
-  IdcardOutlined,
-  CodeOutlined,
-  CommentOutlined,
-  TeamOutlined,
   QuestionCircleOutlined,
   CaretDownOutlined,
   EyeOutlined,
@@ -41,13 +37,9 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 
 import { compressImage } from '@/utils/imageCompress';
-import TextInputField from './components/TextInputField';
-import SelectField from './components/SelectField';
-import TextAreaField from './components/TextAreaField';
-import RadioGroupField from './components/RadioGroupField';
-import TechStackInput from './components/TechStackInput';
-import PhotoUpload from './components/PhotoUpload';
-import FormSection from './components/FormSection';
+import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
+import { specOf } from '@/config/resumeFieldRegistry';
+import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
 import ResumeDisplay from '@/components/ResumeDisplay';
 import CycleSwitcher from '@/components/CycleSwitcher';
 import { getMyResumes } from '@/api/resume';
@@ -421,20 +413,8 @@ const Publish: React.FC = () => {
     return cf ? cf.enabled !== false : true;
   }, [configFieldMap]);
 
-  const isFieldRequired = useCallback((fieldKey: string): boolean => {
-    const cf = configFieldMap.get(fieldKey);
-    return cf ? cf.required : true;
-  }, [configFieldMap]);
 
-  const getFieldLabel = useCallback((fieldKey: string, defaultLabel: string): string => {
-    const cf = configFieldMap.get(fieldKey);
-    return cf?.label || defaultLabel;
-  }, [configFieldMap]);
 
-  const getFieldPlaceholder = useCallback((fieldKey: string, defaultPlaceholder: string): string => {
-    const cf = configFieldMap.get(fieldKey);
-    return cf?.placeholder || defaultPlaceholder;
-  }, [configFieldMap]);
 
   // ---- useCallback 稳定回调 ----
   const handleFieldChange = useCallback((fieldKey: string, value: any): void => {
@@ -1002,6 +982,55 @@ const Publish: React.FC = () => {
   }, [dispatch, cycleId, form, fieldIdMapping]);
 
   // ---- 导出处理 ----
+  /**
+   * select / radio 的兜底选项。周期配置里 grade、gender 这类常常没填 options，
+   * 数据驱动之后选项只从配置来，缺了兜底学生看到的就是一个点不开的空下拉
+   * ——写死 JSX 那版是在各自的 useMemo 里回落到 DEFAULT_*，改造时差点丢掉。
+   */
+  const fieldFallbackOptions = useMemo<Record<string, OptionItem[]>>(() => ({
+    grade: gradeOptions,
+    gender: genderOptions,
+    can_attend_offline_interview: canAttendOptions,
+    second_interview_time: secondInterviewTimeOptions,
+  }), [gradeOptions, genderOptions, canAttendOptions, secondInterviewTimeOptions]);
+/**
+   * 数据驱动的渲染清单。
+   *
+   * 来源是后端的 fieldDefinitions（管理员配的那份），不是前端写死的顺序——
+   * 这样管理员在「简历字段」里拖出来的顺序、改的标签与占位符、新加的自定义
+   * 字段，学生端才会真的跟着变。此前表单是整块写死的 JSX，这些改动一个都不生效。
+   *
+   * 过滤掉三类：
+   *   - 配置里停用的（isActive/enabled=false）
+   *   - 规范表里 inForm=false 的（如 expected_departments 由志愿下拉合成，
+   *     不该再单独出现一栏让人填两遍）
+   *   - 已废弃字段（方案A 遗留，见 DEPRECATED_RESUME_FIELD_KEYS）
+   * 规范表里没有的 key 一律保留：那正是管理员新加的自定义字段。
+   */
+  const renderableFields = useMemo<RenderableField[]>(() => {
+    const deprecated = new Set<string>(DEPRECATED_RESUME_FIELD_KEYS);
+    return (fieldDefinitions ?? [])
+      .map((def: any) => {
+        const key = String(def.fieldKey ?? def.field_key ?? '').trim();
+        const cf = configFieldMap.get(key);
+        return {
+          fieldKey: key,
+          fieldLabel: cf?.label || def.fieldLabel || def.field_label || undefined,
+          fieldType: def.fieldType ?? def.field_type,
+          placeholder: cf?.placeholder || def.placeholder || undefined,
+          sortOrder: def.sortOrder ?? def.sort_order ?? null,
+          required: cf ? cf.required : def.isRequired !== false,
+          options: cf?.options?.length ? cf.options : def.options,
+        } as RenderableField;
+      })
+      .filter((f: RenderableField) => {
+        if (!f.fieldKey || deprecated.has(f.fieldKey)) return false;
+        if (!isFieldEnabled(f.fieldKey)) return false;
+        const spec = specOf(f.fieldKey);
+        return spec ? spec.inForm : true;   // 自定义字段没有 spec，照常渲染
+      });
+  }, [fieldDefinitions, configFieldMap, isFieldEnabled]);
+
   const exportData = useMemo(() => {
     return buildExportData(fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64);
   }, [fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64]);
@@ -1346,127 +1375,33 @@ const Publish: React.FC = () => {
               <Form form={form} layout="vertical" className="questionnaire-form" validateTrigger="onSubmit">
                 <Row gutter={24}>
                   <Col xs={24}>
-                    {(isFieldEnabled('name') || isFieldEnabled('student_id') || isFieldEnabled('gender') ||
-                      isFieldEnabled('grade') || isFieldEnabled('major') || isFieldEnabled('email') ||
-                      isFieldEnabled('phone') || isFieldEnabled('github') || isFieldEnabled('personal_photo')) && (
-                      <FormSection title="基本信息" icon={<IdcardOutlined />}>
-                        <Row gutter={24}>
-                          <Col xs={24} md={isFieldEnabled('personal_photo') ? 16 : 24}>
-                            <Row gutter={16}>
-                              {isFieldEnabled('name') && (
-                                <Col xs={24} md={12}>
-                                  <TextInputField label={getFieldLabel('name', '姓名')} name="name" placeholder={getFieldPlaceholder('name', '请输入您的姓名')} value={getFieldValue('name')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('name', e.target.value)} disabled={!canEdit} required={isFieldRequired('name')} className="compact-input" />
-                                </Col>
-                              )}
-                              {isFieldEnabled('student_id') && (
-                                <Col xs={24} md={12}>
-                                  <TextInputField label={getFieldLabel('student_id', '学号')} name="student_id" placeholder={getFieldPlaceholder('student_id', '请输入您的学号')} value={getFieldValue('student_id')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('student_id', e.target.value)} disabled={!canEdit} required={isFieldRequired('student_id')} className="compact-input" />
-                                </Col>
-                              )}
-                            </Row>
-                            <Row gutter={16}>
-                              {isFieldEnabled('gender') && (
-                                <Col xs={24} md={12}>
-                                  <RadioGroupField label={getFieldLabel('gender', '性别')} name="gender" value={getFieldValue('gender')} onChange={(e: any) => handleFieldChange('gender', e.target.value)} options={genderOptions} disabled={!canEdit} required={isFieldRequired('gender')} />
-                                </Col>
-                              )}
-                              {isFieldEnabled('grade') && (
-                                <Col xs={24} md={12}>
-                                  <SelectField label={getFieldLabel('grade', '年级')} name="grade" placeholder={getFieldPlaceholder('grade', '请选择年级')} value={getFieldValue('grade')} onChange={(value: string) => handleFieldChange('grade', value)} options={gradeOptions} disabled={!canEdit} required={isFieldRequired('grade')} className="compact-input" />
-                                </Col>
-                              )}
-                            </Row>
-                            <Row gutter={16}>
-                              {isFieldEnabled('major') && (
-                                <Col xs={24} md={12}>
-                                  <TextInputField label={getFieldLabel('major', '专业')} name="major" placeholder={getFieldPlaceholder('major', '请输入您的专业')} value={getFieldValue('major')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('major', e.target.value)} disabled={!canEdit} required={isFieldRequired('major')} className="compact-input" />
-                                </Col>
-                              )}
-                              {isFieldEnabled('email') && (
-                                <Col xs={24} md={12}>
-                                  <TextInputField label={getFieldLabel('email', '邮箱')} name="email" placeholder={getFieldPlaceholder('email', '请输入您的邮箱')} value={getFieldValue('email')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('email', e.target.value)} disabled={!canEdit} required={isFieldRequired('email')} className="compact-input" />
-                                </Col>
-                              )}
-                            </Row>
-                            <Row gutter={16}>
-                              {isFieldEnabled('phone') && (
-                                <Col xs={24} md={12}>
-                                  <TextInputField label={getFieldLabel('phone', '手机号')} name="phone" placeholder={getFieldPlaceholder('phone', '请输入您的手机号')} value={getFieldValue('phone')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('phone', e.target.value)} disabled={!canEdit} required={isFieldRequired('phone')} className="compact-input" />
-                                </Col>
-                              )}
-                              {isFieldEnabled('github') && (
-                                <Col xs={24} md={12}>
-                                  <TextInputField label={getFieldLabel('github', 'GitHub主页')} name="github" placeholder={getFieldPlaceholder('github', '请输入您的GitHub主页（选填）')} value={getFieldValue('github')} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('github', e.target.value)} disabled={!canEdit} required={isFieldRequired('github')} className="compact-input" />
-                                </Col>
-                              )}
-                            </Row>
-                          </Col>
-                          {isFieldEnabled('personal_photo') && (
-                            <Col xs={24} md={8}>
-                              <div className="photo-container">
-                                <PhotoUpload photoBase64={photoBase64} onUpload={handlePhotoUpload} isCompressing={isPhotoCompressing} disabled={!canEdit} required={isFieldRequired('personal_photo')} label={getFieldLabel('personal_photo', '个人照片')} />
-                              </div>
-                            </Col>
-                          )}
-                        </Row>
-                      </FormSection>
-                    )}
-
-                    {/* 志愿信息模块 */}
-                    <FormSection title="志愿选择" icon={<TeamOutlined />}>
-                      <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                          <SelectField
-                            label="第一志愿部门"
-                            name="first_department"
-                            placeholder="请选择第一志愿部门"
-                            value={departments.first}
-                            onChange={(value: string) => handleDepartmentChange('first', value)}
-                            options={firstDeptOptions}
-                            disabled={!canEdit || intentLocked}
-                            required
-                            className="compact-input"
-                          />
-                        </Col>
-                        <Col xs={24} md={12}>
-                          <SelectField
-                            label="第二志愿部门"
-                            name="second_department"
-                            placeholder="请选择第二志愿部门（选填）"
-                            value={departments.second}
-                            onChange={(value: string) => handleDepartmentChange('second', value)}
-                            options={secondDeptOptions}
-                            disabled={!canEdit || intentLocked}
-                            disabledOptions={disabledSecondDepts}
-                            className="compact-input"
-                          />
-                        </Col>
-                      </Row>
-                    </FormSection>
-
-                    {(isFieldEnabled('self_introduction') || isFieldEnabled('reason')) && (
-                      <FormSection title="自我介绍" icon={<CommentOutlined />}>
-                        {isFieldEnabled('self_introduction') && (
-                          <TextAreaField label={getFieldLabel('self_introduction', '自我介绍')} name="self_introduction" placeholder={getFieldPlaceholder('self_introduction', '请介绍一下您的个人特点、兴趣爱好、技能特长等...')} value={getFieldValue('self_introduction')} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleFieldChange('self_introduction', e.target.value)} disabled={!canEdit} required={isFieldRequired('self_introduction')} rows={4} />
-                        )}
-                        {isFieldEnabled('reason') && (
-                          <TextAreaField label={getFieldLabel('reason', '加入理由')} name="reason" placeholder={getFieldPlaceholder('reason', '为什么想加入我们社团？您期望获得什么？...')} value={getFieldValue('reason')} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleFieldChange('reason', e.target.value)} disabled={!canEdit} required={isFieldRequired('reason')} rows={4} />
-                        )}
-                      </FormSection>
-                    )}
-
-                    {(isFieldEnabled('tech_stack') || isFieldEnabled('project_experience')) && (
-                      <FormSection title="技术能力" icon={<CodeOutlined />}>
-                        {isFieldEnabled('tech_stack') && (
-                          <Form.Item label={getFieldLabel('tech_stack', '技术栈')} name="tech_stack" required={isFieldRequired('tech_stack')}>
-                            <TechStackInput items={techStackItems} onChange={handleTechStackChange} onAdd={addTechStackItem} onRemove={removeTechStackItem} disabled={!canEdit} placeholder={getFieldPlaceholder('tech_stack', '请输入技术栈')} />
-                          </Form.Item>
-                        )}
-                        {isFieldEnabled('project_experience') && (
-                          <TextAreaField label={getFieldLabel('project_experience', '项目经验')} name="project_experience" placeholder={getFieldPlaceholder('project_experience', '请描述您参与过的项目，包括项目角色、使用的技术、取得的成果等...')} value={getFieldValue('project_experience')} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleFieldChange('project_experience', e.target.value)} disabled={!canEdit} required={isFieldRequired('project_experience')} rows={4} />
-                        )}
-                      </FormSection>
-                    )}
+                    {/*
+                      表单主体由后端字段配置驱动：清单、顺序、分区、标签、
+                      占位符、必填、选项全部来自管理员那份配置。
+                      此前这里是四段写死的 JSX，管理员拖的顺序、改的标签、
+                      新加的自定义字段在学生端一个都不生效。
+                      面试意向卡不在其中——它走独立的志愿接口，不是简历字段。
+                    */}
+                    <DataDrivenFields
+                      fields={renderableFields}
+                      canEdit={canEdit}
+                      fallbackOptions={fieldFallbackOptions}
+                      getValue={getFieldValue}
+                      onChange={handleFieldChange}
+                      photoBase64={photoBase64}
+                      onPhotoUpload={handlePhotoUpload}
+                      isPhotoCompressing={isPhotoCompressing}
+                      techStackItems={techStackItems}
+                      onTechStackChange={handleTechStackChange}
+                      onTechStackAdd={addTechStackItem}
+                      onTechStackRemove={removeTechStackItem}
+                      departments={departments}
+                      onDepartmentChange={handleDepartmentChange}
+                      firstDeptOptions={firstDeptOptions}
+                      secondDeptOptions={secondDeptOptions}
+                      disabledSecondDepts={disabledSecondDepts}
+                      intentLocked={intentLocked}
+                    />
 
                     {/* ── 面试意向（方案二：随简历一次提交）── */}
                     <Card
