@@ -304,7 +304,9 @@ const Publish: React.FC = () => {
    * 而旁边的简历状态还写着「已提交（可修改）」——两句话自相矛盾。
    */
   const [cyclePhase, setCyclePhase] = useState<CyclePhase>('open');
-  const [upcomingCycle, setUpcomingCycle] = useState<OpenCycle | null>(null);
+  // 存整份预告列表而不只是落点那一届：管理员可以同时排好几届，
+  // 只留一个的话其余的在用户端就凭空消失了
+  const [upcomingCycles, setUpcomingCycles] = useState<OpenCycle[]>([]);
   const cycleClosed = cyclePhase !== 'open';
 
 
@@ -581,9 +583,7 @@ const Publish: React.FC = () => {
       // 没有任何开放周期时 cid 会回退到历史/未开始周期——那只用于展示，必须锁死编辑
       const phase = resolveCyclePhase(cid, openIds, upcomingIds);
       setCyclePhase(phase);
-      setUpcomingCycle(phase === 'upcoming'
-        ? (upcoming ?? []).find((c) => Number(c.cycleId) === Number(cid)) ?? null
-        : null);
+      setUpcomingCycles(upcoming ?? []);
 
       // fetchOpenCycles 的 reducer 也会把 store 里的 cycleId 校正到开放列表内，
       // 那会让本 effect 因 cycleId 变化再跑一次。这里记下已初始化的周期，
@@ -1255,15 +1255,24 @@ const Publish: React.FC = () => {
     那份简历得让人看得到，上面的 Alert 已经说明了周期状态。
   */
   if (cyclePhase === 'upcoming' && !resume) {
+    const shown = upcomingCycles.find((c) => Number(c.cycleId) === Number(cycleId))
+      ?? upcomingCycles[0];
     return (
       <div className="publish-page">
         <CycleUpcomingNotice
-          cycleName={upcomingCycle?.cycleName}
-          description={upcomingCycle?.description}
-          startDate={upcomingCycle?.startDate}
-          endDate={upcomingCycle?.endDate}
-          fieldCount={upcomingCycle?.fieldCount}
+          cycleName={shown?.cycleName}
+          description={shown?.description}
+          startDate={shown?.startDate}
+          endDate={shown?.endDate}
+          fieldCount={shown?.fieldCount}
           onBack={() => navigate('/main/dashboard')}
+          /*
+            同时排了好几届时要能挨个看，否则只看得到落点那一届。
+            切换只改 store 里的选中周期，不投递任何东西——这一屏本来就不可投。
+          */
+          siblings={upcomingCycles}
+          currentCycleId={Number(shown?.cycleId)}
+          onPick={(id) => dispatch(setSelectedCycle(id))}
         />
       </div>
     );
