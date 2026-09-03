@@ -35,9 +35,25 @@ export type BackendFieldType =
 /** 前端表单用类型（兼容历史 input/custom） */
 export type ResumeFieldType = BackendFieldType | 'input' | 'custom';
 
-/** 已废弃字段，批量保存时过滤（面试预约走独立接口） */
+/**
+ * 已废弃的简历字段：不在配置里展示、不参与保存。
+ *
+ * 三个都是方案A（自助抢时段）时代的遗留。方案B 之后，「能否参加线下面试」
+ * 与「可接受时间窗」由投递页的「面试意向」卡统一管（走独立的志愿接口），
+ * 它们作为简历字段只是重复存在：
+ *   - can_attend_offline_interview 表单里根本不按字段渲染，值来自面试意向卡
+ *   - second_interview_time 只被写入、从不作为字段渲染
+ *   - expected_interview_time 同上
+ * 留在字段配置里只会让管理员困惑「这栏干什么用、改了有没有效」。
+ *
+ * 仅从配置界面隐藏；历史数据照常读得出来（查看视图与导出仍展示）。
+ * 模板 DEFAULT_RESUME_FIELDS 里保留这几条也无妨 —— fromBackendFields 与
+ * saveResumeFields 都按本清单过滤。
+ */
 export const DEPRECATED_RESUME_FIELD_KEYS = [
   'expected_interview_time',
+  'second_interview_time',
+  'can_attend_offline_interview',
 ] as const;
 
 export interface ResumeFieldUI extends Omit<BackendResumeField, 'fieldType'> {

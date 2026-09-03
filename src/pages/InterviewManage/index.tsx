@@ -76,7 +76,7 @@ import SessionInterviewersModal from "./SessionInterviewersModal";
 const fmtTime = (t?: string) => (t ? t.slice(0, 5) : "-");
 
 // ─── 时间段 Tab ──────────────────────────────────────────────────────────────
-const TimeSlotTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
+const TimeSlotTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycleId, refreshToken }) => {
   const [list, setList] = useState<InterviewTimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -98,7 +98,9 @@ const TimeSlotTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 
   useEffect(() => {
     load();
-  }, [load]);
+  // refreshToken：切回本面板时重新拉一次 —— antd Tabs 会保留
+    // 已挂载的面板，不加这个依赖切回来看到的是切走时的旧数据
+  }, [load, refreshToken]);
 
   const openCreate = () => {
     setEditing(null);
@@ -224,7 +226,7 @@ const TimeSlotTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 };
 
 // ─── 场次 Tab ────────────────────────────────────────────────────────────────
-const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts }) => {
+const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number }> = ({ cycleId, depts, refreshToken }) => {
   const [list, setList] = useState<InterviewSession[]>([]);
   const [rosterSession, setRosterSession] = useState<InterviewSession | null>(null);
   const [roster, setRoster] = useState<ScheduleRosterItem[]>([]);
@@ -301,7 +303,9 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
 
   useEffect(() => {
     load();
-  }, [load]);
+  // refreshToken：切回本面板时重新拉一次 —— antd Tabs 会保留
+    // 已挂载的面板，不加这个依赖切回来看到的是切走时的旧数据
+  }, [load, refreshToken]);
 
   const openCreate = () => {
     setEditing(null);
@@ -516,7 +520,7 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, dept
 };
 
 // ─── 分配与调剂 Tab ──────────────────────────────────────────────────────────
-const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle }> = ({ cycleId, cycle }) => {
+const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle; refreshToken?: number }> = ({ cycleId, cycle, refreshToken }) => {
   const [unassigned, setUnassigned] = useState<UnassignedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -540,7 +544,9 @@ const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle }> = (
 
   useEffect(() => {
     loadUnassigned();
-  }, [loadUnassigned]);
+    // refreshToken：切回本面板时重新拉一次 —— antd Tabs 会保留已挂载的面板，
+    // 不加这个依赖，切回来看到的还是切走时的旧名单
+  }, [loadUnassigned, refreshToken]);
 
   const doAssign = async () => {
     setAssigning(true);
@@ -666,7 +672,7 @@ const STATUS_TAG: Record<number, { color: string; text: string }> = {
   2: { color: "red", text: "已拒绝" },
 };
 
-const RescheduleTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
+const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycleId, refreshToken }) => {
   const [list, setList] = useState<AdminRescheduleRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [handling, setHandling] = useState<AdminRescheduleRequest | null>(null);
@@ -686,7 +692,9 @@ const RescheduleTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
     }
   }, [cycleId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); // refreshToken：切回本面板时重新拉一次 —— antd Tabs 会保留
+    // 已挂载的面板，不加这个依赖切回来看到的是切走时的旧数据
+  }, [load, refreshToken]);
 
   const openHandle = (r: AdminRescheduleRequest, s: 1 | 2) => {
     setHandling(r);
@@ -781,7 +789,7 @@ const DECISION_TAG: Record<number, { color: string; text: string }> = {
   2: { color: "red", text: "未通过" },
 };
 
-const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts }) => {
+const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number }> = ({ cycleId, depts, refreshToken }) => {
   const [list, setList] = useState<InterviewResultItem[]>([]);
   const [nameMap, setNameMap] = useState<Record<number, { name?: string; username?: string }>>({});
   const [loading, setLoading] = useState(false);
@@ -817,7 +825,9 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[] }> = ({ cycleId, depts
     }
   }, [cycleId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); // refreshToken：切回本面板时重新拉一次 —— antd Tabs 会保留
+    // 已挂载的面板，不加这个依赖切回来看到的是切走时的旧数据
+  }, [load, refreshToken]);
 
   const deptName = (id?: number) => depts.find((d: any) => d.deptId === id)?.deptName || (id ? `#${id}` : "-");
 
@@ -1415,6 +1425,9 @@ const InterviewManage: React.FC = () => {
   const [cycles, setCycles] = useState<RecruitmentCycle[]>([]);
   const [cycleId, setCycleId] = useState<number | undefined>();
   const [depts, setDepts] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("slots");
+  // 每个面板一个自增令牌：切到它时 +1，面板据此重新拉数据
+  const [tabTokens, setTabTokens] = useState<Record<string, number>>({});
   // 初始化完成前渲染 loading，避免先闪现「请先创建周期」提示再切换到正文
   const [initializing, setInitializing] = useState(true);
 
@@ -1462,14 +1475,26 @@ const InterviewManage: React.FC = () => {
           <Spin size="large" />
         </div>
       ) : cycleId ? (
+        /* 受控 + 每个面板带 refreshToken：
+           antd 的 Tabs 默认保留已挂载的面板，切走再切回来时子组件的 useEffect
+           不会重跑。表现为「在『时间段』里新增一个时间段，切回『场次』时
+           所属时间段的下拉里没有它，非刷新整页不可」（用户实际撞到的）。
+           这里在每次切换时把目标面板的 token 自增，子组件据此重新拉数据；
+           比 destroyInactiveTabPane 温和 —— 后者会把面板里的筛选、滚动位置
+           也一并丢掉。 */
         <Tabs
+          activeKey={activeTab}
+          onChange={(key) => {
+            setActiveTab(key);
+            setTabTokens((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+          }}
           items={[
-            { key: "slots", label: "时间段", children: <TimeSlotTab cycleId={cycleId} /> },
-            { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} /> },
-            { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} /> },
-            { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} /> },
+            { key: "slots", label: "时间段", children: <TimeSlotTab cycleId={cycleId} refreshToken={tabTokens.slots ?? 0} /> },
+            { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.sessions ?? 0} /> },
+            { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} refreshToken={tabTokens.assign ?? 0} /> },
+            { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} refreshToken={tabTokens.reschedule ?? 0} /> },
             { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} /> },
-            { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} /> },
+            { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.results ?? 0} /> },
             { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
           ]}
         />
