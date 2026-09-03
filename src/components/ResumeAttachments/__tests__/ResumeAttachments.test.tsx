@@ -84,15 +84,18 @@ describe('简历附件', () => {
   });
 
   it('没有简历 id 时不请求接口', async () => {
-    // 新周期里简历还没创建，此时列附件必然失败
+    // 新周期里简历还没创建，此时列附件必然失败。
+    // 断言「没发请求」本身，而不是空态文案——空态在可编辑时刻意不渲染文字
+    // （上传按钮已经把「这里能传附件」说清楚了），拿文案当锚点会跟着样式一起碎。
     render(<ResumeAttachments resumeId={null} canEdit />);
-    await waitFor(() => expect(screen.getByText(/还没有上传附件/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: /上传附件/ })).toBeInTheDocument());
     expect(api.listAttachments).not.toHaveBeenCalled();
   });
 
   it('接口出错时留空而不是整块报错', async () => {
     api.listAttachments.mockRejectedValue(new Error('boom'));
     render(<ResumeAttachments resumeId={9} />);
-    await waitFor(() => expect(screen.getByText(/没有上传附件/)).toBeInTheDocument());
+    // 只读视角下空态仍给一行说明，让面试官知道是「没传」而不是「没加载出来」
+    await waitFor(() => expect(screen.getByText(/候选人没有上传附件/)).toBeInTheDocument());
   });
 });

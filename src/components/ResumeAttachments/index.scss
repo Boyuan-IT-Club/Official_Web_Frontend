@@ -2,7 +2,8 @@
 @use "../../styles/tokens" as t;
 
 .resume-attachments {
-  padding: t.$gap-md;
+  // 附件是选填的次要项，整块压紧：没传附件时只有标题 + 一个小按钮两行高
+  padding: t.$gap-sm t.$gap-md;
   background: #fff;
   border: t.$border-hairline;
   border-radius: t.$radius-card;
@@ -23,9 +24,23 @@
 
   &__hint { font-size: t.$text-caption; }
 
-  &__loading { padding: t.$gap-lg 0; text-align: center; }
+  &__loading { padding: t.$gap-sm 0; text-align: center; }
 
-  &__icon { font-size: 20px; color: #1f76cc; }
+  &__none {
+    padding: 2px 0 t.$gap-xs;
+    font-size: t.$text-caption;
+    color: #9aa3b0;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: t.$gap-xs;
+  }
+
+  &__count { font-size: t.$text-caption; }
+
+  &__icon { font-size: 18px; color: #1f76cc; }
 
   &__name {
     // 附件名可能很长，让它省略而不是把操作按钮挤出去
@@ -37,7 +52,11 @@
     vertical-align: bottom;
   }
 
-  &__upload { margin-top: t.$gap-sm; }
+  // 列表存在时才和上面拉开距离；空态下按钮紧跟标题
+  .ant-list + .resume-attachments__actions { margin-top: t.$gap-xs; }
+
+  // antd List 默认每项 12px 上下内边距，附件一般就一两个，压到 8px
+  .ant-list-item { padding: t.$gap-xs 0; }
 
   // ── 预览 ──────────────────────────────────────────
   &__preview-img,

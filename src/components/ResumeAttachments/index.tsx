@@ -5,7 +5,7 @@
 // 这套交互统一在这里，免得两处各写一遍再慢慢长歪。
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Empty, List, Modal, Popconfirm, Spin, Tooltip, Typography, Upload, message } from 'antd';
+import { Button, List, Modal, Popconfirm, Spin, Tooltip, Typography, Upload, message } from 'antd';
 import {
   DeleteOutlined, DownloadOutlined, EyeOutlined, FileOutlined, UploadOutlined,
 } from '@ant-design/icons';
@@ -115,12 +115,17 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
       </div>
 
       {loading ? (
-        <div className="resume-attachments__loading"><Spin /></div>
+        <div className="resume-attachments__loading"><Spin size="small" /></div>
       ) : items.length === 0 ? (
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={canEdit ? '还没有上传附件（选填）' : '候选人没有上传附件'}
-        />
+        /*
+          空态只用一行字，不用 antd Empty —— 它自带一张插画和上下留白，
+          整块高度立刻翻倍。附件本来就是选填的次要项，
+          没传的时候不该比填好的表单字段还占地方。
+          可编辑时连这行都省掉：下面的上传按钮已经把「这里可以传附件」说清楚了。
+        */
+        canEdit ? null : (
+          <div className="resume-attachments__none">候选人没有上传附件</div>
+        )
       ) : (
         <List
           className="resume-attachments__list"
@@ -159,11 +164,14 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
       )}
 
       {canEdit && (
-        <Upload beforeUpload={handleUpload} showUploadList={false} multiple>
-          <Button icon={<UploadOutlined />} loading={busy} className="resume-attachments__upload">
-            上传附件
-          </Button>
-        </Upload>
+        <div className="resume-attachments__actions">
+          <Upload beforeUpload={handleUpload} showUploadList={false} multiple>
+            <Button size="small" icon={<UploadOutlined />} loading={busy}>上传附件</Button>
+          </Upload>
+          <Text type="secondary" className="resume-attachments__count">
+            {items.length > 0 ? `已上传 ${items.length}/10` : '选填'}
+          </Text>
+        </div>
       )}
 
       <Modal
