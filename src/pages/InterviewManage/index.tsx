@@ -321,7 +321,8 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
     setEditing(r);
     form.setFieldsValue({
       timeSlotId: r.timeSlotId,
-      deptId: r.deptId,
+      // 老数据可能只有 deptId，没有 deptIds
+      deptIds: r.deptIds?.length ? r.deptIds : (r.deptId ? [r.deptId] : []),
       location: r.location,
       capacity: r.capacity,
       interviewDurationMinutes: r.interviewDurationMinutes,
@@ -366,7 +367,16 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
         columns={[
           { title: "ID", dataIndex: "sessionId", width: 64 },
           { title: "时间段", dataIndex: "slotName", render: (v: string, r: InterviewSession) => `${v || r.timeSlotId}（${r.interviewDate || ""} ${fmtTime(r.startTime)}-${fmtTime(r.endTime)}）` },
-          { title: "部门", dataIndex: "deptName", width: 110 },
+          {
+            title: "部门",
+            dataIndex: "deptNames",
+            width: 160,
+            // 多部门场次要把几个都列出来，只显示主部门会让人以为另几个没设上
+            render: (v: string[] | undefined, r: InterviewSession) => {
+              const names = v?.length ? v : (r.deptName ? [r.deptName] : []);
+              return names.length ? names.join("、") : "-";
+            },
+          },
           { title: "地点", dataIndex: "location", width: 140 },
           {
             title: "容量",
@@ -438,8 +448,15 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
               }))}
             />
           </Form.Item>
-          <Form.Item name="deptId" label="面试部门" rules={[{ required: true, message: "请选择部门" }]}>
+          <Form.Item
+            name="deptIds"
+            label="面试部门"
+            extra="可多选：一场同时面几个部门的同学时，不必拆成多个场次（容量是这一场共享的）"
+            rules={[{ required: true, message: "请至少选择一个部门" }]}
+          >
             <Select
+              mode="multiple"
+              allowClear
               options={depts.map((d: any) => ({ value: d.deptId, label: d.deptName }))}
             />
           </Form.Item>
