@@ -1,0 +1,64 @@
+// 下一届招新预告条。刻度走 _tokens，配色与投递页的预告屏同一族（深蓝 + 冷高光），
+// 但分量压到一条横幅：首页上方已经有周期切换器和进度卡，
+// 再加一张同等分量的卡片会把真正要操作的东西挤下去。
+@use "../../styles/tokens" as t;
+
+.upcoming-banner {
+  display: flex;
+  align-items: center;
+  gap: t.$gap-sm;
+  padding: t.$gap-sm t.$gap-md;
+  color: #e8eefc;
+  background: linear-gradient(120deg, #14284b 0%, #1b3f7a 100%);
+  border-radius: t.$radius-card;
+  box-shadow: t.$shadow-sm;
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+    color: #cfe0ff;
+    background: rgba(88, 160, 255, 0.16);
+    border: 1px solid rgba(88, 160, 255, 0.30);
+    border-radius: 50%;
+  }
+
+  &__body { min-width: 0; }        // 允许长周期名在窄屏收缩而不撑破横幅
+
+  &__title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: t.$gap-xs;
+    font-size: t.$text-subtitle;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  &__pill {
+    padding: 1px 8px;
+    font-size: t.$text-caption;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    color: #9ec5ff;
+    background: rgba(88, 160, 255, 0.14);
+    border: 1px solid rgba(88, 160, 255, 0.32);
+    border-radius: t.$radius-pill;
+  }
+
+  &__meta {
+    margin-top: 2px;
+    font-size: t.$text-sm;
+    color: rgba(232, 238, 252, 0.72);
+
+    b {
+      // 倒计时每天变化，等宽数字避免整行左右跳动
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+    }
+  }
+}

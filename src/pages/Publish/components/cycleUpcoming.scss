@@ -1,0 +1,176 @@
+// 招募周期预告卡。
+//
+// 阴影、圆角、字号、动效全部走 _tokens 的刻度，不新起一套 —— 那份文件的
+// 立项原因就是全站曾有 69 处各写各的阴影。这里唯一自定义的是配色：
+// 一层深蓝渐变 + 一道扫过的高光，把「还没开始、正在倒数」这件事说出来。
+@use "../../../styles/tokens" as t;
+
+.cycle-upcoming {
+  display: flex;
+  justify-content: center;
+  padding: t.$gap-xl t.$gap-md;
+
+  &__card {
+    position: relative;
+    overflow: hidden;                       // 兜住下面那两层装饰
+    width: 100%;
+    max-width: 520px;
+    padding: t.$gap-xl t.$gap-lg t.$gap-lg;
+    text-align: center;
+    color: #e8eefc;
+    background: linear-gradient(160deg, #0f1d38 0%, #16305c 55%, #1b3f7a 100%);
+    border-radius: t.$radius-card;
+    box-shadow: t.$shadow-lg;
+  }
+
+  // 细网格：科技感靠这层结构而不是靠更亮的颜色，
+  // 亮色堆上去只会让白字更难读
+  &__card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 26px 26px;
+    pointer-events: none;
+  }
+
+  // 顶部一道冷色高光，避免整块深蓝发闷
+  &__card::after {
+    content: "";
+    position: absolute;
+    top: -55%;
+    left: -12%;
+    width: 124%;
+    height: 62%;
+    background: radial-gradient(ellipse at center, rgba(88, 160, 255, 0.30) 0%, transparent 68%);
+    pointer-events: none;
+  }
+
+  // 内容压在装饰层之上
+  > .cycle-upcoming__card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  &__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    font-size: t.$text-caption;
+    letter-spacing: 0.08em;
+    color: #9ec5ff;
+    background: rgba(88, 160, 255, 0.14);
+    border: 1px solid rgba(88, 160, 255, 0.32);
+    border-radius: t.$radius-pill;
+  }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    background: #58a0ff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(88, 160, 255, 0.7);
+    animation: cycle-upcoming-pulse 2s ease-out infinite;
+  }
+
+  &__title {
+    margin: t.$gap-md 0 0;
+    font-size: t.$text-hero;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #fff;
+  }
+
+  &__lead {
+    margin: t.$gap-xs 0 0;
+    font-size: t.$text-body;
+    color: rgba(232, 238, 252, 0.72);
+  }
+
+  &__count {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: t.$gap-xs;
+    margin-top: t.$gap-lg;
+  }
+
+  &__num {
+    font-size: 64px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    // 数字等宽：倒计时每天变化，比例数字会让整行左右跳动
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 28px rgba(88, 160, 255, 0.45);
+  }
+
+  &__unit {
+    font-size: t.$text-subtitle;
+    color: rgba(232, 238, 252, 0.72);
+  }
+
+  &__range {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: t.$gap-md;
+    padding: 6px 14px;
+    font-size: t.$text-sm;
+    color: #cfe0ff;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: t.$radius-pill;
+  }
+
+  &__desc {
+    max-width: 40ch;                        // 正文行长控制在可读区间
+    margin: t.$gap-md auto 0;
+    font-size: t.$text-sm;
+    line-height: 1.7;
+    color: rgba(232, 238, 252, 0.66);
+  }
+
+  &__hint {
+    margin: t.$gap-sm 0 0;
+    font-size: t.$text-caption;
+    color: rgba(232, 238, 252, 0.45);
+  }
+
+  &__back {
+    margin-top: t.$gap-lg;
+    color: #dbe7ff;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+    transition: background-color t.$dur-base t.$ease, border-color t.$dur-base t.$ease;
+
+    &:hover,
+    &:focus {
+      color: #fff !important;
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.32) !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    padding: t.$gap-lg t.$gap-sm;
+
+    &__card { padding: t.$gap-lg t.$gap-md; }
+    &__title { font-size: t.$text-title; }
+    &__num { font-size: 48px; }
+  }
+}
+
+@keyframes cycle-upcoming-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(88, 160, 255, 0.7); }
+  70%  { box-shadow: 0 0 0 8px rgba(88, 160, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(88, 160, 255, 0); }
+}
+
+// 关掉动效偏好下不要脉冲
+@media (prefers-reduced-motion: reduce) {
+  .cycle-upcoming__dot { animation: none; }
+}

@@ -99,6 +99,17 @@ export function getOpenCycles() {
   return request({ url: '/api/cycles/open', method: 'get' });
 }
 
+/**
+ * 即将开放的周期（启用中 + 开始日期还没到），按 start_date 升序。
+ *
+ * 与 getOpenCycles 分开而不是并成一个列表：开放列表的 id 集合在用户端是
+ * 「能不能投」的闸门，未开始的混进去，用户就能给一个还没开始的周期提交简历。
+ * 可见与可投是两件事——未开始的周期该看得到（做预告），但不该能投。
+ */
+export function getUpcomingCycles() {
+  return request({ url: '/api/cycles/upcoming', method: 'get' });
+}
+
 export function createCycle(data: CyclePayload) {
   return request({ url: '/api/cycles', method: 'post', data });
 }
