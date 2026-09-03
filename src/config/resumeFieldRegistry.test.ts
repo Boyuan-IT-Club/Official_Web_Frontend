@@ -84,3 +84,28 @@ describe('简历字段规范表', () => {
     expect(input).toEqual(copy);
   });
 });
+
+describe('导出的「其他信息」只收自定义字段', () => {
+  // Word 导出里「其他信息」的排除清单是从 RESUME_FIELDS 推导的
+  // （见 Publish/index.tsx 的 exportExtras）。这里锁住推导的前提：
+  // 模板正文渲染过的标准字段，规范表里必须都有——少一个，那个字段
+  // 就会在导出末尾被当成自定义字段重复列一遍。
+  // 线上真实事故：规范表有 introduction，而手写的排除清单漏了它，
+  // 于是「个人简介」在 Word 里出现两次。
+  const RENDERED_BY_TEMPLATE = [
+    'name', 'student_id', 'gender', 'grade', 'major', 'email', 'phone', 'github',
+    'personal_photo',
+    'self_introduction', 'reason', 'introduction',
+    'first_choice', 'second_choice', 'expected_departments',
+    'tech_stack', 'project_experience',
+  ];
+
+  it.each(RENDERED_BY_TEMPLATE)('规范表里有 %s', (key) => {
+    expect(specOf(key)).toBeDefined();
+  });
+
+  it('规范表的 key 无重复——重复会让排除集合与顺序都失准', () => {
+    const keys = RESUME_FIELDS.map((f) => f.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+});

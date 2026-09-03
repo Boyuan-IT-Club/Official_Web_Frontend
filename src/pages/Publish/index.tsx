@@ -38,7 +38,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { compressImage } from '@/utils/imageCompress';
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
-import { specOf } from '@/config/resumeFieldRegistry';
+import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
 import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
@@ -1108,9 +1108,22 @@ const Publish: React.FC = () => {
   // 本周期的自定义字段（标准键之外）：简历字段按周期配置，导出必须跟着走，
   // 否则「表里填了、导出的 Word 里没有」
   const exportExtras = useMemo<Array<[string, string]>>(() => {
-    const KNOWN = new Set(['name', 'student_id', 'gender', 'grade', 'major', 'email', 'phone',
-      'github', 'tech_stack', 'self_introduction', 'reason', 'project_experience',
-      'expected_departments', 'expected_interview_time', 'personal_photo', 'photo']);
+    /*
+      「其他信息」只该收录管理员自己加的字段。标准字段模板正文已经排过了，
+      再列一遍就是重复。
+
+      原来这里是手写的一串 key，与 Word 模板、后端 PDF 各维护一份，三份互相漂移：
+      这份漏了 introduction，而 Word 模板明明有「个人简介」小节，
+      于是同一段内容在导出里出现两次（正文一次，其他信息一次）。
+
+      改为从规范表推导——规范表里有的就是标准字段，没有的才是自定义字段。
+      以后新增标准字段只要进规范表，这里自动跟上，不会再漏。
+    */
+    const KNOWN = new Set<string>([
+      ...RESUME_FIELDS.map((f) => f.key),
+      ...DEPRECATED_RESUME_FIELD_KEYS,   // 方案A 遗留，任何界面都不展示
+      'photo',                            // 历史别名
+    ]);
     const list: Array<[string, string]> = [];
     (fieldDefinitions ?? []).forEach((def: any) => {
       const key = def.fieldKey ?? def.field_key;
