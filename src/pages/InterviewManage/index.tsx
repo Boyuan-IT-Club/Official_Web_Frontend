@@ -451,7 +451,6 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
           <Form.Item
             name="deptIds"
             label="面试部门"
-            extra="可多选：一场同时面几个部门的同学时，不必拆成多个场次（容量是这一场共享的）"
             rules={[{ required: true, message: "请至少选择一个部门" }]}
           >
             <Select
