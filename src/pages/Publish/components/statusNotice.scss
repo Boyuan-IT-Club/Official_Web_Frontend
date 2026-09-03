@@ -1,0 +1,103 @@
+// 状态条。刻度走 _tokens；配色四档各自成一套，但结构完全一致。
+//
+// 「开发风」不是靠加装饰，是靠：细边框而不是投影、左侧一道同色竖条、
+// 等宽字体的状态 chip、以及克制的内边距。
+@use "../../../styles/tokens" as t;
+
+.status-notice {
+  --tone-fg: #1f76cc;
+  --tone-bg: #f4f8ff;
+  --tone-line: #d6e6fb;
+
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: t.$gap-sm;
+  padding: 11px t.$gap-md 11px 15px;   // 左侧 15 = 12 + 3px 竖条
+  margin-bottom: t.$gap-sm;
+  overflow: hidden;
+  // 这一条必须显式写：外层标题区是 text-align: center，
+  // 继承过来会让标题居中而说明靠左，两行错位（antd Alert 就是栽在这）
+  text-align: left;
+  background: var(--tone-bg);
+  border: 1px solid var(--tone-line);
+  border-radius: t.$radius-sm;
+
+  // 左侧竖条：比整块描边更能标出「这是一条状态」
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background: var(--tone-fg);
+  }
+
+  &.is-warning {
+    --tone-fg: #d48806;
+    --tone-bg: #fffbf0;
+    --tone-line: #f3e3bf;
+  }
+
+  &.is-success {
+    --tone-fg: #389e5b;
+    --tone-bg: #f4fbf6;
+    --tone-line: #cfe9d8;
+  }
+
+  &.is-muted {
+    --tone-fg: #6b7a90;
+    --tone-bg: #f7f8fa;
+    --tone-line: #e6e9ee;
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    font-size: 15px;
+    color: var(--tone-fg);
+  }
+
+  &__body { min-width: 0; }   // 长文本换行而不撑破
+
+  &__title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: t.$gap-xs;
+    font-size: t.$text-body;
+    font-weight: 600;
+    color: #26303f;
+  }
+
+  // 状态值单独成 chip：等宽 + 描边，扫一眼就能定位，
+  // 不至于埋在整句话里
+  &__badge {
+    padding: 1px 7px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: t.$text-caption;
+    font-weight: 500;
+    color: var(--tone-fg);
+    background: #fff;
+    border: 1px solid var(--tone-line);
+    border-radius: t.$radius-control;
+  }
+
+  &__desc {
+    margin-top: 3px;
+    font-size: t.$text-sm;
+    line-height: 1.65;
+    color: #5c6675;
+  }
+
+  @media (max-width: 480px) {
+    padding: 10px t.$gap-sm 10px 13px;
+    &__title { font-size: t.$text-sm; }
+  }
+}

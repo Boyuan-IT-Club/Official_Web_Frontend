@@ -43,6 +43,7 @@ import { loadResumeBundle } from './loadResumeBundle';
 import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
 import TipsModal from './components/TipsModal';
+import StatusNotice from './components/StatusNotice';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
 import ResumeDisplay from '@/components/ResumeDisplay';
@@ -1358,26 +1359,33 @@ const Publish: React.FC = () => {
             ) : cyclePhase === 'upcoming' ? (
               /* 已经投过、随后管理员把开始时间往后推的情形：简历还在，
                  但周期回到了「未开始」。说「已结束」是错的。 */
-              <Alert
-                message="本周期尚未开始"
+              <StatusNotice
+                tone="muted"
+                title="本周期尚未开始"
                 description="管理员调整了开放时间，本轮招募还未开始，简历暂时不可修改或提交，以下内容仅供查看。"
-                type="info" showIcon style={{ marginBottom: 16 }}
               />
             ) : cycleClosed && (
-              <Alert
-                message="本周期已停止投递"
+              <StatusNotice
+                tone="warning"
+                title="本周期已停止投递"
                 description="招募周期已结束，简历不可再修改或提交，以下内容仅供查看。"
-                type="warning" showIcon style={{ marginBottom: 16 }}
               />
             )}
             {!isMember && (
-            <Alert
-              message="简历信息"
-              description={`您的简历状态：${statusText}。${cyclePhase === 'upcoming'
+            /*
+              状态值提出来做成 chip：「已提交（不可修改）」是这一条里
+              唯一要被一眼扫到的信息，塞在整句话中间反而找不着。
+              语气跟着可编辑性走——还能改就是 info，改不了就是 muted，
+              免得一条蓝色提示同时用来说两种相反的处境。
+            */
+            <StatusNotice
+              tone={canEdit ? 'info' : 'muted'}
+              title="简历状态"
+              badge={statusText}
+              description={cyclePhase === 'upcoming'
                 ? '本周期尚未开始，开放后即可继续修改。'
                 : cycleClosed ? '本周期已停止投递，内容仅供查看。'
-                : resume?.status === 2 ? '在审核开始前您可以修改简历。' : '当前状态无法修改，如需修改请联系管理员。'}`}
-              type="info" showIcon style={{ marginBottom: 16 }}
+                : resume?.status === 2 ? '在审核开始前你可以修改简历。' : '当前状态无法修改，如需修改请联系管理员。'}
             />
             )}
           </div>
