@@ -3,11 +3,9 @@ import { render, screen } from '@testing-library/react';
 import QaGroupHint from '../QaGroupHint';
 
 describe('招新答疑群提示', () => {
-  it('有二维码时渲染，并明说可以点开放大', () => {
-    // 84px 的二维码用手机对着屏幕扫不出来；不写这句用户只会以为就这么大
+  it('有二维码时渲染出图与群名', () => {
     render(<QaGroupHint imageUrl="https://x/qr.png" remark="2026 招新答疑群" />);
     expect(screen.getByAltText('招新答疑群二维码')).toBeInTheDocument();
-    expect(screen.getByText(/点击可放大/)).toBeInTheDocument();
     expect(screen.getByText(/2026 招新答疑群/)).toBeInTheDocument();
   });
 

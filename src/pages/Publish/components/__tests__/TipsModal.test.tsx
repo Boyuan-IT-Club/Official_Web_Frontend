@@ -36,4 +36,16 @@ describe('填写提示弹窗', () => {
     render(<TipsModal open onClose={jest.fn()} tips={[]} />);
     expect(screen.getByText('填写提示')).toBeInTheDocument();
   });
+
+  it('配了二维码时，答疑群跟在注意事项之后', () => {
+    // 看完注意事项仍有疑问的人，下一步正是要问人——所以它排在最后
+    render(<TipsModal open onClose={jest.fn()} tips={TIPS} qaImageUrl="https://x/qr.png" qaRemark="答疑群" />);
+    expect(screen.getByAltText('招新答疑群二维码')).toBeInTheDocument();
+    expect(screen.getByText(/还有疑问/)).toBeInTheDocument();
+  });
+
+  it('没配二维码时整节不出现，不留空壳', () => {
+    render(<TipsModal open onClose={jest.fn()} tips={TIPS} />);
+    expect(screen.queryByAltText('招新答疑群二维码')).not.toBeInTheDocument();
+  });
 });
