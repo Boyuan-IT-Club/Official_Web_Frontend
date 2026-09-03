@@ -39,6 +39,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { compressImage } from '@/utils/imageCompress';
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
 import { specOf } from '@/config/resumeFieldRegistry';
+import { loadResumeBundle } from './loadResumeBundle';
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
 import ResumeDisplay from '@/components/ResumeDisplay';
 import CycleSwitcher from '@/components/CycleSwitcher';
@@ -586,17 +587,19 @@ const Publish: React.FC = () => {
       }
       initedCidRef.current = cid;
 
-      // 所有独立请求并行发起，大幅减少首屏加载时间
-      const [configResult, fieldsResult, resumeResult, fieldValuesResult] =
-        await Promise.all([
-          dispatch(fetchResumeFieldsConfig(cid)).unwrap().catch((err: any) => {
-            console.error('加载字段配置失败:', err); return null;
-          }),
-          dispatch(fetchResumeFields(cid)).unwrap(),
+      // 取数顺序（尤其「字段值必须等简历存在」这条依赖）见 loadResumeBundle，
+      // 那里有假后端复现首次进入新周期的时序并做了回归测试
+      const { config: configResult, fields: fieldsResult,
+              resume: resumeResult, fieldValues: fieldValuesResult } =
+        await loadResumeBundle({
+          loadConfig: () => dispatch(fetchResumeFieldsConfig(cid)).unwrap()
+            .catch((err: any) => { console.error('加载字段配置失败:', err); return null; }),
+          loadFields: () => dispatch(fetchResumeFields(cid)).unwrap(),
           // 社员只查看，不该因为打开这页就被建出一条空简历
-          dispatch(fetchOrCreateResume({ cycleId: cid, readOnly: isMember })).unwrap(),
-          dispatch(fetchFieldValues(cid)).unwrap(),
-        ]);
+          loadOrCreateResume: () =>
+            dispatch(fetchOrCreateResume({ cycleId: cid, readOnly: isMember })).unwrap(),
+          loadFieldValues: () => dispatch(fetchFieldValues(cid)).unwrap(),
+        });
 
       dispatch(setFieldDefinitions(fieldsResult));
 
