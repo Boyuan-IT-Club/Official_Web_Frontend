@@ -2,6 +2,8 @@
 // 投递 → 审核 → 面试意向 → 面试安排（含改期申请）→ 面试结果，
 // 并提供简历 PDF 下载。数据全部来自真实接口。
 import React, { useCallback, useEffect, useState } from 'react';
+import CycleSwitcher from '@/components/CycleSwitcher';
+import { getMyResumes } from '@/api/resume';
 import {
   Alert, Button, Card, Descriptions, Drawer, Input, Modal, Space, Spin, Tag, Timeline, Typography, message,
 } from 'antd';
@@ -38,7 +40,45 @@ const InterviewAppointment: React.FC = () => {
   const paramCycleId = searchParams.get('cycleId');
   const resumeState = useSelector((state: any) => state.resume);
   const resume = resumeState?.resume;
-  const cycleId: number = paramCycleId ? Number(paramCycleId) : (resumeState?.cycleId ?? 2);
+  // 本页可以自己切周期：投过多届的同学要能回看往届进度，
+  // 此前只能从个人主页带 ?cycleId= 进来，页面内没有任何切换手段。
+  const [pickedCycleId, setPickedCycleId] = useState<number | null>(
+    paramCycleId ? Number(paramCycleId) : null,
+  );
+  const cycleId: number = pickedCycleId ?? (resumeState?.cycleId ?? 2);
+
+  /** 我投过的全部周期，供切换 */
+  const [myCycles, setMyCycles] = useState<Array<{
+    cycleId: number; cycleName?: string; academicYear?: string;
+  }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getMyResumes()
+      .then((res: any) => {
+        if (cancelled) return;
+        const list = (res?.data ?? [])
+          .filter((r: any) => r?.cycleId != null)
+          .map((r: any) => ({
+            cycleId: Number(r.cycleId),
+            cycleName: r.cycleName || `招募周期 #${r.cycleId}`,
+            academicYear: r.academicYear,
+          }))
+          .sort((a: any, b: any) => b.cycleId - a.cycleId);
+        setMyCycles(list);
+        // 没带参数且当前周期不在自己投过的里面时，落到最近投的那一届 ——
+        // 否则页面会停在一个「你没投过」的周期上，全是空状态
+        setPickedCycleId((prev) => {
+          if (prev != null) return prev;
+          if (list.length === 0) return null;
+          return list.some((c: any) => c.cycleId === (resumeState?.cycleId ?? 2))
+            ? (resumeState?.cycleId ?? 2)
+            : list[0].cycleId;
+        });
+      })
+      .catch(() => { /* 取不到历史不影响本届进度展示 */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [cycleName, setCycleName] = useState<string>('');
@@ -307,6 +347,15 @@ const InterviewAppointment: React.FC = () => {
 
   return (
     <div className="app-progress-page">
+      {/* 投过多届的同学在这里切换回看往届进度。
+          只投过一届时 CycleSwitcher 自己返回 null，不会平白多出一个控件。 */}
+      <CycleSwitcher
+        cycles={myCycles as any}
+        value={cycleId}
+        onChange={(id) => setPickedCycleId(id)}
+        openCount={0}
+        statusOf={() => undefined}
+      />
       <div className="progress-hero">
         <div className="hero-main">
           <span className="hero-emoji">{stage.emoji}</span>
