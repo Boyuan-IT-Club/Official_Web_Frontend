@@ -1,8 +1,9 @@
-// 招新答疑群二维码条。
+// 招新答疑群二维码。
 //
-// 抽成组件是因为它原先只写在「查看已投递简历」那一支里，
-// 而草稿/填写中走的是另一支 —— 恰恰是最可能有疑问、最需要这个入口的时候，
-// 它反而不出现。两支共用一个组件，就不会再只改一边。
+// 现在只出现在「填写提示」弹窗的末尾：那里正是用户看完注意事项、
+// 仍有疑问的时刻，比常驻在页头挤占版面更合适。
+// 页头原先那张卡还有个毛病 —— 它只写在「查看已投递简历」那一支里，
+// 草稿态根本看不到；移进弹窗后两种状态自然都有了。
 
 import React from 'react';
 import { Image } from 'antd';
@@ -18,23 +19,21 @@ const QaGroupHint: React.FC<QaGroupHintProps> = ({ imageUrl, remark }) => {
   return (
     <div className="qa-group-hint">
       {/*
-        用 antd Image 而不是裸 <img>：它自带放大灯箱（可缩放、旋转）。
-        原先是个纯 <img>，既点不开也没有指针样式，而 84px 见方的二维码
-        用手机对着屏幕基本扫不出来——想扫的人没有任何办法把它放大。
+        用 antd Image 而不是裸 <img>：它自带放大灯箱。
+        二维码在弹窗里也只有 96px 见方，手机对着屏幕未必扫得动，
+        点开放大是必要的退路。
       */}
       <Image
         className="qa-group-hint__qr"
         src={imageUrl}
         alt="招新答疑群二维码"
-        preview={{ mask: <span className="qa-group-hint__mask">点击放大</span> }}
+        preview={{ mask: <span className="qa-group-hint__mask">放大</span> }}
       />
       <div className="qa-group-hint__body">
-        <div className="qa-group-hint__title">填写遇到问题？扫码进答疑群</div>
+        <div className="qa-group-hint__title">还有疑问？扫码进答疑群</div>
         <div className="qa-group-hint__desc">
-          {remark || '招新答疑群'}　·　有任何疑问都可以在群里直接问我们
+          {remark || '招新答疑群'}　·　有任何问题都可以在群里直接问我们
         </div>
-        {/* 明说可以点开：不写的话用户只会以为这张图就这么大 */}
-        <div className="qa-group-hint__tip">二维码太小？点击可放大后再扫</div>
       </div>
     </div>
   );

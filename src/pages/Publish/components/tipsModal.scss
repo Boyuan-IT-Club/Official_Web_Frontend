@@ -101,3 +101,59 @@
     &__title { font-size: t.$text-subtitle; }
   }
 }
+
+// ── 弹窗末尾的答疑群二维码 ──────────────────────────────
+.qa-group-hint {
+  display: flex;
+  align-items: center;
+  gap: t.$gap-sm;
+  padding: t.$gap-sm t.$gap-md;
+  margin-top: t.$gap-md;
+  background: #f7f9ff;
+  border: 1px solid #e3e9fb;
+  border-radius: t.$radius-card;
+
+  /*
+    二维码容器必须自己兜住溢出，不能只靠给 img 设尺寸。
+    antd 的 .ant-image-img 带 height: auto，而它是运行时注入的、排在本文件之后，
+    同为单类选择器时它赢 —— 上传的若是竖版群名片，就会按原始比例撑出卡片外
+    （线上出现过）。所以：容器固定尺寸 + overflow hidden，
+    img 的规则再用后代选择器提高权重压过 antd。
+  */
+  .ant-image {
+    flex: none;
+    width: 96px;
+    height: 96px;
+    overflow: hidden;
+    background: #fff;
+    border-radius: t.$radius-sm;
+  }
+
+  .ant-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;     // 竖版名片整张缩进去，不裁掉二维码本体
+    cursor: pointer;
+  }
+
+  &__mask { font-size: t.$text-caption; }
+
+  &__body { min-width: 0; }
+
+  &__title {
+    font-size: t.$text-body;
+    font-weight: 600;
+    color: #2d3748;
+  }
+
+  &__desc {
+    margin-top: 3px;
+    font-size: t.$text-caption;
+    line-height: 1.6;
+    color: #6b7280;
+  }
+
+  @media (max-width: 560px) {
+    .ant-image { width: 80px; height: 80px; }
+  }
+}

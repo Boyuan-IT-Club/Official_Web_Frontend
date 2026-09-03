@@ -42,7 +42,6 @@ import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
 import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
-import QaGroupHint from './components/QaGroupHint';
 import TipsModal from './components/TipsModal';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
@@ -1343,7 +1342,6 @@ const Publish: React.FC = () => {
             <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
               博远信息技术社招新申请表
             </Title>
-            {!isMember && <QaGroupHint imageUrl={qaQr?.imageUrl} remark={qaQr?.remark} />}
             {isMember ? (
               /* 不用 antd Alert：它的 message 会继承外层的居中，
                  description 却是左对齐，两行错位很难看（用户反馈过）。
@@ -1423,9 +1421,6 @@ const Publish: React.FC = () => {
             <Text type="secondary" style={{ textAlign: 'center', display: 'block', marginBottom: 24 }}>
               {isSubmitted ? '修改简历信息' : '欢迎加入博远信息技术社，请填写以下信息完成申请'}
             </Text>
-            {/* 填写中同样要给答疑入口——这里才是最可能有疑问的时候。
-                原先它只写在「查看已投递简历」那一支里，草稿状态完全看不到。 */}
-            {!isMember && <QaGroupHint imageUrl={qaQr?.imageUrl} remark={qaQr?.remark} />}
             {isSubmitted && (
               <div className="edit-mode-bar">
                 <span className="edit-mode-dot" />
@@ -1473,7 +1468,13 @@ const Publish: React.FC = () => {
             </Button>
           </div>
 
-          <TipsModal open={tipsOpen} onClose={() => setTipsOpen(false)} tips={TIPS_CONTENT} />
+          <TipsModal
+            open={tipsOpen}
+            onClose={() => setTipsOpen(false)}
+            tips={TIPS_CONTENT}
+            qaImageUrl={isMember ? null : qaQr?.imageUrl}
+            qaRemark={qaQr?.remark}
+          />
 
           {/* 离线填写面板：导出模板 → Word 里填写 → 导入自动回填 */}
           <div className="offline-fill-panel">

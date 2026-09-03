@@ -10,6 +10,7 @@
 import React from 'react';
 import { Modal, Button } from 'antd';
 import { QuestionCircleOutlined } from '@ant-design/icons';
+import QaGroupHint from './QaGroupHint';
 import './tipsModal.scss';
 
 export interface TipItem { title: string; content: string }
@@ -18,9 +19,12 @@ export interface TipsModalProps {
   open: boolean;
   onClose: () => void;
   tips: TipItem[];
+  /** 招新答疑群二维码；没配则整节不出现 */
+  qaImageUrl?: string | null;
+  qaRemark?: string | null;
 }
 
-const TipsModal: React.FC<TipsModalProps> = ({ open, onClose, tips }) => (
+const TipsModal: React.FC<TipsModalProps> = ({ open, onClose, tips, qaImageUrl, qaRemark }) => (
   <Modal
     open={open}
     onCancel={onClose}
@@ -52,6 +56,9 @@ const TipsModal: React.FC<TipsModalProps> = ({ open, onClose, tips }) => (
         </li>
       ))}
     </ol>
+
+    {/* 答疑群放在注意事项之后：看完还有疑问的人，下一步正是要问人 */}
+    <QaGroupHint imageUrl={qaImageUrl} remark={qaRemark} />
 
     <div className="tips-modal__foot">
       <Button type="primary" onClick={onClose}>知道了，开始填写</Button>
