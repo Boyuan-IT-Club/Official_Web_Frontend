@@ -1101,6 +1101,29 @@ const Publish: React.FC = () => {
       });
   }, [fieldDefinitions, configFieldMap, isFieldEnabled]);
 
+  /**
+   * 本周期字段配置的导出/导入视图：标签 + 启停。
+   *
+   * 导出此前用写死的中文标签、也不看启停，管理员改了标签或停用了字段，
+   * 表单跟着变、导出不变——同一份简历「表里填的」和「导出的」对不上。
+   *
+   * 导入必须拿同一份：导入是按标签把内容认回来的，导出改用管理员的标签之后，
+   * 导入那边不知道就认不出自家的模板了。两处成对传，别只改一边。
+   */
+  const exportFieldMeta = useMemo(() => {
+    const labelOf: Record<string, string> = {};
+    const enabledOf: Record<string, boolean> = {};
+    (fieldDefinitions ?? []).forEach((def: any) => {
+      const key = String(def.fieldKey ?? def.field_key ?? '').trim();
+      if (!key) return;
+      const cf = configFieldMap.get(key);
+      const label = cf?.label || def.fieldLabel || def.field_label;
+      if (label) labelOf[key] = String(label);
+      enabledOf[key] = isFieldEnabled(key);
+    });
+    return { labelOf, enabledOf };
+  }, [fieldDefinitions, configFieldMap, isFieldEnabled]);
+
   const exportData = useMemo(() => {
     return buildExportData(fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64);
   }, [fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64]);
@@ -1145,8 +1168,9 @@ const Publish: React.FC = () => {
   [exportData, exportExtras]);
 
   const handleExportDOCX = useCallback(async (): Promise<void> => {
-    await exportResumeAsDOCX(exportData, exportExtras);
-  }, [exportData, exportExtras]);
+    // 带上本周期的字段配置：标签用管理员配的，停用的字段不导出
+    await exportResumeAsDOCX(exportData, exportExtras, exportFieldMeta);
+  }, [exportData, exportExtras, exportFieldMeta]);
 
   const handleExportPDF = useCallback(async (): Promise<void> => {
     const rid = resume?.resume_id || resume?.id;
@@ -1162,7 +1186,8 @@ const Publish: React.FC = () => {
   const handleImportFile = useCallback(async (file: File): Promise<void> => {
     setImportLoading(true);
     try {
-      const result = await importResumeFile(file);
+      // 传当前配置的标签：管理员改过名时，导入才认得出自家导出的模板
+      const result = await importResumeFile(file, exportFieldMeta.labelOf);
       if (result) {
         setExtractedFields(result);
         setImportModalOpen(true);
@@ -1172,7 +1197,7 @@ const Publish: React.FC = () => {
       // 重置 file input，允许重复选择同一文件
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, []);
+  }, [exportFieldMeta]);
 
   const handleConfirmImport = useCallback((): void => {
     if (!extractedFields) return;

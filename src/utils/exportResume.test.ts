@@ -125,3 +125,37 @@ describe('社徽嵌入', () => {
     expect(await zip.file('word/document.xml')!.async('string')).not.toContain('rIdLogo');
   });
 });
+
+describe('导出跟随字段配置', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('no network in tests')) as unknown as typeof fetch;
+  });
+
+  const xmlOf = async (meta: any) => {
+    const zip = await JSZip.loadAsync((await __buildDocxForTest(SAMPLE, [], meta)) as any);
+    return zip.file('word/document.xml')!.async('string');
+  };
+
+  it('用管理员配置的标签，而不是写死的中文名', async () => {
+    const xml = await xmlOf({ labelOf: { github: '代码仓库', reason: '为什么想加入' } });
+    expect(xml).toContain('代码仓库');
+    expect(xml).toContain('为什么想加入');
+    expect(xml).not.toContain('GitHub：');
+    expect(xml).not.toContain('加入理由');
+  });
+
+  it('停用的字段不出现在导出里', async () => {
+    // 表单里都不让填了，模板里还留一栏只会让人以为自己漏填了
+    const xml = await xmlOf({ enabledOf: { github: false, introduction: false } });
+    expect(xml).not.toContain('GitHub');
+    expect(xml).not.toContain('个人简介');
+    expect(xml).toContain('姓名');       // 其余字段照常
+  });
+
+  it('没传配置时保持原样，用内置中文标签', async () => {
+    const xml = await xmlOf(undefined);
+    expect(xml).toContain('姓名');
+    expect(xml).toContain('GitHub');
+    expect(xml).toContain('加入理由');
+  });
+});
