@@ -1,7 +1,7 @@
 // 我的申请（申请中心，方案C）：以时间线形式展示完整招新旅程——
 // 投递 → 审核 → 面试意向 → 面试安排（含改期申请）→ 面试结果，
 // 并提供简历 PDF 下载。数据全部来自真实接口。
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Button, Card, Descriptions, Drawer, Input, Modal, Space, Spin, Tag, Timeline, Typography, message,
 } from 'antd';
@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchOpenCycles, fetchMyResumeReadonly } from '@/store/modules/resume';
 import InterviewIntentEditor from '@/components/InterviewIntentEditor';
 import ResumeQuickView from '@/components/ResumeQuickView';
+import { readCanAttendOffline } from '@/utils/interviewIntent';
 import {
   MyPreference, MySchedule, MyResult, RescheduleRequest, PreferenceTimeSlot,
   getMyPreference, getMySchedule, getMyResult, getMyReschedule,
@@ -105,6 +106,12 @@ const InterviewAppointment: React.FC = () => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, loadAll, paramCycleId]);
+
+  // 这个值藏在 expected_interview_time 的 JSON 里，解析见 readCanAttendOffline
+  const canAttendOffline = useMemo(
+    () => readCanAttendOffline((resume?.simpleFields ?? []) as any),
+    [resume],
+  );
 
   const handleDownloadPdf = async () => {
     const rid = resume?.resume_id || resume?.id;
@@ -217,7 +224,24 @@ const InterviewAppointment: React.FC = () => {
     ),
   });
 
-  items.push({
+  items.push(canAttendOffline === false ? {
+    // 选了不能参加线下面试的同学不进线下排期，这一节给的是「等谁联系你」。
+    // 沿用原来那套「等待管理员安排」的文案会让人一直等一个不会来的场次通知。
+    color: 'blue',
+    dot: <CalendarOutlined />,
+    children: (
+      <>
+        <Text strong>线上面试</Text>
+        <div>
+          <Text type="secondary">
+            {preference
+              ? '你选择了不能参加线下面试，不会被自动排进线下场次。管理员会与你单独约线上面试时间，请留意邮件与站内通知。'
+              : '提交面试意向后，管理员会与你单独约线上面试时间。'}
+          </Text>
+        </div>
+      </>
+    ),
+  } : {
     color: schedule?.interviewTime ? 'green' : 'gray',
     dot: <CalendarOutlined />,
     children: (

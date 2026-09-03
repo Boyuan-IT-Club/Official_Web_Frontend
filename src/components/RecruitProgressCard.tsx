@@ -10,13 +10,19 @@ interface Props {
   cycleId: number;
   /** 简历状态：1草稿 2已提交 3评审中 4通过 5未通过；null=尚无简历 */
   resumeStatus: number | null;
+  /**
+   * 本人是否能参加线下面试。false 时整条进度走线上路线：
+   * 这类同学不会被排进线下场次，第 4 步给他们看「线下面试时间地点」
+   * 只会白等一个不会来的通知。null=未知（还没填面试意向），按线下文案走。
+   */
+  canAttendOffline?: boolean | null;
 }
 
 /**
  * 招新进度卡（方案三）：完善简历 → 提交 → 面试意向 → 等待分配 → 查看安排。
  * 中途离开的用户回到首页即可知道自己进行到哪一步、下一步做什么。
  */
-const RecruitProgressCard: React.FC<Props> = ({ cycleId, resumeStatus }) => {
+const RecruitProgressCard: React.FC<Props> = ({ cycleId, resumeStatus, canAttendOffline = null }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [hasPreference, setHasPreference] = useState(false);
@@ -62,18 +68,36 @@ const RecruitProgressCard: React.FC<Props> = ({ cycleId, resumeStatus }) => {
   if (submitted) current = 2;                      // 已提交 → 该填意向（若未填）
   if (submitted && hasPreference) current = 3;     // 意向已填 → 等待分配
   if (scheduled) current = 4;                      // 已分配 → 查看安排/等结果
+  // 线上路线没有 schedule 数据，光靠 scheduled 判断会永远卡在第 3 步，
+  // 让人以为流程停了；填完意向就推进到「线上面试」
+  if (canAttendOffline === false && submitted && hasPreference) current = 4;
   if (decided) current = 5;                        // 结果已出
+
+  // 不能参加线下面试的同学不进线下排期，走线上面试
+  const online = canAttendOffline === false;
 
   const steps = [
     { title: '完善简历', description: resumeStatus == null ? '还未开始填写' : (resumeStatus >= 2 ? '已完成' : '填写中，记得提交') },
     { title: '提交简历', description: submitted ? '已提交' : '完成后记得提交' },
-    { title: '面试意向', description: hasPreference ? '志愿已提交' : '选志愿部门与可面试时间' },
     {
-      title: '面试安排',
-      description: scheduled
-        ? `${String(schedule!.interviewTime).replace('T', ' ').slice(0, 16)} · ${schedule!.deptName ?? ''}`
-        : (hasPreference ? '管理员安排中' : ''),
+      title: '面试意向',
+      description: hasPreference
+        ? '志愿已提交'
+        : (online ? '选志愿部门' : '选志愿部门与可面试时间'),
     },
+    online
+      ? {
+          title: '线上面试',
+          // 线上场次由管理员一对一约，站内没有排期数据可显示，
+          // 所以这一步给的是「等谁联系你」而不是时间地点
+          description: hasPreference ? '管理员将与你单独约时间' : '',
+        }
+      : {
+          title: '面试安排',
+          description: scheduled
+            ? `${String(schedule!.interviewTime).replace('T', ' ').slice(0, 16)} · ${schedule!.deptName ?? ''}`
+            : (hasPreference ? '管理员安排中' : ''),
+        },
     {
       title: '面试结果',
       status: decided && result!.decision === 2 ? ('error' as const) : undefined,

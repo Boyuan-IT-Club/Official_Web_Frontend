@@ -14,6 +14,13 @@ import { buildExportDataFromSimpleFields, ResumeExportData } from './exportResum
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { __buildDocxForTest } = require('./exportResume');
 
+// 社徽是走 fetch 取的打包资源。jsdom 里那个 URL 是个文件桩，真去请求会
+// 报一串 ECONNREFUSED 噪音；默认让它失败即可——导出本来就要能在没有社徽时照常工作。
+// 需要验证「取到社徽」的用例在下面自己覆盖 fetch。
+beforeEach(() => {
+  global.fetch = jest.fn().mockRejectedValue(new Error('no network in tests')) as unknown as typeof fetch;
+});
+
 const SAMPLE: ResumeExportData = {
   name: '张三', studentId: '10250001', gender: '男', grade: '大二',
   major: '软件工程', email: 'a@stu.ecnu.edu.cn', phone: '13800000000',
@@ -80,5 +87,41 @@ describe('管理端 simpleFields → 导出数据映射', () => {
     expect(data.techStack).toEqual(['Vue', 'Go']);
     expect(data.firstDepartment).toBe('媒体部');
     expect(data.secondDepartment).toBe('综合部');
+  });
+});
+
+describe('社徽嵌入', () => {
+  const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+
+  it('取到社徽时，包里有图片、关系项和 png 类型声明', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => PNG_BYTES.buffer,
+    }) as unknown as typeof fetch;
+
+    const zip = await JSZip.loadAsync((await __buildDocxForTest(SAMPLE)) as any);
+
+    // 三者缺一 Word 就拒开：媒体文件、关系项、Content_Types 里的扩展名声明
+    expect(zip.file('word/media/logo.png')).not.toBeNull();
+    expect(await zip.file('word/_rels/document.xml.rels')!.async('string')).toContain('rIdLogo');
+    expect(await zip.file('[Content_Types].xml')!.async('string'))
+      .toContain('Extension="png"');
+
+    const xml = await zip.file('word/document.xml')!.async('string');
+    expect(xml).toContain('r:embed="rIdLogo"');
+    expect(new DOMParser().parseFromString(xml, 'application/xml')
+      .getElementsByTagName('parsererror').length).toBe(0);
+  });
+
+  it('取不到社徽时照常导出，不留下悬空的关系引用', async () => {
+    // 少一个 logo 不该让简历导不出来；但更要紧的是别留下指向不存在文件的
+    // rIdLogo——Word 遇到悬空关系会直接报文件损坏
+    global.fetch = jest.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+
+    const zip = await JSZip.loadAsync((await __buildDocxForTest(SAMPLE)) as any);
+
+    expect(zip.file('word/media/logo.png')).toBeNull();
+    expect(await zip.file('word/_rels/document.xml.rels')!.async('string')).not.toContain('rIdLogo');
+    expect(await zip.file('word/document.xml')!.async('string')).not.toContain('rIdLogo');
   });
 });

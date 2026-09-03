@@ -1,6 +1,7 @@
 // src/pages/Dashboard/index.js
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Typography, Divider, Button, message } from 'antd';
+import { readCanAttendOffline } from '@/utils/interviewIntent';
 import {
   CodeOutlined,
   TeamOutlined,
@@ -108,6 +109,13 @@ const Dashboard = () => {
   // resumeStatus 会停在上一个周期的数据（RecruitProgressCard 自己会按 cycleId
   // 重拉它那三个接口，但 resumeStatus 是从这里传进去的）。
   const selectedCycleId = resumeState?.cycleId ?? null;
+
+  // 选了「不能参加线下面试」的同学不会被排进线下场次，进度卡要换成线上路线。
+  // 这个值藏在另一个字段的 JSON 里，解析见 readCanAttendOffline。
+  const canAttendOffline = React.useMemo(
+    () => readCanAttendOffline(resumeState?.resume?.simpleFields),
+    [resumeState?.resume],
+  );
   useEffect(() => {
     if (selectedCycleId != null) dispatch(fetchMyResumeReadonly(selectedCycleId));
   }, [dispatch, selectedCycleId]);
@@ -168,7 +176,11 @@ const Dashboard = () => {
       {/* 招新进度卡（方案三）：随时知道自己进行到哪一步。已是社员的不再显示 */}
       {!isMember && (
         <div style={{ maxWidth: 960, margin: '8px auto 0', padding: '0 16px' }}>
-          <RecruitProgressCard cycleId={selectedCycleId ?? 2} resumeStatus={resumeState?.resume?.status ?? null} />
+          <RecruitProgressCard
+            cycleId={selectedCycleId ?? 2}
+            resumeStatus={resumeState?.resume?.status ?? null}
+            canAttendOffline={canAttendOffline}
+          />
         </div>
       )}
 
