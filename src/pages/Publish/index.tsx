@@ -365,9 +365,13 @@ const Publish: React.FC = () => {
    * 开放的排前面（还能投的更要紧），历史的按周期号倒序跟在后面。
    */
   const switchableCycles = useMemo(() => {
+    // startDate/endDate 必须带上：切换器每张卡要显示「起 ~ 止」。
+    // 之前这里只挑了 id/name/fieldCount，日期被丢掉，卡片上就只剩一个「~」
     const openList = (openCycles ?? []).map((c) => ({
       cycleId: Number(c.cycleId),
       cycleName: c.cycleName,
+      startDate: c.startDate,
+      endDate: c.endDate,
       fieldCount: (c as any).fieldCount,
       isOpen: true,
     }));
@@ -377,6 +381,10 @@ const Publish: React.FC = () => {
       .map((r) => ({
         cycleId: Number(r.cycleId),
         cycleName: r.cycleName || `招募周期 #${r.cycleId}`,
+        // 往届周期的日期由 /api/resumes/my 一并返回（老版本没有，取不到就留空，
+        // 卡片会自动省掉日期那行而不是显示半截）
+        startDate: (r as any).startDate,
+        endDate: (r as any).endDate,
         fieldCount: undefined as any,
         isOpen: false,
       }))
