@@ -472,7 +472,12 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
             { title: "面试时间", dataIndex: "interviewTime", width: 130,
               render: (v: string) => (v ? String(v).replace("T", " ").slice(5, 16) : "-") },
             { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: ScheduleRosterItem) => v || r.username || `用户#${r.userId}` },
-            { title: "学号", dataIndex: "username", width: 120 },
+            {
+              /* 这里的数据源就是 user.username，不是简历里填的学号。
+                 两者多数时候相同，但早期账号是名字拼音——表头写「学号」会骗人。
+                 「待约线上面试」那张表取的是简历里的真学号，这里暂时没有那条数据。 */
+              title: "学号 / 登录名", dataIndex: "username", width: 130,
+            },
             { title: "简历", dataIndex: "resumeId", width: 70,
               render: (v: number, r: ScheduleRosterItem) => (
                 <Button type="link" size="small" onClick={() => openResumeDetail(r)}>#{v}</Button>
@@ -569,7 +574,20 @@ const OfflineUnavailableSection: React.FC<{ cycleId: number; refreshToken?: numb
         locale={{ emptyText: "没有需要单独约线上面试的同学 🎉" }}
         columns={[
           { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: OfflineUnavailableItem) => v || r.username || `用户#${r.userId}` },
-          { title: "学号", dataIndex: "username", width: 130, render: (v: string) => v || "-" },
+          {
+            /*
+              学号取简历里填的那个，不是 user.username。
+              多数同学两者恰好相同（注册时用学号当用户名），但早期账号不是——
+              线上就有登录名 "dinghuaye"、简历里学号 10245101480 的情况，
+              表头写着「学号」却显示登录名，看的人会以为数据错了。
+              简历没填时才回落到登录名，并标注出来。
+            */
+            title: "学号",
+            dataIndex: "studentId",
+            width: 140,
+            render: (v: string, r: OfflineUnavailableItem) => v
+              || (r.username ? <Typography.Text type="secondary">{r.username}（登录名）</Typography.Text> : "-"),
+          },
           { title: "邮箱", dataIndex: "email", width: 220, render: (v: string) => v || "-" },
           { title: "手机", dataIndex: "phone", width: 130, render: (v: string) => v || "-" },
           {
@@ -1059,7 +1077,11 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
             */
             render: (uid: number, r: InterviewResultItem) =>
               r.userName || nameMap[uid]?.name || nameMap[uid]?.username || `用户#${uid}` },
-          { title: "学号", dataIndex: "userId", width: 120, render: (uid: number) => nameMap[uid]?.username || "-" },
+          {
+            /* 同上：来源是 user.username 而非简历里填的学号 */
+            title: "学号 / 登录名", dataIndex: "userId", width: 130,
+            render: (uid: number) => nameMap[uid]?.username || "-",
+          },
           {
             title: "面试", dataIndex: "scheduleId", width: 96,
             // 没有面试安排的人此前根本进不了这张表（结果行要求挂在一场面试上）。
