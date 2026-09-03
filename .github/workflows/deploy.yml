@@ -4,6 +4,25 @@ on:
   push:
     branches: [main]
 
+# 同一时刻只允许一条部署在跑，新的一来就取消还没跑完的旧的。
+#
+# 线上真出过事：两个 PR 挨着合并，触发两条几乎同时的部署 ——
+#   A(旧提交) 08:54:48 开始 → 08:59:46 结束
+#   B(新提交) 08:54:55 开始 → 08:59:17 结束
+# A 先开始所以构建的是旧代码，却后结束，用旧产物 rsync --delete
+# 覆盖了 B 刚发上去的新产物。两条都报 success，谁也没报错，
+# 而线上少了最后一次改动 —— 这种失败完全静默，只能靠肉眼发现。
+#
+# cancel-in-progress: true 而不是排队：排队只会让旧产物晚一点覆盖，
+# 治不了根。部署要的是「最新提交赢」，不是「都跑完」。
+#
+# 与后端 docker-push.yml 刻意相反：那边是 false。后端部署要删容器、
+# 滚动重启，取消一个删了一半容器的部署比排队危险得多；
+# 前端只是 rsync 整体替换目录，中途取消没有半成品状态。
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
