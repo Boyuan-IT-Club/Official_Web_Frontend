@@ -12,6 +12,23 @@ import { message } from 'antd';
 import { request } from '@/utils';
 import logoMarkUrl from '@/assets/logo-mark.png';
 
+/**
+ * 本周期的字段配置：标签与启停。
+ *
+ * 导出此前用的是写死的中文标签、也不看启停，于是管理员改了标签或停用了字段，
+ * 表单跟着变、导出不变 —— 同一份简历「表里填的」和「导出的」对不上。
+ *
+ * 注意与 importResume 的耦合：导入是按标签把内容认回来的。导出改用管理员的
+ * 标签之后，导入那边必须拿到同一份配置才认得出（见 importResume 的
+ * labelOverrides）。两处要成对传。
+ */
+export interface ExportFieldMeta {
+  /** fieldKey → 管理员配置的标签；缺省时用内置中文名 */
+  labelOf?: Record<string, string>;
+  /** fieldKey → 是否启用；缺省视为启用 */
+  enabledOf?: Record<string, boolean>;
+}
+
 export interface ResumeExportData {
   name: string; studentId: string; gender: string; grade: string;
   major: string; email: string; phone: string; github: string;
@@ -228,7 +245,11 @@ async function loadLogoBytes(): Promise<Uint8Array | null> {
 }
 
 /** 组装 word/document.xml 正文。extras：本周期的自定义字段（标签→值），跟随简历字段配置 */
-function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Array<[string, string]> = [], hasLogo = false): string {
+function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Array<[string, string]> = [], hasLogo = false, meta: ExportFieldMeta = {}): string {
+  // 标签以管理员的配置为准；没配就用内置中文名
+  const L = (key: string, fallback: string) => meta.labelOf?.[key] || fallback;
+  // 停用的字段不导出：表单里都不让填了，模板里留一栏只会让人以为漏填了
+  const on = (key: string) => meta.enabledOf?.[key] !== false;
   const body: string[] = [];
 
   // ── 页眉区：大号姓名 + 灰色副标题，右侧证件照；不用大色块，打印件更耐看 ──
@@ -254,13 +275,16 @@ function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Arr
   ));
 
   // ── 基本信息栅格：两列，浅底线分行 ──
-  const pairs: Array<[string, string]> = [
-    ['姓名', data.name], ['学号', data.studentId],
-    ['性别', data.gender], ['年级', data.grade],
-    ['专业', data.major], ['邮箱', data.email],
-    ['手机号', data.phone], ['GitHub', data.github],
-    ['第一志愿', data.firstDepartment], ['第二志愿', data.secondDepartment],
-  ];
+  const pairs: Array<[string, string]> = ([
+    ['name', '姓名', data.name], ['student_id', '学号', data.studentId],
+    ['gender', '性别', data.gender], ['grade', '年级', data.grade],
+    ['major', '专业', data.major], ['email', '邮箱', data.email],
+    ['phone', '手机号', data.phone], ['github', 'GitHub', data.github],
+    ['first_choice', '第一志愿', data.firstDepartment],
+    ['second_choice', '第二志愿', data.secondDepartment],
+  ] as Array<[string, string, string]>)
+    .filter(([key]) => on(key))
+    .map(([key, fallback, value]) => [L(key, fallback), value] as [string, string]);
   const rows: string[] = [];
   for (let i = 0; i < pairs.length; i += 2) {
     const left = pairs[i];
@@ -272,19 +296,21 @@ function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Arr
     }</w:tr>`);
   }
   // 技术栈单独一行贯通两列（顿号分隔，导入侧按同格式拆回数组）
-  rows.push(`<w:tr>${cell(labeledPara('技术栈', data.techStack.join('、')), { bottomLine: true })}${cell(para(run('')), { bottomLine: true })}</w:tr>`);
+  rows.push(`<w:tr>${cell(labeledPara(L('tech_stack', '技术栈'), data.techStack.join('、')), { bottomLine: true })}${cell(para(run('')), { bottomLine: true })}</w:tr>`);
   body.push(table(rows, { widths: [4800, 4800] }));
 
   // ── 长文小节：品牌色竖条标题（标题带冒号，导入按标签取到下一小节前）──
   // 顺序与 resumeFieldRegistry 一致（自我介绍 10 → 加入理由 11 → 个人简介 12
   // → 项目经验 20）。原来是「自我介绍 / 项目经验 / 加入理由」，与配置抽屉、
   // 投递表单、查看视图各不相同；「个人简介」更是整个漏在导出之外。
-  const sections: Array<[string, string]> = [
-    ['自我介绍', data.selfIntroduction],
-    ['加入理由', data.reason],
-    ['个人简介', data.introduction ?? ''],
-    ['项目经验', data.projectExperience],
-  ];
+  const sections: Array<[string, string]> = ([
+    ['self_introduction', '自我介绍', data.selfIntroduction],
+    ['reason', '加入理由', data.reason],
+    ['introduction', '个人简介', data.introduction ?? ''],
+    ['project_experience', '项目经验', data.projectExperience],
+  ] as Array<[string, string, string]>)
+    .filter(([key]) => on(key))
+    .map(([key, fallback, value]) => [L(key, fallback), value] as [string, string]);
   for (const [title, content] of sections) {
     body.push(para(run(`${title}：`, { bold: true, color: C.accent, sz: 23 }), { before: 300, after: 110, accentBar: true }));
     // 空小节输出空行而不是占位文案——占位文字会被「导入」当成真实内容回填
@@ -305,7 +331,7 @@ function buildDocumentXml(data: ResumeExportData, hasPhoto: boolean, extras: Arr
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${body.join('')}${sect}</w:body></w:document>`;
 }
 
-async function buildDocx(data: ResumeExportData, extras: Array<[string, string]> = []): Promise<Blob> {
+async function buildDocx(data: ResumeExportData, extras: Array<[string, string]> = [], meta: ExportFieldMeta = {}): Promise<Blob> {
   const zip = new JSZip();
   const photo = data.photoBase64?.match(/^data:image\/(\w+);base64,(.+)$/) || null;
   const ext = photo ? (photo[1] === 'png' ? 'png' : 'jpeg') : null;
@@ -323,7 +349,7 @@ async function buildDocx(data: ResumeExportData, extras: Array<[string, string]>
   if (photo) zip.file(`word/media/photo.${ext}`, base64ToUint8(photo[2]));
   if (logo) zip.file('word/media/logo.png', logo);
 
-  zip.file('word/document.xml', buildDocumentXml(data, !!photo, extras, !!logo));
+  zip.file('word/document.xml', buildDocumentXml(data, !!photo, extras, !!logo, meta));
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
 }
 
@@ -339,9 +365,9 @@ function saveBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export async function exportResumeAsDOCX(data: ResumeExportData, extras: Array<[string, string]> = []): Promise<void> {
+export async function exportResumeAsDOCX(data: ResumeExportData, extras: Array<[string, string]> = [], meta: ExportFieldMeta = {}): Promise<void> {
   try {
-    const blob = await buildDocx(data, extras);
+    const blob = await buildDocx(data, extras, meta);
     const empty = !data.name && !data.studentId && !data.selfIntroduction;
     saveBlob(blob, empty ? '博远招新简历模板.docx' : `博远招新简历_${data.name || '未命名'}.docx`);
     message.success(empty ? '空白模板已导出，填写后可导入自动回填' : 'Word 简历导出成功');

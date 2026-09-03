@@ -58,3 +58,56 @@ describe('导入解析', () => {
     expect(withGh.first_department).toBe('技术部');
   });
 });
+
+describe('管理员改过标签后的导入回环', () => {
+  it('认得出用配置标签导出的模板', () => {
+    // 导出改用管理员的标签之后，导入若只认内置中文名，
+    // 「导出模板 → Word 里填 → 导入回填」这条回环就静默断掉：
+    // 文件导得出、填得进去，导入却什么都认不出来。
+    const text = [
+      '代码仓库：https://github.com/zhangsan',
+      '所学方向：软件工程',
+    ].join('\n');
+
+    const withMeta = extractFieldsFromText(text, {
+      github: '代码仓库',
+      major: '所学方向',
+    });
+    expect(withMeta.github).toBe('https://github.com/zhangsan');
+    expect(withMeta.major).toBe('软件工程');
+
+    // 不传配置就认不出来——这正是必须成对传的原因。
+    //
+    // 反例特意选「所学方向」这种与内置词无重叠的改名：
+    //   - GitHub 另有一条按 URL 形状识别的兜底模式，不靠标签也认得出
+    //   - 改成「就读专业」这类也不行，内置正则是子串匹配，
+    //     「就读专业：」里含「专业：」，照样命中
+    // 只有完全换掉用词才真正依赖配置。
+    const without = extractFieldsFromText(text);
+    expect(without.major).toBe('');
+  });
+
+  it('内置标签仍然有效：外部简历与改名前导出的旧模板都要认得', () => {
+    const text = '姓名：李四\n手机号：13800000000';
+    const fields = extractFieldsFromText(text, { name: '真实姓名' });
+    expect(fields.name).toBe('李四');           // 内置模式兜底
+    expect(fields.phone).toBe('13800000000');
+  });
+
+  it('配置标签优先于内置标签', () => {
+    const text = '真实姓名：王五\n姓名：不该被取到';
+    const fields = extractFieldsFromText(text, { name: '真实姓名' });
+    expect(fields.name).toBe('王五');
+  });
+
+  it('标签里含正则元字符也不会炸', () => {
+    // 标签是管理员自由填的，不转义就会拼出非法正则
+    const fields = extractFieldsFromText('GitHub (主页)：https://x', { github: 'GitHub (主页)' });
+    expect(fields.github).toBe('https://x');
+  });
+
+  it('标签为空的字段跳过，不生成会吞掉下一行的模式', () => {
+    const fields = extractFieldsFromText('姓名：赵六', { github: '' });
+    expect(fields.name).toBe('赵六');
+  });
+});

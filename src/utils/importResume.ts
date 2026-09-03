@@ -97,7 +97,49 @@ function extractByPatterns(text: string): Partial<ExtractedFields> {
 /**
  * 从文本中提取简历字段
  */
-export function extractFieldsFromText(text: string): ExtractedFields {
+/**
+ * 用管理员配置的标签临时生成一组匹配模式。
+ *
+ * 导出已改为使用管理员配置的标签（见 exportResume 的 ExportFieldMeta）。
+ * 若这边只认内置的中文标签，管理员一改名，「导出模板 → Word 里填 → 导入回填」
+ * 这条回环就静默断掉：文件导得出、填得进去，导入却什么都认不出来。
+ *
+ * 内置模式不能删、也不能被顶掉：它还负责解析学生自带的外部简历，
+ * 以及改名之前导出的旧模板。所以这里是**叠加**——先试配置标签，
+ * 认不出再落回内置模式。
+ *
+ * 只覆盖单行字段。长文小节（自我介绍/加入理由/项目经验）的内置模式带有
+ * 「一直吃到下一个小节标题为止」的前瞻，改名后那串前瞻也得跟着变，
+ * 拼错了反而会吞掉后面几节 —— 留给内置模式处理更稳妥。
+ */
+function patternsFromLabels(
+  labelOverrides: Record<string, string>,
+): Array<{ regex: RegExp; key: keyof ExtractedFields }> {
+  const SINGLE_LINE: Array<[string, keyof ExtractedFields]> = [
+    ['name', 'name'], ['student_id', 'student_id'], ['gender', 'gender'],
+    ['grade', 'grade'], ['major', 'major'], ['email', 'email'],
+    ['phone', 'phone'], ['github', 'github'],
+    ['first_choice', 'first_department'], ['second_choice', 'second_department'],
+    ['tech_stack', 'tech_stack'],
+  ];
+  const out: Array<{ regex: RegExp; key: keyof ExtractedFields }> = [];
+  for (const [fieldKey, target] of SINGLE_LINE) {
+    const label = (labelOverrides[fieldKey] || '').trim();
+    if (!label) continue;
+    // 标签是管理员自由填的，必须转义后再拼进正则
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // 单行字段一律用 [ \t]* 而不是 \s*：\s 能匹配换行，
+    // 标签为空时会把下一行整行吞进来（内置模式里已踩过这个坑）
+    out.push({ regex: new RegExp(`${escaped}[：:][ \\t]*(.+)`), key: target });
+  }
+  return out;
+}
+
+export function extractFieldsFromText(
+  text: string,
+  /** 本周期的 fieldKey → 标签；管理员改过名时必须传，否则导入认不出自家模板 */
+  labelOverrides: Record<string, string> = {},
+): ExtractedFields {
   const result: ExtractedFields = {
     name: '',
     student_id: '',
@@ -118,8 +160,9 @@ export function extractFieldsFromText(text: string): ExtractedFields {
 
   const cleaned = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // 第一遍：按标签匹配
-  for (const { regex, key } of LABEL_PATTERNS) {
+  // 第一遍：按标签匹配。管理员配置的标签优先，内置模式兜底
+  // （外部简历、以及改名之前导出的旧模板都靠内置模式认出来）
+  for (const { regex, key } of [...patternsFromLabels(labelOverrides), ...LABEL_PATTERNS]) {
     const match = cleaned.match(regex);
     if (match) {
       const value = (match[1] || '').trim();
@@ -226,7 +269,11 @@ async function parseDOCXFile(file: File): Promise<string> {
 /**
  * 主入口：根据文件类型解析并提取字段
  */
-export async function importResumeFile(file: File): Promise<ExtractedFields | null> {
+export async function importResumeFile(
+  file: File,
+  /** 本周期的 fieldKey → 标签。管理员改过标签时必须传，否则导入认不出自家导出的模板 */
+  labelOverrides: Record<string, string> = {},
+): Promise<ExtractedFields | null> {
   const ext = file.name.split('.').pop()?.toLowerCase();
 
   let text: string;
@@ -255,7 +302,7 @@ export async function importResumeFile(file: File): Promise<ExtractedFields | nu
     return null;
   }
 
-  const extracted = extractFieldsFromText(text);
+  const extracted = extractFieldsFromText(text, labelOverrides);
   return extracted;
 }
 

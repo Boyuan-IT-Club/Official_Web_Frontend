@@ -38,7 +38,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { compressImage } from '@/utils/imageCompress';
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
-import { specOf } from '@/config/resumeFieldRegistry';
+import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
 import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
@@ -1101,6 +1101,29 @@ const Publish: React.FC = () => {
       });
   }, [fieldDefinitions, configFieldMap, isFieldEnabled]);
 
+  /**
+   * 本周期字段配置的导出/导入视图：标签 + 启停。
+   *
+   * 导出此前用写死的中文标签、也不看启停，管理员改了标签或停用了字段，
+   * 表单跟着变、导出不变——同一份简历「表里填的」和「导出的」对不上。
+   *
+   * 导入必须拿同一份：导入是按标签把内容认回来的，导出改用管理员的标签之后，
+   * 导入那边不知道就认不出自家的模板了。两处成对传，别只改一边。
+   */
+  const exportFieldMeta = useMemo(() => {
+    const labelOf: Record<string, string> = {};
+    const enabledOf: Record<string, boolean> = {};
+    (fieldDefinitions ?? []).forEach((def: any) => {
+      const key = String(def.fieldKey ?? def.field_key ?? '').trim();
+      if (!key) return;
+      const cf = configFieldMap.get(key);
+      const label = cf?.label || def.fieldLabel || def.field_label;
+      if (label) labelOf[key] = String(label);
+      enabledOf[key] = isFieldEnabled(key);
+    });
+    return { labelOf, enabledOf };
+  }, [fieldDefinitions, configFieldMap, isFieldEnabled]);
+
   const exportData = useMemo(() => {
     return buildExportData(fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64);
   }, [fieldIdMapping, fieldValueMap, departments, techStackItems, photoBase64]);
@@ -1108,9 +1131,22 @@ const Publish: React.FC = () => {
   // 本周期的自定义字段（标准键之外）：简历字段按周期配置，导出必须跟着走，
   // 否则「表里填了、导出的 Word 里没有」
   const exportExtras = useMemo<Array<[string, string]>>(() => {
-    const KNOWN = new Set(['name', 'student_id', 'gender', 'grade', 'major', 'email', 'phone',
-      'github', 'tech_stack', 'self_introduction', 'reason', 'project_experience',
-      'expected_departments', 'expected_interview_time', 'personal_photo', 'photo']);
+    /*
+      「其他信息」只该收录管理员自己加的字段。标准字段模板正文已经排过了，
+      再列一遍就是重复。
+
+      原来这里是手写的一串 key，与 Word 模板、后端 PDF 各维护一份，三份互相漂移：
+      这份漏了 introduction，而 Word 模板明明有「个人简介」小节，
+      于是同一段内容在导出里出现两次（正文一次，其他信息一次）。
+
+      改为从规范表推导——规范表里有的就是标准字段，没有的才是自定义字段。
+      以后新增标准字段只要进规范表，这里自动跟上，不会再漏。
+    */
+    const KNOWN = new Set<string>([
+      ...RESUME_FIELDS.map((f) => f.key),
+      ...DEPRECATED_RESUME_FIELD_KEYS,   // 方案A 遗留，任何界面都不展示
+      'photo',                            // 历史别名
+    ]);
     const list: Array<[string, string]> = [];
     (fieldDefinitions ?? []).forEach((def: any) => {
       const key = def.fieldKey ?? def.field_key;
@@ -1132,8 +1168,9 @@ const Publish: React.FC = () => {
   [exportData, exportExtras]);
 
   const handleExportDOCX = useCallback(async (): Promise<void> => {
-    await exportResumeAsDOCX(exportData, exportExtras);
-  }, [exportData, exportExtras]);
+    // 带上本周期的字段配置：标签用管理员配的，停用的字段不导出
+    await exportResumeAsDOCX(exportData, exportExtras, exportFieldMeta);
+  }, [exportData, exportExtras, exportFieldMeta]);
 
   const handleExportPDF = useCallback(async (): Promise<void> => {
     const rid = resume?.resume_id || resume?.id;
@@ -1149,7 +1186,8 @@ const Publish: React.FC = () => {
   const handleImportFile = useCallback(async (file: File): Promise<void> => {
     setImportLoading(true);
     try {
-      const result = await importResumeFile(file);
+      // 传当前配置的标签：管理员改过名时，导入才认得出自家导出的模板
+      const result = await importResumeFile(file, exportFieldMeta.labelOf);
       if (result) {
         setExtractedFields(result);
         setImportModalOpen(true);
@@ -1159,7 +1197,7 @@ const Publish: React.FC = () => {
       // 重置 file input，允许重复选择同一文件
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, []);
+  }, [exportFieldMeta]);
 
   const handleConfirmImport = useCallback((): void => {
     if (!extractedFields) return;
