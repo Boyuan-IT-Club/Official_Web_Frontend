@@ -20,7 +20,11 @@ export interface InterviewSession {
   interviewDate?: string;
   startTime?: string;
   endTime?: string;
+  /** 主部门。多部门场次下只是其中之一，判定用 deptIds */
   deptId: number;
+  /** 本场次覆盖的全部部门（V36）。单部门场次里就一个元素 */
+  deptIds?: number[];
+  deptNames?: string[];
   deptName?: string;
   location: string;
   capacity: number;
