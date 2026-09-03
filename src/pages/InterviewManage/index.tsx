@@ -25,6 +25,7 @@ import {
   TimePicker,
   message,
   Typography,
+  Divider,
 } from "antd";
 import { DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -523,6 +524,68 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
 };
 
 // ─── 分配与调剂 Tab ──────────────────────────────────────────────────────────
+/**
+ * 待约线上面试：选了「不能参加线下面试」的同学。
+ *
+ * 放在「分配与调剂」里而不是自成一个标签页——他们和待调剂名单是同一类：
+ * 都是「分不进去、需要人工处理」的人，只是原因不同
+ * （一个是场次没余量，一个是本人来不了线下）。管理员做分配这件事时
+ * 本来就该一并看到这两拨人，拆成两个标签页只会让人漏看。
+ */
+const OfflineUnavailableSection: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycleId, refreshToken }) => {
+  const [list, setList] = useState<OfflineUnavailableItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res: any = await listOfflineUnavailable(cycleId);
+      setList(res?.data ?? []);
+    } catch (e: any) {
+      message.error(e?.message || "加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [cycleId]);
+
+  useEffect(() => { void load(); }, [load, refreshToken]);
+
+  return (
+    <>
+      <Divider style={{ margin: "28px 0 12px" }} />
+      <Typography.Title level={5} style={{ margin: "0 0 4px" }}>
+        待约线上面试
+      </Typography.Title>
+      <PageHint style={{ marginBottom: 12 }}>
+        这些同学选了「不能参加线下面试」，一键分配不会把他们排进场次，需要单独约线上时间。
+        「说明」是他们自己填的，据此联系更省事。
+      </PageHint>
+      <Table
+        rowKey="userId"
+        size="small"
+        loading={loading}
+        dataSource={list}
+        pagination={false}
+        locale={{ emptyText: "没有需要单独约线上面试的同学 🎉" }}
+        columns={[
+          { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: OfflineUnavailableItem) => v || r.username || `用户#${r.userId}` },
+          { title: "学号", dataIndex: "username", width: 130, render: (v: string) => v || "-" },
+          { title: "邮箱", dataIndex: "email", width: 220, render: (v: string) => v || "-" },
+          { title: "手机", dataIndex: "phone", width: 130, render: (v: string) => v || "-" },
+          {
+            title: "说明",
+            dataIndex: "note",
+            // 说明是这张表存在的意义，给它最宽的一列
+            render: (v: string) => v
+              ? <span style={{ whiteSpace: "pre-wrap" }}>{v}</span>
+              : <Typography.Text type="secondary">未填写</Typography.Text>,
+          },
+        ]}
+      />
+    </>
+  );
+};
+
 const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle; refreshToken?: number }> = ({ cycleId, cycle, refreshToken }) => {
   const [unassigned, setUnassigned] = useState<UnassignedItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -644,6 +707,9 @@ const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle; refre
           },
         ] as any}
       />
+      {/* 同一屏里的第二拨「分不进去的人」，原因不同但都要人工处理 */}
+      <OfflineUnavailableSection cycleId={cycleId} refreshToken={refreshToken} />
+
       <Modal
         title={manualTarget ? `人工调剂：${manualTarget.name}（简历 #${manualTarget.resumeId}）` : ""}
         open={!!manualTarget}
@@ -1443,62 +1509,6 @@ const FeishuTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
 };
 
 // ─── 页面主体 ────────────────────────────────────────────────────────────────
-/**
- * 无法参加线下面试的同学。
- *
- * 这批人不会被自动排进场次，管理员得单独约线上面试——在此之前他们在
- * 管理端是「看不见」的：既不在已分配名单里，也不在任何场次下，
- * 只能靠翻每一份简历才发现。
- */
-const OfflineUnavailableTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycleId, refreshToken }) => {
-  const [list, setList] = useState<OfflineUnavailableItem[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res: any = await listOfflineUnavailable(cycleId);
-      setList(res?.data ?? []);
-    } catch (e: any) {
-      message.error(e?.message || "加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, [cycleId]);
-
-  useEffect(() => { void load(); }, [load, refreshToken]);
-
-  return (
-    <>
-      <PageHint>
-        这些同学选了「不能参加线下面试」，不会被自动排进场次，需要单独约线上面试。
-        「说明」是他们自己填的，据此联系更省事。
-      </PageHint>
-      <Table
-        rowKey="userId"
-        size="small"
-        loading={loading}
-        dataSource={list}
-        locale={{ emptyText: "本周期没有选择「不能参加线下面试」的同学" }}
-        columns={[
-          { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: OfflineUnavailableItem) => v || r.username || `用户#${r.userId}` },
-          { title: "学号", dataIndex: "username", width: 130, render: (v: string) => v || "-" },
-          { title: "邮箱", dataIndex: "email", width: 220, render: (v: string) => v || "-" },
-          { title: "手机", dataIndex: "phone", width: 130, render: (v: string) => v || "-" },
-          {
-            title: "说明",
-            dataIndex: "note",
-            // 说明是这张表存在的意义，给它最宽的一列
-            render: (v: string) => v
-              ? <span style={{ whiteSpace: "pre-wrap" }}>{v}</span>
-              : <Typography.Text type="secondary">未填写</Typography.Text>,
-          },
-        ]}
-      />
-    </>
-  );
-};
-
 const InterviewManage: React.FC = () => {
   const [cycles, setCycles] = useState<RecruitmentCycle[]>([]);
   const [cycleId, setCycleId] = useState<number | undefined>();
@@ -1572,7 +1582,6 @@ const InterviewManage: React.FC = () => {
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} refreshToken={tabTokens.assign ?? 0} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} refreshToken={tabTokens.reschedule ?? 0} /> },
             { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} /> },
-            { key: "offline", label: "无法线下", children: <OfflineUnavailableTab cycleId={cycleId} refreshToken={tabTokens.offline ?? 0} /> },
             { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.results ?? 0} /> },
             { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
           ]}
