@@ -69,9 +69,16 @@ const CycleSwitcher: React.FC<CycleSwitcherProps> = ({
                 {active && <CheckCircleFilled className="cycle-card__tick" />}
               </span>
 
-              <span className="cycle-card__date">
-                <CalendarOutlined /> {c.startDate} ~ {c.endDate}
-              </span>
+              {/*
+                日期缺一不可：只有一头时显示「2026-09-02 ~ undefined」或半截的
+                「~」都比不显示更糟。两头都拿不到就整行省掉——
+                线上出现过所有卡片只剩一个孤零零「~」的样子。
+              */}
+              {c.startDate && c.endDate && (
+                <span className="cycle-card__date">
+                  <CalendarOutlined /> {c.startDate} ~ {c.endDate}
+                </span>
+              )}
 
               <span className="cycle-card__tags">
                 {status && <span className="cycle-tag is-done">{status}</span>}
