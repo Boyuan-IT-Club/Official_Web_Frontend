@@ -23,6 +23,7 @@ import { useSkin } from "@/theme/SkinProvider";
 import { BgColorsOutlined, CheckOutlined } from "@ant-design/icons";
 import { useOnboardingTour, IntroList } from "@/components/OnboardingTour";
 import logo from "../../assets/SingleLogo.png";
+import AgentChatWidget from "@/components/AgentChat/AgentChatWidget";
 import "./index.scss";
 import { useAppDispatch } from "@/store/hooks";
 
@@ -287,9 +288,9 @@ const MainLayout = () => {
             <Outlet context={{ userInfo, userRole: userInfo?.role }} />
           </div>
         </Content>
-        {tour.node}
+{tour.node}
+        <AgentChatWidget />
       </AntdLayout>
-    </AntdLayout>
   );
 };
 export default MainLayout;
