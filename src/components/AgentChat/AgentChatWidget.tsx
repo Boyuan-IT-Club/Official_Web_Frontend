@@ -59,9 +59,11 @@ function AssistantBubble({ msg }: { msg: ChatMessage }) {
         <div className="agent-chat__text">
           {msg.content}
           {streaming && <span className="agent-chat__caret" />}
+          {msg.status === "stopped" && msg.content && (
+            <span className="agent-chat__stopped">(已停止)</span>
+          )}
         </div>
       )}
-
       {msg.status === "error" && (
         <div className="agent-chat__error">
           <Text type="danger">{msg.errorText || "出错了,请重试"}</Text>
@@ -152,6 +154,9 @@ export default function AgentChatWidget() {
             placeholder="输入问题,如:我的面试安排"
             autoSize={{ minRows: 1, maxRows: 4 }}
             onPressEnter={(e) => {
+              // IME 组合态(拼音预选)回车不发送——nativeEvent.isComposing 守卫,
+              // 否则预选词在 compositionend 前被清空,丢字/乱码(review P1)
+              if (e.nativeEvent.isComposing) return;
               if (!e.shiftKey) {
                 e.preventDefault();
                 handleSend();

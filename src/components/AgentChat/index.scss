@@ -6,6 +6,12 @@
     padding: 0;
   }
 
+  &__stopped {
+    color: #a0aec0;
+    font-size: 12px;
+    margin-left: 4px;
+  }
+
   &__list {
     flex: 1;
     overflow-y: auto;

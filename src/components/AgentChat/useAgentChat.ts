@@ -19,7 +19,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string; // 文本(assistant 流式累积;user 原文)
   toolNames: string[]; // 本轮调用的工具(assistant)
-  status: "complete" | "streaming" | "error" | "queued";
+  status: "complete" | "streaming" | "error" | "queued" | "stopped";
   errorCode?: string;
   errorText?: string;
 }
@@ -37,8 +37,8 @@ type Action =
   | { type: "delta"; content: string }
   | { type: "tool"; name: string }
   | { type: "done" }
+  | { type: "stopped" } // 用户主动停止(保留部分输出,标记可辨)
   | { type: "error"; code: string; message: string }
-  | { type: "reset" };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -89,11 +89,16 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, messages };
     }
-    case "done": {
+    case "done":
+    case "stopped": {
       const messages = state.messages.slice();
       const last = messages[messages.length - 1];
       if (last && last.role === "assistant") {
-        messages[messages.length - 1] = { ...last, status: "complete" };
+        // stopped:保留部分输出,标记为 stopped(与 complete 可辨,review P3)
+        messages[messages.length - 1] = {
+          ...last,
+          status: action.type === "stopped" ? "stopped" : "complete",
+        };
       }
       return { ...state, streaming: false, messages };
     }
@@ -190,6 +195,13 @@ export function useAgentChat(targetUrl: string) {
         if ((err as Error).name === "AbortError") return; // 用户主动停止
         const e = err as { code?: string; message?: string };
         if (e.code === "http_401") {
+          // 连接期 401:占位先标记错误收敛 streaming,再清 token 跳登录——
+          // 否则 queued 占位永久残留且流卡死无法再发(review P2)
+          dispatch({
+            type: "error",
+            code: "auth_expired",
+            message: "登录已过期,请重新登录",
+          });
           removeToken();
           onAuthExpiredRef.current?.();
           return;
@@ -207,7 +219,8 @@ export function useAgentChat(targetUrl: string) {
   /** 停止当前生成(中断 fetch)。 */
   const stop = useCallback(() => {
     abortRef.current?.abort();
-    dispatch({ type: "done" }); // 中断视为完成(保留部分输出)
+    // 中断 fetch;截断的部分内容保留但标记 stopped(与 complete 可辨,review P3)
+    dispatch({ type: "stopped" });
   }, []);
 
   return {
