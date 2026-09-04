@@ -39,6 +39,7 @@ type Action =
   | { type: "done" }
   | { type: "stopped" } // 用户主动停止(保留部分输出,标记可辨)
   | { type: "error"; code: string; message: string }
+  | { type: "reset" }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
