@@ -270,9 +270,10 @@ const MainLayout = () => {
             <Outlet context={{ userInfo, userRole: userInfo?.role }} />
           </div>
         </Content>
-{tour.node}
+        {tour.node}
         <AgentChatWidget />
       </AntdLayout>
+    </AntdLayout>
   );
 };
 export default MainLayout;
