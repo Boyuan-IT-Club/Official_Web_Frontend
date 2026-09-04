@@ -1,0 +1,148 @@
+// 客服 Agent 浮窗样式——对齐极简浅色主题(index.scss token)
+// 气泡/输入区用与 popup 一致的白底、灰边、柔和阴影。
+
+.agent-chat {
+  .ant-drawer-body {
+    padding: 0;
+  }
+
+  &__list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #f7fafc;
+  }
+
+  &__empty {
+    text-align: center;
+    margin-top: 40px;
+    color: #a0aec0;
+
+    &-icon {
+      font-size: 40px;
+      color: #cbd5e0;
+      margin-bottom: 12px;
+    }
+  }
+
+  &__bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    word-break: break-word;
+
+    &--user {
+      align-self: flex-end;
+      background: #3182ce;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    &--assistant {
+      align-self: flex-start;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+  }
+
+  &__text {
+    white-space: pre-wrap;
+  }
+
+  // 流式光标:blink 动画
+  &__caret {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: #3182ce;
+    animation: agent-chat-blink 0.8s step-end infinite;
+  }
+
+  // queued 占位呼吸点
+  &__dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: #3182ce;
+    animation: agent-chat-pulse 1.2s ease-in-out infinite;
+  }
+
+  &__queued {
+    display: flex;
+    align-items: center;
+  }
+
+  &__error {
+    margin-top: 6px;
+  }
+
+  // 工具调用折叠区
+  &__tools {
+    margin-bottom: 8px;
+
+    &-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 10px;
+      background: #edf2f7;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #2d3748;
+    }
+
+    &-count {
+      background: #cbd5e0;
+      color: #2d3748;
+      border-radius: 8px;
+      padding: 0 6px;
+      font-size: 11px;
+    }
+
+    &-list {
+      margin: 6px 0 0;
+      padding-left: 18px;
+      font-size: 12px;
+      color: #718096;
+    }
+  }
+
+  &__input {
+    border-top: 1px solid #e2e8f0;
+    padding: 10px 12px;
+    background: #ffffff;
+
+    .ant-input {
+      resize: none;
+    }
+
+    &-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+  }
+}
+
+@keyframes agent-chat-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes agent-chat-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
