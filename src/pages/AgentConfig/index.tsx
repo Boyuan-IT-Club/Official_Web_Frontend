@@ -9,7 +9,7 @@ import {
   Typography,
   message,
 } from "antd";
-import { SaveOutlined } from "@ant-design/icons";
+import { ReloadOutlined, SaveOutlined } from "@ant-design/icons";
 import {
   AgentConfig,
   AgentSecretValue,
@@ -17,14 +17,17 @@ import {
   updateAgentConfig,
 } from "@/api/manage/agentApis";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 /** 低敏可热载键的中文说明(其余 string 键同样可改,白名单校验在 Agent 侧) */
-const HOT_KEY_LABELS: Record<string, string> = {
-  model_strong: "主力模型",
-  model_light: "轻量模型",
-  llm_provider: "模型供应商",
-  llm_base_url: "OpenAI 兼容端点",
+const HOT_KEY_LABELS: Record<string, { label: string; helper: string }> = {
+  model_strong: { label: "主力模型", helper: "对话与摘要的默认模型名" },
+  model_light: { label: "轻量模型", helper: "轻量任务预留;留空走主力模型" },
+  llm_provider: { label: "模型供应商", helper: "anthropic 或 openai-compatible" },
+  llm_base_url: {
+    label: "OpenAI 兼容端点",
+    helper: "仅允许 https 且 host 在白名单内(防 API Key 外泄)",
+  },
 };
 
 /** 高敏键中文说明(只读掩码回显,决策 #101:凭证只存 .env 永不落库) */
@@ -59,7 +62,6 @@ const AgentConfigPage: React.FC = () => {
       const res: any = await getAgentConfig();
       const data: AgentConfig = res?.data ?? {};
       setConfig(data);
-      // 低敏键回填表单
       const fields: Record<string, string> = {};
       Object.entries(data).forEach(([k, v]) => {
         if (!isSecret(v)) fields[k] = v;
@@ -79,7 +81,6 @@ const AgentConfigPage: React.FC = () => {
   const save = async () => {
     try {
       const values = await form.validateFields();
-      // 只提交有值的键;空值交给 Agent 侧 400 提示(白名单键不可为空)
       const payload: Record<string, string> = {};
       Object.entries(values).forEach(([k, v]) => {
         if (v != null && String(v).trim() !== "" && String(v) !== (config[k] as string)) {
@@ -107,58 +108,88 @@ const AgentConfigPage: React.FC = () => {
     .map(([k, v]) => ({ key: k, ...(v as AgentSecretValue) }));
 
   return (
-    <Card title="Agent 配置管理" loading={loading}>
-      <Typography.Paragraph type="secondary">
-        低敏项保存后进程内热生效(无需重启);高敏项只存 .env,此处仅掩码回显(末 4 位)。
-      </Typography.Paragraph>
+    <div>
+      <Card
+        title={
+          <span>
+            可热载配置{" "}
+            <Tag color="processing" style={{ marginLeft: 8 }}>
+              保存后即时生效
+            </Tag>
+          </span>
+        }
+        extra={
+          <Button size="small" icon={<ReloadOutlined />} onClick={load}>
+            重新加载
+          </Button>
+        }
+        style={{ borderRadius: 12 }}
+        loading={loading}
+      >
+        <Paragraph type="secondary" style={{ marginTop: 0 }}>
+          低敏项存入 agent_config 表,保存后进程内重建生效,无需重启;改动即时作用于下一轮对话。
+        </Paragraph>
+        <Form form={form} layout="vertical" style={{ maxWidth: 560 }}>
+          {Object.entries(HOT_KEY_LABELS).map(([k, meta]) =>
+            !isSecret(config[k]) && config[k] !== undefined ? (
+              <Form.Item
+                key={k}
+                name={k}
+                label={meta.label}
+                extra={meta.helper}
+                rules={[{ required: true, message: "不能为空" }]}
+                style={{ marginBottom: 16 }}
+              >
+                <Input />
+              </Form.Item>
+            ) : null
+          )}
+          <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>
+            保存并热生效
+          </Button>
+        </Form>
+      </Card>
 
-      <Form form={form} layout="vertical" style={{ maxWidth: 560 }}>
-        {Object.keys(HOT_KEY_LABELS).map((k) =>
-          !isSecret(config[k]) && config[k] !== undefined ? (
-            <Form.Item
-              key={k}
-              name={k}
-              label={`${HOT_KEY_LABELS[k]}(${k})`}
-              rules={[{ required: true, message: "不能为空" }]}
-            >
-              <Input />
-            </Form.Item>
-          ) : null
-        )}
-        <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={save}>
-          保存并热生效
-        </Button>
-      </Form>
-
-      <Typography.Title level={5} style={{ marginTop: 32 }}>
-        高敏项(只读)
-      </Typography.Title>
-      <Table
-        rowKey="key"
-        size="small"
-        pagination={false}
-        dataSource={secretRows}
-        columns={[
-          {
-            title: "配置项",
-            dataIndex: "key",
-            render: (k: string) => `${SECRET_KEY_LABELS[k] ?? k}(${k})`,
-          },
-          {
-            title: "状态",
-            dataIndex: "configured",
-            width: 120,
-            render: (ok: boolean) =>
-              ok ? <Tag color="success">已配置</Tag> : <Tag color="default">未配置</Tag>,
-          },
-          {
-            title: "掩码",
-            dataIndex: "masked",
-            render: (v: string) => (v ? <Text code>{v}</Text> : <Text type="secondary">-</Text>),
-          },
-        ]}
-      />
-    </Card>
+      <Card
+        title={
+          <span>
+            敏感项{" "}
+            <Tag style={{ marginLeft: 8 }}>只读 · 掩码回显</Tag>
+          </span>
+        }
+        style={{ marginTop: 16, borderRadius: 12 }}
+      >
+        <Paragraph type="secondary" style={{ marginTop: 0 }}>
+          高敏项只存 .env(决策 #101),此处仅确认「是否已配置」与末 4 位掩码,不暴露明文。
+        </Paragraph>
+        <Table
+          rowKey="key"
+          size="small"
+          pagination={false}
+          dataSource={secretRows}
+          columns={[
+            {
+              title: "配置项",
+              dataIndex: "key",
+              render: (k: string) => `${SECRET_KEY_LABELS[k] ?? k}(${k})`,
+            },
+            {
+              title: "状态",
+              dataIndex: "configured",
+              width: 120,
+              render: (ok: boolean) =>
+                ok ? <Tag color="success">已配置</Tag> : <Tag color="default">未配置</Tag>,
+            },
+            {
+              title: "掩码",
+              dataIndex: "masked",
+              width: 160,
+              render: (v: string) => (v ? <Text code>{v}</Text> : <Text type="secondary">-</Text>),
+            },
+          ]}
+        />
+      </Card>
+    </div>
   );
 };
 

@@ -15,9 +15,7 @@ import {
   CalendarOutlined,
   ScheduleOutlined,
   FlagOutlined,
-  CommentOutlined,
-  SettingOutlined,
-  BarChartOutlined,
+  ControlOutlined,
   LogoutOutlined,
   ExportOutlined,
 } from "@ant-design/icons";
@@ -45,9 +43,7 @@ const MENU_DEFS: Array<{
   { key: "/cycles", icon: <CalendarOutlined />, label: "招募周期", anyOf: ["cycle:manage"] },
   { key: "/interviews", icon: <ScheduleOutlined />, label: "面试管理", anyOf: ["resume:audit", "resume:view"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
-  { key: "/agent-ops", icon: <CommentOutlined />, label: "Agent 运营", anyOf: ["agent:monitor"] },
-  { key: "/agent-config", icon: <SettingOutlined />, label: "Agent 配置", anyOf: ["agent:monitor"] },
-  { key: "/agent-usage", icon: <BarChartOutlined />, label: "Agent 用量", anyOf: ["agent:monitor"] },
+  { key: "/agent-admin", icon: <ControlOutlined />, label: "Agent 管理", anyOf: ["agent:monitor"] },
 ];
 
 const AdminLayout: React.FC = () => {
