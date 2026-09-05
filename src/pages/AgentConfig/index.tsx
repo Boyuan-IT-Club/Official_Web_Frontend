@@ -31,10 +31,16 @@ const HOT_KEY_LABELS: Record<string, string> = {
 const SECRET_KEY_LABELS: Record<string, string> = {
   llm_api_key: "LLM API Key",
   anthropic_api_key: "Anthropic API Key",
+  backend_service_username: "后端服务账号用户名",
   backend_service_password: "后端服务账号密码",
+  feishu_app_id: "飞书 App ID",
   feishu_app_secret: "飞书 App Secret",
-  postgres_url: "数据库连接串",
+  feishu_verification_token: "飞书验证令牌",
   feishu_encrypt_key: "飞书 Encrypt Key",
+  postgres_url: "数据库连接串",
+  langfuse_host: "Langfuse 地址",
+  langfuse_public_key: "Langfuse Public Key",
+  langfuse_secret_key: "Langfuse Secret Key",
 };
 
 const isSecret = (v: string | AgentSecretValue): v is AgentSecretValue =>
