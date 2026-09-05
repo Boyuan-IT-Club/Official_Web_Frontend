@@ -17,6 +17,9 @@ import {
   FormOutlined,
   FlagOutlined,
   CodeOutlined,
+  CommentOutlined,
+  SettingOutlined,
+  BarChartOutlined,
   LogoutOutlined,
   ExportOutlined,
   BgColorsOutlined,
@@ -52,6 +55,9 @@ const MENU_DEFS: Array<{
   { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
   { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
+  { key: "/agent-ops", icon: <CommentOutlined />, label: "Agent 运营", anyOf: ["agent:monitor"] },
+  { key: "/agent-config", icon: <SettingOutlined />, label: "Agent 配置", anyOf: ["agent:monitor"] },
+  { key: "/agent-usage", icon: <BarChartOutlined />, label: "Agent 用量", anyOf: ["agent:monitor"] },
 ];
 
 // 首次进管理端的欢迎说明：按一轮招新的先后顺序讲每个模块干什么。
