@@ -4,7 +4,6 @@ import {
   Card,
   Col,
   Row,
-  Statistic,
   Table,
   Tag,
   Tooltip,
@@ -21,57 +20,10 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { ColumnsType } from "antd/es/table";
+import StatCard from "../AgentAdmin/StatCard";
 import { AgentConversationRow, listAgentConversations } from "@/api/manage/agentApis";
 
 const { Text, Paragraph } = Typography;
-
-/** 统计卡:彩色图标圆片 + 数值(项目主色系) */
-function StatCard({
-  icon,
-  tint,
-  title,
-  value,
-  suffix,
-  accent,
-  tooltip,
-}: {
-  icon: React.ReactNode;
-  tint: string;
-  title: string;
-  value: string | number;
-  suffix?: string;
-  accent: string;
-  tooltip?: string;
-}) {
-  const titleEl = tooltip ? <Tooltip title={tooltip}>{title}</Tooltip> : title;
-  return (
-    <Card
-      size="small"
-      style={{ borderRadius: 12, boxShadow: "0 1px 4px rgba(0,21,41,.06)" }}
-      styles={{ body: { padding: "14px 16px" } }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 10,
-            background: tint,
-            color: accent,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 20,
-            flexShrink: 0,
-          }}
-        >
-          {icon}
-        </span>
-        <Statistic title={titleEl} value={value} suffix={suffix} />
-      </div>
-    </Card>
-  );
-}
 
 /** 用量仪表盘:最近窗口 token/缓存率/错误率速览(M6 #115)。
  *  看板级聚合(按日/按用户/价格)归 #65(OBS-08),此处只做最近数据速览。 */
@@ -110,6 +62,7 @@ const AgentUsage: React.FC = () => {
     const errors = list.filter((r) => r.error_code).length;
     return {
       rounds: list.length,
+      withUsage: withUsage.length,
       input,
       output,
       cacheRate: hit + miss > 0 ? hit / (hit + miss) : null,
@@ -130,13 +83,23 @@ const AgentUsage: React.FC = () => {
       title: "输入 tokens",
       dataIndex: "input_tokens",
       width: 120,
-      render: (v: number | null) => v ?? "-",
+      render: (v: number | null) =>
+        v ?? (
+          <Tooltip title="错误轮或历史数据未采集用量">
+            <Text type="secondary">-</Text>
+          </Tooltip>
+        ),
     },
     {
       title: "输出 tokens",
       dataIndex: "output_tokens",
       width: 120,
-      render: (v: number | null) => v ?? "-",
+      render: (v: number | null) =>
+        v ?? (
+          <Tooltip title="错误轮或历史数据未采集用量">
+            <Text type="secondary">-</Text>
+          </Tooltip>
+        ),
     },
     {
       title: "缓存命中",
@@ -232,8 +195,9 @@ const AgentUsage: React.FC = () => {
         }
       >
         <Paragraph type="secondary" style={{ marginTop: 0 }}>
-          统计口径:最近 {list.length} 轮(自采数据,#113);缓存命中率 = hit/(hit+miss);
-          价格离线聚合与按日/按用户看板归 #65(OBS-08),不在本页。
+          统计口径:最近 {list.length} 轮,其中 {summary.withUsage} 轮含用量采集(错误轮/历史轮
+          不采集);缓存命中率 = hit/(hit+miss);价格离线聚合与按日/按用户看板归
+          #65(OBS-08),不在本页。
         </Paragraph>
         <Table<AgentConversationRow>
           rowKey="id"
