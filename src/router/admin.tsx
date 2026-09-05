@@ -16,6 +16,10 @@ const Resume = lazy(() => import("@/pages/Resume"));
 const CycleManage = lazy(() => import("@/pages/CycleManage"));
 const InterviewManage = lazy(() => import("@/pages/InterviewManage"));
 const ActivityManage = lazy(() => import("@/pages/ActivityManage"));
+// 客服 Agent 管理面板(M6 #115,agent:monitor)
+const AgentOps = lazy(() => import("@/pages/AgentOps"));
+const AgentConfig = lazy(() => import("@/pages/AgentConfig"));
+const AgentUsage = lazy(() => import("@/pages/AgentUsage"));
 
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}><Spin size="large" /></div>}>
@@ -58,6 +62,18 @@ const router = createBrowserRouter([
       {
         path: "activities",
         element: <LazyLoad><ActivityManage /></LazyLoad>,
+      },
+      {
+        path: "agent-ops",
+        element: <LazyLoad><AgentOps /></LazyLoad>,
+      },
+      {
+        path: "agent-config",
+        element: <LazyLoad><AgentConfig /></LazyLoad>,
+      },
+      {
+        path: "agent-usage",
+        element: <LazyLoad><AgentUsage /></LazyLoad>,
       },
     ],
   },
