@@ -19,10 +19,8 @@ const EvaluationBoard = lazy(() => import("@/pages/EvaluationBoard"));
 const EvaluationWorkspace = lazy(() => import("@/pages/EvaluationWorkspace"));
 const ActivityManage = lazy(() => import("@/pages/ActivityManage"));
 const EvaluationManage = lazy(() => import("@/pages/EvaluationManage"));
-// 客服 Agent 管理面板(M6 #115,agent:monitor)
-const AgentOps = lazy(() => import("@/pages/AgentOps"));
-const AgentConfig = lazy(() => import("@/pages/AgentConfig"));
-const AgentUsage = lazy(() => import("@/pages/AgentUsage"));
+// 客服 Agent 管理(M6 #115, agent:monitor; 三块合并为单页内 Tabs)
+const AgentAdmin = lazy(() => import("@/pages/AgentAdmin"));
 
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}><Spin size="large" /></div>}>
@@ -79,16 +77,10 @@ const router = createBrowserRouter([
       {
         path: "evaluations",
         element: <LazyLoad><EvaluationManage /></LazyLoad>,
-        path: "agent-ops",
-        element: <LazyLoad><AgentOps /></LazyLoad>,
       },
       {
-        path: "agent-config",
-        element: <LazyLoad><AgentConfig /></LazyLoad>,
-      },
-      {
-        path: "agent-usage",
-        element: <LazyLoad><AgentUsage /></LazyLoad>,
+        path: "agent-admin",
+        element: <LazyLoad><AgentAdmin /></LazyLoad>,
       },
     ],
   },
