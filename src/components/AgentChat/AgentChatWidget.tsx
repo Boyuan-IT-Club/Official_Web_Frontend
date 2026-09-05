@@ -16,7 +16,7 @@ import {
   StopOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
+import MarkdownContent from "./Markdown";
 import { ChatMessage, useAgentChat } from "./useAgentChat";
 import "./index.scss";
 
@@ -71,7 +71,7 @@ function AssistantBubble({ msg }: { msg: ChatMessage }) {
           </div>
         ) : msg.content ? (
           <div className="agent-chat__text">
-            <ReactMarkdown>{msg.content}</ReactMarkdown>
+            <MarkdownContent content={msg.content} />
             {streaming && <span className="agent-chat__caret" />}
             {msg.status === "stopped" && (
               <span className="agent-chat__stopped">(已停止)</span>
