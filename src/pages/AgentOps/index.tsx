@@ -47,6 +47,7 @@ const ERROR_TAG: Record<string, { color: string; text: string }> = {
   model_error: { color: "error", text: "模型错误" },
   invalid_request: { color: "processing", text: "无效请求" },
   client_disconnected: { color: "default", text: "用户断连" },
+  busy: { color: "warning", text: "上一条未结束" },
   unknown: { color: "error", text: "未知错误" },
 };
 
