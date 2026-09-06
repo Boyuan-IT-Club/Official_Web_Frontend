@@ -8,21 +8,30 @@
  * auth_expired → 清 token 提示重登录(onAuthExpired),session 保留可续传。
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Drawer, Input, Spin, message } from "antd";
+import { Button, Drawer, Input, List, Spin, Tag, message } from "antd";
 import {
   CustomerServiceOutlined,
+  HistoryOutlined,
+  PlusOutlined,
   RobotOutlined,
   SendOutlined,
   StopOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
+import dayjs from "dayjs";
 import MarkdownContent from "./Markdown";
+import {
+  AgentSession,
+  fetchSessionMessages,
+  fetchSessions,
+} from "./sessions";
 import { ChatMessage, useAgentChat } from "./useAgentChat";
 import "./index.scss";
 
 
 const AGENT_URL =
   process.env.REACT_APP_AGENT_URL ?? "http://127.0.0.1:8001/api/agent/chat";
+const AGENT_BASE = AGENT_URL.replace(/\/chat$/, "");
 
 const TOOL_LABEL: Record<string, string> = {
   get_my_interview: "查询面试安排",
@@ -100,12 +109,18 @@ export default function AgentChatWidget() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(false);
-  const { messages, streaming, input, setInput, send, stop, setAuthExpiredHandler } =
+  const { messages, streaming, sessionId, input, setInput, send, stop, adoptSession, setAuthExpiredHandler, reset } =
     useAgentChat(AGENT_URL);
   const listRef = useRef<HTMLDivElement>(null);
   const [stuckTop, setStuckTop] = useState(false); // 用户是否滚离底部
 
-  // auth_expired → 提示 + 跳登录(session 保留;重登录后重开抽屉续传)
+  // G2:历史会话视图状态
+  const [view, setView] = useState<"chat" | "history">("chat");
+  const [sessions, setSessions] = useState<AgentSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [adopting, setAdopting] = useState(false);
+
+  // auth_expired → 提示 + 跳登录(session 保留可续传)
   const onAuthExpired = useCallback(() => {
     message.warning("登录已过期,请重新登录");
     navigate("/login", { replace: true });
@@ -128,6 +143,93 @@ export default function AgentChatWidget() {
     if (!streaming && input.trim()) send(input);
   };
 
+  /** 打开历史会话列表(G2):拉本人会话(活跃度倒序)。 */
+  const openHistory = useCallback(async () => {
+    setView("history");
+    setSessionsLoading(true);
+    try {
+      setSessions(await fetchSessions(AGENT_BASE));
+    } catch (err: unknown) {
+      if ((err as { code?: string }).code === "http_401") {
+        onAuthExpired();
+        return;
+      }
+      message.error((err as Error).message || "加载历史会话失败");
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, [onAuthExpired]);
+
+  /** 回看某会话:拉原文并装载(此后发送自动续传该会话)。 */
+  const adoptFromHistory = useCallback(
+    async (s: AgentSession) => {
+      setAdopting(true);
+      try {
+        const msgs = await fetchSessionMessages(AGENT_BASE, s.thread_id);
+        const chatMsgs: ChatMessage[] = msgs.map((m, i) => ({
+          id: `h${i}`,
+          role: m.role,
+          content: m.content,
+          toolNames: [],
+          status: "complete" as const,
+        }));
+        adoptSession(s.thread_id, chatMsgs);
+        setView("chat");
+        if (!msgs.length) message.info("该会话暂无内容");
+      } catch (err: unknown) {
+        if ((err as { code?: string }).code === "http_401") {
+          onAuthExpired();
+          return;
+        }
+        message.error((err as Error).message || "加载会话原文失败");
+      } finally {
+        setAdopting(false);
+      }
+    },
+    [adoptSession, onAuthExpired]
+  );
+
+  /** 新建会话(G1):清空本地状态;下次发送不带 session_id → 服务端开新会话。 */
+  const startNewSession = useCallback(() => {
+    reset();
+    setView("chat");
+  }, [reset]);
+
+  const drawerTitle = (
+    <div className="agent-chat__header">
+      <span className="agent-chat__header-avatar">
+        <RobotOutlined />
+      </span>
+      <div className="agent-chat__header-text">
+        <span className="agent-chat__header-title">招新小助手</span>
+        <span className="agent-chat__header-sub">
+          <span className="agent-chat__header-dot" />
+          在线 · 可查面试安排 / 简历状态
+        </span>
+      </div>
+      <span className="agent-chat__header-actions">
+        <button
+          type="button"
+          className={`agent-chat__header-action${view === "history" ? " is-active" : ""}`}
+          onClick={() => (view === "history" ? setView("chat") : openHistory())}
+          aria-label="历史会话"
+          title="历史会话"
+        >
+          <HistoryOutlined />
+        </button>
+        <button
+          type="button"
+          className="agent-chat__header-action"
+          onClick={startNewSession}
+          aria-label="新建会话"
+          title="新建会话"
+        >
+          <PlusOutlined />
+        </button>
+      </span>
+    </div>
+  );
+
   return (
     <>
       {/* 入口:大号品牌按钮,呼吸光晕提示可点;悬停展开「招新小助手」标签 */}
@@ -148,20 +250,7 @@ export default function AgentChatWidget() {
       </div>
 
       <Drawer
-        title={
-          <div className="agent-chat__header">
-            <span className="agent-chat__header-avatar">
-              <RobotOutlined />
-            </span>
-            <div className="agent-chat__header-text">
-              <span className="agent-chat__header-title">招新小助手</span>
-              <span className="agent-chat__header-sub">
-                <span className="agent-chat__header-dot" />
-                在线 · 可查面试安排 / 简历状态
-              </span>
-            </div>
-          </div>
-        }
+        title={drawerTitle}
         placement="right"
         width={390}
         open={open}
@@ -170,64 +259,120 @@ export default function AgentChatWidget() {
         closable
         styles={{ body: { padding: 0, display: "flex", flexDirection: "column" } }}
       >
-        <div className="agent-chat__list" ref={listRef} onScroll={onScroll}>
-          {messages.length === 0 ? (
-            <div className="agent-chat__empty">
-              <span className="agent-chat__empty-icon">
-                <RobotOutlined />
-              </span>
-              <p className="agent-chat__empty-title">你好,我是招新小助手</p>
-              <p className="agent-chat__empty-sub">
-                可以问我面试安排、简历状态等。
-                <br />
-                试试:「我的面试安排」
-              </p>
-            </div>
-          ) : (
-            messages.map((m) =>
-              m.role === "user" ? (
-                <UserBubble key={m.id} msg={m} />
-              ) : (
-                <AssistantBubble key={m.id} msg={m} />
-              ),
-            )
-          )}
-        </div>
-
-        <div className="agent-chat__input">
-          <Input.TextArea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="输入你的问题…"
-            autoSize={{ minRows: 1, maxRows: 4 }}
-            onPressEnter={(e) => {
-              // IME 组合态(拼音预选)回车不发送——nativeEvent.isComposing 守卫
-              if (e.nativeEvent.isComposing) return;
-              if (!e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            disabled={streaming}
-          />
-          <div className="agent-chat__input-actions">
-            {streaming ? (
-              <Button size="small" icon={<StopOutlined />} onClick={stop}>
-                停止生成
-              </Button>
+        {view === "history" ? (
+          <div className="agent-chat__history">
+            {sessionsLoading ? (
+              <div className="agent-chat__history-loading">
+                <Spin />
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="agent-chat__empty">
+                <span className="agent-chat__empty-icon">
+                  <HistoryOutlined />
+                </span>
+                <p className="agent-chat__empty-title">还没有历史会话</p>
+                <p className="agent-chat__empty-sub">
+                  点右上角 + 开始第一次对话吧
+                </p>
+              </div>
             ) : (
-              <Button
-                type="primary"
-                shape="round"
-                icon={<SendOutlined />}
-                disabled={!canSend}
-                onClick={handleSend}
-              >
-                发送
-              </Button>
+              <List
+                dataSource={sessions}
+                renderItem={(s) => (
+                  <List.Item
+                    className="agent-chat__session"
+                    onClick={() => adoptFromHistory(s)}
+                  >
+                    <List.Item.Meta
+                      title={
+                        <span className="agent-chat__session-title">
+                          {s.preview || s.subject || "未命名会话"}
+                        </span>
+                      }
+                      description={
+                        <span className="agent-chat__session-meta">
+                          {s.last_at
+                            ? dayjs(s.last_at).format("MM-DD HH:mm")
+                            : dayjs(s.created_at).format("MM-DD")}
+                          <span> · {s.rounds} 轮</span>
+                        </span>
+                      }
+                    />
+                    {s.thread_id === sessionId && (
+                      <Tag color="processing" style={{ marginInlineEnd: 0 }}>
+                        当前
+                      </Tag>
+                    )}
+                  </List.Item>
+                )}
+              />
+            )}
+            {adopting && (
+              <Spin style={{ display: "block", margin: "16px auto" }} />
             )}
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="agent-chat__list" ref={listRef} onScroll={onScroll}>
+              {messages.length === 0 ? (
+                <div className="agent-chat__empty">
+                  <span className="agent-chat__empty-icon">
+                    <RobotOutlined />
+                  </span>
+                  <p className="agent-chat__empty-title">你好,我是招新小助手</p>
+                  <p className="agent-chat__empty-sub">
+                    可以问我面试安排、简历状态等。
+                    <br />
+                    试试:「我的面试安排」
+                  </p>
+                </div>
+              ) : (
+                messages.map((m) =>
+                  m.role === "user" ? (
+                    <UserBubble key={m.id} msg={m} />
+                  ) : (
+                    <AssistantBubble key={m.id} msg={m} />
+                  ),
+                )
+              )}
+            </div>
+
+            <div className="agent-chat__input">
+              <Input.TextArea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="输入你的问题…"
+                autoSize={{ minRows: 1, maxRows: 4 }}
+                onPressEnter={(e) => {
+                  // IME 组合态(拼音预选)回车不发送——nativeEvent.isComposing 守卫
+                  if (e.nativeEvent.isComposing) return;
+                  if (!e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                disabled={streaming}
+              />
+              <div className="agent-chat__input-actions">
+                {streaming ? (
+                  <Button size="small" icon={<StopOutlined />} onClick={stop}>
+                    停止生成
+                  </Button>
+                ) : (
+                  <Button
+                    type="primary"
+                    shape="round"
+                    icon={<SendOutlined />}
+                    disabled={!canSend}
+                    onClick={handleSend}
+                  >
+                    发送
+                  </Button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </Drawer>
     </>
   );

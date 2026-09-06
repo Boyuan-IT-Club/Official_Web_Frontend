@@ -39,6 +39,7 @@ type Action =
   | { type: "done" }
   | { type: "stopped" } // 用户主动停止(保留部分输出,标记可辨)
   | { type: "error"; code: string; message: string }
+  | { type: "adopt"; sessionId: string; messages: ChatMessage[] } // 历史会话回看/续传(G2)
   | { type: "reset" }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -116,6 +117,9 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, streaming: false, messages };
     }
+    case "adopt":
+      // 历史会话回看:装载原文,后续 send 自动带该 session_id 续传
+      return { ...state, sessionId: action.sessionId, messages: action.messages, streaming: false };
     case "reset":
       return initialState;
     default:
@@ -224,6 +228,11 @@ export function useAgentChat(targetUrl: string) {
     dispatch({ type: "stopped" });
   }, []);
 
+  /** 装载历史会话(回看):设置 sessionId 并以原文替换消息列表(G2)。 */
+  const adoptSession = useCallback((sessionId: string, messages: ChatMessage[]) => {
+    dispatch({ type: "adopt", sessionId, messages });
+  }, []);
+
   return {
     messages: state.messages,
     streaming: state.streaming,
@@ -232,6 +241,7 @@ export function useAgentChat(targetUrl: string) {
     setInput,
     send,
     stop,
+    adoptSession,
     setAuthExpiredHandler,
     reset: () => dispatch({ type: "reset" }),
   };
