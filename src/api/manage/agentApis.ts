@@ -61,3 +61,34 @@ export function getAgentConfig() {
 export function updateAgentConfig(payload: Record<string, string>) {
   return request({ url: '/api/admin/agent/config', method: 'put', data: payload });
 }
+
+/** ── 会话管理(G3):用户 → 会话两级视图 + 原文回看 ─────────────────────── */
+
+export interface AgentSessionRow {
+  thread_id: string;
+  owner_user_id: number;
+  channel: string;
+  subject: string | null;
+  created_at: string;
+  rounds: number;
+  last_at: string | null;
+  preview: string;
+}
+
+export interface AgentSessionMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** 会话列表(user_id 缺省 = 全部用户;活跃度倒序,含轮次/最近预览) */
+export function listAgentSessions(params: { user_id?: number }) {
+  return request({ url: '/api/admin/agent/sessions', method: 'get', params });
+}
+
+/** 会话原文(checkpointer 全文,user/assistant 文本) */
+export function getAgentSessionMessages(threadId: string) {
+  return request({
+    url: `/api/admin/agent/sessions/${encodeURIComponent(threadId)}/messages`,
+    method: 'get',
+  });
+}

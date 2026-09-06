@@ -7,7 +7,9 @@ import {
   Descriptions,
   Input,
   Row,
+  Segmented,
   Space,
+  Spin,
   Table,
   Tag,
   Tooltip,
@@ -25,10 +27,15 @@ import {
 import dayjs from "dayjs";
 import type { ColumnsType } from "antd/es/table";
 import StatCard from "../AgentAdmin/StatCard";
+import "./index.scss";
 import {
   AgentConversationRow,
+  AgentSessionMessage,
+  AgentSessionRow,
   getAgentConversation,
+  getAgentSessionMessages,
   listAgentConversations,
+  listAgentSessions,
 } from "@/api/manage/agentApis";
 
 const { Text, Paragraph } = Typography;
@@ -43,12 +50,22 @@ const ERROR_TAG: Record<string, { color: string; text: string }> = {
   unknown: { color: "error", text: "未知错误" },
 };
 
-/** 运营监控:仪表盘头 + 最近对话列表 + 轮次详情抽屉(M6 #115;agent:monitor) */
+/** 运营监控:仪表盘头 + 两种视图(按轮次 / 按会话)+ 详情抽屉(M6 #115;agent:monitor) */
 const AgentOps: React.FC = () => {
   const [list, setList] = useState<AgentConversationRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [userIdFilter, setUserIdFilter] = useState<string>("");
+  const [view, setView] = useState<string>("rounds");
 
+  // 会话视图(G3)
+  const [sessions, setSessions] = useState<AgentSessionRow[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [activeSession, setActiveSession] = useState<AgentSessionRow | null>(null);
+  const [transcript, setTranscript] = useState<AgentSessionMessage[]>([]);
+  const [sessionRounds, setSessionRounds] = useState<AgentConversationRow[]>([]);
+  const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
+
+  // 轮次抽屉(#112 视图)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detail, setDetail] = useState<AgentConversationRow | null>(null);
   const [threadRounds, setThreadRounds] = useState<AgentConversationRow[]>([]);
@@ -66,9 +83,32 @@ const AgentOps: React.FC = () => {
     }
   }, []);
 
+  const loadSessions = useCallback(async (userId?: number) => {
+    setSessionsLoading(true);
+    try {
+      const res: any = await listAgentSessions({ user_id: userId });
+      setSessions(res?.data?.items ?? []);
+    } catch (e: any) {
+      message.error(e?.message || "加载会话列表失败");
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
+
+  const reload = useCallback(
+    (uid?: number) => (view === "sessions" ? loadSessions(uid) : load(uid)),
+    [view, load, loadSessions]
+  );
+
   useEffect(() => {
     load();
   }, [load]);
+
+  const onFilterSearch = (v: string) => {
+    const uid = v ? Number(v) : undefined;
+    if (view === "sessions") loadSessions(uid);
+    else load(uid);
+  };
 
   const openDetail = async (row: AgentConversationRow) => {
     setDrawerOpen(true);
@@ -86,6 +126,27 @@ const AgentOps: React.FC = () => {
       message.error(e?.message || "加载会话详情失败");
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  /** 会话抽屉(G3):原文全文(checkpointer)+ 该会话轮次列表。 */
+  const openSessionDrawer = async (s: AgentSessionRow) => {
+    setActiveSession(s);
+    setDrawerOpen(true);
+    setSessionDetailLoading(true);
+    setTranscript([]);
+    setSessionRounds([]);
+    try {
+      const [msgRes, roundRes]: any[] = await Promise.all([
+        getAgentSessionMessages(s.thread_id),
+        listAgentConversations({ thread_id: s.thread_id, limit: 200 }),
+      ]);
+      setTranscript(msgRes?.data?.messages ?? []);
+      setSessionRounds(roundRes?.data?.items ?? []);
+    } catch (e: any) {
+      message.error(e?.message || "加载会话原文失败");
+    } finally {
+      setSessionDetailLoading(false);
     }
   };
 
@@ -164,6 +225,44 @@ const AgentOps: React.FC = () => {
     { title: "状态", dataIndex: "error_code", width: 100, render: statusRender },
   ];
 
+  const sessionColumns: ColumnsType<AgentSessionRow> = [
+    { title: "用户", dataIndex: "owner_user_id", width: 80 },
+    {
+      title: "最近问题(预览)",
+      dataIndex: "preview",
+      ellipsis: true,
+      render: (v: string, r) =>
+        v || <Text type="secondary">{r.subject || "(无对话内容)"}</Text>,
+    },
+    {
+      title: "轮次",
+      dataIndex: "rounds",
+      width: 80,
+      render: (v: number) => <Tag style={{ marginInlineEnd: 0 }}>{v}</Tag>,
+    },
+    {
+      title: "最近活跃",
+      dataIndex: "last_at",
+      width: 160,
+      render: (v: string, r) => {
+        const t = v || r.created_at;
+        return t ? dayjs(t).format("YYYY-MM-DD HH:mm") : "-";
+      },
+    },
+  ];
+
+  const filterBar = (
+    <Space>
+      <Input.Search
+        placeholder="按用户 ID 过滤"
+        allowClear
+        style={{ width: 170 }}
+        onSearch={onFilterSearch}
+      />
+      <Button size="small" icon={<ReloadOutlined />} onClick={() => reload()} />
+    </Space>
+  );
+
   return (
     <div>
       <Row gutter={[12, 12]}>
@@ -209,39 +308,66 @@ const AgentOps: React.FC = () => {
 
       <Card
         size="small"
-        title="最近对话"
+        title="对话记录"
         style={{ marginTop: 16, borderRadius: 12 }}
         extra={
           <Space>
-            <Input.Search
-              placeholder="按用户 ID 过滤"
-              allowClear
-              style={{ width: 170 }}
-              onSearch={(v) => load(v ? Number(v) : undefined)}
+            <Segmented
+              value={view}
+              onChange={(v) => {
+                setView(v as string);
+                if (v === "sessions") loadSessions();
+              }}
+              options={[
+                { label: "按轮次", value: "rounds" },
+                { label: "按会话", value: "sessions" },
+              ]}
             />
-            <Button size="small" icon={<ReloadOutlined />} onClick={() => load()} />
+            {filterBar}
           </Space>
         }
       >
         <Paragraph type="secondary" style={{ marginTop: 0 }}>
-          每轮(SSE 一次请求)落一行;点击行查看轮次详情与本会话全部轮次。PII 在写入前已脱敏。
+          {view === "rounds"
+            ? "每轮(SSE 一次请求)落一行;点击行查看轮次详情与本会话全部轮次。PII 在写入前已脱敏。"
+            : "每个 thread 一个会话;点击查看会话原文(全文)与轮次列表。"}
         </Paragraph>
-        <Table<AgentConversationRow>
-          rowKey="id"
-          loading={loading}
-          size="small"
-          columns={columns}
-          dataSource={list}
-          onRow={(row) => ({ onClick: () => openDetail(row), style: { cursor: "pointer" } })}
-          pagination={{ pageSize: 15, showTotal: (t) => `共 ${t} 轮` }}
-        />
+
+        {view === "rounds" ? (
+          <Table<AgentConversationRow>
+            rowKey="id"
+            loading={loading}
+            size="small"
+            columns={columns}
+            dataSource={list}
+            onRow={(row) => ({ onClick: () => openDetail(row), style: { cursor: "pointer" } })}
+            pagination={{ pageSize: 15, showTotal: (t) => `共 ${t} 轮` }}
+          />
+        ) : (
+          <Table<AgentSessionRow>
+            rowKey="thread_id"
+            loading={sessionsLoading}
+            size="small"
+            columns={sessionColumns}
+            dataSource={sessions}
+            onRow={(row) => ({
+              onClick: () => openSessionDrawer(row),
+              style: { cursor: "pointer" },
+            })}
+            pagination={{ pageSize: 15, showTotal: (t) => `共 ${t} 个会话` }}
+          />
+        )}
       </Card>
 
+      {/* 轮次详情抽屉(按轮次视图) */}
       <Drawer
         title={`会话详情(第 ${detail?.id ?? "-"} 轮)`}
         width={640}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        open={drawerOpen && !activeSession}
+        onClose={() => {
+          setDrawerOpen(false);
+          setActiveSession(null);
+        }}
         loading={detailLoading}
       >
         {detail && (
@@ -302,6 +428,79 @@ const AgentOps: React.FC = () => {
             ),
           }}
         />
+      </Drawer>
+
+      {/* 会话原文抽屉(按会话视图,G3) */}
+      <Drawer
+        title={
+          <span style={{ fontSize: 14 }}>
+            会话原文
+            <Text type="secondary" code style={{ marginLeft: 8, fontSize: 12 }}>
+              {activeSession?.thread_id}
+            </Text>
+          </span>
+        }
+        width={640}
+        open={drawerOpen && !!activeSession}
+        onClose={() => {
+          setDrawerOpen(false);
+          setActiveSession(null);
+        }}
+      >
+        {sessionDetailLoading ? (
+          <div style={{ textAlign: "center", padding: 32 }}>
+            <Spin />
+          </div>
+        ) : (
+          <>
+            {activeSession && (
+              <Space style={{ marginBottom: 12 }} size={12}>
+                <Text type="secondary">用户 {activeSession.owner_user_id}</Text>
+                <Text type="secondary">
+                  开始 {activeSession.created_at ? dayjs(activeSession.created_at).format("MM-DD HH:mm") : "-"}
+                </Text>
+                <Tag>{activeSession.rounds} 轮</Tag>
+              </Space>
+            )}
+
+            <div className="agent-ops-transcript">
+              {transcript.length === 0 ? (
+                <Text type="secondary">(该会话在记忆存储中暂无原文)</Text>
+              ) : (
+                transcript.map((m, i) => (
+                  <div
+                    key={i}
+                    className={`agent-ops-transcript__msg agent-ops-transcript__msg--${m.role}`}
+                  >
+                    <div className="agent-ops-transcript__bubble">{m.content}</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <Typography.Title level={5} style={{ marginTop: 24 }}>
+              轮次记录({sessionRounds.length})
+            </Typography.Title>
+            <Table<AgentConversationRow>
+              rowKey="id"
+              size="small"
+              columns={roundColumns}
+              dataSource={sessionRounds}
+              pagination={false}
+              expandable={{
+                expandedRowRender: (r) => (
+                  <div>
+                    <Paragraph style={{ marginBottom: 4, whiteSpace: "pre-wrap" }}>
+                      <Text type="secondary">摘要:</Text>
+                      {r.reply_summary || "(空)"}
+                    </Paragraph>
+                    {r.tools?.length ? <span>工具: {r.tools.join(", ")}</span> : null}
+                  </div>
+                ),
+              }}
+            />
+          </>
+        )}
       </Drawer>
     </div>
   );
