@@ -1,6 +1,6 @@
 // ResumeFieldPanel.tsx
 import React, { useEffect } from 'react';
-import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Typography, InputNumber, Badge, Select, Radio, Checkbox, Modal, Dropdown } from 'antd';
+import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Typography, InputNumber, Badge, Select, Radio, Checkbox, Modal, Dropdown, Tooltip } from 'antd';
 import {
   DeleteOutlined,
   PlusOutlined,
@@ -136,6 +136,7 @@ const SortableItem: React.FC<{
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -211,17 +212,24 @@ const SortableItem: React.FC<{
           border: isDragging ? `2px solid ${BRAND.primary}` : `1px solid ${NEUTRAL.border}`,
         }}
         title={
-          <Space size={8}>
-            {/* 拖拽手柄 */}
-            <div
-              {...attributes}
-              {...listeners}
-              className="resume-field-panel__drag-handle"
-            >
-              <MenuOutlined />
-            </div>
+          /*
+            整条标题栏都是拖拽面，不只是那个 ≡ 小图标。
+            此前只有图标能拖，副标题却写着"拖拽卡片"——用户按住卡片其它地方
+            拖，什么都不发生，就报"拖不动"。PointerSensor 有 8px 激活阈值，
+            标题栏里没有输入控件，整栏接管指针不影响任何点击。
+          */
+          <div
+            {...attributes}
+            {...listeners}
+            ref={setActivatorNodeRef}
+            className="resume-field-panel__drag-surface"
+          >
+            <Tooltip title="按住拖动可调整同分类内的顺序；跨分类请改「排列序号」">
+              <span className="resume-field-panel__drag-handle"><MenuOutlined /></span>
+            </Tooltip>
             <Text type="secondary" className="resume-field-panel__field-index">{displayIndex}.</Text>
-          </Space>
+            <Text strong className="resume-field-panel__field-title" ellipsis>{fieldLabel}</Text>
+          </div>
         }
         extra={
           <Space size={4}>
@@ -704,7 +712,7 @@ const ResumeFieldPanel: React.FC<Props> = ({
         <div className="resume-field-panel__header">
           <div>
             <div className="resume-field-panel__title">编辑简历字段</div>
-            <div className="resume-field-panel__subtitle">拖拽卡片或修改序号可调整投递页展示顺序</div>
+            <div className="resume-field-panel__subtitle">按住字段卡标题栏拖动可调整同分类内顺序（跨分类请修改「排列序号」），保存后生效</div>
           </div>
           <Space size={12}>
             <Button icon={<ReloadOutlined />} onClick={handleResetToDefault}>
