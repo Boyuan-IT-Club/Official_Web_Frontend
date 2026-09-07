@@ -179,6 +179,27 @@
     }
   }
 
+  // 拖拽面：整条标题栏。手柄图标只是视觉提示，真正接管指针的是这一层
+  &__drag-surface {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  &__field-title {
+    min-width: 0;
+    font-size: 14px;
+  }
+
   // 拖拽手柄
   &__drag-handle {
     cursor: grab;
