@@ -414,3 +414,43 @@ $nav-size: 44px;          // 左右箭头按钮直径
   color: #2980b9;
   font-weight: 600;
 }
+
+// ── 版式变体（由 html[data-skin-layout] 驱动，默认皮肤不受影响） ──
+// 分栏工作台：公告卡从竖卡改为横排行——封面缩成缩略图，信息一行扫完
+html[data-skin-layout='split'] .activities-page .announcement-card {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 16px;
+  align-items: start;
+  border-style: solid;               // 工作台风格下虚线边框显得随意
+  border-width: 1px;
+  border-color: var(--skin-line, #e2e8f0);
+
+  .card-cover { height: 88px; margin: 0; border-radius: 8px; }
+  .card-header, .card-body, .card-footer { grid-column: 2; }
+  &:has(.card-cover) .card-header { margin-top: 0; }
+}
+
+// 杂志：目录式编号，编号是列表里的真实序号（CSS 计数器），不是装饰
+html[data-skin-layout='editorial'] .activities-page .announcement-list {
+  counter-reset: announcement;
+}
+html[data-skin-layout='editorial'] .activities-page .announcement-card {
+  border: none;
+  border-bottom: 1px solid var(--skin-line, #e2e8f0);
+  border-radius: 0;
+  position: relative;
+  padding-left: 64px;
+
+  &::before {
+    counter-increment: announcement;
+    content: counter(announcement, decimal-leading-zero);
+    position: absolute;
+    left: 16px;
+    top: 1.4rem;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--skin-accent, #ea580c);
+  }
+}

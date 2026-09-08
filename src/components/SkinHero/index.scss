@@ -1,0 +1,126 @@
+// Hero 版式变体的样式。颜色全部来自 --skin-*（变体只在非默认皮肤下渲染，
+// 变量必然已由 SkinProvider 下发）；尺寸用皮肤的布局令牌。
+.sh {
+  h1 {
+    margin: 0 0 10px;
+    color: var(--skin-title);
+    font-family: 'Noto Serif SC', 'Songti SC', serif;
+    em { font-style: normal; color: var(--skin-accent); }
+  }
+}
+
+.sh-cta { display: flex; gap: 10px; flex-wrap: wrap; }
+.sh-btn {
+  padding: 9px 22px;
+  border-radius: var(--skin-radius-card, 10px);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: filter 0.15s ease;
+  &:hover { filter: brightness(1.06); }
+  &:focus-visible { outline: 2px solid var(--skin-accent); outline-offset: 2px; }
+}
+.sh-btn--pri { background: var(--skin-accent); color: #fff; }
+.sh-btn--ghost {
+  background: var(--skin-card-bg);
+  color: var(--skin-text);
+  border-color: var(--skin-line);
+}
+
+// ── 分栏工作台 ──
+.sh--split {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 28px;
+  align-items: center;
+  max-width: var(--skin-page-max, 1080px);
+  margin: 0 auto;
+  padding: 44px 24px 36px;
+
+  h1 { font-size: 2.2rem; line-height: 1.3; }
+  .sh-copy > p { margin: 0 0 20px; color: var(--skin-muted); max-width: 40ch; }
+
+  .sh-term {
+    background: #101726;
+    border: 1px solid #223150;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 14px 34px rgba(10, 20, 50, 0.25);
+    pre {
+      margin: 8px 0 0;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      line-height: 2;
+      color: #9fb3d9;
+      white-space: pre-wrap;
+    }
+    .g { color: #6ee7a0; } .b { color: #7fb7ff; } .y { color: #f2cf7a; }
+    .cursor { opacity: 0.6; }
+  }
+  .sh-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px;
+    background: #3a4a6b;
+    &:first-child { background: #ff6058; }
+    &:nth-child(2) { background: #ffbd2e; }
+    &:nth-child(3) { background: #28c840; }
+  }
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    .sh-term { display: none; }  // 小屏上终端是装饰，让位给正事
+  }
+}
+
+// ── Bento 格栅 ──
+.sh--bento {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  max-width: var(--skin-page-max, 1240px);
+  margin: 0 auto;
+  padding: 24px 24px 8px;
+
+  .sh-tile {
+    background: var(--skin-card-bg);
+    border: 1px solid var(--skin-line);
+    border-radius: var(--skin-radius-card, 14px);
+    padding: 16px 18px;
+  }
+  .sh-tile--main {
+    grid-column: span 2;
+    grid-row: span 2;
+    background: var(--skin-hero-bg);
+    h1 { font-size: 1.7rem; }
+    p { margin: 0 0 14px; color: var(--skin-muted); font-size: 13.5px; max-width: 36ch; }
+  }
+  .sh-tile--stat {
+    display: flex; flex-direction: column; justify-content: center;
+    b {
+      font-size: 26px; line-height: 1.2; color: var(--skin-accent);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    span { color: var(--skin-muted); font-size: 12.5px; margin-top: 2px; }
+  }
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    .sh-tile--main { grid-column: span 2; }
+  }
+}
+
+// ── 杂志 ──
+.sh--editorial {
+  max-width: var(--skin-page-max, 980px);
+  margin: 0 auto;
+  padding: 56px 24px 40px;
+
+  .sh-eyebrow {
+    margin: 0 0 14px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--skin-accent);
+  }
+  h1 { font-size: 2.8rem; font-weight: 900; line-height: 1.22; max-width: 16em; }
+  .sh-sub { margin: 6px 0 24px; color: var(--skin-muted); max-width: 44ch; font-size: 15px; }
+}

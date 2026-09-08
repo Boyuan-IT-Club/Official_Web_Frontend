@@ -108,6 +108,10 @@ const PALETTES: Palette[] = [
 export interface Skin {
   key: string;
   name: string;
+  /** 版式键（用户端用；管理端皮肤不设） */
+  layout?: 'classic' | 'split' | 'bento' | 'editorial';
+  /** 下发到 :root 的 CSS 变量（用户端用） */
+  cssVars?: Record<string, string>;
   palette: Palette;
   theme: ReturnType<typeof buildTheme>;
 }

@@ -28,6 +28,8 @@ import UpcomingCycleBanner from '@/components/UpcomingCycleBanner';
 import { getUpcomingCycles } from '@/api/manage/cycleApis';
 import InterviewReminderCard from '@/components/InterviewReminderCard';
 import ActivitiesPreviewCard from '@/components/ActivitiesPreviewCard';
+import SkinHero from '@/components/SkinHero';
+import { useSkin } from '@/theme/SkinProvider';
 import './index.scss';
 
 const { Title, Text, Paragraph } = Typography;
@@ -93,6 +95,9 @@ const achievements = [
 const Dashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  // 皮肤的版式键决定首屏用哪套 Hero；classic（默认皮肤）走下面原有横幅
+  const { skin } = useSkin();
+  const heroLayout = skin.layout ?? 'classic';
   const resumeState = useSelector((state) => state.resume);
   const { userInfo } = useSelector((state) => state.user);
   // 已录取的社员不再参加招新，进度卡（完善简历→提交→面试→结果）对他们没有意义
@@ -163,30 +168,40 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-page">
-      {/* 欢迎横幅 */}
-      <div className="dashboard-banner">
-        <div className="banner-content">
-          <Title level={1} className="banner-title">
-            欢迎来到<span className="title-accent">博远信息技术社</span>
-          </Title>
-          <Text className="banner-subtitle">
-            卓越技术 · 绝佳创意 · 实践平台
-          </Text>
+      {/* 欢迎横幅：默认皮肤用原有横幅一像素不动；其余皮肤按版式键换 Hero 变体。
+          变体是纯展示组件，数据（成就数字）与跳转都从这里传入 */}
+      {heroLayout === 'classic' ? (
+        <div className="dashboard-banner">
+          <div className="banner-content">
+            <Title level={1} className="banner-title">
+              欢迎来到<span className="title-accent">博远信息技术社</span>
+            </Title>
+            <Text className="banner-subtitle">
+              卓越技术 · 绝佳创意 · 实践平台
+            </Text>
+          </div>
         </div>
-      </div>
+      ) : (
+        <SkinHero
+          layout={heroLayout}
+          stats={achievements}
+          onApply={handleGoToResume}
+          onExplore={() => navigate('/Activities')}
+        />
+      )}
 
       {/* 下一届招新预告：未开始的周期以前在用户端完全不可见（切换器只列开放中的），
           「下一届什么时候开始」只能靠群里问。没有已排期的下一届时组件自己返回 null。
           社员不参加招新，不给他们看。 */}
       {!isMember && upcomingCycles.length > 0 && (
-        <div style={{ maxWidth: 960, margin: '16px auto 0', padding: '0 16px' }}>
+        <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '16px auto 0', padding: '0 16px' }}>
           <UpcomingCycleBanner cycles={upcomingCycles} />
         </div>
       )}
 
       {/* 多周期同时在招时，首页也能切 —— 进度卡跟着切换的周期走。
           只有一个开放周期时 CycleSwitcher 自己返回 null，不占位。 */}
-      <div style={{ maxWidth: 960, margin: '16px auto 0', padding: '0 16px' }}>
+      <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '16px auto 0', padding: '0 16px' }}>
         <CycleSwitcher
           compact
           cycles={resumeState?.openCycles ?? []}
@@ -197,7 +212,7 @@ const Dashboard = () => {
 
       {/* 招新进度卡（方案三）：随时知道自己进行到哪一步。已是社员的不再显示 */}
       {!isMember && (
-        <div style={{ maxWidth: 960, margin: '8px auto 0', padding: '0 16px' }}>
+        <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '8px auto 0', padding: '0 16px' }}>
           <RecruitProgressCard
             cycleId={selectedCycleId ?? 2}
             resumeStatus={resumeState?.resume?.status ?? null}
@@ -207,7 +222,7 @@ const Dashboard = () => {
       )}
 
       {/* 工作台：面试提醒 + 最新活动（无面试安排时活动卡自动铺满整行） */}
-      <div style={{ maxWidth: 960, margin: '12px auto 0', padding: '0 16px' }}>
+      <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '12px auto 0', padding: '0 16px' }}>
         <Row gutter={[12, 12]}>
           {hasInterview && (
             <Col xs={24} md={12}>
@@ -226,7 +241,7 @@ const Dashboard = () => {
       </div>
 
       {/* 快捷入口：申请者看投递/进度，社员看活动/评测——两拨人关心的事不一样 */}
-      <div style={{ maxWidth: 960, margin: '12px auto 24px', padding: '0 16px' }}>
+      <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '12px auto 24px', padding: '0 16px' }}>
         <Row gutter={[12, 12]}>
           {isMember ? (
             <>

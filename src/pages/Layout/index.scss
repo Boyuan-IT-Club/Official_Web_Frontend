@@ -106,10 +106,11 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
   }
 
   .site-layout {
-    background: $tech-light;
+    // 皮肤变量优先，默认皮肤不下发变量 → 回落现状色（全文件同此模式）
+    background: var(--skin-page-bg, #{$tech-light});
 
     .tech-header {
-      background: white;
+      background: var(--skin-nav-bg, white);
       padding: 0 t.$gap-lg;
       // 原为 `0 1px 10px rgba(0,0,0,.1)`：顶栏本身不该浮起来，一根细线就够
       border-bottom: t.$border-hairline;
@@ -120,7 +121,7 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       .header-page-title {
         font-size: t.$text-subtitle;
         font-weight: 600;
-        color: $text-color;
+        color: var(--skin-nav-text, #{$text-color});
       }
 
       // 右侧一组：使用指引 + 用户菜单。顶栏是 space-between，
