@@ -51,6 +51,9 @@ export type ResumeFieldType = BackendFieldType | 'input' | 'custom';
  * saveResumeFields 都按本清单过滤。
  */
 export const DEPRECATED_RESUME_FIELD_KEYS = [
+  // 与「自我介绍」重复（2026-09 清理）：问的都是同一件事，学生要么复制粘贴
+  // 要么困惑两栏有什么区别。老周期的历史答案在查看/导出里照常显示。
+  'introduction',
   'expected_interview_time',
   'second_interview_time',
   'can_attend_offline_interview',
@@ -62,6 +65,14 @@ export interface ResumeFieldUI extends Omit<BackendResumeField, 'fieldType'> {
   options?: string[];
   category: number;
 }
+
+/**
+ * 系统字段：不在投递表单里渲染，但**是别的功能的存储位**，删了链路会断。
+ *   expected_departments —— 「修改面试意向」把志愿部门同步写到这里，
+ *     管理端简历速览的部门标签、导出里的期望部门都读它。
+ * 配置抽屉里对这类字段禁用删除并挂「系统」标签，防止被当成冗余清理掉。
+ */
+export const SYSTEM_RESUME_FIELD_KEYS = ['expected_departments'];
 
 /** fieldKey → 表单分类（后端无 category 时用于 UI 分组，与 DEFAULT_RESUME_FIELDS 保持一致） */
 export const FIELD_KEY_CATEGORY_MAP: Record<string, number> = {
@@ -339,18 +350,6 @@ export const DEFAULT_RESUME_FIELDS: ResumeFieldUI[] = [
     isActive: true,
     fieldType: "textarea",
     placeholder: "为什么想加入我们社团？您期望获得什么？...",
-    category: 2,
-  },
-  {
-    fieldId: 0,
-    cycleId: 2,
-    fieldKey: "introduction",
-    fieldLabel: "个人简介",
-    isRequired: true,
-    sortOrder: 12,
-    isActive: true,
-    fieldType: "textarea",
-    placeholder: "请提供个人简介",
     category: 2,
   },
 
