@@ -53,7 +53,7 @@ const MENU_DEFS: Array<{
   { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
   { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
-  { key: "/agent-admin", icon: <ControlOutlined />, label: "Agent 管理", anyOf: ["agent:monitor"] },
+  { key: "/agent-admin", icon: <ControlOutlined />, label: "Agent 管理", anyOf: ["agent:monitor", "kb:manage"] }, // RAG #134:kb:manage 单独授权也能见知识库 Tab
 ];
 
 // 首次进管理端的欢迎说明：按一轮招新的先后顺序讲每个模块干什么。

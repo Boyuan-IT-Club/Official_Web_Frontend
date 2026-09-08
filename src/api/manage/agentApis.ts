@@ -92,3 +92,89 @@ export function getAgentSessionMessages(threadId: string) {
     method: 'get',
   });
 }
+
+/** ── 知识库管理(RAG #134 R6):/api/admin/agent/kb/**,kb:manage 独立权限 ── */
+
+/** 知识条目行(列表投影;详情另有 question/answer/content_md) */
+export interface KbSourceRow {
+  source_id: string;
+  title: string;
+  type: 'faq' | 'doc';
+  kind: 'normal' | 'test';
+  tags: string[];
+  enabled: boolean;
+  updated_by: string;
+  chunk_count?: number;
+  question?: string;
+  answer?: string;
+  content_md?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** 条目分页列表(kind=normal|test 过滤,keyword 匹配标题) */
+export function listKbSources(params: {
+  page?: number;
+  size?: number;
+  kind?: string;
+  keyword?: string;
+}) {
+  return request({ url: '/api/admin/agent/kb/sources', method: 'get', params });
+}
+
+/** 条目详情(含内容与块数) */
+export function getKbSource(sourceId: string) {
+  return request({
+    url: `/api/admin/agent/kb/sources/${encodeURIComponent(sourceId)}`,
+    method: 'get',
+  });
+}
+
+export interface KbSourcePayload {
+  title: string;
+  type: 'faq' | 'doc';
+  kind: 'normal' | 'test';
+  tags: string[];
+  question?: string;
+  answer?: string;
+  content_md?: string;
+}
+
+/** 新建并入库(分块+embedding;EMBED 未配置时上游 503) */
+export function createKbSource(payload: KbSourcePayload) {
+  return request({ url: '/api/admin/agent/kb/sources', method: 'post', data: payload });
+}
+
+/** 更新并重嵌 */
+export function updateKbSource(sourceId: string, payload: KbSourcePayload) {
+  return request({
+    url: `/api/admin/agent/kb/sources/${encodeURIComponent(sourceId)}`,
+    method: 'put',
+    data: payload,
+  });
+}
+
+/** 启/停用(停用立即退出生检索) */
+export function setKbSourceEnabled(sourceId: string, enabled: boolean) {
+  return request({
+    url: `/api/admin/agent/kb/sources/${encodeURIComponent(sourceId)}/enabled`,
+    method: 'put',
+    data: { enabled },
+  });
+}
+
+/** 删除(级联 chunks) */
+export function deleteKbSource(sourceId: string) {
+  return request({
+    url: `/api/admin/agent/kb/sources/${encodeURIComponent(sourceId)}`,
+    method: 'delete',
+  });
+}
+
+/** 重嵌(按已存内容重建向量;换 embedding 模型后逐条补齐) */
+export function reembedKbSource(sourceId: string) {
+  return request({
+    url: `/api/admin/agent/kb/sources/${encodeURIComponent(sourceId)}/reembed`,
+    method: 'post',
+  });
+}
