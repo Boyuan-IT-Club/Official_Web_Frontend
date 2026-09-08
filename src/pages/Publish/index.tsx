@@ -712,7 +712,11 @@ const Publish: React.FC = () => {
           setInterviewTimes({ first: '', second: '', canAttend: 'yes', customTime: '' });
         }
 
-        setIsEditing(resumeData.status === 1);
+        // 草稿自动进编辑态——但社员与不可写周期绝不进：编辑分支里没有
+        // 「您已是社员」提示卡，社员一旦被甩进去，看到的就是一个改不了
+        // 又不说原因的表单。isMember 迟到重跑 initData 时，这行若不带条件，
+        // 会把 isMember 变化那次 setIsEditing(false) 的守卫再覆盖回 true
+        setIsEditing(resumeData.status === 1 && !isMember && isCycleWritable(phase));
       }
     } catch (err: unknown) {
       console.error('初始化数据失败:', err);
@@ -722,7 +726,7 @@ const Publish: React.FC = () => {
       setTechStackItems(['']);
       setDepartments({ first: '', second: '' });
       setPhotoBase64('');
-      setIsEditing(true);
+      setIsEditing(!isMember);
     } finally {
       setIsInitializing(false);
     }
@@ -1423,6 +1427,16 @@ const Publish: React.FC = () => {
                 </Button>
               )}
             </Space>
+            {/*
+              「修改简历」按钮消失的原地说明。顶部虽有社员提示卡，但按钮区
+              是用户找编辑入口的地方——只在这里静默少一个按钮，会被当成坏了。
+              周期关闭等其它只读原因已由顶部 StatusNotice 说明，不重复。
+            */}
+            {!canEdit && isMember && (
+              <div style={{ marginTop: 12 }}>
+                <Text type="secondary">您已是社员，简历仅供查看，不能修改或重新提交</Text>
+              </div>
+            )}
           </div>
 
           {/* 面试安排状态（志愿/分配结果，真实接口） */}
