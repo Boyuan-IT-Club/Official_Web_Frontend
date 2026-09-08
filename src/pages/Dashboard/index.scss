@@ -97,7 +97,7 @@ $border-color: #e2e8f0;
   // 部门部分
   .departments-section {
     padding: 40px 24px;
-    background: $background-blue;
+    background: var(--skin-subtle-bg, #{$background-blue});
     
     .department-cards {
       .department-card {
@@ -274,7 +274,7 @@ $border-color: #e2e8f0;
   // 加入我们部分
   .join-section {
     padding: 40px 24px;
-    background: $background-blue;
+    background: var(--skin-subtle-bg, #{$background-blue});
 
     .join-card {
       border-radius: t.$radius-card;

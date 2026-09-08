@@ -247,14 +247,14 @@ const Dashboard = () => {
             <>
               <Col xs={8}>
                 <Card hoverable size="small" onClick={() => navigate('/Activities')} style={{ textAlign: 'center' }}>
-                  <ScheduleOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+                  <ScheduleOutlined style={{ fontSize: 22, color: 'var(--skin-accent, #1f76cc)' }} />
                   <div style={{ marginTop: 6 }}>社团活动</div>
                   <Text type="secondary" style={{ fontSize: 12 }}>公告 · 精彩瞬间</Text>
                 </Card>
               </Col>
               <Col xs={8}>
                 <Card hoverable size="small" onClick={() => navigate('/main/evaluations')} style={{ textAlign: 'center' }}>
-                  <FileTextOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+                  <FileTextOutlined style={{ fontSize: 22, color: 'var(--skin-accent, #1f76cc)' }} />
                   <div style={{ marginTop: 6 }}>autograding</div>
                   <Text type="secondary" style={{ fontSize: 12 }}>评测成绩</Text>
                 </Card>
@@ -264,14 +264,14 @@ const Dashboard = () => {
             <>
               <Col xs={8}>
                 <Card hoverable size="small" onClick={handleGoToResume} style={{ textAlign: 'center' }}>
-                  <FileTextOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+                  <FileTextOutlined style={{ fontSize: 22, color: 'var(--skin-accent, #1f76cc)' }} />
                   <div style={{ marginTop: 6 }}>简历投递</div>
                   <Text type="secondary" style={{ fontSize: 12 }}>填写或修改</Text>
                 </Card>
               </Col>
               <Col xs={8}>
                 <Card hoverable size="small" onClick={() => navigate('/main/interview-appointment')} style={{ textAlign: 'center' }}>
-                  <ScheduleOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+                  <ScheduleOutlined style={{ fontSize: 22, color: 'var(--skin-accent, #1f76cc)' }} />
                   <div style={{ marginTop: 6 }}>申请进度</div>
                   <Text type="secondary" style={{ fontSize: 12 }}>时间线与结果</Text>
                 </Card>
@@ -280,7 +280,7 @@ const Dashboard = () => {
           )}
           <Col xs={8}>
             <Card hoverable size="small" onClick={() => navigate('/main/person')} style={{ textAlign: 'center' }}>
-              <UserOutlined style={{ fontSize: 22, color: '#1f76cc' }} />
+              <UserOutlined style={{ fontSize: 22, color: 'var(--skin-accent, #1f76cc)' }} />
               <div style={{ marginTop: 6 }}>个人主页</div>
               <Text type="secondary" style={{ fontSize: 12 }}>资料 · 历届申请</Text>
             </Card>

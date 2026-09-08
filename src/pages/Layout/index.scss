@@ -24,7 +24,7 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
 // 主布局样式
 .main-layout {
   .tech-sider {
-    background: $menu-bg;
+    background: var(--skin-sider-bg, #{$menu-bg});
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     z-index: 10;
 
@@ -91,7 +91,7 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         // 选中态靠底色 + 图标点亮表达，不再用左侧竖条：
         // 竖条在圆角块上会切出一个直角，两种形状打架
         &.ant-menu-item-selected {
-          background: rgba(0, 198, 255, 0.14) !important;
+          background: var(--skin-sider-active, rgba(0, 198, 255, 0.14)) !important;
 
           a {
             color: #fff;

@@ -22,7 +22,7 @@ describe('用户端皮肤表', () => {
   });
 
   it('每款非默认皮肤都成套下发核心变量，避免「换了主色没换底色」的半吊子皮肤', () => {
-    const required = ['--skin-accent', '--skin-page-bg', '--skin-title', '--skin-muted', '--skin-hero-bg', '--skin-nav-bg'];
+    const required = ['--skin-accent', '--skin-page-bg', '--skin-title', '--skin-muted', '--skin-hero-bg', '--skin-nav-bg', '--skin-sider-bg', '--skin-sider-active', '--skin-hero-strong', '--skin-card-bg', '--skin-subtle-bg', '--skin-line'];
     SKINS.filter((s) => s.key !== DEFAULT_SKIN_KEY).forEach((s) => {
       required.forEach((k) => expect(Object.keys(s.cssVars ?? {})).toContain(k));
     });

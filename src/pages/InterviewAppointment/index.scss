@@ -14,7 +14,7 @@
     gap: 12px;
     padding: 26px 28px;
     border-radius: 14px 14px 0 0;
-    background: linear-gradient(120deg, #1f3a60 0%, #1f76cc 60%, #4da6ff 100%);
+    background: var(--skin-hero-strong, linear-gradient(120deg, #1f3a60 0%, #1f76cc 60%, #4da6ff 100%));
     color: #fff;
 
     .hero-main {
@@ -128,7 +128,7 @@
 // 卡片里再套卡片会把层次全糊在一起）。本页没有自己的卡片，因此在这里补一层白面，
 // 让内容浮在 $tech-light 灰底之上，而不是直接贴着灰底。
 .app-progress-page {
-  background: #fff;
+  background: var(--skin-card-bg, #fff);
   border: t.$border-hairline;
   border-radius: t.$radius-card;
   padding: t.$gap-lg;
@@ -165,7 +165,7 @@
     width: 132px;
     height: 132px;
     object-fit: contain;
-    background: #fff;
+    background: var(--skin-card-bg, #fff);
     border: 1px solid var(--ant-color-border-secondary, #f0f0f0);
     border-radius: 8px;
   }
