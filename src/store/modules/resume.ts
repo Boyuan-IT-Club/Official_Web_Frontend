@@ -587,9 +587,9 @@ const resumeSlice = createSlice({
      */
     patchResumeScore: (
       state,
-      action: PayloadAction<{ resumeId: ID; resumeScore: number; scoredByName?: string | null; scoredAt?: string | null }>,
+      action: PayloadAction<{ resumeId: ID; resumeScore: number; scoredByName?: string | null; scoredAt?: string | null; scoreEntries?: any[] }>,
     ) => {
-      const { resumeId, resumeScore, scoredByName, scoredAt } = action.payload;
+      const { resumeId, resumeScore, scoredByName, scoredAt, scoreEntries } = action.payload;
       const hit = state.resumes?.find(
         (r: any) => String(r.resumeId) === String(resumeId),
       );
@@ -597,6 +597,7 @@ const resumeSlice = createSlice({
         hit.resumeScore = resumeScore;
         if (scoredByName !== undefined) hit.scoredByName = scoredByName;
         if (scoredAt !== undefined) hit.scoredAt = scoredAt;
+        if (scoreEntries !== undefined) (hit as any).scoreEntries = scoreEntries;
       }
     },
     clearFieldValues: (state) => {

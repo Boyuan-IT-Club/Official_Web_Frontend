@@ -1,8 +1,9 @@
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import React, { useState } from 'react';
 import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal, InputNumber, message } from 'antd';
 import { updateResumeScore } from '@/api/manage/resumeEntry';
+import { ScoreEntry, myScoreOf, scorerLabel } from './scorePanel';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import {
@@ -157,10 +158,15 @@ type ResumeDetailProps = {
 const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded }) => {
   const dispatch = useDispatch<any>();
 
-  // 打分控件的本地状态（savedScore 用于禁用未变更时的保存键）
-  const initialScore = (resume as any)?.resumeScore ?? undefined;
-  const [score, setScore] = useState<number | undefined>(initialScore);
-  const [savedScore, setSavedScore] = useState<number | undefined>(initialScore);
+  // 多人打分：resumeScore 是平均分，输入框编辑的是「我这一票」。
+  // savedScore 存我已保存的分，用于禁用未变更时的保存键。
+  const myUserId = useSelector((state: any) => state.user?.userInfo?.userId);
+  const initialEntries: ScoreEntry[] = (resume as any)?.scoreEntries ?? [];
+  const [entries, setEntries] = useState<ScoreEntry[]>(initialEntries);
+  const [avgScore, setAvgScore] = useState<number | undefined>((resume as any)?.resumeScore ?? undefined);
+  const initialMyScore = myScoreOf(initialEntries, myUserId);
+  const [score, setScore] = useState<number | undefined>(initialMyScore);
+  const [savedScore, setSavedScore] = useState<number | undefined>(initialMyScore);
   const [scoreSaving, setScoreSaving] = useState(false);
 
   if (!resume) {
@@ -247,13 +253,22 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
       <div className="resume-score-panel">
         <div className="score-panel-main">
           <span className="score-panel-label">简历评分</span>
-          <span className={`score-panel-value${savedScore == null ? ' score-panel-value--empty' : ''}`}>
-            {savedScore == null ? '未打分' : savedScore}
+          <span className={`score-panel-value${avgScore == null ? ' score-panel-value--empty' : ''}`}>
+            {avgScore == null ? '未打分' : avgScore}
           </span>
-          {(resume as any)?.scoredByName && (
+          {entries.length > 0 && (
             <span className="score-panel-by">
-              {(resume as any).scoredByName} 打分
-              {(resume as any)?.scoredAt ? ` · ${String((resume as any).scoredAt).replace('T', ' ').slice(0, 16)}` : ''}
+              {entries.length} 人打分的平均
+            </span>
+          )}
+          {/* 逐人明细：谁打了几分。多人打分的核心诉求就是这行可追溯 */}
+          {entries.length > 0 && (
+            <span className="score-panel-entries">
+              {entries.map((e) => (
+                <span key={e.scorerId} className="score-panel-entry">
+                  {scorerLabel(e)} {e.score}
+                </span>
+              ))}
             </span>
           )}
         </div>
@@ -279,21 +294,26 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
               try {
                 const res: any = await updateResumeScore(Number(resume.resumeId), score);
                 setSavedScore(score);
+                const avg = res?.data?.resumeScore ?? score;
+                const newEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
+                setAvgScore(avg);
+                setEntries(newEntries);
                 // 同步列表里的那一条，否则「下一位未打分」会把刚打完的人
-                // 再算进去、绕回同一个人；返回列表也还显示「未评分」
+                // 再算进去、绕回同一个人；返回列表也还显示「未评分」。
+                // 注意进列表的是平均分，不是我这一票。
                 dispatch(resumeActions.patchResumeScore({
                   resumeId: resume.resumeId as any,
-                  resumeScore: score,
+                  resumeScore: avg,
                   scoredByName: res?.data?.scoredByName ?? undefined,
-                  scoredAt: res?.data?.scoredAt ?? undefined,
+                  scoreEntries: newEntries,
                 }));
                 // 打完直接送到下一位未打分的人：批量打分时这是最高频的动线，
                 // 不用回列表再找。没有下一位就只提示打完了。
                 if (onNextUngraded) {
-                  message.success(`已打分 ${score}，跳到${nextUngradedName ? `「${nextUngradedName}」` : '下一位'}`);
+                  message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），跳到${nextUngradedName ? `「${nextUngradedName}」` : '下一位'}`);
                   onNextUngraded();
                 } else {
-                  message.success(`已打分 ${score}，本页简历都打完了`);
+                  message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），本页简历都打完了`);
                 }
               } catch (e: any) {
                 message.error(e?.message || '打分失败');
@@ -302,7 +322,7 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
               }
             }}
           >
-            {savedScore == null ? '保存打分' : '更新打分'}
+            {savedScore == null ? '保存我的打分' : '更新我的打分'}
           </Button>
           {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位 */}
           <Button
