@@ -75,6 +75,8 @@ import { request } from "@/utils";
 import ResumeDetail from "@/pages/Resume/ResumeDetail";
 import "@/pages/Resume/index.scss";
 import EvaluationSummaryTab from "./EvaluationSummaryTab";
+import EvaluationDrawer from "./EvaluationDrawer";
+import { CandidateSummary, EvaluationDimension, getEvaluationSummary } from "@/api/manage/interviewEvaluation";
 import SessionInterviewersModal from "./SessionInterviewersModal";
 
 const fmtTime = (t?: string) => (t ? t.slice(0, 5) : "-");
@@ -888,8 +890,10 @@ const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ c
 
 // ─── 结果与通知 Tab ──────────────────────────────────────────────────────────
 const DECISION_TAG: Record<number, { color: string; text: string }> = {
+  0: { color: "orange", text: "待定" },
   1: { color: "green", text: "通过" },
   2: { color: "red", text: "未通过" },
+  3: { color: "gold", text: "待调剂" },
 };
 
 const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number }> = ({ cycleId, depts, refreshToken }) => {
@@ -910,13 +914,20 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
   // 录取决策的现场筛选：全周期名单一次拉回（size 200），排序筛选都在前端做
   const [deptFilter, setDeptFilter] = useState<string | undefined>();
   const [recFilter, setRecFilter] = useState<number | undefined>();
+  // 评价汇总就地关联：面试分/结论列的兜底数据源（后端联表字段上线前也能显示），
+  // 也是「查看评价」抽屉的数据。按 scheduleId 对行。
+  const [evalMap, setEvalMap] = useState<Record<number, CandidateSummary>>({});
+  const [dimensions, setDimensions] = useState<EvaluationDimension[]>([]);
+  const [viewingEval, setViewingEval] = useState<InterviewResultItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [res, roster]: any[] = await Promise.all([
+      const [res, roster, evalRes]: any[] = await Promise.all([
         listResults({ cycleId, page: 1, size: 200 }),
         listSchedulesRoster(cycleId).catch(() => null),
+        // 拉不到评价不挡结果名单：面试分列显示「—」，抽屉里给空态
+        getEvaluationSummary(cycleId).catch(() => null),
       ]);
       setList(res?.data?.interviewResults ?? []);
       const map: Record<number, { name?: string; username?: string }> = {};
@@ -924,6 +935,10 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
         if (r.userId != null) map[r.userId] = { name: r.name, username: r.username };
       });
       setNameMap(map);
+      const m: Record<number, CandidateSummary> = {};
+      (evalRes?.data?.candidates ?? []).forEach((c: CandidateSummary) => { m[c.scheduleId] = c; });
+      setEvalMap(m);
+      setDimensions(evalRes?.data?.dimensions ?? []);
     } catch (e: any) {
       message.error(e?.message || "加载结果失败");
     } finally {
@@ -943,9 +958,10 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
         && r.firstDeptName !== deptFilter
         && r.secondDeptName !== deptFilter
         && deptName(r.assignedDeptId) !== deptFilter) return false;
-    if (recFilter != null && r.evalRecommendation !== recFilter) return false;
+    const rec = r.evalRecommendation ?? evalMap[r.scheduleId]?.recommendation;
+    if (recFilter != null && rec !== recFilter) return false;
     return true;
-  }), [list, deptFilter, recFilter]);
+  }), [list, deptFilter, recFilter, evalMap]);
 
   const openEditResult = (r: InterviewResultItem) => {
     setEditing(r);
@@ -1163,19 +1179,26 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
           {
             title: "面试分", dataIndex: "evalTotalScore", width: 88, align: "right" as const,
             sorter: (a: InterviewResultItem, b: InterviewResultItem) =>
-              Number(a.evalTotalScore ?? -1) - Number(b.evalTotalScore ?? -1),
+              Number(a.evalTotalScore ?? evalMap[a.scheduleId]?.totalScore ?? -1)
+              - Number(b.evalTotalScore ?? evalMap[b.scheduleId]?.totalScore ?? -1),
             defaultSortOrder: "descend" as const,
-            render: (v: number | null) => (v == null
-              ? <Tooltip title="无评价：未面试，或评价还没定稿物化"><span style={{ color: "#bbb" }}>—</span></Tooltip>
-              : Number(v).toFixed(1)),
+            render: (_: unknown, r: InterviewResultItem) => {
+              const v = r.evalTotalScore ?? evalMap[r.scheduleId]?.totalScore;
+              return v == null
+                ? <Tooltip title="无评价：未面试，或评价还没定稿物化"><span style={{ color: "#bbb" }}>—</span></Tooltip>
+                : Number(v).toFixed(1);
+            },
           },
           {
             title: "结论", dataIndex: "evalRecommendation", width: 96,
-            render: (v: number | null) => (v == null
-              ? <span style={{ color: "#bbb" }}>—</span>
-              : <Tag color={v === 1 ? "green" : v === 2 ? "orange" : "red"}>
-                  {v === 1 ? "倾向通过" : v === 2 ? "待定" : "不倾向"}
-                </Tag>),
+            render: (_: unknown, r: InterviewResultItem) => {
+              const v = r.evalRecommendation ?? evalMap[r.scheduleId]?.recommendation;
+              return v == null
+                ? <span style={{ color: "#bbb" }}>—</span>
+                : <Tag color={v === 1 ? "green" : v === 2 ? "orange" : "red"}>
+                    {v === 1 ? "倾向通过" : v === 2 ? "待定" : "不倾向"}
+                  </Tag>;
+            },
           },
           { title: "结果", dataIndex: "decision", width: 90,
             render: (d: number) => d != null
@@ -1190,11 +1213,24 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
                   <Tag color="green">已通知</Tag>
                 </Tooltip>
               : <Tag>未通知</Tag> },
-          { title: "操作", width: 90,
+          { title: "操作", width: 150,
             render: (_: unknown, r: InterviewResultItem) => (
-              <Button type="link" size="small" onClick={() => openEditResult(r)}>录入/修改</Button>
+              <>
+                <Button type="link" size="small" onClick={() => setViewingEval(r)}>查看评价</Button>
+                <Button type="link" size="small" onClick={() => openEditResult(r)}>录入/修改</Button>
+              </>
             ) },
         ] as any}
+      />
+
+      <EvaluationDrawer
+        open={!!viewingEval}
+        onClose={() => setViewingEval(null)}
+        candidateName={viewingEval
+          ? (viewingEval.userName || nameMap[viewingEval.userId]?.name || `用户#${viewingEval.userId}`)
+          : undefined}
+        summary={viewingEval ? evalMap[viewingEval.scheduleId] ?? null : null}
+        dimensions={dimensions}
       />
 
       <Modal
