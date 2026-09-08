@@ -1,21 +1,12 @@
 // src/pages/Dashboard/index.js
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Typography, Divider, Button, message } from 'antd';
+import { Row, Col, Card, Typography } from 'antd';
 import { readCanAttendOffline } from '@/utils/interviewIntent';
 import {
-  CodeOutlined,
-  TeamOutlined,
-  CalendarOutlined,
+  ProjectOutlined,
   UserOutlined,
   TrophyOutlined,
-  ProjectOutlined,
-  BookOutlined,
-  BulbOutlined,
-  CoffeeOutlined,
-  SendOutlined,
-  SmileOutlined,
-  StarOutlined,
-  IdcardOutlined,
+  CalendarOutlined,
   FileTextOutlined,
   ScheduleOutlined,
 } from '@ant-design/icons';
@@ -32,42 +23,7 @@ import SkinHero from '@/components/SkinHero';
 import { useSkin } from '@/theme/SkinProvider';
 import './index.scss';
 
-const { Title, Text, Paragraph } = Typography;
-
-const departments = [
-  {
-    name: '项目部',
-    icon: <ProjectOutlined />,
-    description: '负责项目规划、进度管理和团队协作',
-    color: '#4da6ff',
-    features: ['前端开发', '后端开发', '项目管理', '质量保证'],
-    detail: '项目部负责统筹社团各类项目，确保项目按时高质量完成，培养成员的项目管理能力和前后端开发技能。'
-  },
-  {
-    name: '技术部',
-    icon: <CodeOutlined />,
-    description: '负责技术学习、技术分享和创新实践',
-    color: '#6c7ae0',
-    features: ['技术研究', '技术分享', '创新实践', '问题解决'],
-    detail: '技术部专注于各种前沿技术的学习和应用，组织技术分享和创新实践活动，提升社员的技术能力。'
-  },
-  {
-    name: '媒体部',
-    icon: <TeamOutlined />,
-    description: '负责社团宣传、内容创作和品牌建设',
-    color: '#ff9c6e',
-    features: ['内容创作', '品牌宣传', '活动推广', '社交媒体'],
-    detail: '媒体部负责社团的对外宣传和品牌建设，创作优质内容，扩大社团影响力。'
-  },
-  {
-    name: '综合部',
-    icon: <BookOutlined />,
-    description: '负责资源整合、活动组织和内部协调',
-    color: '#36cfc9',
-    features: ['资源管理', '活动组织', '内部协调', '会员服务'],
-    detail: '综合部负责社团内部协调和资源整合，组织各类活动，为社员提供全方位的服务和支持。'
-  }
-];
+const { Title, Text } = Typography;
 
 const achievements = [
   {
@@ -146,33 +102,6 @@ const Dashboard = () => {
   // 简历投递
   const handleGoToResume = () => {
     navigate('/main/publish');
-  };
-
-  // 我的预约
-  const handleGoToAppointment = async () => {
-    const resume = resumeState?.resume;
-    // 如果 store 中已有已提交的简历，直接跳转
-    if (resume && resume.status >= 2) {
-      navigate('/main/interview-appointment');
-      return;
-    }
-
-    // 尝试从后端获取最新简历状态
-    try {
-      if (selectedCycleId == null) {
-        message.info('当前没有进行中的招新');
-        return;
-      }
-      const result = await dispatch(fetchMyResumeReadonly(selectedCycleId)).unwrap();
-      const resumeData = result?.data || result;
-      if (resumeData && resumeData.status >= 2) {
-        navigate('/main/interview-appointment');
-      } else {
-        message.warning('请先投递简历后再进行面试预约');
-      }
-    } catch (err) {
-      message.warning('请先投递简历后再进行面试预约');
-    }
   };
 
   return (

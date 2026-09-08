@@ -55,7 +55,6 @@ const ERROR_TAG: Record<string, { color: string; text: string }> = {
 const AgentOps: React.FC = () => {
   const [list, setList] = useState<AgentConversationRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [userIdFilter, setUserIdFilter] = useState<string>("");
   const [view, setView] = useState<string>("rounds");
 
   // 会话视图(G3)

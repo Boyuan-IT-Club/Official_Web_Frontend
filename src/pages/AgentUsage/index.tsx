@@ -29,7 +29,7 @@ const { Text, Paragraph } = Typography;
  *  看板级聚合(按日/按用户/价格)归 #65(OBS-08),此处只做最近数据速览。 */
 const AgentUsage: React.FC = () => {
   const [list, setList] = useState<AgentConversationRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string>("");
 
   const load = useCallback(async () => {

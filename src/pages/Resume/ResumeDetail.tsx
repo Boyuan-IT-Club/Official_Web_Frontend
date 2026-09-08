@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import React, { useState } from 'react';
-import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal, InputNumber, message } from 'antd';
+import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, InputNumber, message } from 'antd';
 import { updateResumeScore } from '@/api/manage/resumeEntry';
 import { ScoreEntry, myScoreOf, scorerLabel } from './scorePanel';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';

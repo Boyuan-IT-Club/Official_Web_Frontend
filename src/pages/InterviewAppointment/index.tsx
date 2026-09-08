@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CycleSwitcher from '@/components/CycleSwitcher';
 import { getMyResumes } from '@/api/resume';
 import {
-  Alert, Button, Card, Descriptions, Drawer, Input, Modal, Space, Spin, Tag, Timeline, Typography, message,
+  Alert, Button, Card, Drawer, Input, Modal, Space, Spin, Tag, Timeline, Typography, message,
 } from 'antd';
 import {
   ArrowLeftOutlined, CalendarOutlined, CheckCircleTwoTone, ClockCircleOutlined,
@@ -25,7 +25,7 @@ import {
 import { getAllCycles, RecruitmentCycle } from '@/api/manage/cycleApis';
 import './index.scss';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const RESUME_STATUS_TEXT: Record<number, string> = {
   1: '草稿（尚未提交）', 2: '已提交', 3: '已提交', 4: '已提交', 5: '已提交',

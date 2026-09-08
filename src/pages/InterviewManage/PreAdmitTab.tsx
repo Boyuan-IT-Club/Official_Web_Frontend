@@ -5,7 +5,7 @@
 // 移出、以及最后的「按名单最终录取」。转正只写决定不发邮件，
 // 发通知仍回「结果与通知」显式操作，保持录取与通知分离的动线。
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Empty, Modal, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
+import { Button, Empty, Modal, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
 import { ReloadOutlined, RocketOutlined } from '@ant-design/icons';
 import {
   PreAdmissionDeptStat, PreAdmissionDraftItem, PreAdmissionList,

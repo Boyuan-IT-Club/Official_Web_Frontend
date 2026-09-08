@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Empty, List, Tag, Typography } from 'antd';
+import { Card, List, Tag, Typography } from 'antd';
 import { HistoryOutlined, RightOutlined } from '@ant-design/icons';
 import { request } from '@/utils';
 import { getAllCycles } from '@/api/manage/cycleApis';

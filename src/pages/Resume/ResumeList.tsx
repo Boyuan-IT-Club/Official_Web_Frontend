@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Card,
   List,
@@ -6,7 +6,6 @@ import {
   Button,
   Space,
   Typography,
-  message,
   Pagination,
   Select,
   Input,
@@ -14,10 +13,8 @@ import {
   Menu,
   Spin,
   Alert,
-  Modal,
   Tooltip
 } from 'antd';
-import type { MenuProps } from 'antd';
 import {
   CalendarOutlined,
   CheckCircleOutlined,
@@ -169,8 +166,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
   // 于是列表把历届简历混在一起显示
   const [cycleId, setCycleId] = useState<number | undefined>();
   const [cycles, setCycles] = useState<any[]>([]);
-  const [isStartingReview, setIsStartingReview] = useState<boolean>(false);
-
   // 用于高亮显示当前排序方式
   const [currentSortKey, setCurrentSortKey] = useState<string>('time_desc');
 
