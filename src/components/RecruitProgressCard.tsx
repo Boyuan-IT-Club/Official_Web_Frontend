@@ -16,13 +16,20 @@ interface Props {
    * 只会白等一个不会来的通知。null=未知（还没填面试意向），按线下文案走。
    */
   canAttendOffline?: boolean | null;
+  /**
+   * 本周期是否仍接收投递。false = 管理员已「停止投递」但周期时间未过：
+   * 投过的照常看进度；没投过的不再给「开始填写简历」——那页现在不能新建。
+   */
+  intakeOpen?: boolean;
 }
 
 /**
  * 招新进度卡（方案三）：完善简历 → 提交 → 面试意向 → 等待分配 → 查看安排。
  * 中途离开的用户回到首页即可知道自己进行到哪一步、下一步做什么。
  */
-const RecruitProgressCard: React.FC<Props> = ({ cycleId, resumeStatus, canAttendOffline = null }) => {
+const RecruitProgressCard: React.FC<Props> = ({
+  cycleId, resumeStatus, canAttendOffline = null, intakeOpen = true,
+}) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [hasPreference, setHasPreference] = useState(false);
@@ -54,6 +61,16 @@ const RecruitProgressCard: React.FC<Props> = ({ cycleId, resumeStatus, canAttend
     return (
       <Card size="small" title={<><RocketOutlined /> 我的招新进度</>}>
         <div style={{ textAlign: 'center', padding: 12 }}><Spin /></div>
+      </Card>
+    );
+  }
+
+  // 已停止投递、本人又没有这届的简历：五步进度对他没有意义，
+  // 还会用「开始填写简历」把人引到一个不能新建的页面
+  if (!intakeOpen && resumeStatus == null) {
+    return (
+      <Card size="small" title={<><RocketOutlined /> 我的招新进度</>}>
+        <Text type="secondary">本周期已停止投递，不再接收新的简历。</Text>
       </Card>
     );
   }
@@ -122,7 +139,7 @@ const RecruitProgressCard: React.FC<Props> = ({ cycleId, resumeStatus, canAttend
           </Button>
         ) : (
           <Button type="primary" size="small" onClick={() => navigate('/main/publish')}>
-            {resumeStatus == null ? '开始填写简历' : submitted && !hasPreference ? '补填面试意向' : submitted ? '查看我的简历' : '继续填写简历'}
+            {!intakeOpen ? '查看我的简历' : resumeStatus == null ? '开始填写简历' : submitted && !hasPreference ? '补填面试意向' : submitted ? '查看我的简历' : '继续填写简历'}
           </Button>
         )
       }

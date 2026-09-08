@@ -45,3 +45,18 @@ describe('招新进度卡的线上/线下两条路线', () => {
     await waitFor(() => expect(screen.getByText('面试安排')).toBeInTheDocument());
   });
 });
+
+describe('已停止投递的周期', () => {
+  it('没投过的人：不给五步进度和「开始填写简历」，直说不再接收', async () => {
+    render(<RecruitProgressCard cycleId={1} resumeStatus={null} intakeOpen={false} />);
+    await waitFor(() => expect(screen.getByText(/不再接收新的简历/)).toBeInTheDocument());
+    expect(screen.queryByText('开始填写简历')).not.toBeInTheDocument();
+    expect(screen.queryByText('完善简历')).not.toBeInTheDocument();
+  });
+
+  it('投过的人照常看进度，按钮改成「查看我的简历」', async () => {
+    render(<RecruitProgressCard cycleId={1} resumeStatus={1} intakeOpen={false} />);
+    await waitFor(() => expect(screen.getByText('查看我的简历')).toBeInTheDocument());
+    expect(screen.queryByText('继续填写简历')).not.toBeInTheDocument();
+  });
+});

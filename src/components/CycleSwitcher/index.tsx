@@ -43,7 +43,7 @@ const CycleSwitcher: React.FC<CycleSwitcherProps> = ({
           </span>
           <span className="cycle-switcher__hint">
             {openCount != null && openCount < cycles.length
-              ? '已结束的周期仅供查看当时投递的内容'
+              ? '已结束或已停止投递的周期仅供查看当时投递的内容'
               : '每个周期各投一份，互不影响'}
           </span>
         </div>
