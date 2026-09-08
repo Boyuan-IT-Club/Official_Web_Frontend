@@ -18,6 +18,14 @@ describe('投递页空状态', () => {
     expect(screen.getByText(/没有投递记录/)).toBeInTheDocument();
   });
 
+  it('已停止投递且没投过：说清不能再新建，标题带周期名', () => {
+    render(<NoOpenCycleNotice kind="paused-no-resume" cycleName="2026 秋季招新" />);
+    expect(screen.getByText('2026 秋季招新 已停止投递')).toBeInTheDocument();
+    expect(screen.getByText(/无法再新建/)).toBeInTheDocument();
+    // 不是「已结束」：周期时间还没过，只是管理员按了开关
+    expect(screen.queryByText(/已结束/)).not.toBeInTheDocument();
+  });
+
   it('周期名缺失时用通用标题', () => {
     render(<NoOpenCycleNotice kind="ended-no-resume" />);
     expect(screen.getByText('这一届的招募已结束')).toBeInTheDocument();

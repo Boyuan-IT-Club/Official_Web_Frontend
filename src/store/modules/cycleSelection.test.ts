@@ -10,7 +10,7 @@ const stateWith = (over: any) => reducer(undefined, { type: '@@INIT' } as any) &
   ...over,
 };
 
-const openCyclesFulfilled = (list: Array<{ cycleId: number }>) => ({
+const openCyclesFulfilled = (list: Array<{ cycleId: number; intakeOpen?: boolean }>) => ({
   type: fetchOpenCycles.fulfilled.type,
   payload: list,
 });
@@ -51,6 +51,23 @@ describe('周期选择', () => {
     const before = stateWith({ cycleId: 7, cycleUserPicked: false });
     const after = reducer(before as any, openCyclesFulfilled([]) as any);
     expect(after.cycleId).toBeNull();
+  });
+
+  it('默认落点跳过已停止投递的周期，优先还能投的那个', () => {
+    // /open 列表现在混着 intakeOpen=false 的周期（可见但只读），排在前面时
+    // 不该成为新用户的默认落点
+    const before = stateWith({ cycleId: null, cycleUserPicked: false });
+    const after = reducer(before as any, openCyclesFulfilled([
+      { cycleId: 8, intakeOpen: false },
+      { cycleId: 5, intakeOpen: true },
+    ]) as any);
+    expect(after.cycleId).toBe(5);
+  });
+
+  it('只剩已停止投递的周期时就落到它上面（可见，只读）', () => {
+    const before = stateWith({ cycleId: null, cycleUserPicked: false });
+    const after = reducer(before as any, openCyclesFulfilled([{ cycleId: 8, intakeOpen: false }]) as any);
+    expect(after.cycleId).toBe(8);
   });
 
   it('setSelectedCycle 接受字符串型 id 也存成数字', () => {

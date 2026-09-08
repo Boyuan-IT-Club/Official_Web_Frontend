@@ -121,6 +121,10 @@ const Dashboard = () => {
   const rawCycleId = resumeState?.cycleId ?? null;
   const selectedCycleId = rawCycleId != null && openCycleIds.includes(Number(rawCycleId))
     ? Number(rawCycleId) : null;
+  // 选中的周期可能已「停止投递」（时间未过、仍可见）：进度卡要据此换文案，
+  // 不能再用「开始填写简历」把没投过的人引到一个不能新建的页面
+  const selectedCycle = (resumeState?.openCycles ?? []).find((c) => Number(c.cycleId) === selectedCycleId);
+  const selectedIntakeOpen = selectedCycle ? selectedCycle.intakeOpen !== false : true;
 
   // 下一届招新预告。单独取而不是并进 openCycles：那个列表是「能不能投」的闸门。
   // 取不到就当没有下一届，静默跳过——预告缺失不该影响首页其余部分。
@@ -228,6 +232,7 @@ const Dashboard = () => {
             cycleId={selectedCycleId}
             resumeStatus={resumeState?.resume?.status ?? null}
             canAttendOffline={canAttendOffline}
+            intakeOpen={selectedIntakeOpen}
           />
         </div>
       )}

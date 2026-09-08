@@ -44,6 +44,11 @@ const COPY: Record<NonNullable<PublishEmptyState>, { pill: string; title: string
     title: '这一届的招募已结束',
     lead: '你在这一届没有投递记录，没有可查看的简历。',
   },
+  'paused-no-resume': {
+    pill: '已停止投递',
+    title: '本周期已停止投递',
+    lead: '管理员已停止接收新的简历，你在这一届没有投递记录，现在无法再新建。',
+  },
   'cycles-unavailable': {
     pill: '加载失败',
     title: '暂时无法获取招新信息',
@@ -56,9 +61,11 @@ const NoOpenCycleNotice: React.FC<NoOpenCycleNoticeProps> = ({
 }) => {
   const copy = COPY[kind];
   const past = history ?? [];
-  const title = kind === 'ended-no-resume' && cycleName
+  const title = cycleName && kind === 'ended-no-resume'
     ? `${cycleName} 已结束`
-    : copy.title;
+    : cycleName && kind === 'paused-no-resume'
+      ? `${cycleName} 已停止投递`
+      : copy.title;
 
   return (
     <div className="no-open-cycle">

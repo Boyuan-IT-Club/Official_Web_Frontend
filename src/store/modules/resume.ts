@@ -651,11 +651,13 @@ const resumeSlice = createSlice({
         // 只在当前选中项不在开放列表里时才改动选择，否则用户手选的周期会被
         // 后续任何一次刷新悄悄重置掉。
         // 用户显式点过就完全不动 —— 他可能正在看一个已结束周期的历史投递。
-        const stillOpen = list.some((c) => Number(c.cycleId) === Number(state.cycleId));
-        if (!state.cycleUserPicked && !stillOpen) {
-          // 开放列表为空时选中项必须归零——保留旧值就会拿已删除/已结束
-          // 周期的数据冒充当前状态
-          state.cycleId = list.length > 0 ? Number(list[0].cycleId) : null;
+        const stillVisible = list.some((c) => Number(c.cycleId) === Number(state.cycleId));
+        if (!state.cycleUserPicked && !stillVisible) {
+          // 列表为空时选中项必须归零——保留旧值就会拿已删除/已结束
+          // 周期的数据冒充当前状态。
+          // 列表里可能混着已停止投递（intakeOpen=false）的周期，默认落点优先还能投的那个
+          const preferred = list.find((c) => c.intakeOpen !== false) ?? list[0];
+          state.cycleId = preferred ? Number(preferred.cycleId) : null;
         }
       })
       .addCase(fetchResumeFields.pending, (state) => {

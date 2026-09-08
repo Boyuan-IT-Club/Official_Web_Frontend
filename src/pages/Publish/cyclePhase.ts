@@ -11,18 +11,38 @@
 export type CyclePhase =
   /** 正在开放投递 */
   | 'open'
+  /**
+   * 管理员已「停止投递」但周期时间还没过：可见、可看自己的简历与进度，
+   * 但不能提交、修改或新建。周期时间过了才变成 ended，没投过的同学才看不到它。
+   */
+  | 'paused'
   /** 还没开始：可见，做预告，但不可投 */
   | 'upcoming'
   /** 已经截止 */
   | 'ended';
 
+/** 把 /api/cycles/open 的列表按 intakeOpen 拆成「可投」与「已停止投递」两组 id。 */
+export function splitVisibleCycles(
+  list: Array<{ cycleId: number; intakeOpen?: boolean }> | null | undefined,
+): { openIds: number[]; pausedIds: number[] } {
+  const openIds: number[] = [];
+  const pausedIds: number[] = [];
+  (list ?? []).forEach((c) => {
+    // 旧后端没有 intakeOpen 字段：按可投处理，行为与加字段之前一致
+    (c.intakeOpen === false ? pausedIds : openIds).push(Number(c.cycleId));
+  });
+  return { openIds, pausedIds };
+}
+
 export function resolveCyclePhase(
   cycleId: number | null | undefined,
   openIds: number[],
   upcomingIds: number[],
+  pausedIds: number[] = [],
 ): CyclePhase {
   const id = Number(cycleId);
   if (openIds.includes(id)) return 'open';
+  if (pausedIds.includes(id)) return 'paused';
   if (upcomingIds.includes(id)) return 'upcoming';
   // 既不在开放也不在预告 = 窗口已经过去。
   // 拿不到周期列表时（接口挂了）也落这里：宁可只读，也不让人往一个
@@ -59,11 +79,15 @@ export function resolveActiveCycleId(
   openIds: number[],
   upcomingIds: number[],
   userPicked: boolean,
+  pausedIds: number[] = [],
 ): number | null | undefined {
   const id = Number(storeCycleId);
   if (userPicked) return storeCycleId;
-  if (openIds.includes(id)) return storeCycleId;
+  if (openIds.includes(id) || pausedIds.includes(id)) return storeCycleId;
   if (openIds.length > 0) return openIds[0];
+  // 已停止投递但还在时间内的周期排在预告前面：它是「当前这届」，
+  // 投过的同学要在这里看自己的简历和进度
+  if (pausedIds.length > 0) return pausedIds[0];
   if (upcomingIds.length > 0) return upcomingIds[0];
   return storeCycleId;
 }
@@ -81,6 +105,8 @@ export function resolveActiveCycleId(
 export type PublishEmptyState =
   /** 没有任何开放或预告周期：整站现在没有招新 */
   | 'no-recruitment'
+  /** 落点周期已停止投递（时间未过），本人没投过：不能再新建，但周期本身还在 */
+  | 'paused-no-resume'
   /** 有别的周期在开放/预告，只是当前落点这一届已结束且本人没投过 */
   | 'ended-no-resume'
   /** 周期列表没拿到（接口失败）：说不清现在有没有招新，不能冒充「已结束」 */
@@ -94,7 +120,9 @@ export function resolvePublishEmptyState(args: {
   cycleListsFailed: boolean;
 }): PublishEmptyState | null {
   const { phase, hasResume, openCount, upcomingCount, cycleListsFailed } = args;
-  if (phase !== 'ended' || hasResume) return null;
+  if (hasResume) return null;
+  if (phase === 'paused') return 'paused-no-resume';
+  if (phase !== 'ended') return null;
   if (cycleListsFailed) return 'cycles-unavailable';
   if (openCount === 0 && upcomingCount === 0) return 'no-recruitment';
   return 'ended-no-resume';

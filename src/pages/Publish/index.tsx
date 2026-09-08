@@ -43,6 +43,7 @@ import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
 import {
   CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId, resolvePublishEmptyState,
+  splitVisibleCycles,
 } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
 import NoOpenCycleNotice from './components/NoOpenCycleNotice';
@@ -612,13 +613,15 @@ const Publish: React.FC = () => {
       setCycleListsFailed(openOrNull == null || upcomingOrNull == null);
       const open = (openOrNull ?? []) as typeof openCycles;
       const upcoming = (upcomingOrNull ?? []) as typeof openCycles;
-      const openIds = open.map((c) => Number(c.cycleId));
+      // /open 列表里混着「已停止投递但时间未过」的周期（intakeOpen=false）：
+      // 它们可见、可看自己的简历，但不可投，所以要和真正开放的分开
+      const { openIds, pausedIds } = splitVisibleCycles(open);
       const upcomingIds = upcoming.map((c) => Number(c.cycleId));
       // 落点规则与理由见 resolveActiveCycleId（有回归测试）
-      const cid = Number(resolveActiveCycleId(cycleId, openIds, upcomingIds, userPickedCycle));
+      const cid = Number(resolveActiveCycleId(cycleId, openIds, upcomingIds, userPickedCycle, pausedIds));
 
       // 没有任何开放周期时 cid 会回退到历史/未开始周期——那只用于展示，必须锁死编辑
-      const phase = resolveCyclePhase(cid, openIds, upcomingIds);
+      const phase = resolveCyclePhase(cid, openIds, upcomingIds, pausedIds);
       setCyclePhase(phase);
       setUpcomingCycles(upcoming);
 
@@ -1421,10 +1424,11 @@ const Publish: React.FC = () => {
         cycles={switchableCycles as any}
         value={Number(cycleId)}
         onChange={(id) => dispatch(setSelectedCycle(id))}
-        openCount={(openCycles ?? []).length}
+        openCount={(openCycles ?? []).filter((c) => c.intakeOpen !== false).length}
         statusOf={(id) => {
-          const open = (openCycles ?? []).some((c) => Number(c.cycleId) === Number(id));
-          if (!open) return '已结束 · 可查看';
+          const visible = (openCycles ?? []).find((c) => Number(c.cycleId) === Number(id));
+          if (!visible) return '已结束 · 可查看';
+          if (visible.intakeOpen === false) return '已停止投递 · 可查看';
           return submittedCycleIds.has(Number(id)) ? '已投递' : undefined;
         }}
       />
