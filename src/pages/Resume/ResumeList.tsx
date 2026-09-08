@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   List,
-  Avatar,
   Tag,
   Button,
   Space,
@@ -20,7 +19,6 @@ import {
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
-  UserOutlined,
   CalendarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -37,6 +35,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import { getAllCycles } from '@/api/manage/cycleApis';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
+import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
+import ResumePhotoAvatar from '@/components/ResumePhotoAvatar';
 import './index.scss';
 
 const { Text, Title } = Typography;
@@ -502,6 +502,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 const rawDeptValue = getFieldValueFromResume(resume, '期望部门');
                 const parsedDept = parseExpectedDepartments(rawDeptValue);
                 const email = getFieldValueFromResume(resume, '邮箱') || (resume as any).userEmail;
+                // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
+                // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
+                const photo = getFieldValueFromResume(resume, '个人照片');
 
                 return (
                   <List.Item key={String(resume.resumeId)}>
@@ -519,11 +522,18 @@ const ResumeList: React.FC<ResumeListProps> = ({
                               {
                                 key: 'word',
                                 label: '下载 Word',
-                                onClick: () =>
-                                  exportResumeAsDOCX(buildExportDataFromSimpleFields((resume as any).simpleFields, {
+                                onClick: async () => {
+                                  const data = buildExportDataFromSimpleFields((resume as any).simpleFields, {
                                     userName: (resume as any).userName,
                                     userEmail: (resume as any).userEmail,
-                                  })),
+                                  });
+                                  // 照片是 COS objectKey 时先取回内嵌用的 dataURL；
+                                  // 历史 base64 已由 buildExportDataFromSimpleFields 拾取
+                                  if (!data.photoBase64) {
+                                    data.photoBase64 = await resolveResumePhotoDataUrl(Number(resume.resumeId), photo);
+                                  }
+                                  await exportResumeAsDOCX(data);
+                                },
                               },
                             ],
                           }}
@@ -533,7 +543,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
                       ]}
                     >
                       <Card.Meta
-                        avatar={<Avatar size="large" icon={<UserOutlined />} />}
+                        avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={
                           <Space>
                             <Text strong>{name || '未提供姓名'}</Text>

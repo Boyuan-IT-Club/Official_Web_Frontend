@@ -5,6 +5,8 @@ import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Modal, 
 import { updateResumeScore } from '@/api/manage/resumeEntry';
 import { ScoreEntry, myScoreOf, scorerLabel } from './scorePanel';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
+import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
+import { useResumePhoto } from '@/hooks/useResumePhoto';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import {
   UserOutlined,
@@ -169,14 +171,16 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
   const [savedScore, setSavedScore] = useState<number | undefined>(initialMyScore);
   const [scoreSaving, setScoreSaving] = useState(false);
 
+  // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
+  // hook 内部两种都解析成可渲染的 URL。hook 必须在下面的 early return 之前调用
+  const photoValue = resume ? getFieldValueFromResume(resume, '个人照片') : '';
+  const photoUrl = useResumePhoto(resume?.resumeId, photoValue);
+
   if (!resume) {
     return <div className="coming-soon">请选择要查看的简历</div>;
   }
 
   // 审核按钮已移除：录取与否在「面试管理 → 结果与通知」中决定
-
-  // 提取数据
-  const photoBase64 = getFieldValueFromResume(resume, '个人照片');
   const departments = {
     first: getFieldValueFromResume(resume, '第一志愿'),
     second: getFieldValueFromResume(resume, '第二志愿'),
@@ -236,12 +240,17 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
           <Button
             type="default"
             icon={<DownloadOutlined />}
-            onClick={() =>
-              exportResumeAsDOCX(buildExportDataFromSimpleFields(resume.simpleFields as any, {
+            onClick={async () => {
+              const data = buildExportDataFromSimpleFields(resume.simpleFields as any, {
                 userName: (resume as any).userName,
                 userEmail: (resume as any).userEmail,
-              }))
-            }
+              });
+              // 照片是 COS objectKey 时先取回内嵌用的 dataURL；历史 base64 已被拾取
+              if (!data.photoBase64) {
+                data.photoBase64 = await resolveResumePhotoDataUrl(Number(resume.resumeId), photoValue);
+              }
+              await exportResumeAsDOCX(data);
+            }}
           >
             下载 Word
           </Button>
@@ -349,11 +358,11 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
           <div className="resume-header">
             <Row gutter={24} align="middle">
               <Col xs={24} md={6}>
-                {photoBase64 ? (
+                {photoUrl ? (
                   <Image
                     width={120}
                     height={160}
-                    src={photoBase64}
+                    src={photoUrl}
                     alt="个人照片"
                     style={{ objectFit: 'cover', border: '1px solid #f0f0f0' }}
                   />
