@@ -298,55 +298,89 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
   }
 }
 // ── 简历打分面板 ─────────────────────────────────────────────────────────
-// 打分是审核动线的主操作，独占一行、放在简历内容上方，
-// 而不是原先塞在卡片 extra 里的一个小输入框（几乎没人注意到）。
+// 打分是审核动线的主操作。吸顶：往下读简历时它一直贴在视口顶部，
+// 看完直接打分，不用再滑回去（这正是它存在的位置意义）。
 .resume-score-panel {
+  position: sticky;
+  top: 12px;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px 20px;
   flex-wrap: wrap;
   margin-bottom: 16px;
-  padding: 14px 20px;
-  background: linear-gradient(90deg, #f0f5ff 0%, #ffffff 60%);
-  border: 1px solid #adc6ff;
-  border-radius: 10px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid #e6eaf2;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(23, 43, 99, 0.10);
 
-  .score-panel-main {
+  .score-panel-left {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 12px;
+    min-width: 0;
   }
 
-  .score-panel-label {
+  // 平均分徽章：分数一眼可见，颜色分档与列表的分数 Tag 一致
+  .score-badge {
+    flex: none;
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+
+    &--high { background: #389e6d; }
+    &--mid  { background: #2f6bd8; }
+    &--low  { background: #d4842a; }
+    &--empty {
+      background: transparent;
+      border: 1.5px dashed #c3cad6;
+      color: rgba(0, 0, 0, 0.35);
+      font-size: 13px;
+      font-weight: 500;
+    }
+  }
+
+  .score-panel-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .score-panel-title {
     font-size: 14px;
     font-weight: 600;
-    color: #1d39c4;
-  }
-
-  .score-panel-value {
-    font-size: 30px;
-    font-weight: 700;
-    color: #1d39c4;
-    font-variant-numeric: tabular-nums;
-
-    &--empty {
-      font-size: 16px;
-      font-weight: 500;
-      color: rgba(0, 0, 0, 0.35);
-    }
+    color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
   }
 
   .score-panel-by {
     font-size: 12px;
+    font-weight: 400;
     color: rgba(0, 0, 0, 0.45);
   }
 
+  .score-panel-none {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.35);
+  }
+
   .score-panel-entries {
-    display: inline-flex;
+    display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-left: 8px;
   }
 
   .score-panel-entry {
@@ -354,9 +388,21 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
     line-height: 20px;
     padding: 0 8px;
     border-radius: 10px;
-    background: rgba(0, 0, 0, 0.045);
+    background: #f2f5fa;
     color: rgba(0, 0, 0, 0.65);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+
+    b { font-weight: 600; color: rgba(0, 0, 0, 0.85); }
+  }
+
+  .score-panel-mine {
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.55);
+  }
+
+  // 窄屏时按钮组换行后与左侧对齐
+  .score-panel-actions {
+    row-gap: 8px;
   }
 }

@@ -260,35 +260,38 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
         </Space>
       </div>
 
-      {/* 简历打分面板：审核动线的主操作，做成整行显眼面板而不是角落小控件。
+      {/* 简历打分面板：审核动线的主操作。
+          吸顶跟随滚动——看完整份简历不用再滑回顶部才能打分。
           resume_score 的唯一写入口；署名与时间来自后端（V30 起记录）。 */}
       <div className="resume-score-panel">
-        <div className="score-panel-main">
-          <span className="score-panel-label">简历评分</span>
-          <span className={`score-panel-value${avgScore == null ? ' score-panel-value--empty' : ''}`}>
-            {avgScore == null ? '未打分' : avgScore}
-          </span>
-          {entries.length > 0 && (
-            <span className="score-panel-by">
-              {entries.length} 人打分的平均
-            </span>
-          )}
-          {/* 逐人明细：谁打了几分。多人打分的核心诉求就是这行可追溯 */}
-          {entries.length > 0 && (
-            <span className="score-panel-entries">
-              {entries.map((e) => (
+        <div className="score-panel-left">
+          <div className={`score-badge score-badge--${
+            avgScore == null ? 'empty' : avgScore >= 85 ? 'high' : avgScore >= 60 ? 'mid' : 'low'
+          }`}>
+            {avgScore == null ? '未评' : avgScore}
+          </div>
+          <div className="score-panel-info">
+            <div className="score-panel-title">
+              简历评分
+              {entries.length > 0 && <span className="score-panel-by">{entries.length} 人平均</span>}
+            </div>
+            {/* 逐人明细：谁打了几分。多人打分的核心诉求就是这行可追溯 */}
+            <div className="score-panel-entries">
+              {entries.length === 0 ? (
+                <span className="score-panel-none">还没有人打分</span>
+              ) : entries.map((e) => (
                 <span key={e.scorerId} className="score-panel-entry">
-                  {scorerLabel(e)} {e.score}
+                  {scorerLabel(e)} <b>{e.score}</b>
                 </span>
               ))}
-            </span>
-          )}
+            </div>
+          </div>
         </div>
-        <Space size={8}>
+        <Space size={8} wrap className="score-panel-actions">
+          <span className="score-panel-mine">我的打分</span>
           <InputNumber
             min={0}
             max={100}
-            size="large"
             placeholder="0~100"
             value={score}
             onChange={(v) => setScore(v == null ? undefined : Number(v))}
@@ -296,7 +299,6 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
             onPressEnter={() => { /* 交给保存按钮统一处理，避免重复提交 */ }}
           />
           <Button
-            size="large"
             type="primary"
             loading={scoreSaving}
             disabled={score == null || score === savedScore}
@@ -338,18 +340,18 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
           </Button>
           {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位未打分的 */}
           {onNextUngraded && (
-            <Button size="large" onClick={() => onNextUngraded()}>
+            <Button onClick={() => onNextUngraded()}>
               {`下一位未打分${nextUngradedName ? `：${nextUngradedName}` : ''}`}
             </Button>
           )}
           {/* 顺序浏览：已打过分的也能一路翻下去复查，不被「未打分」过滤挡住。
               全部打完时它就是唯一的前进键。 */}
           {onNext ? (
-            <Button size="large" onClick={() => onNext()}>
+            <Button onClick={() => onNext()}>
               {`下一位${nextName ? `：${nextName}` : ''}`}
             </Button>
           ) : (
-            !onNextUngraded && <Button size="large" disabled>没有其他简历</Button>
+            !onNextUngraded && <Button disabled>没有其他简历</Button>
           )}
         </Space>
       </div>
