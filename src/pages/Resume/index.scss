@@ -341,4 +341,22 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
     font-size: 12px;
     color: rgba(0, 0, 0, 0.45);
   }
+
+  .score-panel-entries {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-left: 8px;
+  }
+
+  .score-panel-entry {
+    font-size: 12px;
+    line-height: 20px;
+    padding: 0 8px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.045);
+    color: rgba(0, 0, 0, 0.65);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
 }
