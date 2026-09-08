@@ -9,6 +9,7 @@ import {
   message,
 } from "antd";
 import {
+  AuditOutlined,
   UserOutlined,
   TeamOutlined,
   FolderOpenOutlined,
@@ -54,6 +55,7 @@ const MENU_DEFS: Array<{
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
   { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
   { key: "/agent-admin", icon: <ControlOutlined />, label: "Agent 管理", anyOf: ["agent:monitor", "kb:manage"] }, // RAG #134:kb:manage 单独授权也能见知识库 Tab
+  { key: "/evaluation-review", icon: <AuditOutlined />, label: "简历评估", anyOf: ["resume:audit", "interview:evaluate"] }, // B #135
 ];
 
 // 首次进管理端的欢迎说明：按一轮招新的先后顺序讲每个模块干什么。

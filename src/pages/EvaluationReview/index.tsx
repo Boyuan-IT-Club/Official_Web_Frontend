@@ -1,0 +1,381 @@
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  Button,
+  Drawer,
+  Empty,
+  Input,
+  Modal,
+  Radio,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from "antd";
+import {
+  BookOutlined,
+  CheckOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
+import dayjs from "dayjs";
+import type { ColumnsType } from "antd/es/table";
+import {
+  ScorecardDetail,
+  ScorecardRow,
+  adoptEvaluation,
+  getEvaluationQbank,
+  getEvaluationScorecard,
+  listEvaluationQueue,
+  pickQuestions,
+  rejectEvaluation,
+} from "@/api/manage/evaluationApis";
+
+const { Text, Paragraph } = Typography;
+
+const STATUS_TAG: Record<string, { color: string; text: string }> = {
+  draft: { color: "default", text: "待评审" },
+  adopted: { color: "success", text: "已采纳" },
+  rejected: { color: "error", text: "已驳回" },
+};
+
+const VERDICT_TEXT: Record<string, string> = {
+  sincere: "态度端正",
+  perfunctory: "态度敷衍",
+  bad_faith: "态度不端",
+};
+
+/** 简历评估评审队列(B 模块 #135,#128):0 分队列/维卡/采纳/驳回/题库勾选。
+ * 权限:评审动作 resume:audit;面试官 interview:evaluate 只读维卡与题库。 */
+const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
+  const [cycleId, setCycleId] = useState<number>(2026);
+  const [queue, setQueue] = useState<"all" | "zero">("all");
+  const [rows, setRows] = useState<ScorecardRow[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const [detail, setDetail] = useState<ScorecardDetail | null>(null);
+  const [detailResume, setDetailResume] = useState<number | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [qbankOpen, setQbankOpen] = useState(false);
+  const [qbank, setQbank] = useState<any>(null);
+
+  const load = useCallback(
+    async (cid = cycleId, q = queue) => {
+      setLoading(true);
+      try {
+        const res: any = await listEvaluationQueue(cid, q);
+        setRows(res?.data?.items ?? []);
+      } catch (e: any) {
+        message.error(e?.message || "加载评审队列失败");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cycleId, queue]
+  );
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const openDetail = async (row: ScorecardRow) => {
+    setDetailResume(row.resume_id);
+    setDetailOpen(true);
+    setDetail(null);
+    try {
+      const res: any = await getEvaluationScorecard(row.resume_id, cycleId);
+      setDetail(res?.data ?? null);
+    } catch (e: any) {
+      message.error(e?.message || "加载评分卡失败");
+    }
+  };
+
+  const openQbank = async (row: ScorecardRow) => {
+    setDetailResume(row.resume_id);
+    setQbankOpen(true);
+    setQbank(null);
+    try {
+      const res: any = await getEvaluationQbank(row.resume_id, cycleId);
+      setQbank(res?.data ?? null);
+    } catch (e: any) {
+      message.error(e?.message || "该候选暂无预置题库");
+    }
+  };
+
+  const doAdopt = (row: ScorecardRow) => {
+    let score = Math.round(row.total ?? 0);
+    Modal.confirm({
+      title: `采纳 AI 参考分并投本人一票`,
+      content: (
+        <div>
+          <Paragraph type="secondary">
+            将以你的身份向简历 #{row.resume_id} 投一票
+            （终分 = 全部评审票平均）。可在下方改为人工分数。
+          </Paragraph>
+          <Input
+            defaultValue={String(score)}
+            type="number"
+            min={0}
+            max={100}
+            onChange={(e) => {
+              score = Number(e.target.value);
+            }}
+          />
+        </div>
+      ),
+      onOk: async () => {
+        try {
+          await adoptEvaluation(row.resume_id, cycleId, score, row.card_version);
+          message.success("已采纳并投一票");
+          load();
+        } catch (e: any) {
+          message.error(e?.message || "采纳失败");
+        }
+      },
+    });
+  };
+
+  const doReject = (row: ScorecardRow) => {
+    Modal.confirm({
+      title: "驳回该 AI 参考分?",
+      content: "驳回后卡置为已驳回,可重新触发初筛生成新版本。",
+      onOk: async () => {
+        try {
+          await rejectEvaluation(row.resume_id, cycleId, row.card_version);
+          message.success("已驳回");
+          load();
+        } catch (e: any) {
+          message.error(e?.message || "驳回失败");
+        }
+      },
+    });
+  };
+
+  const doPick = async (resumeId: number, q: any) => {
+    try {
+      await pickQuestions({
+        resume_id: resumeId,
+        cycle_id: cycleId,
+        questions: [
+          { anchor: q.anchor, question: q.question, evidence_path: q.evidence?.path },
+        ],
+      });
+      message.success("已勾选(记入 pick log)");
+    } catch (e: any) {
+      message.error(e?.message || "勾选失败");
+    }
+  };
+
+  const columns: ColumnsType<ScorecardRow> = [
+    { title: "简历 ID", dataIndex: "resume_id", width: 90 },
+    { title: "卡版本", dataIndex: "card_version", width: 80 },
+    {
+      title: "状态",
+      dataIndex: "status",
+      width: 90,
+      render: (v: string) => (
+        <Tag color={STATUS_TAG[v]?.color}>{STATUS_TAG[v]?.text ?? v}</Tag>
+      ),
+    },
+    {
+      title: "初筛",
+      dataIndex: "hard_zero",
+      width: 100,
+      render: (v: boolean) =>
+        v ? <Tag color="red">初筛不过</Tag> : <Tag color="green">通过</Tag>,
+    },
+    {
+      title: "AI 参考总分",
+      dataIndex: "total",
+      width: 110,
+      render: (v: number | null) => (v === null ? "-" : <b>{v}</b>),
+    },
+    {
+      title: "生成时间",
+      dataIndex: "created_at",
+      width: 150,
+      render: (v: string) => (v ? dayjs(v).format("MM-DD HH:mm") : "-"),
+    },
+    {
+      title: "操作",
+      key: "actions",
+      width: 250,
+      render: (_: unknown, r) => (
+        <Space>
+          <Button size="small" type="link" onClick={() => openDetail(r)}>
+            维卡
+          </Button>
+          <Button size="small" type="link" icon={<BookOutlined />} onClick={() => openQbank(r)}>
+            题库
+          </Button>
+          <Button size="small" type="primary" ghost onClick={() => doAdopt(r)}>
+            采纳
+          </Button>
+          <Button size="small" danger ghost onClick={() => doReject(r)}>
+            驳回
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
+  const table = (
+    <>
+      <Space style={{ marginBottom: 12 }} wrap>
+        <Input.Search
+          allowClear
+          style={{ width: 160 }}
+          defaultValue="2026"
+          prefix="周期"
+          onSearch={(v) => {
+            const cid = Number(v) || 2026;
+            setCycleId(cid);
+            load(cid, queue);
+          }}
+        />
+        <Radio.Group
+          value={queue}
+          optionType="button"
+          buttonStyle="solid"
+          onChange={(e) => {
+            setQueue(e.target.value);
+            load(cycleId, e.target.value);
+          }}
+          options={[
+            { value: "all", label: "全部" },
+            { value: "zero", label: "0 分/初筛不过" },
+          ]}
+        />
+        <Button icon={<ReloadOutlined />} onClick={() => load()} />
+      </Space>
+      <Table
+        rowKey={(r) => `${r.resume_id}-${r.card_version}`}
+        size="small"
+        loading={loading}
+        columns={columns}
+        dataSource={rows}
+        locale={{ emptyText: <Empty description="暂无评分卡;先在评测任务里触发初筛" /> }}
+        pagination={{ pageSize: 10, showSizeChanger: false }}
+      />
+    </>
+  );
+
+  const detailDrawer = (
+    <Drawer
+      title={`评分卡:简历 #${detailResume ?? ""}`}
+      width={560}
+      open={detailOpen}
+      onClose={() => setDetailOpen(false)}
+    >
+      {!detail ? (
+        <Empty description="加载中/无数据" />
+      ) : (
+        <div>
+          <Space style={{ marginBottom: 12 }}>
+            <Tag color={STATUS_TAG[detail.status]?.color}>
+              {STATUS_TAG[detail.status]?.text ?? detail.status}
+            </Tag>
+            {detail.hard_zero ? <Tag color="red">初筛不过</Tag> : null}
+            <Text strong>AI 参考总分:{detail.total ?? "-"}</Text>
+          </Space>
+          {(detail.card?.dimensions ?? []).map((d) => (
+            <div
+              key={d.field_key}
+              style={{
+                border: "1px solid #f0f0f0",
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 8,
+              }}
+            >
+              <Space>
+                <Text strong>{d.field_key}</Text>
+                <Tag color="blue">{d.score} 分</Tag>
+              </Space>
+              <Paragraph style={{ marginBottom: 4 }}>{d.rationale}</Paragraph>
+              <Paragraph type="secondary" style={{ marginBottom: 0 }} italic>
+                依据:「{d.evidence}」
+              </Paragraph>
+            </div>
+          ))}
+          <Paragraph type="secondary">
+            态度:{VERDICT_TEXT[detail.card?.attitude?.verdict] ?? "-"}
+            {detail.card?.attitude?.reason ? ` — ${detail.card.attitude.reason}` : ""}
+          </Paragraph>
+        </div>
+      )}
+    </Drawer>
+  );
+
+  const qbankDrawer = (
+    <Drawer
+      title={
+        <Space>
+          <BookOutlined /> 预置题库:简历 #{detailResume ?? ""}
+        </Space>
+      }
+      width={560}
+      open={qbankOpen}
+      onClose={() => setQbankOpen(false)}
+    >
+      {!qbank || !(qbank.envelope?.questions ?? []).length ? (
+        <Empty description="暂无预置题(或该维被跳过)" />
+      ) : (
+        (qbank.envelope.questions as any[]).map((q, i) => (
+          <div
+            key={i}
+            style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: 12, marginBottom: 8 }}
+          >
+            <Space style={{ marginBottom: 4 }}>
+              <Tag color="purple">{q.anchor}</Tag>
+              {q.evidence?.path ? <Tag>{q.evidence.path}</Tag> : null}
+              <Text type="secondary">{q.time_minutes ?? 3} 分钟</Text>
+            </Space>
+            <Paragraph strong style={{ marginBottom: 4 }}>
+              {q.question}
+            </Paragraph>
+            {q.answer_reference ? (
+              <Paragraph type="secondary" style={{ marginBottom: 4 }}>
+                好答:{q.answer_reference.strong} / 达标:{q.answer_reference.acceptable} / 弱:
+                {q.answer_reference.weak}
+              </Paragraph>
+            ) : null}
+            <Button
+              size="small"
+              icon={<CheckOutlined />}
+              onClick={() => doPick(detailResume ?? Number(q.resume_id), q)}
+            >
+              勾选此题
+            </Button>
+          </div>
+        ))
+      )}
+    </Drawer>
+  );
+
+  if (embedded) {
+    return (
+      <>
+        {table}
+        {detailDrawer}
+        {qbankDrawer}
+      </>
+    );
+  }
+  return (
+    <div>
+      <Typography.Title level={4} style={{ marginTop: 0 }}>
+        简历评估评审队列
+      </Typography.Title>
+      <Paragraph type="secondary" style={{ marginTop: 0 }}>
+        AI 参考分仅供复核;采纳 = 以你本人身份投一票,终分为全部评审票平均(权限
+        resume:audit)。0 分队列 = 初筛不过,不自动拒,可人工改判。
+      </Paragraph>
+      {table}
+      {detailDrawer}
+      {qbankDrawer}
+    </div>
+  );
+};
+
+export default EvaluationReview;
