@@ -154,10 +154,13 @@ type ResumeDetailProps = {
   nextUngradedName?: string | null;
   /** 跳到下一位未打分同学。未提供表示没有下一位 */
   onNextUngraded?: () => void;
+  /** 顺序里的下一位（含已打分），复查时用 */
+  nextName?: string | null;
+  onNext?: () => void;
 };
 
 // --- 主要组件 ---
-const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded }) => {
+const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext }) => {
   const dispatch = useDispatch<any>();
 
   // 多人打分：resumeScore 是平均分，输入框编辑的是「我这一票」。
@@ -333,16 +336,21 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
           >
             {savedScore == null ? '保存我的打分' : '更新我的打分'}
           </Button>
-          {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位 */}
-          <Button
-            size="large"
-            disabled={!onNextUngraded}
-            onClick={() => onNextUngraded?.()}
-          >
-            {onNextUngraded
-              ? `下一位${nextUngradedName ? `：${nextUngradedName}` : '未打分'}`
-              : '已全部打分'}
-          </Button>
+          {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位未打分的 */}
+          {onNextUngraded && (
+            <Button size="large" onClick={() => onNextUngraded()}>
+              {`下一位未打分${nextUngradedName ? `：${nextUngradedName}` : ''}`}
+            </Button>
+          )}
+          {/* 顺序浏览：已打过分的也能一路翻下去复查，不被「未打分」过滤挡住。
+              全部打完时它就是唯一的前进键。 */}
+          {onNext ? (
+            <Button size="large" onClick={() => onNext()}>
+              {`下一位${nextName ? `：${nextName}` : ''}`}
+            </Button>
+          ) : (
+            !onNextUngraded && <Button size="large" disabled>没有其他简历</Button>
+          )}
         </Space>
       </div>
 

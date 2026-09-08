@@ -47,6 +47,25 @@ export function findNextUngraded(
   ) ?? null;
 }
 
+/**
+ * 顺序里的下一位同学——不管打没打过分。
+ *
+ * 打分动线用「下一位未打分」跳过已完成的；但复查/对比时恰恰要看
+ * 已打过分的人（「已经打过分的也能翻到下一位」），这条路径按列表
+ * 顺序回绕遍历，只排除当前这位本人。
+ */
+export function findNextSequential(
+  resumes: ResumeItem[],
+  current: ResumeItem | null,
+): ResumeItem | null {
+  if (!current || !resumes || resumes.length === 0) return null;
+  const at = resumes.findIndex((r) => String(r.resumeId) === String(current.resumeId));
+  const ordered = at < 0
+    ? resumes
+    : [...resumes.slice(at + 1), ...resumes.slice(0, at)];
+  return ordered.find((r) => String(r.resumeId) !== String(current.resumeId)) ?? null;
+}
+
 const Resume: React.FC = () => {
   const dispatch = useDispatch<any>();
   const [selectedResume, setSelectedResume] = useState<ResumeItem | null>(null);
@@ -83,6 +102,16 @@ const Resume: React.FC = () => {
   const handleNextUngraded = useCallback((): void => {
     if (nextUngraded) setSelectedResume(nextUngraded);
   }, [nextUngraded]);
+
+  // 顺序浏览的下一位（含已打分的），复查时用
+  const nextSequential = useMemo<ResumeItem | null>(
+    () => findNextSequential(resumes, selectedResume),
+    [resumes, selectedResume],
+  );
+
+  const handleNextSequential = useCallback((): void => {
+    if (nextSequential) setSelectedResume(nextSequential);
+  }, [nextSequential]);
 
   const handleBackToList = (): void => {
     // eslint-disable-next-line no-console
@@ -127,6 +156,14 @@ const Resume: React.FC = () => {
               : null
           }
           onNextUngraded={nextUngraded ? handleNextUngraded : undefined}
+          nextName={
+            nextSequential
+              ? (nextSequential as any).simpleFields?.find(
+                (f: SimpleField) => f.fieldKey === 'name',
+              )?.fieldValue ?? `简历 #${nextSequential.resumeId}`
+              : null
+          }
+          onNext={nextSequential ? handleNextSequential : undefined}
         />
       ) : (
         <ResumeList

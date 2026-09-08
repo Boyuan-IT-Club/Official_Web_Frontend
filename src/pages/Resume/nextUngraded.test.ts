@@ -1,5 +1,5 @@
 // 「下一位未打分」的选人逻辑。容易错的是回绕与「别绕回刚打完的人」。
-import { findNextUngraded, ResumeItem } from './index';
+import { findNextSequential, findNextUngraded, ResumeItem } from './index';
 
 const r = (id: number, score: number | null): ResumeItem =>
   ({ resumeId: id, status: 2, resumeScore: score } as unknown as ResumeItem);
@@ -43,5 +43,23 @@ describe('下一位未打分', () => {
   it('空列表或无当前项都返回 null，不抛错', () => {
     expect(findNextUngraded([], r(1, null))).toBeNull();
     expect(findNextUngraded([r(1, null)], null)).toBeNull();
+  });
+});
+
+describe('顺序浏览的下一位（含已打分）', () => {
+  it('已打过分的人也会被翻到——复查场景不被「未打分」过滤挡住', () => {
+    const list = [r(1, 80), r(2, 90), r(3, null)];
+    expect(findNextSequential(list, list[0])?.resumeId).toBe(2);
+  });
+
+  it('末尾回绕到开头', () => {
+    const list = [r(1, 80), r(2, 90)];
+    expect(findNextSequential(list, list[1])?.resumeId).toBe(1);
+  });
+
+  it('列表只有当前一个人时返回 null，而不是绕回自己', () => {
+    const list = [r(1, 80)];
+    expect(findNextSequential(list, list[0])).toBeNull();
+    expect(findNextSequential([], list[0])).toBeNull();
   });
 });
