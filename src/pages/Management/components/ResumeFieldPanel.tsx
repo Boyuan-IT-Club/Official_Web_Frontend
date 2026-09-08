@@ -1,6 +1,6 @@
 // ResumeFieldPanel.tsx
 import React, { useEffect } from 'react';
-import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Typography, InputNumber, Badge, Select, Radio, Checkbox, Modal, Dropdown, Tooltip } from 'antd';
+import { Form, Card, Row, Col, Input, Switch, Button, Space, message, Typography, InputNumber, Badge, Select, Radio, Checkbox, Modal, Dropdown, Tooltip, Tag } from 'antd';
 import {
   DeleteOutlined,
   PlusOutlined,
@@ -24,6 +24,7 @@ import {
   FIELD_KEY_CATEGORY_MAP,
   fieldTypeNeedsOptions,
   parseFieldOptions,
+  SYSTEM_RESUME_FIELD_KEYS,
 } from '@/api/manage/resumeEntry';
 
 // 拖拽排序相关库
@@ -247,6 +248,13 @@ const SortableItem: React.FC<{
             >
               {editing ? '收起' : '编辑'}
             </Button>
+            {SYSTEM_RESUME_FIELD_KEYS.includes(field?.fieldKey ?? '') ? (
+              /* 系统字段是别的功能的存储位（如期望部门 = 面试意向的同步目标），
+                 删了链路会断；挂标签说明并禁用删除入口 */
+              <Tooltip title="系统字段：由面试意向同步写入，不在表单显示，不可删除">
+                <Tag color="default" style={{ marginInlineStart: 4 }}>系统</Tag>
+              </Tooltip>
+            ) : (
             <Dropdown
               trigger={["click"]}
               menu={{
@@ -269,6 +277,7 @@ const SortableItem: React.FC<{
             >
               <Button type="text" size="small" icon={<MoreOutlined />} />
             </Dropdown>
+            )}
           </Space>
         }
       >
@@ -363,18 +372,23 @@ const CategoryCard: React.FC<{
   fieldsMeta: any[];
   form: any;
   onDelete: (index: number) => void;
+  onDeleteCategory: (category: number) => void;
   onSortOrderChange: (value: number | null, index: number) => void;
   fieldTypeOptions: { value: ResumeFieldType; label: string }[];
   categoryName?: string;
+  /** 左侧「添加到」当前选中的分类：它即使空着也要显示，否则加字段没有落点 */
+  targetCategory?: number;
 }> = ({
   category,
   fields,
   fieldsMeta,
   form,
   onDelete,
+  onDeleteCategory,
   onSortOrderChange,
   fieldTypeOptions,
   categoryName,
+  targetCategory,
 }) => {
   const config = CATEGORY_CONFIG[category];
   const name = config?.name || categoryName || `分类 ${category}`;
@@ -408,21 +422,52 @@ const CategoryCard: React.FC<{
     </Space>
   );
 
-  const collapseBtn = (
-    <Button
-      type="text"
-      size="small"
-      icon={collapsed ? <RightOutlined /> : <DownOutlined />}
-      onClick={() => setCollapsed((v) => !v)}
-    />
+  // 系统字段不算「可删」，整类删除时也会跳过它们
+  const deletableCount = categoryFieldsWithMeta
+    .filter(({ field }) => !SYSTEM_RESUME_FIELD_KEYS.includes(field?.fieldKey ?? '')).length;
+
+  const extraNode = (
+    <Space size={0}>
+      {deletableCount > 0 && (
+        <Tooltip title={`删除本分类的 ${deletableCount} 个字段`}>
+          <Button
+            type="text"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => {
+              Modal.confirm({
+                title: `删除「${name}」分类的字段`,
+                content: `将删除该分类下的 ${deletableCount} 个字段（系统字段除外），已填写的历史答案不受影响。确定？`,
+                okText: '删除',
+                okType: 'danger',
+                cancelText: '取消',
+                onOk() { onDeleteCategory(category); },
+              });
+            }}
+          />
+        </Tooltip>
+      )}
+      <Button
+        type="text"
+        size="small"
+        icon={collapsed ? <RightOutlined /> : <DownOutlined />}
+        onClick={() => setCollapsed((v) => !v)}
+      />
+    </Space>
   );
 
   if (categoryFieldsWithMeta.length === 0) {
+    // 空分类不再渲染一张空卡占位（「面试安排 0」就是这么来的）。
+    // 例外：左侧「添加到」正选中它 —— 加字段前得先看得见落点。
+    if (category !== targetCategory) {
+      return null;
+    }
     return (
       <Card
         className="resume-field-panel__category"
         title={titleNode}
-        extra={collapseBtn}
+        extra={extraNode}
       >
         {!collapsed && (
           <div className="resume-field-panel__empty">
@@ -438,7 +483,7 @@ const CategoryCard: React.FC<{
     <Card
       className={`resume-field-panel__category${collapsed ? ' is-collapsed' : ''}`}
       title={titleNode}
-      extra={collapseBtn}
+      extra={extraNode}
     >
       {!collapsed && (
         /*
@@ -555,6 +600,25 @@ const ResumeFieldPanel: React.FC<Props> = ({
     setNewCategoryName('');
     setCategoryModalOpen(false);
     message.success(`已新增分类「${name}」`);
+  };
+
+  /**
+   * 整类删除。系统字段（如期望部门）跳过——它们是别的功能的存储位。
+   * 自定义分类删空后连分类本身一起移除，「添加到」退回基本信息。
+   */
+  const deleteCategory = (category: number) => {
+    const current: ResumeFieldUI[] = form.getFieldValue('fields') || [];
+    const kept = current.filter(
+      (f) => f.category !== category || SYSTEM_RESUME_FIELD_KEYS.includes(f.fieldKey ?? ''),
+    );
+    const reordered = kept.map((field, idx) => ({ ...field, sortOrder: idx + 1 }));
+    form.setFieldsValue({ fields: reordered });
+    onFieldsChange?.(reordered);
+    if (category >= 100) {
+      setCustomCategories((prev) => prev.filter((c) => c.id !== category));
+      setTargetCategory((t) => (t === category ? 1 : t));
+    }
+    message.success('该分类的字段已删除，保存后生效');
   };
 
   const deleteField = (index: number) => {
@@ -782,8 +846,10 @@ const ResumeFieldPanel: React.FC<Props> = ({
                         fieldsMeta={fieldsMeta}
                         form={form}
                         onDelete={deleteField}
+                        onDeleteCategory={deleteCategory}
                         onSortOrderChange={handleSortOrderChange}
                         fieldTypeOptions={fieldTypeOptions}
+                        targetCategory={targetCategory}
                       />
                     ))}
                   </DndContext>

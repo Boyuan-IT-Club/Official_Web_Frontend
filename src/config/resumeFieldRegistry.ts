@@ -80,7 +80,8 @@ export const RESUME_FIELDS: FieldSpec[] = [
 
   { key: 'self_introduction', label: '自我介绍',  category: FieldCategory.Statement,  order: 10, widget: 'textarea', inForm: true,  inView: true, longText: true },
   { key: 'reason',            label: '加入理由',  category: FieldCategory.Statement,  order: 11, widget: 'textarea', inForm: true,  inView: true, longText: true },
-  { key: 'introduction',      label: '个人简介',  category: FieldCategory.Statement,  order: 12, widget: 'textarea', inForm: true,  inView: true, longText: true },
+  // 与自我介绍重复，2026-09 起不再进表单；inView 保留让老简历的答案照常显示
+  { key: 'introduction',      label: '个人简介',  category: FieldCategory.Statement,  order: 12, widget: 'textarea', inForm: false, inView: true, longText: true },
 
   { key: 'first_choice',      label: '第一志愿',  category: FieldCategory.Preference, order: 13, widget: 'department', inForm: true, inView: true },
   { key: 'second_choice',     label: '第二志愿',  category: FieldCategory.Preference, order: 14, widget: 'department', inForm: true, inView: true },
