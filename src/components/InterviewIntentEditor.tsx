@@ -45,11 +45,18 @@ const InterviewIntentEditor: React.FC<Props> = ({ open, cycleId, resumeId, onClo
         ]);
         if (cancelled) return;
         setDepts(d?.data ?? []);
-        setSlots(s?.data ?? []);
+        const openSlots: PreferenceTimeSlot[] = s?.data ?? [];
+        setSlots(openSlots);
         const p: MyPreference | null = mine?.data ?? null;
         setFirstDept(p?.firstDeptId ?? undefined);
         setSecondDept(p?.secondDeptId ?? undefined);
-        setSlotIds((p?.acceptedTimeSlots ?? []).map((x) => x.timeSlotId));
+        // 预填要和当前开放的时间窗求交集。「我的志愿」接口原样返回上次勾的
+        // 时间窗，其中可能有管理员后来关闭的——列表里不渲染它的复选框，
+        // 学生看不到也取消不掉，提交必被后端 3611 拒绝，卡死在这一步。
+        const openIds = new Set(openSlots.map((x) => x.timeSlotId));
+        setSlotIds((p?.acceptedTimeSlots ?? [])
+          .map((x) => x.timeSlotId)
+          .filter((id) => openIds.has(id)));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -90,7 +97,20 @@ const InterviewIntentEditor: React.FC<Props> = ({ open, cycleId, resumeId, onClo
       onClose();
       onSaved?.();
     } catch (e: any) {
-      message.error(e?.message || '保存失败');
+      if (e?.code === 3611) {
+        // 表单开着的时候管理员正好关了某个时间窗。刷新列表、剔除失效勾选，
+        // 让学生确认后能直接重交，而不是对着一条看不懂的报错干瞪眼
+        try {
+          const s: any = await listOpenTimeSlots(cycleId);
+          const fresh: PreferenceTimeSlot[] = s?.data ?? [];
+          setSlots(fresh);
+          const openIds = new Set(fresh.map((x) => x.timeSlotId));
+          setSlotIds((prev) => prev.filter((id) => openIds.has(id)));
+        } catch { /* 刷新失败就保持原样，至少报错还在 */ }
+        message.error('可选的面试时间刚有调整，已为你刷新，请确认勾选后重新提交');
+      } else {
+        message.error(e?.message || '保存失败');
+      }
     } finally {
       setSaving(false);
     }
