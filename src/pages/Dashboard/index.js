@@ -115,7 +115,12 @@ const Dashboard = () => {
   // 首页现在有切换器了，如果还是只在挂载时拉一次，切到另一个周期后进度卡的
   // resumeStatus 会停在上一个周期的数据（RecruitProgressCard 自己会按 cycleId
   // 重拉它那三个接口，但 resumeStatus 是从这里传进去的）。
-  const selectedCycleId = resumeState?.cycleId ?? null;
+  // 双保险：store 归零之外，再校验选中项确实在开放列表里——
+  // 防任何路径残留的旧周期号把历史数据当现状渲染
+  const openCycleIds = (resumeState?.openCycles ?? []).map((c) => Number(c.cycleId));
+  const rawCycleId = resumeState?.cycleId ?? null;
+  const selectedCycleId = rawCycleId != null && openCycleIds.includes(Number(rawCycleId))
+    ? Number(rawCycleId) : null;
 
   // 下一届招新预告。单独取而不是并进 openCycles：那个列表是「能不能投」的闸门。
   // 取不到就当没有下一届，静默跳过——预告缺失不该影响首页其余部分。

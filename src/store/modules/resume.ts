@@ -72,7 +72,8 @@ export interface AdminFetchResumesResult {
 export interface ResumeState {
   // 用户提交简历相关
   /** 当前选中的投递周期。同时开放多个时由用户在投递页选择 */
-  cycleId: number;
+  /** 当前选中的招募周期；null = 没有任何开放周期（此时不展示任何进度/结果） */
+  cycleId: number | null;
   /**
    * 当前周期是不是用户自己点选的。
    *
@@ -491,9 +492,10 @@ export const downloadResumePDF = createAsyncThunk<
 /** ===== Slice ===== */
 
 const initialState: ResumeState = {
-  // 这个初始值只在「还没拿到开放周期列表」的瞬间用一下；拿到后一律被覆盖。
-  // 不要依赖它 —— 它是周期动态化之前的硬编码遗留。
-  cycleId: 2,
+  // 初始为 null：拿到开放周期列表前不假设任何周期。
+  // 曾经硬编码为 2，导致周期全被删除后老周期的录取结果仍被当作
+  // 「当前状态」端上首页（用户实测截图）。
+  cycleId: null,
   cycleUserPicked: false,
   openCycles: [],
   fields: [],
@@ -644,8 +646,10 @@ const resumeSlice = createSlice({
         // 后续任何一次刷新悄悄重置掉。
         // 用户显式点过就完全不动 —— 他可能正在看一个已结束周期的历史投递。
         const stillOpen = list.some((c) => Number(c.cycleId) === Number(state.cycleId));
-        if (!state.cycleUserPicked && !stillOpen && list.length > 0) {
-          state.cycleId = Number(list[0].cycleId);
+        if (!state.cycleUserPicked && !stillOpen) {
+          // 开放列表为空时选中项必须归零——保留旧值就会拿已删除/已结束
+          // 周期的数据冒充当前状态
+          state.cycleId = list.length > 0 ? Number(list[0].cycleId) : null;
         }
       })
       .addCase(fetchResumeFields.pending, (state) => {
