@@ -76,7 +76,9 @@ import ResumeDetail from "@/pages/Resume/ResumeDetail";
 import "@/pages/Resume/index.scss";
 import EvaluationSummaryTab from "./EvaluationSummaryTab";
 import EvaluationDrawer from "./EvaluationDrawer";
+import PreAdmitTab from "./PreAdmitTab";
 import { CandidateSummary, EvaluationDimension, getEvaluationSummary } from "@/api/manage/interviewEvaluation";
+import { savePreAdmission } from "@/api/manage/interviewAdmin";
 import SessionInterviewersModal from "./SessionInterviewersModal";
 
 const fmtTime = (t?: string) => (t ? t.slice(0, 5) : "-");
@@ -911,6 +913,10 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchDept, setBatchDept] = useState<number | undefined>();
   const [batching, setBatching] = useState(false);
+  // 批量加入预录取名单（草稿，不动 decision、不发通知）
+  const [preOpen, setPreOpen] = useState(false);
+  const [preDept, setPreDept] = useState<number | undefined>();
+  const [preSaving, setPreSaving] = useState(false);
   // 录取决策的现场筛选：全周期名单一次拉回（size 200），排序筛选都在前端做
   const [deptFilter, setDeptFilter] = useState<string | undefined>();
   const [recFilter, setRecFilter] = useState<number | undefined>();
@@ -1097,6 +1103,9 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
             发送通知（已选 {selected.length}）
           </Button>
         </Tooltip>
+        <Button disabled={selected.length === 0} onClick={() => { setPreDept(undefined); setPreOpen(true); }}>
+          预录取（已选 {selected.length}）
+        </Button>
         {undecided > 0 && <Tag color="orange">{undecided} 人未录入决定</Tag>}
         {/* 录取决策的现场筛选：志愿/拟录取部门 + 面试官结论。
             数据一次拉全，筛选纯前端，不打接口 */}
@@ -1222,6 +1231,45 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
             ) },
         ] as any}
       />
+
+      <Modal
+        title={`把 ${selected.length} 人加入预录取名单`}
+        open={preOpen}
+        confirmLoading={preSaving}
+        onCancel={() => setPreOpen(false)}
+        okText="加入名单"
+        onOk={async () => {
+          if (!preDept) { message.warning("请选择拟录取部门"); return; }
+          setPreSaving(true);
+          try {
+            const res: any = await savePreAdmission({ cycleId, resultIds: selected, assignedDeptId: preDept });
+            const skipped = res?.data?.skipped?.length ?? 0;
+            message.success(
+              `已加入 ${res?.data?.affected ?? 0} 人到「${deptName(preDept)}」预录取名单` +
+              (skipped > 0 ? `，跳过 ${skipped} 人（已定稿或不属于本周期）` : "") +
+              "，到「预录取」页查看全名单",
+            );
+            setPreOpen(false);
+            setSelected([]);
+          } catch (e: any) {
+            message.error(e?.message || "加入失败");
+          } finally {
+            setPreSaving(false);
+          }
+        }}
+        destroyOnClose
+      >
+        <p style={{ color: "#888", marginTop: 0 }}>
+          预录取是草稿：不改结果、不发通知、学生不可见。同一人再次加入会改到新部门。
+        </p>
+        <Select
+          style={{ width: "100%" }}
+          placeholder="拟录取部门"
+          value={preDept}
+          onChange={setPreDept}
+          options={depts.map((d: any) => ({ value: d.deptId, label: d.deptName }))}
+        />
+      </Modal>
 
       <EvaluationDrawer
         open={!!viewingEval}
@@ -1725,6 +1773,7 @@ const InterviewManage: React.FC = () => {
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} refreshToken={tabTokens.assign ?? 0} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} refreshToken={tabTokens.reschedule ?? 0} /> },
             { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} /> },
+            { key: "preadmit", label: "预录取", children: <PreAdmitTab cycleId={cycleId} refreshToken={tabTokens.preadmit ?? 0} /> },
             { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.results ?? 0} /> },
             { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
           ]}

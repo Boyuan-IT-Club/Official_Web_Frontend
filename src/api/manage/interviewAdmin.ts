@@ -268,6 +268,45 @@ export function getFeishuTask(taskId: number) {
   return request({ url: `/api/interview/feishu/import/tasks/${taskId}`, method: 'get' });
 }
 
+// ---- 预录取名单（录取决策草稿，学生端不可见） ----
+
+export interface PreAdmissionDraftItem {
+  draftId: number;
+  cycleId: number;
+  resultId: number;
+  assignedDeptId: number;
+  userId?: number;
+  userName?: string;
+  departmentName?: string;
+  updatedAt?: string;
+}
+
+export interface PreAdmissionDeptStat {
+  deptId: number;
+  departmentName: string;
+  candidateCount: number;
+}
+
+export interface PreAdmissionList {
+  total: number;
+  candidates: PreAdmissionDraftItem[];
+  departmentStats: PreAdmissionDeptStat[];
+}
+
+export const listPreAdmission = (params: { cycleId: number; name?: string; department?: string; page?: number; size?: number }) =>
+  request({ url: '/api/interview/result/pre-admission', method: 'get', params });
+
+/** 把选中的结果行加入/改到某部门的预录取名单；已定稿的行会被跳过并返回在 skipped 里 */
+export const savePreAdmission = (data: { cycleId: number; resultIds: number[]; assignedDeptId: number }) =>
+  request({ url: '/api/interview/result/pre-admission/batch', method: 'post', data });
+
+export const removePreAdmission = (data: { cycleId: number; resultIds: number[] }) =>
+  request({ url: '/api/interview/result/pre-admission/remove', method: 'post', data });
+
+/** 整份名单原子转正（写 decision=通过，不发邮件）；有人被别处抢先定稿则整批失败 */
+export const finalizePreAdmission = (data: { cycleId: number }) =>
+  request({ url: '/api/interview/result/pre-admission/finalize', method: 'post', data });
+
 // ---- 面试结果与通知 ----
 export interface InterviewResultItem {
   resultId: number;
