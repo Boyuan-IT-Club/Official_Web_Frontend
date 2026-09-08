@@ -19,6 +19,8 @@ import {
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchUserInfo, logout } from "@/store/modules/user";
+import { useSkin } from "@/theme/SkinProvider";
+import { BgColorsOutlined, CheckOutlined } from "@ant-design/icons";
 import { useOnboardingTour, IntroList } from "@/components/OnboardingTour";
 import logo from "../../assets/SingleLogo.png";
 import "./index.scss";
@@ -81,6 +83,7 @@ const MainLayout = () => {
   const { userInfo, loading } = useSelector((state) => state.user);
   const location = useLocation();
   const navigate = useNavigate();
+  const { skin, skins, setSkinKey } = useSkin();
   useEffect(() => {
     if (userInfo?.role) return;
     dispatch(fetchUserInfo());
@@ -155,6 +158,21 @@ const MainLayout = () => {
       label: "个人资料",
       onClick: () => navigate("/main/person"),
     },
+    // 主题皮肤：默认即现状，切换只影响自己（存浏览器本地）。
+    // 只有一款皮肤时不渲染入口，与管理端同一约定。
+    ...(skins.length > 1
+      ? [{
+          key: "skin",
+          icon: <BgColorsOutlined />,
+          label: "主题皮肤",
+          children: skins.map((s) => ({
+            key: `skin:${s.key}`,
+            label: s.name,
+            icon: s.key === skin.key ? <CheckOutlined /> : <span style={{ width: 14, display: "inline-block" }} />,
+            onClick: () => setSkinKey(s.key),
+          })),
+        }]
+      : []),
     {
       type: "divider",
     },

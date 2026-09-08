@@ -20,7 +20,7 @@ $border-color: #e2e8f0;
   
   // 欢迎横幅
   .dashboard-banner {
-    background: linear-gradient(135deg, rgba($primary-blue, 0.1) 0%, rgba($tech-purple, 0.1) 100%);
+    background: var(--skin-hero-bg, linear-gradient(135deg, rgba($primary-blue, 0.1) 0%, rgba($tech-purple, 0.1) 100%));
     padding: 40px 24px 24px;
     text-align: center;
     margin-bottom: 0;
@@ -33,10 +33,10 @@ $border-color: #e2e8f0;
     .banner-title {
       font-size: 2.5rem;
       margin-bottom: 12px;
-      color: $text-dark;
+      color: var(--skin-title, #{$text-dark});
       
       .title-accent {
-        background: linear-gradient(135deg, $primary-blue, $tech-dark-blue);
+        background: linear-gradient(135deg, var(--skin-accent, #{$primary-blue}), var(--skin-accent-2, #{$tech-dark-blue}));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -46,7 +46,7 @@ $border-color: #e2e8f0;
     
     .banner-subtitle {
       font-size: 1.2rem;
-      color: $text-gray;
+      color: var(--skin-muted, #{$text-gray});
     }
   }
   

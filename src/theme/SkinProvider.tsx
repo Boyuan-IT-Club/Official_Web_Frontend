@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 // @theme 由 craco 按 REACT_APP_MODE 解析到 theme/admin.ts 或 theme/user.ts
@@ -48,6 +48,28 @@ export const SkinProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => SKINS.find((s) => s.key === skinKey) ?? SKINS[0],
     [skinKey],
   );
+
+  /**
+   * 把皮肤写到文档根上：data-skin 供 SCSS 按皮肤/版式写差异，
+   * cssVars 供页面样式用 var(--skin-x, 现状值) 消费——默认皮肤不带变量，
+   * 所有 var() 落到回退值，这就是「默认零变化」的机制保证。
+   * 切换时先清掉上一款的变量再写新的，避免残留串色。
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.skin = skin.key;
+    root.dataset.skinLayout = skin.layout ?? 'classic';
+    const applied: string[] = [];
+    Object.entries(skin.cssVars ?? {}).forEach(([k, v]) => {
+      root.style.setProperty(k, v);
+      applied.push(k);
+    });
+    return () => {
+      applied.forEach((k) => root.style.removeProperty(k));
+      delete root.dataset.skin;
+      delete root.dataset.skinLayout;
+    };
+  }, [skin]);
 
   const value = useMemo(() => ({ skin, skins: SKINS, setSkinKey }), [skin, setSkinKey]);
 
