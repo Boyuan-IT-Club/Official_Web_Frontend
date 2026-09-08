@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Select, Space, Typography, message } from 'antd';
+import { Alert, Input, Modal, Radio, Select, Space, Typography, message } from 'antd';
 import { request } from '@/utils';
 import {
   MyPreference, PreferenceTimeSlot,
-  getMyPreference, listOpenTimeSlots, submitPreference,
+  getMyPreference, listOpenTimeSlots, submitPreference, updateAttendance,
 } from '@/api/interviewPreference';
 import { getValidDept } from '@/api/manage/deptManage';
 
@@ -31,6 +31,11 @@ const InterviewIntentEditor: React.FC<Props> = ({ open, cycleId, resumeId, onClo
   const [firstDept, setFirstDept] = useState<number | undefined>();
   const [secondDept, setSecondDept] = useState<number | undefined>();
   const [slotIds, setSlotIds] = useState<number[]>([]);
+  // 「能否到线下参加」。这个选择原本只能在简历表单里改，简历一锁学生就被
+  // 卡死在线上/线下名单里（Publish 页还承诺过「情况有变可随时改回」）。
+  // 这里成为锁定后的唯一调整入口，保存走独立接口，不受简历锁与投递期限制。
+  const [canAttendOffline, setCanAttendOffline] = useState<boolean>(true);
+  const [customTime, setCustomTime] = useState<string>('');
 
   useEffect(() => {
     if (!open) return;
@@ -38,10 +43,12 @@ const InterviewIntentEditor: React.FC<Props> = ({ open, cycleId, resumeId, onClo
     setLoading(true);
     (async () => {
       try {
-        const [d, s, mine]: any[] = await Promise.all([
+        const [d, s, mine, defs, vals]: any[] = await Promise.all([
           getValidDept().catch(() => null),
           listOpenTimeSlots(cycleId).catch(() => null),
           getMyPreference(cycleId).catch(() => null),
+          request({ url: `/api/resumes/fields/${cycleId}`, method: 'get' }).catch(() => null),
+          request({ url: `/api/resumes/cycle/${cycleId}/field-values`, method: 'get' }).catch(() => null),
         ]);
         if (cancelled) return;
         setDepts(d?.data ?? []);
@@ -57,6 +64,24 @@ const InterviewIntentEditor: React.FC<Props> = ({ open, cycleId, resumeId, onClo
         setSlotIds((p?.acceptedTimeSlots ?? [])
           .map((x) => x.timeSlotId)
           .filter((id) => openIds.has(id)));
+        // 回显线上/线下选择：从简历字段 expected_interview_time 的 JSON 里读
+        try {
+          const timeDef = (defs?.data ?? []).find((f: any) => f.fieldKey === 'expected_interview_time');
+          const raw = timeDef
+            ? (vals?.data ?? []).find((v: any) => v.fieldId === timeDef.fieldId)?.fieldValue
+            : null;
+          if (raw) {
+            const parsed = JSON.parse(String(raw));
+            setCanAttendOffline(parsed?.canAttend !== 'no');
+            setCustomTime(typeof parsed?.customTime === 'string' ? parsed.customTime : '');
+          } else {
+            setCanAttendOffline(true);
+            setCustomTime('');
+          }
+        } catch {
+          setCanAttendOffline(true);
+          setCustomTime('');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -65,11 +90,30 @@ const InterviewIntentEditor: React.FC<Props> = ({ open, cycleId, resumeId, onClo
   }, [open, cycleId]);
 
   const handleSave = async () => {
+    // 选了「不能线下」：只保存出席方式与说明，不动志愿与时间窗
+    // （线上同学不进自动分配，时间窗对他没有意义；后端也会拒绝空时间窗）
+    if (!canAttendOffline) {
+      setSaving(true);
+      try {
+        await updateAttendance({ cycleId, canAttendOffline: false, customTime });
+        message.success('已登记为线上面试，管理员会与你另约时间');
+        onClose();
+        onSaved?.();
+      } catch (e: any) {
+        message.error(e?.message || '保存失败');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     if (!firstDept) { message.warning('请选择第一志愿部门'); return; }
     if (slotIds.length === 0) { message.warning('请至少勾选一个可面试时间'); return; }
     if (secondDept && secondDept === firstDept) { message.warning('第二志愿不能与第一志愿相同'); return; }
     setSaving(true);
     try {
+      // 先登记「能到线下」（会顺带清掉旧的线上说明），再提交志愿。
+      // 两个接口的锁定规则一致：已排上场次都会拒绝。
+      await updateAttendance({ cycleId, canAttendOffline: true });
       await submitPreference({ cycleId, firstDeptId: firstDept, secondDeptId: secondDept, timeSlotIds: slotIds });
 
       // 同步简历的期望部门字段，保持简历与志愿一致
@@ -137,6 +181,34 @@ const InterviewIntentEditor: React.FC<Props> = ({ open, cycleId, resumeId, onClo
             message="修改会同步更新简历中的「期望部门」；已安排面试后如需换时间请走「申请改期」。"
           />
           <div>
+            <Text type="secondary">能否到线下参加面试</Text>
+            <div style={{ marginTop: 6 }}>
+              <Radio.Group
+                value={canAttendOffline}
+                onChange={(e) => setCanAttendOffline(e.target.value)}
+                options={[
+                  { label: '能到线下参加', value: true },
+                  { label: '不能，转线上面试', value: false },
+                ]}
+              />
+            </div>
+          </div>
+          {!canAttendOffline && (
+            <div>
+              <Text type="secondary">情况说明（管理员会看到，方便安排线上面试）</Text>
+              <Input.TextArea
+                rows={2}
+                maxLength={200}
+                showCount
+                style={{ marginTop: 4 }}
+                placeholder="说明一下情况，方便我们安排（如：在外地实习，工作日晚上或周末线上都可以）"
+                value={customTime}
+                onChange={(e) => setCustomTime(e.target.value)}
+              />
+            </div>
+          )}
+          {canAttendOffline && (<>
+          <div>
             <Text type="secondary">第一志愿部门</Text>
             <Select
               style={{ width: '100%', marginTop: 4 }}
@@ -174,6 +246,7 @@ const InterviewIntentEditor: React.FC<Props> = ({ open, cycleId, resumeId, onClo
               ))}
             </Space>
           </div>
+          </>)}
         </Space>
       )}
     </Modal>

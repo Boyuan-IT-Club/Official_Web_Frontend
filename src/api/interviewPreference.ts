@@ -53,6 +53,14 @@ export function submitPreference(data: {
 /** 查询本人志愿；未填写时 data 为 null */
 export function getMyPreference(cycleId: number) {
   return request({ url: '/api/interview/preference/my', method: 'get', params: { cycleId } });
+};
+
+/**
+ * 更新「能否到线下参加面试」。简历锁定/投递期结束后仍可用——
+ * 这个调整恰恰多发生在分配之后；已排上场次时后端会拒绝（走改期）。
+ */
+export const updateAttendance = (data: { cycleId: number; canAttendOffline: boolean; customTime?: string }) => {
+  return request({ url: '/api/interview/preference/attendance', method: 'put', data });
 }
 
 /** 查询本人面试安排（分配结果）；未分配时 data 为 null */
