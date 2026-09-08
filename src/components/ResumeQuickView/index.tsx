@@ -3,6 +3,7 @@
 import React from 'react';
 import { sortByCanonicalOrder, specOf } from '@/config/resumeFieldRegistry';
 import { Space, Tag, Typography } from 'antd';
+import { useResumePhoto } from '@/hooks/useResumePhoto';
 import './index.scss';
 
 const { Text } = Typography;
@@ -16,7 +17,13 @@ export interface ResumeSimpleField {
 }
 
 export interface ResumeQuickViewProps {
-  resume?: { simpleFields?: ResumeSimpleField[] } | null;
+  resume?: {
+    resumeId?: number | string;
+    /** 部分接口（如学生端只读简历）用蛇形命名 */
+    resume_id?: number | string;
+    id?: number | string;
+    simpleFields?: ResumeSimpleField[];
+  } | null;
   /** 简历为空时的提示文案 */
   emptyText?: string;
 }
@@ -59,13 +66,17 @@ const ResumeQuickView: React.FC<ResumeQuickViewProps> = ({ resume, emptyText }) 
   const fields: ResumeSimpleField[] = Array.isArray(resume?.simpleFields) ? resume!.simpleFields! : [];
   const filled = fields.filter((f) => f.fieldValue != null && String(f.fieldValue).trim() !== '');
 
+  const byKey: Record<string, ResumeSimpleField> = {};
+  filled.forEach((f) => { if (f.fieldKey) byKey[f.fieldKey] = f; });
+  // 照片优先取 personal_photo 字段（新数据是 COS objectKey，hook 会带鉴权取图）；
+  // 历史数据兼容旧逻辑——找任意内嵌 base64 的字段值。hook 须在 early return 之前调用
+  const photoField = byKey.personal_photo ?? filled.find((f) => isImg(f.fieldValue));
+  const resumeId = resume?.resumeId ?? resume?.resume_id ?? resume?.id;
+  const photoUrl = useResumePhoto(resumeId, photoField?.fieldValue);
+
   if (filled.length === 0) {
     return <Text type="secondary">{emptyText || '该周期的简历还没有填写内容'}</Text>;
   }
-
-  const byKey: Record<string, ResumeSimpleField> = {};
-  filled.forEach((f) => { if (f.fieldKey) byKey[f.fieldKey] = f; });
-  const photo = filled.find((f) => isImg(f.fieldValue));
 
   // 头部与技术栈单独呈现，正文里不再重复
   const headerKeys = new Set(['name', 'personal_photo', 'expected_departments', 'tech_stack']);
@@ -88,7 +99,7 @@ const ResumeQuickView: React.FC<ResumeQuickViewProps> = ({ resume, emptyText }) 
             ))}
           </div>
         </div>
-        {photo && <img className="rv-photo" src={String(photo.fieldValue)} alt="证件照" />}
+        {photoUrl && <img className="rv-photo" src={photoUrl} alt="证件照" />}
       </div>
 
       <div className="rv-basics">

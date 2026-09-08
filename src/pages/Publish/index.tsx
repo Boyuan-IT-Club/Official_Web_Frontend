@@ -37,6 +37,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 
 import { compressImage } from '@/utils/imageCompress';
+import { dataUrlToBlob, resolveResumePhotoDataUrl, uploadResumePhoto } from '@/api/resumePhoto';
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
 import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
@@ -531,8 +532,21 @@ const Publish: React.FC = () => {
       if (file.size > 5 * 1024 * 1024) { message.error('照片大小不能超过5MB'); return false; }
       if (!file.type.startsWith('image/')) { message.error('请上传图片文件'); return false; }
       const compressedBase64 = await compressImage(file);
+      // 页面预览与 Word 导出始终用本地 dataURL；字段值优先存 COS objectKey
+      // （随「保存」一起提交，保存/取消语义不变）。COS 上传失败或简历还没建出来时
+      // 回落为旧行为——base64 直接进字段值，后端读取侧两种形态都兼容，
+      // 学生不至于被基础设施问题卡住投递。
       setPhotoBase64(compressedBase64);
-      handleFieldChange('personal_photo', compressedBase64);
+      const currentResumeId = Number(resume?.resume_id || resume?.id) || null;
+      let fieldValue = compressedBase64;
+      if (currentResumeId) {
+        try {
+          fieldValue = await uploadResumePhoto(currentResumeId, dataUrlToBlob(compressedBase64));
+        } catch {
+          // 静默降级为 base64
+        }
+      }
+      handleFieldChange('personal_photo', fieldValue);
       message.success('照片上传成功');
       return true;
     } catch {
@@ -541,7 +555,7 @@ const Publish: React.FC = () => {
     } finally {
       setIsPhotoCompressing(false);
     }
-  }, [handleFieldChange]);
+  }, [handleFieldChange, resume]);
 
   // 简历状态
   const isSubmitted = useMemo<boolean>(() => {
@@ -670,7 +684,12 @@ const Publish: React.FC = () => {
         const sf = resumeData.simpleFields;
         if (sf) {
           const photoField = sf.find(f => f.fieldId === photoFid);
-          if (photoField?.fieldValue) setPhotoBase64(photoField.fieldValue);
+          // 字段值可能是 COS objectKey（新）或整段 base64（旧）：统一解析成
+          // dataURL 再进状态，页面预览与 Word 导出只认识 dataURL
+          if (photoField?.fieldValue) {
+            void resolveResumePhotoDataUrl(Number(resumeId) || null, String(photoField.fieldValue))
+              .then((u) => setPhotoBase64(u));
+          }
 
           const techField = sf.find(f => f.fieldId === techFid);
           if (techField?.fieldValue) {
@@ -1049,7 +1068,14 @@ const Publish: React.FC = () => {
             setDepartments({ first: arr[0] || '', second: arr[1] || '' });
           } else { setDepartments({ first: '', second: '' }); }
           const photoField = sf.find(f => f.fieldId === photoFid);
-          setPhotoBase64(photoField?.fieldValue ? String(photoField.fieldValue) : '');
+          // 同 initData：objectKey / base64 统一解析成 dataURL 再进状态
+          if (photoField?.fieldValue) {
+            const rid = Number(resumeData.resumeId || (resumeData as any).resume_id || resumeData.id) || null;
+            void resolveResumePhotoDataUrl(rid, String(photoField.fieldValue))
+              .then((u) => setPhotoBase64(u));
+          } else {
+            setPhotoBase64('');
+          }
         }
       }
       form.resetFields();
