@@ -45,10 +45,12 @@ describe('周期选择', () => {
     expect(st.cycleId).toBe(1);
   });
 
-  it('开放列表为空时不把选择清成 undefined', () => {
+  it('开放列表为空时选中项归零为 null，而不是留着旧值或变成 undefined', () => {
+    // #161 的决定：保留旧值会拿已删除/已结束周期的数据冒充当前状态。
+    // 归零必须是 null（明确的「没有周期」），不能是 undefined
     const before = stateWith({ cycleId: 7, cycleUserPicked: false });
     const after = reducer(before as any, openCyclesFulfilled([]) as any);
-    expect(after.cycleId).toBe(7);
+    expect(after.cycleId).toBeNull();
   });
 
   it('setSelectedCycle 接受字符串型 id 也存成数字', () => {

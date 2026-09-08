@@ -41,8 +41,11 @@ import { dataUrlToBlob, resolveResumePhotoDataUrl, uploadResumePhoto } from '@/a
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
 import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
-import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
+import {
+  CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId, resolvePublishEmptyState,
+} from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
+import NoOpenCycleNotice from './components/NoOpenCycleNotice';
 import TipsModal from './components/TipsModal';
 import StatusNotice from './components/StatusNotice';
 import { resolveResumeNotice } from './resumeNotice';
@@ -312,6 +315,9 @@ const Publish: React.FC = () => {
   // 存整份预告列表而不只是落点那一届：管理员可以同时排好几届，
   // 只留一个的话其余的在用户端就凭空消失了
   const [upcomingCycles, setUpcomingCycles] = useState<OpenCycle[]>([]);
+  // 开放/预告两个列表有没有拿到。拿不到时 phase 会兜底成 ended，但那不等于
+  // 「已结束」——空状态要如实说「加载失败」，不能冒充「现在没有招新」
+  const [cycleListsFailed, setCycleListsFailed] = useState<boolean>(false);
   const cycleClosed = cyclePhase !== 'open';
 
 
@@ -596,20 +602,34 @@ const Publish: React.FC = () => {
       // 但用户显式点过切换器就一律尊重他的选择 —— 切换器里也列已结束的周期
       // 供查看历史投递，不判断这个的话，点已结束的卡片会被立刻弹回第一个
       // 开放周期（线上实测到的 bug）。
-      const [open, upcoming] = await Promise.all([
-        dispatch(fetchOpenCycles()).unwrap().catch(() => [] as typeof openCycles),
+      // 失败落成 null 而不是 []：空数组是「确实没有」，null 是「不知道」，
+      // 空状态那一屏要靠这个区别决定说「没有招新」还是「加载失败」
+      const [openOrNull, upcomingOrNull] = await Promise.all([
+        dispatch(fetchOpenCycles()).unwrap().catch(() => null),
         // 预告列表拿不到不该拖垮整页：最坏情况是未开始的周期退化成「已结束」的旧行为
-        dispatch(fetchUpcomingCycles()).unwrap().catch(() => [] as typeof openCycles),
+        dispatch(fetchUpcomingCycles()).unwrap().catch(() => null),
       ]);
-      const openIds = (open ?? []).map((c) => Number(c.cycleId));
-      const upcomingIds = (upcoming ?? []).map((c) => Number(c.cycleId));
+      setCycleListsFailed(openOrNull == null || upcomingOrNull == null);
+      const open = (openOrNull ?? []) as typeof openCycles;
+      const upcoming = (upcomingOrNull ?? []) as typeof openCycles;
+      const openIds = open.map((c) => Number(c.cycleId));
+      const upcomingIds = upcoming.map((c) => Number(c.cycleId));
       // 落点规则与理由见 resolveActiveCycleId（有回归测试）
       const cid = Number(resolveActiveCycleId(cycleId, openIds, upcomingIds, userPickedCycle));
 
       // 没有任何开放周期时 cid 会回退到历史/未开始周期——那只用于展示，必须锁死编辑
       const phase = resolveCyclePhase(cid, openIds, upcomingIds);
       setCyclePhase(phase);
-      setUpcomingCycles(upcoming ?? []);
+      setUpcomingCycles(upcoming);
+
+      // #161 起 store 的 cycleId 初始为 null、无开放周期时归零。既没开放也没预告、
+      // 用户也没手选时 cid 就是 Number(null) = 0：没有任何周期可加载，直接进空状态，
+      // 不要拿 0 去请求字段和简历，再弹一个「加载简历信息失败」
+      if (!Number.isFinite(cid) || cid <= 0) {
+        initedCidRef.current = null;
+        setIsInitializing(false);
+        return;
+      }
 
       // fetchOpenCycles 的 reducer 也会把 store 里的 cycleId 校正到开放列表内，
       // 那会让本 effect 因 cycleId 变化再跑一次。这里记下已初始化的周期，
@@ -1329,7 +1349,11 @@ const Publish: React.FC = () => {
     已经有简历的情况（投过之后管理员把开始时间往后推）不走这里：
     那份简历得让人看得到，上面的 Alert 已经说明了周期状态。
   */
-  if (cyclePhase === 'upcoming' && !resume) {
+  // 「有没有简历」要看有没有 id：store 在只读查询查不到简历时会放一个
+  // { resume_id: null, status: 1 } 的占位对象，按对象真值判断会把它当成一份草稿——
+  // 截图里那个「草稿（不可修改）」标签就是它
+  const hasRealResume = Boolean(resume?.resume_id ?? resume?.id);
+  if (cyclePhase === 'upcoming' && !hasRealResume) {
     const shown = upcomingCycles.find((c) => Number(c.cycleId) === Number(cycleId))
       ?? upcomingCycles[0];
     return (
@@ -1348,6 +1372,40 @@ const Publish: React.FC = () => {
           siblings={upcomingCycles}
           currentCycleId={Number(shown?.cycleId)}
           onPick={(id) => dispatch(setSelectedCycle(id))}
+        />
+      </div>
+    );
+  }
+
+  /*
+    落点周期已结束，且本人在这一届没有简历：同样整页只说一件事。
+    以前这里会照常渲染一份全是「未填写」的空简历，顶上挂着
+    「本周期已停止投递 · 草稿（不可修改）」——「草稿」只是 status 为空时
+    的兜底标签，那份简历从未存在过。招新间歇期（没有任何开放/预告周期）
+    落点回退到 store 里写死的旧周期，用户看到的就是这一幕（线上截图）。
+    有简历的已结束周期不走这里：历史投递得让人看得到。
+  */
+  const emptyState = resolvePublishEmptyState({
+    phase: cyclePhase,
+    hasResume: hasRealResume,
+    openCount: (openCycles ?? []).length,
+    upcomingCount: upcomingCycles.length,
+    cycleListsFailed,
+  });
+  if (emptyState) {
+    const current = switchableCycles.find((c) => Number(c.cycleId) === Number(cycleId));
+    // 历届投递单独列出：切换器少于两项就不渲染，用户唯一一份历史简历会没有入口
+    const history = switchableCycles
+      .filter((c) => myResumes.some((r) => Number(r.cycleId) === Number(c.cycleId)))
+      .map((c) => ({ cycleId: Number(c.cycleId), cycleName: c.cycleName }));
+    return (
+      <div className="publish-page">
+        <NoOpenCycleNotice
+          kind={emptyState}
+          cycleName={current?.cycleName}
+          history={history}
+          onPickHistory={(id) => dispatch(setSelectedCycle(id))}
+          onBack={() => navigate('/main/dashboard')}
         />
       </div>
     );

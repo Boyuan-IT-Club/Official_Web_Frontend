@@ -67,3 +67,35 @@ export function resolveActiveCycleId(
   if (upcomingIds.length > 0) return upcomingIds[0];
   return storeCycleId;
 }
+
+/**
+ * 投递页在「落点周期已结束且本人没有这一届的简历」时该显示哪种空状态。
+ *
+ * 线上实况：招新间歇期，既没有开放周期也没有预告周期，落点回退到 store
+ * 里写死的旧周期，页面照常渲染一份全是「未填写」的空简历，顶上还挂着
+ * 「草稿（不可修改）」——那是 status 为空时的兜底标签，不是真有草稿。
+ * 用户看到的是一份从未存在过的简历，而不是「现在没有招新」这句话。
+ *
+ * 返回 null 表示按正常路径渲染（有简历，或周期不是 ended）。
+ */
+export type PublishEmptyState =
+  /** 没有任何开放或预告周期：整站现在没有招新 */
+  | 'no-recruitment'
+  /** 有别的周期在开放/预告，只是当前落点这一届已结束且本人没投过 */
+  | 'ended-no-resume'
+  /** 周期列表没拿到（接口失败）：说不清现在有没有招新，不能冒充「已结束」 */
+  | 'cycles-unavailable';
+
+export function resolvePublishEmptyState(args: {
+  phase: CyclePhase;
+  hasResume: boolean;
+  openCount: number;
+  upcomingCount: number;
+  cycleListsFailed: boolean;
+}): PublishEmptyState | null {
+  const { phase, hasResume, openCount, upcomingCount, cycleListsFailed } = args;
+  if (phase !== 'ended' || hasResume) return null;
+  if (cycleListsFailed) return 'cycles-unavailable';
+  if (openCount === 0 && upcomingCount === 0) return 'no-recruitment';
+  return 'ended-no-resume';
+}

@@ -1,4 +1,4 @@
-import { resolveCyclePhase, isCycleWritable, daysUntil, resolveActiveCycleId } from '../cyclePhase';
+import { resolveCyclePhase, isCycleWritable, daysUntil, resolveActiveCycleId, resolvePublishEmptyState } from '../cyclePhase';
 
 describe('招募周期的三态判定', () => {
   it('在开放列表里 → open', () => {
@@ -95,5 +95,34 @@ describe('投递页落在哪个周期', () => {
     const phase = resolveCyclePhase(cid, [], [6, 7]);
     expect(phase).toBe('upcoming');
     expect(isCycleWritable(phase)).toBe(false);
+  });
+});
+
+describe('投递页的空状态判定', () => {
+  const base = { phase: 'ended' as const, hasResume: false, openCount: 0, upcomingCount: 0, cycleListsFailed: false };
+
+  it('招新间歇期：没有开放也没有预告，本人也没这届的简历 → 「当前没有招新」', () => {
+    // 线上截图的场景：落点回退到 store 写死的旧周期，页面渲染了一份
+    // 全是「未填写」的空简历，顶上挂着「草稿（不可修改）」
+    expect(resolvePublishEmptyState(base)).toBe('no-recruitment');
+  });
+
+  it('有别的周期在招/预告，只是当前这届结束且没投过 → 「这一届没投递记录」', () => {
+    expect(resolvePublishEmptyState({ ...base, openCount: 1 })).toBe('ended-no-resume');
+    expect(resolvePublishEmptyState({ ...base, upcomingCount: 1 })).toBe('ended-no-resume');
+  });
+
+  it('周期列表没拿到 → 如实说加载失败，不冒充「没有招新」', () => {
+    // 接口挂了时 phase 同样兜底成 ended，但那是「不知道」而不是「已结束」
+    expect(resolvePublishEmptyState({ ...base, cycleListsFailed: true })).toBe('cycles-unavailable');
+  });
+
+  it('有简历的已结束周期不进空状态：历史投递得让人看得到', () => {
+    expect(resolvePublishEmptyState({ ...base, hasResume: true })).toBeNull();
+  });
+
+  it('周期开放中或预告中不由这里决定', () => {
+    expect(resolvePublishEmptyState({ ...base, phase: 'open' })).toBeNull();
+    expect(resolvePublishEmptyState({ ...base, phase: 'upcoming' })).toBeNull();
   });
 });
