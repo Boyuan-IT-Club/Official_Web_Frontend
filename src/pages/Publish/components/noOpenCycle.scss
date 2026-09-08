@@ -1,0 +1,100 @@
+// 投递页空状态卡（没有招新 / 这一届没投过 / 周期列表拿不到）。
+//
+// 和预告卡（cycleUpcoming.scss）刻意不同：那张是深蓝渐变加倒计时，
+// 表达「即将开始、值得期待」；这张说的是「现在没有」，用白底浅边
+// 的静态卡，不抢注意力。刻度全部走 _tokens。
+@use "../../../styles/tokens" as t;
+
+.no-open-cycle {
+  display: flex;
+  justify-content: center;
+  padding: t.$gap-xl t.$gap-md;
+
+  &__card {
+    width: 100%;
+    max-width: 520px;
+    padding: t.$gap-xl t.$gap-lg t.$gap-lg;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #eef0f4;
+    border-radius: t.$radius-card;
+    box-shadow: t.$shadow-md;
+  }
+
+  &__pill {
+    display: inline-block;
+    padding: 4px 12px;
+    font-size: t.$text-caption;
+    letter-spacing: 0.08em;
+    border-radius: t.$radius-pill;
+    color: #5b6472;
+    background: #f3f5f8;
+    border: 1px solid #e3e7ee;
+
+    &.is-cycles-unavailable {
+      color: #ad4e00;
+      background: #fff7e6;
+      border-color: #ffd591;
+    }
+  }
+
+  &__title {
+    margin: t.$gap-md 0 0;
+    font-size: t.$text-title;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #1f2430;
+  }
+
+  &__lead {
+    max-width: 40ch;
+    margin: t.$gap-xs auto 0;
+    font-size: t.$text-body;
+    line-height: 1.7;
+    color: #6b7280;
+  }
+
+  &__history {
+    margin-top: t.$gap-lg;
+    padding-top: t.$gap-md;
+    border-top: 1px solid #f0f2f5;
+  }
+
+  &__history-label {
+    font-size: t.$text-caption;
+    color: #9aa3b2;
+    margin-bottom: t.$gap-xs;
+  }
+
+  &__history-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: t.$gap-xs;
+  }
+
+  &__history-item {
+    padding: 4px 14px;
+    font-size: t.$text-sm;
+    color: #3a4353;
+    background: #f7f8fa;
+    border: 1px solid #e3e7ee;
+    border-radius: t.$radius-pill;
+    cursor: pointer;
+    transition: background-color t.$dur-base t.$ease, border-color t.$dur-base t.$ease;
+
+    &:hover { background: #eef1f6; border-color: #cfd6e2; }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: center;
+    gap: t.$gap-xs;
+    margin-top: t.$gap-lg;
+  }
+
+  @media (max-width: 480px) {
+    padding: t.$gap-lg t.$gap-sm;
+    &__card { padding: t.$gap-lg t.$gap-md; }
+  }
+}

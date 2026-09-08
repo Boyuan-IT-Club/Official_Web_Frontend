@@ -196,7 +196,13 @@ export const fetchOrCreateResume = createAsyncThunk<any, ID | { cycleId: ID; rea
     const cycleId = typeof arg === 'object' && arg !== null && 'cycleId' in arg ? arg.cycleId : (arg as ID);
     const readOnly = typeof arg === 'object' && arg !== null && 'readOnly' in arg ? Boolean(arg.readOnly) : false;
     try {
-      const res = await request.get(`/api/resumes/cycle/${cycleId}`);
+      // 只读场景明确告诉后端不要建草稿。后端该参数默认 true：查不到就去 create，
+      // 而 create 在非开放周期会被 requireCycleOpen 拦成 3010——于是每次以只读
+      // 方式打开一个已结束周期都会触发一次注定失败的建简历请求，前端再把它吞掉。
+      const res = await request.get(
+        `/api/resumes/cycle/${cycleId}`,
+        readOnly ? { params: { autoCreate: false } } : undefined,
+      );
       return res.data;
     } catch (error: any) {
       if (error?.response?.status === 404) {
