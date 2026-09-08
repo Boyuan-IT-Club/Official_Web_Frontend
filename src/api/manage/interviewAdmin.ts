@@ -285,6 +285,14 @@ export interface InterviewResultItem {
    */
   userName?: string;
   departmentName?: string;
+  /** 简历平均分；null = 没打过分（列默认 0 不代表打过 0 分） */
+  resumeScore?: number | null;
+  /** 面试评价加权总分；null = 无评价（如未面试/未定稿） */
+  evalTotalScore?: number | null;
+  /** 面试官共同结论：1 倾向通过 2 待定 3 不倾向 */
+  evalRecommendation?: number | null;
+  firstDeptName?: string | null;
+  secondDeptName?: string | null;
 }
 
 export function listResults(params: { cycleId: number; name?: string; decision?: string; department?: string; page?: number; size?: number }) {

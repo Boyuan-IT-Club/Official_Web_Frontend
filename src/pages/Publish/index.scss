@@ -30,8 +30,8 @@
           // 给到 22px 时输入框会明显变窄（窄屏上尤其明显，占位文字都被截断），
           // 而输入框宽度对填表的影响远大于这点留白。
           padding: 18px 14px 4px;
-          background: #fcfdff;
-          border: 1px solid #eef1f8;
+          background: var(--skin-subtle-bg, #fcfdff);
+          border: 1px solid var(--skin-line, #eef1f8);
           border-radius: 12px;
 
           @media (max-width: 560px) {
@@ -50,7 +50,7 @@
             border-bottom: none;      // 卡片边界已经在分隔，不必再画线
             font-size: 15px;
             font-weight: 600;
-            color: #2d3748;
+            color: var(--skin-title, #2d3748);
 
             // 竖条锚点，比整行下划线安静
             &::before {
@@ -58,14 +58,14 @@
               flex: none;
               width: 3px;
               height: 15px;
-              background: #6c7ae0;
+              background: var(--skin-accent, #6c7ae0);
               border-radius: 2px;
             }
 
             .anticon {
               margin-right: 0;
               font-size: 15px;
-              color: #6c7ae0;
+              color: var(--skin-accent, #6c7ae0);
             }
           }
         }
@@ -77,7 +77,7 @@
           margin-top: 28px;
           padding: 14px 0;
           text-align: center;
-          background: linear-gradient(to top, #fff 62%, rgba(255, 255, 255, 0));
+          background: linear-gradient(to top, var(--skin-card-bg, #fff) 62%, transparent);
           border-top: 1px solid #eef1f8;
         }
       }
@@ -439,7 +439,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #6c7ae0;
+  color: var(--skin-accent, #6c7ae0);
   background: #f0f3fe;
   border: 1px solid #dde4fb;
   border-radius: 999px;
@@ -457,14 +457,14 @@
   margin-bottom: 12px;
 
   &__icon {
-    color: #6c7ae0;
+    color: var(--skin-accent, #6c7ae0);
     font-size: 16px;
     margin-top: 2px;
   }
 
   &__title {
     font-weight: 600;
-    color: #2d3748;
+    color: var(--skin-title, #2d3748);
     font-size: 13px;
   }
 
@@ -474,7 +474,7 @@
     margin-top: 2px;
 
     a {
-      color: #6c7ae0;
+      color: var(--skin-accent, #6c7ae0);
       margin: 0 2px;
     }
   }

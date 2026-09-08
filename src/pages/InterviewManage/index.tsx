@@ -907,6 +907,9 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchDept, setBatchDept] = useState<number | undefined>();
   const [batching, setBatching] = useState(false);
+  // 录取决策的现场筛选：全周期名单一次拉回（size 200），排序筛选都在前端做
+  const [deptFilter, setDeptFilter] = useState<string | undefined>();
+  const [recFilter, setRecFilter] = useState<number | undefined>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -933,6 +936,16 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
   }, [load, refreshToken]);
 
   const deptName = (id?: number) => depts.find((d: any) => d.deptId === id)?.deptName || (id ? `#${id}` : "-");
+
+  /** 志愿或拟录取部门命中筛选即保留：调剂场景里两者都可能是决策依据 */
+  const visibleList = useMemo(() => list.filter((r) => {
+    if (deptFilter
+        && r.firstDeptName !== deptFilter
+        && r.secondDeptName !== deptFilter
+        && deptName(r.assignedDeptId) !== deptFilter) return false;
+    if (recFilter != null && r.evalRecommendation !== recFilter) return false;
+    return true;
+  }), [list, deptFilter, recFilter]);
 
   const openEditResult = (r: InterviewResultItem) => {
     setEditing(r);
@@ -1069,12 +1082,37 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
           </Button>
         </Tooltip>
         {undecided > 0 && <Tag color="orange">{undecided} 人未录入决定</Tag>}
+        {/* 录取决策的现场筛选：志愿/拟录取部门 + 面试官结论。
+            数据一次拉全，筛选纯前端，不打接口 */}
+        <Select
+          allowClear
+          placeholder="按部门筛选"
+          style={{ width: 150 }}
+          value={deptFilter}
+          onChange={setDeptFilter}
+          options={depts.map((d: any) => ({ value: d.deptName, label: d.deptName }))}
+        />
+        <Select
+          allowClear
+          placeholder="按结论筛选"
+          style={{ width: 130 }}
+          value={recFilter}
+          onChange={setRecFilter}
+          options={[
+            { value: 1, label: "倾向通过" },
+            { value: 2, label: "待定" },
+            { value: 3, label: "不倾向" },
+          ]}
+        />
+        {(deptFilter || recFilter != null) && (
+          <Tag>筛选后 {visibleList.length} / {list.length} 人</Tag>
+        )}
       </Space>
       <Table
         rowKey="resultId"
         size="middle"
         loading={loading}
-        dataSource={list}
+        dataSource={visibleList}
         pagination={false}
         locale={{ emptyText: "暂无面试结果 —— 点上方「从面试安排生成名单」生成待定列表，或从「飞书同步」拉回" }}
         rowSelection={{
@@ -1107,6 +1145,37 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
                   <Tag color="orange">无面试</Tag>
                 </Tooltip>
               : <Tag>已面试</Tag>),
+          },
+          {
+            title: "志愿", dataIndex: "firstDeptName", width: 130,
+            render: (_: unknown, r: InterviewResultItem) => (
+              r.firstDeptName
+                ? <span>{r.firstDeptName}{r.secondDeptName ? ` / ${r.secondDeptName}` : ""}</span>
+                : <span style={{ color: "#bbb" }}>—</span>),
+          },
+          {
+            title: "简历分", dataIndex: "resumeScore", width: 84, align: "right" as const,
+            sorter: (a: InterviewResultItem, b: InterviewResultItem) =>
+              (a.resumeScore ?? -1) - (b.resumeScore ?? -1),
+            // null 是「没打过分」，必须和 0 分区分开显示
+            render: (v: number | null) => (v == null ? <span style={{ color: "#bbb" }}>—</span> : v),
+          },
+          {
+            title: "面试分", dataIndex: "evalTotalScore", width: 88, align: "right" as const,
+            sorter: (a: InterviewResultItem, b: InterviewResultItem) =>
+              Number(a.evalTotalScore ?? -1) - Number(b.evalTotalScore ?? -1),
+            defaultSortOrder: "descend" as const,
+            render: (v: number | null) => (v == null
+              ? <Tooltip title="无评价：未面试，或评价还没定稿物化"><span style={{ color: "#bbb" }}>—</span></Tooltip>
+              : Number(v).toFixed(1)),
+          },
+          {
+            title: "结论", dataIndex: "evalRecommendation", width: 96,
+            render: (v: number | null) => (v == null
+              ? <span style={{ color: "#bbb" }}>—</span>
+              : <Tag color={v === 1 ? "green" : v === 2 ? "orange" : "red"}>
+                  {v === 1 ? "倾向通过" : v === 2 ? "待定" : "不倾向"}
+                </Tag>),
           },
           { title: "结果", dataIndex: "decision", width: 90,
             render: (d: number) => d != null

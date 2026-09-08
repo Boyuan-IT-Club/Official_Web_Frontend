@@ -37,6 +37,9 @@ const workbenchIndigo: Skin = {
     },
   },
   cssVars: {
+    '--skin-sider-bg': 'linear-gradient(165deg, #1e1e38, #32326b)',
+    '--skin-sider-active': 'rgba(139, 92, 246, 0.24)',
+    '--skin-hero-strong': 'linear-gradient(120deg, #26265a 0%, #5b5bd6 60%, #8b5cf6 100%)',
     '--skin-accent': '#5b5bd6', '--skin-accent-2': '#8b5cf6',
     '--skin-accent-bg': '#eeeefc', '--skin-accent-text': '#3c3489',
     '--skin-page-bg': '#fbfaf8', '--skin-subtle-bg': '#f4f3ef',
@@ -60,6 +63,9 @@ const workbenchPine: Skin = {
     },
   },
   cssVars: {
+    '--skin-sider-bg': 'linear-gradient(165deg, #0b2723, #155448)',
+    '--skin-sider-active': 'rgba(52, 211, 153, 0.22)',
+    '--skin-hero-strong': 'linear-gradient(120deg, #0a3f38 0%, #0f766e 60%, #34d399 100%)',
     '--skin-accent': '#0f766e', '--skin-accent-2': '#34d399',
     '--skin-accent-bg': '#dcf1ea', '--skin-accent-text': '#085041',
     '--skin-page-bg': '#fafcfb', '--skin-subtle-bg': '#eef4f2',
@@ -85,6 +91,9 @@ const bentoObsidian: Skin = {
     },
   },
   cssVars: {
+    '--skin-sider-bg': '#0e1628',
+    '--skin-sider-active': 'rgba(96, 165, 250, 0.18)',
+    '--skin-hero-strong': 'linear-gradient(120deg, #0e1628 0%, #1d3a6b 60%, #2563eb 100%)',
     '--skin-accent': '#60a5fa', '--skin-accent-2': '#22d3ee',
     '--skin-accent-bg': 'rgba(96,165,250,.16)', '--skin-accent-text': '#93c5fd',
     '--skin-page-bg': '#0b1220', '--skin-subtle-bg': '#1a2540',
@@ -109,6 +118,9 @@ const festivalEmber: Skin = {
     },
   },
   cssVars: {
+    '--skin-sider-bg': 'linear-gradient(165deg, #2b1a0d, #5a3413)',
+    '--skin-sider-active': 'rgba(245, 158, 11, 0.24)',
+    '--skin-hero-strong': 'linear-gradient(120deg, #7c2d12 0%, #ea580c 60%, #f59e0b 100%)',
     '--skin-accent': '#ea580c', '--skin-accent-2': '#f59e0b',
     '--skin-accent-bg': '#fdeada', '--skin-accent-text': '#9a3d07',
     '--skin-page-bg': '#fdfbf7', '--skin-subtle-bg': '#f7f2ea',

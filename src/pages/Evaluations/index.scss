@@ -26,7 +26,7 @@
         font-size: 40px;
         font-weight: 600;
         line-height: 1.1;
-        color: rgba(0, 0, 0, 0.88);
+        color: var(--skin-title, rgba(0, 0, 0, 0.88));
       }
     }
 
@@ -69,8 +69,8 @@
       .check-pass { color: #52c41a; }
       .check-fail { color: #f5222d; }
       .check-name { flex: 1; }
-      .check-points { color: rgba(0, 0, 0, 0.45); font-size: 12px; }
-      .check-empty { color: rgba(0, 0, 0, 0.35); }
+      .check-points { color: var(--skin-muted, rgba(0, 0, 0, 0.45)); font-size: 12px; }
+      .check-empty { color: var(--skin-muted, rgba(0, 0, 0, 0.35)); }
     }
   }
 }

@@ -6,6 +6,7 @@ import {
   Button,
   Empty,
   Input,
+  Select,
   Space,
   Table,
   Tag,
@@ -31,6 +32,7 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
+  const [deptFilter, setDeptFilter] = useState<string | undefined>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,11 +53,18 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   const dimensions = summary?.dimensions ?? [];
 
   const rows = useMemo(() => {
-    const list = summary?.candidates ?? [];
+    let list = summary?.candidates ?? [];
+    if (deptFilter) list = list.filter((c) => c.deptName === deptFilter);
     const text = keyword.trim().toLowerCase();
-    if (!text) return list;
-    return list.filter((c) => `${c.candidateName}${c.deptName ?? ''}`.toLowerCase().includes(text));
-  }, [summary, keyword]);
+    if (text) list = list.filter((c) => `${c.candidateName}${c.deptName ?? ''}`.toLowerCase().includes(text));
+    return list;
+  }, [summary, keyword, deptFilter]);
+
+  /** 部门下拉的选项来自当前数据本身，不用再传 depts 进来 */
+  const deptOptions = useMemo(() => {
+    const names = new Set((summary?.candidates ?? []).map((c) => c.deptName).filter(Boolean));
+    return Array.from(names).map((n) => ({ value: n as string, label: n as string }));
+  }, [summary]);
 
   const columns: any[] = [
     {
@@ -99,6 +108,7 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
       dataIndex: 'totalScore',
       width: 120,
       align: 'center' as const,
+      // 录取是从高分往下看的，进来直接按总分降序排好
       defaultSortOrder: 'descend' as const,
       sorter: (a: CandidateSummary, b: CandidateSummary) => (a.totalScore ?? -1) - (b.totalScore ?? -1),
       render: (value: number | null) => (value === null || value === undefined
@@ -206,6 +216,14 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
           placeholder="搜索姓名 / 部门"
           style={{ width: 240 }}
           onChange={(e) => setKeyword(e.target.value)}
+        />
+        <Select
+          allowClear
+          placeholder="按面试部门筛选"
+          style={{ width: 160 }}
+          value={deptFilter}
+          onChange={setDeptFilter}
+          options={deptOptions}
         />
         <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>刷新</Button>
         <Text type="secondary">评价由协同服务定期回写，最新改动可能有几十秒延迟</Text>
