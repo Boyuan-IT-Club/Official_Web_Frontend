@@ -154,7 +154,11 @@ const Dashboard = () => {
 
     // 尝试从后端获取最新简历状态
     try {
-      const result = await dispatch(fetchMyResumeReadonly(selectedCycleId ?? 2)).unwrap();
+      if (selectedCycleId == null) {
+        message.info('当前没有进行中的招新');
+        return;
+      }
+      const result = await dispatch(fetchMyResumeReadonly(selectedCycleId)).unwrap();
       const resumeData = result?.data || result;
       if (resumeData && resumeData.status >= 2) {
         navigate('/main/interview-appointment');
@@ -211,30 +215,39 @@ const Dashboard = () => {
       </div>
 
       {/* 招新进度卡（方案三）：随时知道自己进行到哪一步。已是社员的不再显示 */}
-      {!isMember && (
+      {/* 没有任何开放周期（比如都被管理员删了）就不渲染进度卡——
+          此前写死兜底到周期 2，会把 2025 届的老录取结果冒充「当前状态」摆在首页 */}
+      {!isMember && selectedCycleId != null && (
         <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '8px auto 0', padding: '0 16px' }}>
           <RecruitProgressCard
-            cycleId={selectedCycleId ?? 2}
+            cycleId={selectedCycleId}
             resumeStatus={resumeState?.resume?.status ?? null}
             canAttendOffline={canAttendOffline}
           />
+        </div>
+      )}
+      {!isMember && selectedCycleId == null && upcomingCycles.length === 0 && (
+        <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '8px auto 0', padding: '0 16px' }}>
+          <Card size="small" style={{ textAlign: 'center' }}>
+            <Text type="secondary">当前没有进行中的招新，欢迎先逛逛社团活动；往届申请记录在个人主页查看。</Text>
+          </Card>
         </div>
       )}
 
       {/* 工作台：面试提醒 + 最新活动（无面试安排时活动卡自动铺满整行） */}
       <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '12px auto 0', padding: '0 16px' }}>
         <Row gutter={[12, 12]}>
-          {hasInterview && (
+          {hasInterview && selectedCycleId != null && (
             <Col xs={24} md={12}>
-              <InterviewReminderCard cycleId={selectedCycleId ?? 2} onVisibleChange={setHasInterview} />
+              <InterviewReminderCard cycleId={selectedCycleId} onVisibleChange={setHasInterview} />
             </Col>
           )}
           <Col xs={24} md={hasInterview ? 12 : 24}>
             <ActivitiesPreviewCard />
           </Col>
-          {!hasInterview && (
+          {!hasInterview && selectedCycleId != null && (
             <Col span={0} style={{ display: 'none' }}>
-              <InterviewReminderCard cycleId={selectedCycleId ?? 2} onVisibleChange={setHasInterview} />
+              <InterviewReminderCard cycleId={selectedCycleId} onVisibleChange={setHasInterview} />
             </Col>
           )}
         </Row>

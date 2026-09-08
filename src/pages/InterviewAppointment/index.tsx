@@ -46,7 +46,9 @@ const InterviewAppointment: React.FC = () => {
   const [pickedCycleId, setPickedCycleId] = useState<number | null>(
     paramCycleId ? Number(paramCycleId) : null,
   );
-  const cycleId: number = pickedCycleId ?? (resumeState?.cycleId ?? 2);
+  // 不再硬编码兜底到某一届：周期都被删除/没投过时就是 null，下面渲染空态。
+  // 此前写死 ?? 2，导致管理员删光周期后这里仍拿 2025 届的老结果冒充「当前状态」。
+  const cycleId: number | null = pickedCycleId ?? resumeState?.cycleId ?? null;
 
   /** 我投过的全部周期，供切换 */
   const [myCycles, setMyCycles] = useState<Array<{
@@ -71,8 +73,9 @@ const InterviewAppointment: React.FC = () => {
         setPickedCycleId((prev) => {
           if (prev != null) return prev;
           if (list.length === 0) return null;
-          return list.some((c: any) => c.cycleId === (resumeState?.cycleId ?? 2))
-            ? (resumeState?.cycleId ?? 2)
+          const storeCycle = resumeState?.cycleId ?? null;
+          return storeCycle != null && list.some((c: any) => c.cycleId === storeCycle)
+            ? storeCycle
             : list[0].cycleId;
         });
       })
@@ -123,6 +126,11 @@ const InterviewAppointment: React.FC = () => {
   useEffect(() => {
     (async () => {
       let cid = cycleId;
+      // 没有任何周期（都被删除，且没投过别的届）：不发请求，渲染空态
+      if (cid == null) {
+        setLoading(false);
+        return;
+      }
       // 「当前」不再是单个周期：同时可能有多个周期在开放投递，
       // 所以往届判定改成「不在开放列表里」，而不是「不等于那一个活跃周期」
       let openIds: number[] = [];
@@ -183,6 +191,7 @@ const InterviewAppointment: React.FC = () => {
   const handleSubmitResched = async () => {
     if (!reschedReason.trim()) { message.warning('请填写改期原因'); return; }
     setReschedSaving(true);
+    if (cycleId == null) return;
     try {
       await submitReschedule({
         cycleId,
@@ -369,6 +378,22 @@ const InterviewAppointment: React.FC = () => {
     ),
   });
 
+  // 周期全被删除且没有任何历史申请：给明确空态，而不是拿写死的老周期数据冒充现状
+  if (cycleId == null) {
+    return (
+      <div className="app-progress-page">
+        <Card style={{ maxWidth: 560, margin: '48px auto', textAlign: 'center' }}>
+          <p style={{ fontSize: 40, margin: '8px 0' }}>🍂</p>
+          <Typography.Title level={4} style={{ marginTop: 0 }}>当前没有进行中的招新</Typography.Title>
+          <Text type="secondary">下一届招新开放后，这里会显示你的申请进度；往届申请可在个人主页「我的申请」查看。</Text>
+          <div style={{ marginTop: 20 }}>
+            <Button type="primary" onClick={() => navigate('/main/dashboard')}>返回首页</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="app-progress-page">
       {/* 投过多届的同学在这里切换回看往届进度。
@@ -422,7 +447,7 @@ const InterviewAppointment: React.FC = () => {
         cycleId={cycleId}
         resumeId={resume?.resume_id || resume?.id}
         onClose={() => setIntentOpen(false)}
-        onSaved={() => { dispatch(fetchMyResumeReadonly(cycleId)); loadAll(cycleId); }}
+        onSaved={() => { if (cycleId != null) { dispatch(fetchMyResumeReadonly(cycleId)); loadAll(cycleId); } }}
       />
 
       <Drawer
