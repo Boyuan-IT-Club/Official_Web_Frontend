@@ -85,6 +85,9 @@ const InterviewAppointment: React.FC = () => {
   }, []);
 
   const [loading, setLoading] = useState(true);
+  // 解析完开放列表后确认「无周期可看」才渲染空态；不能只看 cycleId 初值——
+  // 直接进本页时 store 可能还没来得及拉开放列表
+  const [noCycle, setNoCycle] = useState(false);
   const [cycleName, setCycleName] = useState<string>('');
   const [isHistory, setIsHistory] = useState(false);
   const [preference, setPreference] = useState<MyPreference | null>(null);
@@ -126,11 +129,6 @@ const InterviewAppointment: React.FC = () => {
   useEffect(() => {
     (async () => {
       let cid = cycleId;
-      // 没有任何周期（都被删除，且没投过别的届）：不发请求，渲染空态
-      if (cid == null) {
-        setLoading(false);
-        return;
-      }
       // 「当前」不再是单个周期：同时可能有多个周期在开放投递，
       // 所以往届判定改成「不在开放列表里」，而不是「不等于那一个活跃周期」
       let openIds: number[] = [];
@@ -138,9 +136,18 @@ const InterviewAppointment: React.FC = () => {
         const open = await dispatch(fetchOpenCycles()).unwrap();
         openIds = (open ?? []).map((c) => Number(c.cycleId));
       } catch { /* 回退：拿不到开放列表就沿用 store 里的 cycleId，不标往届 */ }
-      if (!paramCycleId && openIds.length > 0 && !openIds.includes(Number(cid))) {
+      if (!paramCycleId && openIds.length > 0 && (cid == null || !openIds.includes(Number(cid)))) {
         cid = openIds[0];
       }
+      // 开放列表为空、没带参数、也没投过任何届：确无周期，渲染空态
+      if (cid == null) {
+        setNoCycle(true);
+        setLoading(false);
+        return;
+      }
+      setNoCycle(false);
+      // 解析结果回写选择器，让页内所有动作（改期/意向/切换器）都用同一个周期号
+      setPickedCycleId((prev) => (prev == null ? Number(cid) : prev));
       setIsHistory(openIds.length > 0 && !openIds.includes(Number(cid)));
       // 解析周期名，明确标识当前查看的是哪一届
       getAllCycles()
@@ -379,7 +386,7 @@ const InterviewAppointment: React.FC = () => {
   });
 
   // 周期全被删除且没有任何历史申请：给明确空态，而不是拿写死的老周期数据冒充现状
-  if (cycleId == null) {
+  if (noCycle && cycleId == null) {
     return (
       <div className="app-progress-page">
         <Card style={{ maxWidth: 560, margin: '48px auto', textAlign: 'center' }}>
@@ -389,6 +396,16 @@ const InterviewAppointment: React.FC = () => {
           <div style={{ marginTop: 20 }}>
             <Button type="primary" onClick={() => navigate('/main/dashboard')}>返回首页</Button>
           </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (cycleId == null) {
+    return (
+      <div className="app-progress-page">
+        <Card style={{ maxWidth: 560, margin: '48px auto', textAlign: 'center' }}>
+          <Spin />
         </Card>
       </div>
     );
