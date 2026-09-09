@@ -318,16 +318,40 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
       open={qbankOpen}
       onClose={() => setQbankOpen(false)}
     >
-      {!qbank || !(qbank.envelope?.questions ?? []).length ? (
-        <Empty description="暂无预置题(或该维被跳过)" />
-      ) : (
-        (qbank.envelope.questions as any[]).map((q, i) => (
+      {(() => {
+        if (!qbank) return <Empty description="加载中…" />;
+        const groups: { group: string; mode?: string; questions: any[] }[] =
+          qbank.envelope?.groups ?? [];
+        const all: { group: string; q: any }[] = [];
+        for (const g of groups) {
+          for (const q of g.questions ?? []) all.push({ group: g.group, q });
+        }
+        if (!all.length) {
+          const skipped = groups.some((g) => g.mode === "skipped");
+          return (
+            <Empty
+              description={
+                skipped
+                  ? "该候选项目维证据不足,已跳过深挖(其余维度见评分卡)"
+                  : "暂无预置题(或该维被跳过)"
+              }
+            />
+          );
+        }
+        const GROUP_LABEL: Record<string, string> = {
+          repo: "仓深挖",
+          autograding: "评测错因",
+          awards: "奖项追问",
+          base_and_skills: "基础三维与技能题",
+        };
+        return all.map(({ group, q }, i) => (
           <div
             key={i}
             style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: 12, marginBottom: 8 }}
           >
             <Space style={{ marginBottom: 4 }}>
-              <Tag color="purple">{q.anchor}</Tag>
+              <Tag color="purple">{GROUP_LABEL[group] ?? group}</Tag>
+              <Tag>{q.anchor}</Tag>
               {q.evidence?.path ? <Tag>{q.evidence.path}</Tag> : null}
               <Text type="secondary">{q.time_minutes ?? 3} 分钟</Text>
             </Space>
@@ -343,13 +367,13 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
             <Button
               size="small"
               icon={<CheckOutlined />}
-              onClick={() => doPick(detailResume ?? Number(q.resume_id), q)}
+              onClick={() => doPick(detailResume ?? 0, q)}
             >
               勾选此题
             </Button>
           </div>
-        ))
-      )}
+        ));
+      })()}
     </Drawer>
   );
 
