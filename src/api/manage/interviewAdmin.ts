@@ -169,6 +169,8 @@ export interface ScheduleRosterItem {
   name?: string;
   username?: string;
   deptName?: string;
+  /** 1 = 时间被管理员手动调整过，自动分配/换场不会再覆盖 */
+  timeOverridden?: number;
 }
 
 export interface OfflineUnavailableItem {
@@ -267,6 +269,14 @@ export function pullAllLocations(cycleId: number, updateUserDept = true) {
 export function getFeishuTask(taskId: number) {
   return request({ url: `/api/interview/feishu/import/tasks/${taskId}`, method: 'get' });
 }
+
+/** 手动把某条面试安排的时间调到精确钟点；会触发飞书重同步与重新通知标记 */
+export const updateScheduleInterviewTime = (scheduleId: number, interviewTime: string) =>
+  request({
+    url: `/api/interview/admin/schedules/${scheduleId}/interview-time`,
+    method: 'put',
+    data: { interviewTime },
+  });
 
 // ---- 预录取名单（录取决策草稿，学生端不可见） ----
 

@@ -78,7 +78,7 @@ import EvaluationSummaryTab from "./EvaluationSummaryTab";
 import EvaluationDrawer from "./EvaluationDrawer";
 import PreAdmitTab from "./PreAdmitTab";
 import { CandidateSummary, EvaluationDimension, getEvaluationSummary } from "@/api/manage/interviewEvaluation";
-import { savePreAdmission } from "@/api/manage/interviewAdmin";
+import { savePreAdmission, updateScheduleInterviewTime } from "@/api/manage/interviewAdmin";
 import SessionInterviewersModal from "./SessionInterviewersModal";
 
 const fmtTime = (t?: string) => (t ? t.slice(0, 5) : "-");
@@ -239,6 +239,11 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
   const [rosterSession, setRosterSession] = useState<InterviewSession | null>(null);
   const [roster, setRoster] = useState<ScheduleRosterItem[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
+  // 手动调整单条安排的面试时间（#222 后端）：精确钟点，调整后
+  // 自动重同步飞书、标记需重新通知，公式分配不再覆盖
+  const [timeEditing, setTimeEditing] = useState<ScheduleRosterItem | null>(null);
+  const [timeValue, setTimeValue] = useState<any>(null);
+  const [timeSaving, setTimeSaving] = useState(false);
   const [interviewerSession, setInterviewerSession] = useState<InterviewSession | null>(null);
   const [resumeDetail, setResumeDetail] = useState<any>(null);
   const [resumeDetailLoading, setResumeDetailLoading] = useState(false);
@@ -489,8 +494,17 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
           pagination={false}
           locale={{ emptyText: "该场次还没有分配任何候选人" }}
           columns={[
-            { title: "面试时间", dataIndex: "interviewTime", width: 130,
-              render: (v: string) => (v ? String(v).replace("T", " ").slice(5, 16) : "-") },
+            { title: "面试时间", dataIndex: "interviewTime", width: 150,
+              render: (v: string, r: ScheduleRosterItem) => (
+                <span>
+                  {v ? String(v).replace("T", " ").slice(5, 16) : "-"}
+                  {r.timeOverridden === 1 && (
+                    <Tooltip title="时间已手动调整，自动分配/换场不会覆盖">
+                      <Tag color="purple" style={{ marginLeft: 6 }}>手调</Tag>
+                    </Tooltip>
+                  )}
+                </span>
+              ) },
             { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: ScheduleRosterItem) => v || r.username || `用户#${r.userId}` },
             {
               /* 这里的数据源就是 user.username，不是简历里填的学号。
@@ -511,7 +525,54 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
                   <span>{v || "-"}</span>
                 </Tooltip>
               ) },
+            { title: "操作", width: 90,
+              render: (_: unknown, r: ScheduleRosterItem) => (
+                <Button type="link" size="small" onClick={() => {
+                  setTimeEditing(r);
+                  setTimeValue(r.interviewTime ? dayjs(r.interviewTime) : null);
+                }}>调时间</Button>
+              ) },
           ] as any}
+        />
+      </Modal>
+
+      <Modal
+        title={timeEditing
+          ? `调整面试时间：${timeEditing.name || timeEditing.username || `用户#${timeEditing.userId}`}`
+          : ""}
+        open={!!timeEditing}
+        confirmLoading={timeSaving}
+        okText="保存新时间"
+        onCancel={() => setTimeEditing(null)}
+        onOk={async () => {
+          if (!timeEditing || !timeValue) { message.warning("请选择新的面试时间"); return; }
+          setTimeSaving(true);
+          try {
+            await updateScheduleInterviewTime(
+              timeEditing.scheduleId,
+              dayjs(timeValue).format("YYYY-MM-DDTHH:mm:00"),
+            );
+            message.success("时间已调整，飞书表格将重新同步；记得重新发送面试提醒");
+            setTimeEditing(null);
+            if (rosterSession) openRoster(rosterSession);
+          } catch (e: any) {
+            message.error(e?.message || "调整失败");
+          } finally {
+            setTimeSaving(false);
+          }
+        }}
+        destroyOnClose
+      >
+        <p style={{ color: "#888", marginTop: 0 }}>
+          调整后该同学的时间被标记为「手调」，自动分配与换场不会再覆盖；
+          飞书同步状态会重置为待同步，提醒邮件需重新发送。
+        </p>
+        <DatePicker
+          showTime={{ format: "HH:mm", minuteStep: 5 }}
+          format="YYYY-MM-DD HH:mm"
+          style={{ width: "100%" }}
+          value={timeValue}
+          onChange={setTimeValue}
         />
       </Modal>
       {resumeDetailOpen && (
