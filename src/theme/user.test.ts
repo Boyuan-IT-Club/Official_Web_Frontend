@@ -33,3 +33,25 @@ describe('用户端皮肤表', () => {
     expect(dark.theme.algorithm).toBeDefined();
   });
 });
+
+describe('晨霞皮肤', () => {
+  const dawn = SKINS.find((s) => s.key === 'dawn')!;
+
+  it('存在且不是默认——打磨成果独立上线，默认皮肤保持线上现状', () => {
+    expect(dawn).toBeDefined();
+    expect(DEFAULT_SKIN_KEY).not.toBe('dawn');
+    // 默认皮肤仍是零下发（不选不换的机制保证）
+    const def = SKINS.find((s) => s.key === DEFAULT_SKIN_KEY)!;
+    expect(def.cssVars ?? {}).toEqual({});
+    expect(def.theme).toEqual({});
+  });
+
+  it('横幅底透明（画布连续无缝的前提）且带整屋画布', () => {
+    expect(dawn.cssVars?.['--skin-hero-bg']).toBe('transparent');
+    expect(dawn.cssVars?.['--skin-page-bg']).toContain('radial-gradient');
+  });
+
+  it('走 classic 版式（复用默认横幅结构，玻璃与流动字由 data-skin 样式叠加）', () => {
+    expect(dawn.layout).toBe('classic');
+  });
+});
