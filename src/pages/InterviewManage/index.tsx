@@ -1834,7 +1834,7 @@ const InterviewManage: React.FC = () => {
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} refreshToken={tabTokens.assign ?? 0} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} refreshToken={tabTokens.reschedule ?? 0} /> },
             { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} /> },
-            { key: "preadmit", label: "预录取", children: <PreAdmitTab cycleId={cycleId} refreshToken={tabTokens.preadmit ?? 0} /> },
+            { key: "preadmit", label: "预录取", children: <PreAdmitTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.preadmit ?? 0} /> },
             { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.results ?? 0} /> },
             { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
           ]}

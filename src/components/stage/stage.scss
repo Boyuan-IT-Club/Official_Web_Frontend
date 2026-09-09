@@ -1,0 +1,71 @@
+// 舞台组件：终审舞台与评价舞台共用的全屏容器 + 胶片条。
+// 浅色系，与管理端整体观感一致；主角层级靠字号与留白，不靠深底。
+.stage-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;               // 盖住管理端侧栏与顶栏
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, #eef3fb 0%, #fbfcfe 55%), #fbfcfe;
+  color: #33405c;
+
+  &__top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: #fff;
+    border-bottom: 1px solid #e5eaf4;
+    flex-wrap: wrap;
+  }
+
+  &__title { font-weight: 700; color: #1c2742; font-size: 15px; }
+  &__meta  { color: #7a86a0; font-size: 12.5px; }
+  &__spacer { margin-left: auto; }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  &__film {
+    border-top: 1px solid #e5eaf4;
+    background: #f2f5fb;
+  }
+}
+
+.film-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  overflow-x: auto;
+
+  &__chip {
+    flex: none;
+    min-width: 92px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #dde4f0;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+
+    &:focus-visible { outline: 2px solid #2563b8; outline-offset: 1px; }
+    &.is-selected {
+      border-color: #2563b8;
+      background: #e9f1fd;
+      box-shadow: 0 2px 8px rgba(37, 99, 184, 0.15);
+    }
+  }
+
+  &__sub  { font-family: ui-monospace, monospace; font-size: 11px; color: #93a0b8; display: block; }
+  &__name { display: block; font-size: 13px; font-weight: 600; color: #1c2742; }
+  &__tag  { font-size: 11px; display: block; color: #93a0b8;
+    &.tone-good { color: #2e7d4f; }
+    &.tone-now  { color: #2563b8; font-weight: 700; }
+    &.tone-warn { color: #b45309; }
+  }
+  &__extra { font-size: 10.5px; color: #7c5cd6; display: block; }
+}
