@@ -40,27 +40,22 @@ import "./index.scss";
 const { Header, Sider, Content } = AntdLayout;
 const { Text } = Typography;
 
-/** 菜单项与所需权限码（任一满足即显示；undefined 表示登录即可见）
- *  group:"flow" = 归入「招新流程」分组 SubMenu(一轮招新的先后环节);
- *  其余为顶级入口。 */
+/** 菜单项与所需权限码（任一满足即显示；undefined 表示登录即可见） */
 const MENU_DEFS: Array<{
   key: string;
   icon: React.ReactNode;
   label: string;
   anyOf?: string[];
-  group?: "flow";
 }> = [
-  // —— 招新流程组(按一轮招新先后:开届→投递/初筛→简历评估→排面试→面试评价)——
-  { key: "/cycles", icon: <CalendarOutlined />, label: "招募周期", anyOf: ["cycle:manage"], group: "flow" },
-  { key: "/resumes", icon: <FolderOpenOutlined />, label: "简历审核", anyOf: ["resume:view", "resume:audit"], group: "flow" },
-  { key: "/evaluation-review", icon: <AuditOutlined />, label: "简历评估", anyOf: ["resume:audit", "interview:evaluate"], group: "flow" }, // B #135
-  { key: "/interviews", icon: <ScheduleOutlined />, label: "面试管理", anyOf: ["resume:audit", "resume:view"], group: "flow" },
-  { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"], group: "flow" },
-  // —— 顶级入口 ——
   { key: "/manage", icon: <TeamOutlined />, label: "用户与角色", anyOf: ["admin:manage", "role:assign", "dept:manage", "resume:audit"] },
+  { key: "/resumes", icon: <FolderOpenOutlined />, label: "简历审核", anyOf: ["resume:view", "resume:audit"] },
+  { key: "/cycles", icon: <CalendarOutlined />, label: "招募周期", anyOf: ["cycle:manage"] },
+  { key: "/interviews", icon: <ScheduleOutlined />, label: "面试管理", anyOf: ["resume:audit", "resume:view"] },
+  { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
   { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
   { key: "/agent-admin", icon: <ControlOutlined />, label: "Agent 管理", anyOf: ["agent:monitor", "kb:manage"] }, // RAG #134:kb:manage 单独授权也能见知识库 Tab
+  { key: "/evaluation-review", icon: <AuditOutlined />, label: "简历评估", anyOf: ["resume:audit", "interview:evaluate"] }, // B #135
 ];
 
 // 首次进管理端的欢迎说明：按一轮招新的先后顺序讲每个模块干什么。
@@ -85,7 +80,6 @@ const MENU_TOUR_COPY: Record<string, { title: string; description: string }> = {
   "/resumes": { title: "简历审核", description: "集中查看与审核本周期投递的简历。" },
   "/cycles": { title: "招募周期", description: "开启新一轮招新、设定时间与简历字段——一切从这里开始。" },
   "/interviews": { title: "面试管理", description: "维护面试场次与时间槽、绑定面试官、处理学生的改期申请。" },
-  "/evaluation-review": { title: "简历评估", description: "AI 初筛评分复核：0 分/初筛不过队列、逐维维卡、采纳或驳回，产出预置面试题库。" }, // B #135
   "/evaluation": { title: "面试评价表", description: "面试现场的协同打分工作台，同场面试官的输入实时互见。" },
   "/activities": { title: "活动管理", description: "发布和维护社团活动。" },
   "/evaluations": { title: "autograding", description: "查看候选人编程作业的自动评测成绩与报告。" },
@@ -109,44 +103,18 @@ const AdminLayout: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
-  // 按权限过滤(任一 anyOf 命中即显示)。flow 归入「招新流程」SubMenu,
-  // 其余为顶级。菜单 items(嵌套) 与扁平视角(全局搜索/导览/标题)两用。
-  const visible = useMemo(
-    () =>
-      MENU_DEFS.filter((m) => !m.anyOf || m.anyOf.some((code) => permCodes.includes(code))),
-    [permCodes]
-  );
-  const flowItems = visible
-    .filter((m) => m.group === "flow")
-    .map(({ key, icon, label }) => ({ key, icon, label }));
-  const topItems = visible
-    .filter((m) => m.group !== "flow")
-    .map(({ key, icon, label }) => ({ key, icon, label }));
   const menuItems = useMemo(
     () =>
-      flowItems.length
-        ? [
-            {
-              key: "/__flow__",
-              icon: <ScheduleOutlined />,
-              label: "招新流程",
-              children: flowItems,
-            },
-            ...topItems,
-          ]
-        : topItems,
-    [flowItems, topItems]
-  );
-  // 扁平(全局搜索/导览/标题):全部可见项
-  const allVisible = useMemo(
-    () => visible.map(({ key, label }) => ({ key, label })),
-    [visible]
+      MENU_DEFS.filter(
+        (m) => !m.anyOf || m.anyOf.some((code) => permCodes.includes(code))
+      ).map(({ key, icon, label }) => ({ key, icon, label })),
+    [permCodes]
   );
 
   // 导览步骤 = 当前账号可见的菜单 + 顶栏三件套（搜索/账号/指引）
   const tourSteps = useMemo<OnboardingStep[]>(
     () => [
-      ...allVisible
+      ...menuItems
         .map((m): OnboardingStep | null => {
           const copy = MENU_TOUR_COPY[m.key];
           return copy ? { selector: menuStepSelector(m.key), ...copy } : null;
@@ -168,7 +136,7 @@ const AdminLayout: React.FC = () => {
         description: "以后想重看这份说明或导览，点这里就行。",
       },
     ],
-    [allVisible]
+    [menuItems]
   );
 
   // 新管理员首次进来自动弹使用说明；顶栏「指引」可随时重看
@@ -247,13 +215,6 @@ const AdminLayout: React.FC = () => {
   const currentTitle =
     MENU_DEFS.find((m) => m.key === selectedKeys[0])?.label ?? "管理后台";
 
-  // flow 子页命中时自动展开「招新流程」组,不用手动点开
-  const [openKeys, setOpenKeys] = useState<string[]>([]);
-  useEffect(() => {
-    const onFlow = MENU_DEFS.find((m) => m.key === selectedKeys[0])?.group === "flow";
-    setOpenKeys(onFlow ? ["/__flow__"] : []);
-  }, [selectedKeys[0]]);  // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
     <AntdLayout className="admin-layout" style={{ minHeight: "100vh" }}>
       <Sider
@@ -280,8 +241,6 @@ const AdminLayout: React.FC = () => {
           theme="light"
           mode="inline"
           selectedKeys={selectedKeys}
-          openKeys={openKeys}
-          onOpenChange={setOpenKeys}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />
@@ -323,7 +282,7 @@ const AdminLayout: React.FC = () => {
         <GlobalSearch
           open={searchOpen}
           onClose={() => setSearchOpen(false)}
-          pages={allVisible.map((m) => ({ key: String(m.key), label: String(m.label) }))}
+          pages={menuItems.map((m) => ({ key: String(m.key), label: String(m.label) }))}
         />
         {tour.node}
       </AntdLayout>
