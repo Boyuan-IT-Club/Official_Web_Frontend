@@ -191,3 +191,24 @@ $mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
     }
   }
 }
+
+// ── 评价舞台（沉浸模式）──
+// 全视口盖住管理端外壳；底部固定胶片条，内容区留出它的高度
+.eval-ws.is-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  background: linear-gradient(160deg, #eef3fb 0%, #fbfcfe 55%), #fbfcfe;
+  padding: 16px 28px 110px;
+}
+
+.eval-ws-film {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  background: #f2f5fb;
+  border-top: 1px solid #e5eaf4;
+}

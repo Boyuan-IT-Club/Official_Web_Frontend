@@ -30,6 +30,9 @@ import {
   type BoardColumn,
   type BoardRow,
 } from '../EvaluationBoard/collab';
+import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
+import EvalOverview from './EvalOverview';
+import { chipStatus, currentScheduleId, sortSessionRows } from './evalStage';
 import './index.scss';
 
 const RECOMMENDATION_OPTIONS = [
@@ -124,6 +127,71 @@ const EvaluationWorkspace: React.FC = () => {
     () => board.rows.find((r) => r.scheduleId === scheduleId),
     [board.rows, scheduleId],
   );
+
+  // ── 评价舞台（沉浸模式）──
+  // stage=1 时全屏盖住管理端外壳，底部胶片条显示本场时间表。
+  // 用 URL 参数而不是本地状态：把带 stage 的链接发给同伴，对方进来就是舞台。
+  const stageOn = searchParams.get('stage') === '1';
+  const setStage = useCallback((on: boolean) => {
+    navigate(`/evaluation/${cycleId}/${scheduleId}${on ? '?stage=1' : ''}`, { replace: true });
+  }, [navigate, cycleId, scheduleId]);
+  const [overviewOpen, setOverviewOpen] = useState(false);
+
+  // 本场次名单（线上单约没有场次，就只有自己一张卡）
+  const sessionRows = useMemo(() => {
+    const sameSession = row?.sessionId != null
+      ? board.rows.filter((r) => r.sessionId === row.sessionId)
+      : board.rows.filter((r) => r.scheduleId === scheduleId);
+    return sortSessionRows(sameSession);
+  }, [board.rows, row?.sessionId, scheduleId]);
+
+  // 「正在面试」随时间前移：舞台开着时每 30 秒重推定一次
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!stageOn) return undefined;
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, [stageOn]);
+  const nowInterviewingId = useMemo(
+    () => currentScheduleId(sessionRows, now),
+    [sessionRows, now],
+  );
+
+  // Ctrl/⌘ + ←→ 在本场次内换人（纯方向键留给文字框）
+  useEffect(() => {
+    if (!stageOn) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setStage(false); return; }
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const idx = sessionRows.findIndex((r) => r.scheduleId === scheduleId);
+      if (idx < 0 || sessionRows.length === 0) return;
+      e.preventDefault();
+      const next = sessionRows[(idx + (e.key === 'ArrowRight' ? 1 : -1) + sessionRows.length) % sessionRows.length];
+      navigate(`/evaluation/${cycleId}/${next.scheduleId}?stage=1`, { replace: true });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stageOn, sessionRows, scheduleId, navigate, cycleId, setStage]);
+
+  const filmItems: FilmChip[] = useMemo(() => sessionRows.map((r) => {
+    const submitted = Number(board.readCell(r.scheduleId, 'status')) === 2;
+    const hasScores = Object.keys(board.readEvaluation(r.scheduleId).scores ?? {}).length > 0;
+    const timePassed = !!r.interviewTime && new Date(String(r.interviewTime)).getTime() < now.getTime();
+    const st = chipStatus({ submitted, hasScores, isCurrent: r.scheduleId === nowInterviewingId, timePassed });
+    const peersHere = board.peers
+      .filter((pr) => pr.activeScheduleId === r.scheduleId && pr.userId !== userId)
+      .map((pr) => pr.name);
+    return {
+      key: r.scheduleId,
+      name: r.candidateName || `#${r.scheduleId}`,
+      sub: r.interviewTime ? String(r.interviewTime).replace('T', ' ').slice(11, 16) : '时间未定',
+      tag: st.tag,
+      tagTone: st.tone,
+      extra: peersHere.length ? `${peersHere.join('、')} 也在评` : undefined,
+      selected: r.scheduleId === scheduleId,
+    };
+  }), [sessionRows, board, now, nowInterviewingId, scheduleId, userId]);
 
   // 广播「我在这位候选人上」：评价表页的行内头像、抽屉里的同伴提示都靠它。
   // 原先只有抽屉会广播，从工作台进来的人对同事是隐身的。
@@ -225,7 +293,7 @@ const EvaluationWorkspace: React.FC = () => {
   const submitted = Number(board.readCell(scheduleId, 'status')) === 2;
 
   return (
-    <div className="eval-ws">
+    <div className={`eval-ws${stageOn ? ' is-stage' : ''}`}>
       <div className="eval-ws-bar">
         <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/evaluation')}>
           评价表
@@ -239,6 +307,15 @@ const EvaluationWorkspace: React.FC = () => {
         <span className="ws-total">加权总分 {total ?? '—'}</span>
 
         <Space size={4} style={{ marginLeft: 'auto' }}>
+          {stageOn && sessionRows.length > 1 && (
+            <span style={{ fontSize: 12, color: '#8a93a8' }}>
+              第 {Math.max(1, sessionRows.findIndex((r) => r.scheduleId === scheduleId) + 1)} / {sessionRows.length} 位 · ⌘/Ctrl+←→ 换人
+            </span>
+          )}
+          <Button size="small" onClick={() => setOverviewOpen(true)}>评价总览</Button>
+          <Button size="small" type={stageOn ? 'default' : 'primary'} onClick={() => setStage(!stageOn)}>
+            {stageOn ? '退出舞台（Esc）' : '进入评价舞台'}
+          </Button>
           {board.peers.map((p) => (
             <Tooltip key={p.clientId} title={`${p.name} 在线`}>
               <Avatar size={22} style={{ background: peerColor(p.userId), fontSize: 11 }}>
@@ -397,6 +474,16 @@ const EvaluationWorkspace: React.FC = () => {
           </div>
         </section>
       </div>
+      {stageOn && (
+        <div className="eval-ws-film">
+          <FilmStrip
+            items={filmItems}
+            onSelect={(key) => navigate(`/evaluation/${cycleId}/${Number(key)}?stage=1`, { replace: true })}
+          />
+        </div>
+      )}
+
+      <EvalOverview cycleId={cycleId} open={overviewOpen} onClose={() => setOverviewOpen(false)} />
     </div>
   );
 };
