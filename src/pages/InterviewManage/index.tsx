@@ -1432,7 +1432,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
           maxLength={500}
           value={customMsg}
           onChange={(e) => setCustomMsg(e.target.value)}
-          placeholder="自定义附加内容（可选），会附在邮件正文中"
+          placeholder="补充说明（可选）——会附在模板正文之后，不会替换原文"
         />
       </Modal>
     </>
