@@ -1,0 +1,201 @@
+// ═══ 「晨霞」皮肤专属样式 ═══════════════════════════════════════
+//
+// 这套观感最初是按「打磨默认主题」做的，后决定不覆盖默认、
+// 独立成皮肤上线。凡是 cssVars 钩子（--skin-*）覆盖不到的规则
+// （动画、玻璃、字体、结构性覆盖）都收在本文件，一律以
+// html[data-skin='dawn'] 为作用域——默认与其它皮肤零影响。
+// 配色/底色类的差异走 theme/user.ts 里 dawn 皮肤的 cssVars。
+
+html[data-skin='dawn'] {
+
+  // ── 侧栏：暗青壳翻浅色淡染（文字组原样式是白字，无变量钩子，这里直接覆盖） ──
+  .main-layout .tech-sider {
+    border-right: 1px solid rgba(120, 140, 190, 0.14);
+
+    .sider-logo {
+      border-bottom: 1px solid rgba(120, 140, 190, 0.14);
+
+      .logo-text { color: #22344c; }
+    }
+
+    .tech-menu .ant-menu-item {
+      color: #6b7f9e !important;
+
+      a { color: #6b7f9e; }
+      a:hover { color: #22344c; }
+      .anticon { color: #9aa8bd; }
+
+      &:hover {
+        background: #f0f6ff !important;
+        color: #22344c !important;
+        .anticon { color: #22344c; }
+      }
+
+      &.ant-menu-item-selected {
+        color: #2b7fe0 !important;
+        font-weight: 600;
+        a { color: #2b7fe0; }
+        .anticon { color: #2b7fe0; }
+      }
+    }
+
+    .ant-layout-sider-trigger {
+      background: transparent;
+      color: #9aa8bd;
+      border-top: 1px solid rgba(120, 140, 190, 0.14);
+    }
+  }
+
+  // ── 首页横幅：玻璃卡 + 流动彩虹社名 + 苹果字栈 ──
+  .dashboard-banner {
+    border-bottom: none;
+
+    .banner-content {
+      background: rgba(255, 255, 255, 0.55);
+      backdrop-filter: blur(14px) saturate(1.4);
+      -webkit-backdrop-filter: blur(14px) saturate(1.4);
+      border: 1px solid rgba(195, 214, 246, 0.75);
+      box-shadow: 0 10px 30px rgba(80, 110, 180, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      border-radius: 20px;
+      padding: 28px 26px 24px;
+
+      @supports not (backdrop-filter: blur(1px)) { background: #fff; }
+    }
+
+    .banner-title {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+        'Helvetica Neue', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+
+      // 社名：蓝紫粉往返的流动渐变，全站唯一的多彩点
+      .title-accent {
+        background: linear-gradient(100deg,
+          #4da6ff 0%, #8f6ce8 30%, #f087c8 50%, #8f6ce8 70%, #4da6ff 100%);
+        background-size: 300% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: dawn-flow 7s linear infinite;
+
+        @media (prefers-reduced-motion: reduce) { animation: none; }
+      }
+    }
+
+    .banner-subtitle { letter-spacing: 0.12em; }
+  }
+
+  // ── 卡片语言：实底白卡 + 蓝调细线 + 极轻投影，圆角统一 14 ──
+  .main-layout {
+    .ant-card {
+      border-radius: 14px;
+      border-color: #dfeafa;
+      box-shadow: 0 2px 8px rgba(80, 110, 180, 0.05);
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .ant-card-hoverable:hover {
+      border-color: #b9d4f6;
+      box-shadow: 0 6px 16px rgba(43, 127, 224, 0.10);
+    }
+
+    .ant-tag { border-radius: 999px; }
+  }
+
+  // 进度步骤连线：品牌蓝→交互蓝细渐变
+  .recruit-progress-card .ant-steps-item-finish .ant-steps-item-tail::after,
+  .ant-steps .ant-steps-item-finish .ant-steps-item-tail::after {
+    background: linear-gradient(90deg, #4da6ff, #2b7fe0);
+  }
+
+  // 周期卡（button 形态，不吃 ant-card 规则）
+  .cycle-card {
+    border: 1px solid #dfeafa;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(80, 110, 180, 0.05);
+  }
+
+  // ── 投递页分区卡：并入统一卡片语言 ──
+  .publish-page .form-section {
+    background: #ffffff;
+    border-color: #dfeafa;
+    box-shadow: 0 2px 8px rgba(80, 110, 180, 0.05);
+  }
+
+  // ── 申请进度头图：深蓝渐变翻浅洗色 + 墨字（原文字色是写死的白，这里覆盖） ──
+  .app-progress-page .progress-hero {
+    color: #22344c;
+    border-bottom: 1px solid #dceafb;
+
+    .hero-cycle .hero-history-tag { border-color: #bcd6f5; }
+
+    .hero-emoji {
+      font-size: 22px;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid #d8e6f7;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ant-btn-background-ghost {
+      border-color: #bcd6f5;
+      color: #2b7fe0;
+
+      &:disabled {
+        border-color: #dbe7f6;
+        color: #9db4d1;
+      }
+    }
+  }
+
+  // ── 活动页：虚线粗边卡转正 + 红徽章换蓝洗色（呼吸光晕收成小圆点） ──
+  .activities-page {
+    .announcement-card {
+      border: 1px solid #dfeafa;
+      border-left: 3px solid #2b7fe0;
+      border-radius: 14px;
+      transition: box-shadow 0.15s ease;
+
+      &:hover { box-shadow: 0 6px 16px rgba(43, 127, 224, 0.09); }
+
+      .status-badge {
+        background-color: #e4f0ff;
+        color: #1d5fb8;
+        border: none;
+        font-weight: 600;
+
+        &.pulse {
+          animation: none;
+
+          &::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            margin-right: 6px;
+            vertical-align: 1px;
+            animation: dawn-dot 1.6s ease-in-out infinite;
+
+            @media (prefers-reduced-motion: reduce) { animation: none; }
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes dawn-flow {
+  from { background-position: 0% 0; }
+  to { background-position: 300% 0; }
+}
+
+@keyframes dawn-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}

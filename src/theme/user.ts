@@ -133,7 +133,60 @@ const festivalEmber: Skin = {
   },
 };
 
-export const SKINS: Skin[] = [classic, workbenchIndigo, workbenchPine, bentoObsidian, festivalEmber];
+
+/**
+ * 晨霞：2026-09 打磨季的成果，独立成皮肤上线（不覆盖默认）。
+ * 浅蓝画布上三团晨霞光斑（紫/粉/蓝，克制浓度），淡染 L 形壳，
+ * 实底白卡 + 蓝调细线，首页横幅是全站唯一的玻璃卡，
+ * 社名是流动的蓝紫粉渐变字。
+ * 变量覆盖不到的规则（玻璃/动画/侧栏文字组/结构覆盖）
+ * 见 styles/skin-dawn.scss（html[data-skin='dawn'] 作用域）。
+ */
+const dawn: Skin = {
+  key: 'dawn',
+  name: '晨霞 · 粉蓝流光',
+  layout: 'classic',
+  theme: {
+    token: {
+      colorPrimary: '#2b7fe0',
+      colorLink: '#2b7fe0',
+      colorLinkHover: '#4da6ff',
+      colorBgLayout: '#f8fbff',
+      borderRadius: 10,
+      borderRadiusLG: 14,
+      colorBorderSecondary: '#dfeafa',
+    },
+  },
+  cssVars: {
+    '--skin-accent': '#2b7fe0',
+    '--skin-accent-2': '#8f6ce8',
+    '--skin-accent-bg': '#e4f0ff',
+    '--skin-accent-text': '#1d5fb8',
+    // 整屋画布：晨霞光斑 + 淡蓝渐层（background 简写可携带多层）
+    '--skin-page-bg':
+      'radial-gradient(620px 390px at 14% -60px, rgba(143, 108, 232, 0.06), transparent 65%), '
+      + 'radial-gradient(580px 370px at 86% -10px, rgba(240, 135, 200, 0.06), transparent 65%), '
+      + 'radial-gradient(700px 430px at 50% 320px, rgba(77, 166, 255, 0.09), transparent 60%), '
+      + 'linear-gradient(180deg, #eff5ff 0%, #f8fbff 560px) #f8fbff',
+    // 横幅自身透明：画布连续，不再有矩形交界的缝
+    '--skin-hero-bg': 'transparent',
+    // 顶栏与侧栏的淡染，连成 L 形画框
+    '--skin-nav-bg': 'linear-gradient(95deg, #f7f5ff 0%, #f2f7ff 55%, #f6fbff 100%)',
+    '--skin-nav-text': '#22344c',
+    '--skin-sider-bg': 'linear-gradient(185deg, #f7f5ff 0%, #f2f7ff 45%, #fbfdff 100%)',
+    '--skin-sider-active': '#e4f0ff',
+    // 申请进度头图：深蓝渐变翻浅洗色（文字色由 skin-dawn.scss 覆盖为墨字）
+    '--skin-hero-strong': 'linear-gradient(120deg, #eaf3fe 0%, #f7faff 100%)',
+    '--skin-title': '#22344c',
+    '--skin-text': '#33415a',
+    '--skin-muted': '#6b7f9e',
+    '--skin-line': '#dfeafa',
+    '--skin-card-bg': '#ffffff',
+    '--skin-subtle-bg': '#f4f9ff',
+  },
+};
+
+export const SKINS: Skin[] = [classic, dawn, workbenchIndigo, workbenchPine, bentoObsidian, festivalEmber];
 export const DEFAULT_SKIN_KEY = 'default';
 
 export default classic.theme;
