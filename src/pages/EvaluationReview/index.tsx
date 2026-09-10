@@ -32,6 +32,8 @@ import {
   rejectEvaluation,
   runResumeEvaluation,
 } from "@/api/manage/evaluationApis";
+import { getToken } from '@/utils';
+import { hasPermission } from '@/utils/jwt';
 import { getAllCycles } from "@/api/manage/cycleApis";
 
 const { Text, Paragraph } = Typography;
@@ -64,6 +66,8 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<ScorecardRow[]>([]);
   const [rescoring, setRescoring] = useState(false);
+  // #177:发起/重评 AI 初筛是执行权 evaluation:run,与查看结果的 resume:audit 分离
+  const canRunEvaluation = hasPermission(getToken(), 'evaluation:run');
 
   const load = useCallback(
     async (cid = cycleId, q = queue) => {
@@ -308,16 +312,18 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
           ]}
         />
         <Button icon={<ReloadOutlined />} onClick={() => load()} />
-        <Button
-          icon={<RobotOutlined />}
-          type="primary"
-          ghost
-          disabled={selectedRows.length === 0 || rescoring}
-          loading={rescoring}
-          onClick={startRescoring}
-        >
-          AI 重新评分{selectedRows.length ? `（已选 ${selectedRows.length}）` : ""}
-        </Button>
+        {canRunEvaluation && (
+          <Button
+            icon={<RobotOutlined />}
+            type="primary"
+            ghost
+            disabled={selectedRows.length === 0 || rescoring}
+            loading={rescoring}
+            onClick={startRescoring}
+          >
+            AI 重新评分{selectedRows.length ? `（已选 ${selectedRows.length}）` : ""}
+          </Button>
+        )}
       </Space>
       <Table
         rowKey={(r) => `${r.resume_id}-${r.card_version}`}
@@ -419,6 +425,19 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
           const v2 = g.qbank_v2;
           const inner = v2?.group ?? null;
           const qs: any[] = [];
+          // #179:勾选引用以服务端 pickable 的 ref_id 为准——同文题按组内
+          // 出现顺序与 flatten 遍历同序配对,杜绝按题文反查串源
+          const groupPickable = (qbank.pickable ?? []).filter(
+            (p: any) => p.group_index === gi,
+          );
+          const textQueues = new Map<string, any[]>();
+          for (const p of groupPickable) {
+            const arr = textQueues.get(p.question) ?? [];
+            arr.push(p);
+            textQueues.set(p.question, arr);
+          }
+          const takeRef = (question: string): string | null =>
+            textQueues.get(question)?.shift()?.ref_id ?? null;
           if (inner) {
             if (inner.entry)
               qs.push({
@@ -427,6 +446,7 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
                 path: inner.entry.evidence?.path ?? "",
                 minutes: inner.entry.time_minutes ?? 3,
                 reference: inner.entry.answer_reference ?? null,
+                ref_id: takeRef(inner.entry.question),
               });
             for (const [ci, chain] of (inner.chains ?? []).entries())
               for (const [li, layer] of (chain.layers ?? []).entries())
@@ -437,6 +457,7 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
                   minutes: null,
                   reference: null,
                   signal: layer.expected_signal ?? "",
+                  ref_id: takeRef(layer.question),
                 });
             for (const r of inner.reserves ?? [])
               qs.push({
@@ -445,6 +466,7 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
                 path: r.evidence?.path ?? "",
                 minutes: r.time_minutes ?? 3,
                 reference: r.answer_reference ?? null,
+                ref_id: takeRef(r.question),
               });
           } else {
             for (const q of g.questions ?? [])
@@ -454,6 +476,7 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
                 path: q.evidence?.path ?? "",
                 minutes: q.time_minutes ?? 3,
                 reference: q.answer_reference ?? null,
+                ref_id: takeRef(q.question),
               });
           }
           const attr = inner ? (v2.attribution ?? "none") : null;

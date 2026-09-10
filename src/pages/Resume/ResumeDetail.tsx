@@ -168,7 +168,8 @@ type ResumeDetailProps = {
 // --- 主要组件 ---
 const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext, onEnterStage }) => {
   const dispatch = useDispatch<any>();
-  const canUseAiScreening = hasPermission(getToken(), 'resume:audit');
+  // #177:发起 AI 初筛是执行权 evaluation:run(查看结果仍是 resume:audit)
+  const canUseAiScreening = hasPermission(getToken(), 'evaluation:run');
 
   // 多人打分：resumeScore 是平均分，输入框编辑的是「我这一票」。
   // savedScore 存我已保存的分，用于禁用未变更时的保存键。

@@ -47,6 +47,7 @@ import {
 } from '@/api/manage/evaluationApis';
 import { aiRecommendation } from '@/components/ResumeAiEvaluation';
 import { getToken } from '@/utils';
+import { applyBatchPoll } from './evaluationPolling';
 import { hasPermission } from '@/utils/jwt';
 import './index.scss';
 
@@ -158,7 +159,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
   onPageChange,
 }) => {
   const dispatch = useDispatch<any>();
-  const canUseAiScreening = hasPermission(getToken(), 'resume:audit');
+  // #177:发起 AI 初筛是执行权 evaluation:run(查看结果仍是 resume:audit)
+  const canUseAiScreening = hasPermission(getToken(), 'evaluation:run');
 
   // 从 Redux 获取分页相关状态
   const { resumes, adminLoading, adminError, pagination } = useSelector(
@@ -240,6 +242,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
   // 初筛失败的简历 → 错误文案(闸门4:失败可观测 + 重新评分入口)
   const [failedScreening, setFailedScreening] = useState<Record<string, string>>({});
+  // #192:本次会话提交的 job_id → resume_id 映射(用 ref 避免触发 effect 重跑),
+  // 轮询只观察这批 job,与历史完成任务隔离
+  const activeJobResumeRef = useRef<Record<string, string>>({});
 
   // 使用从父组件传递的 currentPage 作为初始值
   const [localCurrentPage, setLocalCurrentPage] = useState<number>(currentPage || 1);
@@ -376,35 +381,38 @@ const ResumeList: React.FC<ResumeListProps> = ({
   // 闸门4:初筛中简历的轮询——有 screeningIds 时,每 5s 查一次 job 执行面,
   // 全部终态后清除本地"初筛中"乐观标记并刷新列表,避免页面永久显示"AI 初筛中"。
   // 失败 job 记入 failedScreening,卡片展示错误与"重新评分"入口。
+  // #192:只观察本次会话提交产生的 job(activeJobResumeRef,提交时由返回的
+  // job_ids 建立)——历史完成任务不再把新批次判定提前终结;错误信息按 job
+  // 归属到具体简历,不再用"最后一条失败"覆盖全部失败项。
   useEffect(() => {
     if (!cycleId || screeningIds.length === 0 || !canUseAiScreening) return;
     let cancelled = false;
+    let polls = 0;
     const poll = async () => {
+      polls += 1;
       try {
         const res: any = await listEvaluationJobs(cycleId);
         const jobs: any[] = res?.data?.items ?? [];
-        const terminal = new Set<string>();
-        const failed: React.Key[] = [];
-        let lastError = '';
-        for (const j of jobs) {
-          if (j.status === 'succeeded' || j.status === 'failed') {
-            terminal.add(String(j.resume_id));
-            if (j.status === 'failed') {
-              failed.push(String(j.resume_id));
-              lastError = j.error || '';
-            }
-          }
-        }
+        // #192:批次隔离核心在 evaluationPolling.applyBatchPoll(纯函数,有单测)
+        const outcome = applyBatchPoll(activeJobResumeRef.current, jobs);
         if (cancelled) return;
-        setScreeningIds((current) => current.filter((id) => !terminal.has(String(id))));
-        if (failed.length) {
+        activeJobResumeRef.current = outcome.remaining;
+        if (outcome.terminalResumeIds.length) {
+          const terminal = new Set(outcome.terminalResumeIds);
+          setScreeningIds((current) => current.filter((id) => !terminal.has(String(id))));
+        }
+        if (outcome.failures.length) {
           setFailedScreening((current) => {
             const next = { ...current };
-            for (const id of failed) next[String(id)] = lastError || '初筛失败';
+            for (const { resumeId, error } of outcome.failures) next[resumeId] = error;
             return next;
           });
         }
-        if (screeningIds.every((id) => terminal.has(String(id)))) {
+        const exhausted = Object.keys(activeJobResumeRef.current).length === 0;
+        // 兜底:job 长时间不出现(异常丢失)按 120 轮(≈10 分钟)封顶,防止永久"初筛中"
+        if (exhausted || polls >= 120) {
+          activeJobResumeRef.current = {};
+          setScreeningIds([]);
           loadResumes(localCurrentPage, pagination.pageSize);
         }
       } catch {
@@ -566,7 +574,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
       onOk: async () => {
         setScreening(true);
         try {
-          await runResumeEvaluation(cycleId, selected.map((resume) => Number(resume.resumeId)));
+          const res: any = await runResumeEvaluation(cycleId, selected.map((resume) => Number(resume.resumeId)));
+          // #192:记录本次批次的 job_id → resume_id(Agent 按提交顺序返回 job_ids),
+          // 轮询只观察这批 job
+          const jobIds: any[] = res?.data?.job_ids ?? [];
+          jobIds.forEach((jid: any, i: number) => {
+            activeJobResumeRef.current[String(jid)] = String(selected[i]?.resumeId ?? '');
+          });
           setScreeningIds((current) => Array.from(new Set([...current, ...selected.map((r) => String(r.resumeId))])));
           // 重评时清掉这些简历的失败标记(轮询会重新判定)
           setFailedScreening((current) => {
