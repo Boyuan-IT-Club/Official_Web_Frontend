@@ -52,7 +52,6 @@ import {
   listOfflineUnavailable,
   OfflineUnavailableItem,
   listSessions,
-  sendResultNotifications,
   batchDecision,
   listFeishuLocations,
   type LocationTableConfig,
@@ -77,11 +76,27 @@ import "@/pages/Resume/index.scss";
 import EvaluationSummaryTab from "./EvaluationSummaryTab";
 import EvaluationDrawer from "./EvaluationDrawer";
 import PreAdmitTab from "./PreAdmitTab";
+import RosterTab from "./RosterTab";
+import NotifyTab from "./NotifyTab";
+import RecruitFlowGuide from "@/components/RecruitFlowGuide";
 import { CandidateSummary, EvaluationDimension, getEvaluationSummary } from "@/api/manage/interviewEvaluation";
 import { savePreAdmission, updateScheduleInterviewTime } from "@/api/manage/interviewAdmin";
 import SessionInterviewersModal from "./SessionInterviewersModal";
 
 const fmtTime = (t?: string) => (t ? t.slice(0, 5) : "-");
+
+/** 当前标签页对应流程指引里的哪一步；没列出的标签页不参与高亮 */
+const FLOW_KEY_BY_TAB: Record<string, string | undefined> = {
+  slots: "schedule",
+  sessions: "schedule",
+  assign: "schedule",
+  roster: "schedule",
+  reschedule: "schedule",
+  evaluation: "evaluation",
+  preadmit: "admission",
+  results: "admission",
+  notify: "notify",
+};
 
 // ─── 时间段 Tab ──────────────────────────────────────────────────────────────
 const TimeSlotTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycleId, refreshToken }) => {
@@ -968,9 +983,6 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
   const [editDecision, setEditDecision] = useState<number | undefined>();
   const [editDept, setEditDept] = useState<number | undefined>();
   const [saving, setSaving] = useState(false);
-  const [notifyOpen, setNotifyOpen] = useState(false);
-  const [customMsg, setCustomMsg] = useState("");
-  const [sending, setSending] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchDept, setBatchDept] = useState<number | undefined>();
   const [batching, setBatching] = useState(false);
@@ -1088,30 +1100,6 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
     });
   };
 
-  const doSend = async () => {
-    setSending(true);
-    try {
-      const res: any = await sendResultNotifications({
-        resultIds: selected,
-        notificationType: "email",
-        customMessage: customMsg.trim() || undefined,
-      });
-      const d = res?.data;
-      if ((d?.failedCount ?? 0) > 0) {
-        message.warning(`发送完成：成功 ${d?.sentCount ?? 0}，失败 ${d?.failedCount}（失败ID：${(d?.failedId ?? []).join(",")}）`);
-      } else {
-        message.success(`已发送 ${d?.sentCount ?? selected.length} 封结果通知邮件`);
-      }
-      setNotifyOpen(false);
-      setSelected([]);
-      load();   // 刷新「通知状态」列
-    } catch (e: any) {
-      message.error(e?.message || "发送失败");
-    } finally {
-      setSending(false);
-    }
-  };
-
   const undecided = list.filter((r) => r.decision == null).length;
   const selectedUndecided = list.filter(
     (r) => selected.includes(r.resultId) && r.decision == null,
@@ -1119,7 +1107,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
 
   return (
     <>
-      <PageHint style={{ marginBottom: 12 }}>先「生成名单」，再勾选批量录取或标记未通过，最后发通知。</PageHint>
+      <PageHint style={{ marginBottom: 12 }}>先「生成名单」，再勾选批量录取或标记未通过；录取邮件在「通知」页统一发送。</PageHint>
       <Space style={{ marginBottom: 12 }} wrap>
         <Button
           type="primary"
@@ -1148,22 +1136,6 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
         >
           从面试安排生成名单
         </Button>
-        <Tooltip title={selectedUndecided > 0 ? "所选名单里有人还没录入决定，先批量录取或标记未通过" : ""}>
-          <Button
-            disabled={selected.length === 0 || selectedUndecided > 0}
-            onClick={() => {
-              setCustomMsg("");
-              // 已通知过的人再点发送是重发 —— 说清楚，别让人误以为没发出去过
-              const resent = list.filter((r) => selected.includes(r.resultId) && r.notifiedAt).length;
-              if (resent > 0) {
-                message.info(`所选名单中 ${resent} 人此前已通知过，本次发送将向他们重发`);
-              }
-              setNotifyOpen(true);
-            }}
-          >
-            发送通知（已选 {selected.length}）
-          </Button>
-        </Tooltip>
         <Button disabled={selected.length === 0} onClick={() => { setPreDept(undefined); setPreOpen(true); }}>
           预录取（已选 {selected.length}）
         </Button>
@@ -1223,14 +1195,25 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
             render: (uid: number) => nameMap[uid]?.username || "-",
           },
           {
-            title: "面试", dataIndex: "scheduleId", width: 96,
+            title: "面试", dataIndex: "scheduleId", width: 120,
             // 没有面试安排的人此前根本进不了这张表（结果行要求挂在一场面试上）。
             // 现在他们也在名单里，标出来免得管理员以为是数据错乱。
-            render: (v: number | null) => (v == null
+            // scheduleId 由后端实时回退补齐：先生成名单、后排面试也能显示。
+            render: (v: number | null, r: InterviewResultItem) => (v == null
               ? <Tooltip title="未参加线下面试（本人选择不能参加，或未被排上场次）">
                   <Tag color="orange">无面试</Tag>
                 </Tooltip>
-              : <Tag>已面试</Tag>),
+              : (
+                <Tooltip title={r.interviewTime
+                  ? `面试时间 ${String(r.interviewTime).replace("T", " ").slice(0, 16)}`
+                  : "已排上场次"}>
+                  <Tag color="blue">
+                    {r.interviewTime
+                      ? String(r.interviewTime).replace("T", " ").slice(5, 16)
+                      : "已安排"}
+                  </Tag>
+                </Tooltip>
+              )),
           },
           {
             title: "志愿", dataIndex: "firstDeptName", width: 130,
@@ -1412,29 +1395,6 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
         </Space>
       </Modal>
 
-      <Modal
-        title={`发送结果通知（${selected.length} 人）`}
-        open={notifyOpen}
-        onOk={doSend}
-        okText="确认发送"
-        confirmLoading={sending}
-        onCancel={() => setNotifyOpen(false)}
-        destroyOnClose
-      >
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 12 }}
-          message="将向所选同学发送邮件：通过者收到录取通知，未通过者收到感谢信。发送后无法撤回，请确认结果已核对无误。"
-        />
-        <Input.TextArea
-          rows={3}
-          maxLength={500}
-          value={customMsg}
-          onChange={(e) => setCustomMsg(e.target.value)}
-          placeholder="补充说明（可选）——会附在模板正文之后，不会替换原文"
-        />
-      </Modal>
     </>
   );
 };
@@ -1822,6 +1782,24 @@ const InterviewManage: React.FC = () => {
            这里在每次切换时把目标面板的 token 自增，子组件据此重新拉数据；
            比 destroyInactiveTabPane 温和 —— 后者会把面板里的筛选、滚动位置
            也一并丢掉。 */
+        <>
+        {/* 管理端的功能是平铺的，谁先谁后没有提示，出过「先生成结果名单、
+            再去排面试」这类倒着做的操作。指引条按实际数据标出当前该做哪一步。 */}
+        <RecruitFlowGuide
+          cycleId={cycleId}
+          highlightKey={FLOW_KEY_BY_TAB[activeTab]}
+          onJump={(stage) => {
+            if (stage.target.path === "/interviews" && stage.target.tab) {
+              setActiveTab(stage.target.tab);
+              setTabTokens((prev) => ({
+                ...prev,
+                [stage.target.tab as string]: (prev[stage.target.tab as string] ?? 0) + 1,
+              }));
+              return true;
+            }
+            return false;
+          }}
+        />
         <Tabs
           activeKey={activeTab}
           onChange={(key) => {
@@ -1832,13 +1810,17 @@ const InterviewManage: React.FC = () => {
             { key: "slots", label: "时间段", children: <TimeSlotTab cycleId={cycleId} refreshToken={tabTokens.slots ?? 0} /> },
             { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.sessions ?? 0} /> },
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} refreshToken={tabTokens.assign ?? 0} /> },
+            { key: "roster", label: "面试名单", children: <RosterTab cycleId={cycleId} refreshToken={tabTokens.roster ?? 0} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} refreshToken={tabTokens.reschedule ?? 0} /> },
             { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} /> },
             { key: "preadmit", label: "预录取", children: <PreAdmitTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.preadmit ?? 0} /> },
-            { key: "results", label: "结果与通知", children: <ResultTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.results ?? 0} /> },
-            { key: "feishu", label: "飞书同步", children: <FeishuTab cycleId={cycleId} /> },
+            { key: "results", label: "录取结果", children: <ResultTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.results ?? 0} /> },
+            { key: "notify", label: "通知", children: <NotifyTab cycleId={cycleId} refreshToken={tabTokens.notify ?? 0} /> },
+            /* 飞书同步暂时不用，先从标签页里撤下（FeishuTab 与后端接口都保留，
+               需要时把这一条加回来即可） */
           ]}
         />
+        </>
       ) : (
         <Alert type="warning" message="请先在「招募周期」页创建周期" showIcon />
       )}
