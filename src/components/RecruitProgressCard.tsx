@@ -78,17 +78,24 @@ const RecruitProgressCard: React.FC<Props> = ({
   const submitted = (resumeStatus ?? 0) >= 2;
   const scheduled = !!schedule?.interviewTime;
   const decided = !!result;
+  // 简历状态 4=通过初筛 5=未通过初筛（后端 V43 起启用）
+  const screenPassed = resumeStatus === 4;
+  const screenRejected = resumeStatus === 5;
+  const screened = screenPassed || screenRejected;
 
-  // 当前进行到第几步（0起）
+  // 当前进行到第几步（0起）。步骤：完善→提交→简历初筛→面试意向→面试安排→面试结果
   let current = 0;
   if (resumeStatus != null) current = 1;          // 有草稿 → 该提交了
-  if (submitted) current = 2;                      // 已提交 → 该填意向（若未填）
-  if (submitted && hasPreference) current = 3;     // 意向已填 → 等待分配
-  if (scheduled) current = 4;                      // 已分配 → 查看安排/等结果
-  // 线上路线没有 schedule 数据，光靠 scheduled 判断会永远卡在第 3 步，
+  if (submitted) current = 2;                      // 已提交 → 等初筛结果
+  if (screened) current = 3;                       // 初筛已出 → 该填意向（若未填）
+  if (screenPassed && hasPreference) current = 4;  // 意向已填 → 等待分配
+  if (scheduled) current = 5;                      // 已分配 → 查看安排/等结果
+  // 线上路线没有 schedule 数据，光靠 scheduled 判断会永远卡在上一步，
   // 让人以为流程停了；填完意向就推进到「线上面试」
-  if (canAttendOffline === false && submitted && hasPreference) current = 4;
-  if (decided) current = 5;                        // 结果已出
+  if (canAttendOffline === false && screenPassed && hasPreference) current = 5;
+  if (decided) current = 6;                        // 结果已出
+  // 初筛未通过：流程到此为止，停在初筛这一步（后面几步都不会发生）
+  if (screenRejected) current = 2;
 
   // 不能参加线下面试的同学不进线下排期，走线上面试
   const online = canAttendOffline === false;
@@ -96,6 +103,16 @@ const RecruitProgressCard: React.FC<Props> = ({
   const steps = [
     { title: '完善简历', description: resumeStatus == null ? '还未开始填写' : (resumeStatus >= 2 ? '已完成' : '填写中，记得提交') },
     { title: '提交简历', description: submitted ? '已提交' : '完成后记得提交' },
+    {
+      title: '简历初筛',
+      // 未通过时整条进度以红色收尾，不再让人等一个不会来的面试通知
+      status: screenRejected ? ('error' as const) : undefined,
+      description: screenRejected
+        ? '很遗憾，未通过初筛'
+        : screenPassed
+          ? '已通过，请填写面试意向'
+          : (submitted ? '评审中，请耐心等待' : '提交后进入评审'),
+    },
     {
       title: '面试意向',
       description: hasPreference
@@ -144,7 +161,9 @@ const RecruitProgressCard: React.FC<Props> = ({
         )
       }
     >
-      <Steps size="small" current={current} items={steps} responsive />
+      {/* 未通过初筛的同学后面几步都不会发生，进度条到初筛为止——
+          继续显示「管理员安排中」只会让人一直等不会来的面试通知 */}
+      <Steps size="small" current={current} items={screenRejected ? steps.slice(0, 3) : steps} responsive />
       {scheduled && (
         <Space style={{ marginTop: 12 }}>
           <Text type="secondary">请准时到场：</Text>

@@ -29,6 +29,7 @@ import { getUpcomingCycles } from '@/api/manage/cycleApis';
 import InterviewReminderCard from '@/components/InterviewReminderCard';
 import ActivitiesPreviewCard from '@/components/ActivitiesPreviewCard';
 import SkinHero from '@/components/SkinHero';
+import MemberClaimCard from '@/components/MemberClaimCard';
 import { useSkin } from '@/theme/SkinProvider';
 import './index.scss';
 
@@ -261,6 +262,12 @@ const Dashboard = () => {
             </Col>
           )}
         </Row>
+      </div>
+
+      {/* 老社员认领：往届社员注册后自报家门。组件内部判断是否显示
+          （已是社员、或申请已通过时返回 null，不占位） */}
+      <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '12px auto 0', padding: '0 16px' }}>
+        <MemberClaimCard />
       </div>
 
       {/* 快捷入口：申请者看投递/进度，社员看活动/评测——两拨人关心的事不一样 */}
