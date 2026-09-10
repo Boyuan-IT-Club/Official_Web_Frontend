@@ -15,6 +15,8 @@ export interface ScorecardRow {
   total: number | null;
   prompt_version: string;
   created_at?: string;
+  /** #154 评审页重评:队列 SQL 由 evaluation_job 带出(可能缺,历史行) */
+  user_id?: number;
 }
 
 export interface DimensionScore {
@@ -36,6 +38,18 @@ export interface ScorecardDetail {
     hard_zero_reasons?: Record<string, string>;
   };
   created_at?: string;
+}
+
+/** 手动触发单份或批量 AI 初筛。任务异步执行，结果随后写入评分卡队列。 */
+export function runResumeEvaluation(
+  cycleId: number,
+  items: { resume_id: number; user_id: number }[],
+) {
+  return request({
+    url: '/api/admin/agent/evaluation/run',
+    method: 'post',
+    data: { cycle_id: cycleId, items },
+  });
 }
 
 /** 评审队列:queue=zero → 初筛不过子队列(#128) */

@@ -16,6 +16,7 @@ import {
   BookOutlined,
   CheckOutlined,
   ReloadOutlined,
+  RobotOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { ColumnsType } from "antd/es/table";
@@ -28,7 +29,9 @@ import {
   listEvaluationQueue,
   pickQuestions,
   rejectEvaluation,
+  runResumeEvaluation,
 } from "@/api/manage/evaluationApis";
+import { getAllCycles } from "@/api/manage/cycleApis";
 
 const { Text, Paragraph } = Typography;
 
@@ -47,7 +50,7 @@ const VERDICT_TEXT: Record<string, string> = {
 /** 简历评估评审队列(B 模块 #135,#128):0 分队列/维卡/采纳/驳回/题库勾选。
  * 权限:评审动作 resume:audit;面试官 interview:evaluate 只读维卡与题库。 */
 const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
-  const [cycleId, setCycleId] = useState<number>(2026);
+  const [cycleId, setCycleId] = useState<number | null>(null);
   const [queue, setQueue] = useState<"all" | "zero">("all");
   const [rows, setRows] = useState<ScorecardRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,9 +60,12 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
   const [detailOpen, setDetailOpen] = useState(false);
   const [qbankOpen, setQbankOpen] = useState(false);
   const [qbank, setQbank] = useState<any>(null);
+  const [selectedResumeIds, setSelectedResumeIds] = useState<number[]>([]);
+  const [rescoring, setRescoring] = useState(false);
 
   const load = useCallback(
     async (cid = cycleId, q = queue) => {
+      if (cid === null) return;
       setLoading(true);
       try {
         const res: any = await listEvaluationQueue(cid, q);
@@ -73,8 +79,50 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
     [cycleId, queue]
   );
 
+  const startRescoring = () => {
+    if (selectedResumeIds.length === 0 || cycleId === null) return;
+    Modal.confirm({
+      title: `对选中的 ${selectedResumeIds.length} 份简历重新 AI 评分？`,
+      content: "将生成新版评分卡与题组(旧版本保留可对比);人工评审记录不受影响。",
+      okText: "重新评分",
+      cancelText: "取消",
+      onOk: async () => {
+        setRescoring(true);
+        try {
+          const items = selectedResumeIds.map((rid) => {
+            const row = rows.find((r: any) => r.resume_id === rid);
+            return { resume_id: rid, user_id: Number(row?.user_id ?? 0) };
+          });
+          await runResumeEvaluation(cycleId, items);
+          setSelectedResumeIds([]);
+          await load();
+          message.success(`已提交 ${items.length} 份简历重新评分`);
+        } catch (e: any) {
+          message.error(e?.message || "重新评分提交失败");
+        } finally {
+          setRescoring(false);
+        }
+      },
+    });
+  };
+
   useEffect(() => {
-    load();
+    // 默认周期自动取最新一个(否则写死数字,新周期数据会"看不到")
+    (async () => {
+      try {
+        const res: any = await getAllCycles();
+        const cycles: number[] = (res?.data ?? []).map((c: any) => c.cycleId);
+        const latest = cycles.length ? Math.max(...cycles) : null;
+        if (latest) {
+          setCycleId(latest);
+          load(latest);
+          return;
+        }
+      } catch {
+        /* 周期接口失败时保持空列表 */
+      }
+      load();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -247,9 +295,23 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
           ]}
         />
         <Button icon={<ReloadOutlined />} onClick={() => load()} />
+        <Button
+          icon={<RobotOutlined />}
+          type="primary"
+          ghost
+          disabled={selectedResumeIds.length === 0 || rescoring}
+          loading={rescoring}
+          onClick={startRescoring}
+        >
+          AI 重新评分{selectedResumeIds.length ? `（已选 ${selectedResumeIds.length}）` : ""}
+        </Button>
       </Space>
       <Table
         rowKey={(r) => `${r.resume_id}-${r.card_version}`}
+        rowSelection={{
+          selectedRowKeys: selectedResumeIds,
+          onChange: (keys) => setSelectedResumeIds(keys.map(Number)),
+        }}
         size="small"
         loading={loading}
         columns={columns}
@@ -323,8 +385,22 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
         const groups: { group: string; mode?: string; questions: any[] }[] =
           qbank.envelope?.groups ?? [];
         const all: { group: string; q: any }[] = [];
-        for (const g of groups) {
-          for (const q of g.questions ?? []) all.push({ group: g.group, q });
+        // #153:v2 组题目在 qbank_v2.group 内,API 已给扁平 pickable——优先用
+        for (const p of qbank.pickable ?? []) {
+          all.push({
+            group: p.group_kind,
+            q: {
+              anchor: p.role === "entry" ? p.category : `${p.role}·${p.category}`,
+              question: p.question,
+              evidence: { path: p.evidence_path ?? "" },
+              time_minutes: p.time_minutes ?? 3,
+            },
+          });
+        }
+        if (!all.length) {
+          for (const g of groups) {
+            for (const q of g.questions ?? []) all.push({ group: g.group, q });
+          }
         }
         if (!all.length) {
           const skipped = groups.some((g) => g.mode === "skipped");
