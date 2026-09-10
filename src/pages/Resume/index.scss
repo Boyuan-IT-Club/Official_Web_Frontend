@@ -408,6 +408,7 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
 }
 
 // ── 批量初筛 ──
+// 批量初筛条：常驻在列表顶部，吸顶跟随滚动（几百份简历时不用滚回顶部）
 .screening-bar {
   position: sticky;
   top: 8px;
@@ -415,21 +416,14 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
   margin: 0 0 12px;
   padding: 10px 16px;
   background: #fff;
-  border: 1px solid #b9cdec;
+  border: 1px solid #e2e8f2;
   border-radius: 10px;
-  box-shadow: 0 6px 18px rgba(30, 50, 100, 0.10);
+  box-shadow: 0 2px 10px rgba(30, 50, 100, 0.06);
 }
 
 // 卡片左上角的勾选框；选中的卡片描边加深，扫一眼就知道选了谁
 .resume-card {
   position: relative;
-
-  .resume-card-pick {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 2;
-  }
 
   &.is-picked {
     border-color: #2563b8;
