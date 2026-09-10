@@ -38,8 +38,12 @@ import { dataUrlToBlob, resolveResumePhotoDataUrl, uploadResumePhoto } from '@/a
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
 import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
-import { CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId } from './cyclePhase';
+import {
+  CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId, resolvePublishEmptyState,
+  splitVisibleCycles,
+} from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
+import NoOpenCycleNotice from './components/NoOpenCycleNotice';
 import TipsModal from './components/TipsModal';
 import StatusNotice from './components/StatusNotice';
 import { resolveResumeNotice } from './resumeNotice';
@@ -205,16 +209,29 @@ const DEFAULT_ATTEND: OptionItem[] = [
   { value: 'yes', label: '能参加' }, { value: 'no', label: '不能参加' },
 ];
 
+/*
+ * 填写提示。
+ *
+ * 重排过一次：原来是按字段罗列的九条，缺两头——开头不说「填了还能不能改」，
+ * 结尾不说「提交之后会发生什么」，于是这两个最常问的问题反而没答案；
+ * 面试时间那条还写死了「Day 1 为 9 月 27 日」，换一届就是错的。
+ *
+ * 现在按填表的实际顺序走：先交代规则，再逐项怎么写，最后说后续流程。
+ * 具体日期一律不写进提示——真实时间以表单里的选项和邮件通知为准。
+ */
 const TIPS_CONTENT: Array<{ title: string; content: string }> = [
-  { title: '隐私保护', content: '本报名表所提供的所有信息将严格保密，我们承诺对您的个人信息采取必要的保护措施，确保其安全性。所有带红色星号的字段为必填项，其它为选填项。' },
-  { title: '邮箱', content: '可填写华东师范大学学生邮箱或其它常用邮箱' },
-  { title: '照片', content: '请上传个人免冠正面照片，建议使用近期证件照，背景简洁，大小不超过5MB，以便于招新工作的审核和身份确认。' },
-  { title: 'GitHub主页', content: '有GitHub账号的同学可以填写，没有则可以不填' },
-  { title: '个人简介', content: '请提供详细的个人介绍，可包括但不限于个人特长、兴趣爱好、学习或个人经历，以及对社团的期望和建议等内容。全面的自我介绍有利于面试官快速了解您。' },
-  { title: '意愿加入部门', content: '本社团设有综合部、项目部、技术部和媒体部四个部门。请选择1至2个意愿加入的部门，最终录取将安排到其中一个部门。' },
-  { title: '面试时间', content: '请选择您方便的面试时间段，Day 1为9月27日（9月28日因调休暂不设为面试）。如无法参加指定时间的面试，请联系管理员进行沟通参与线上面试。' },
-  { title: '技术栈', content: '请填写您熟悉的技术栈，如Java、Python、C、C++、Go、MySQL、Spring Boot、Vue等编程语言、技术框架或掌握的算法' },
-  { title: '项目经验', content: '有计算机相关项目经历者可详细填写，若没有可简要说明或不填' },
+  { title: '可以边填边存', content: '带红色星号的是必填项，其余选填。内容会存成草稿，提交之前随时可以回来改；点了「提交简历」之后，在初筛开始前也还能修改。' },
+  { title: '信息只用于本次招新', content: '你填写的内容仅供社团招新审阅，不会外传、不作其他用途。' },
+  { title: '姓名与学号', content: '请填真实姓名和学号，我们据此核对身份、安排面试场次。' },
+  { title: '邮箱要填常用的', content: '初筛结果、面试时间、录取结果都通过邮件通知，请填你会经常查看的邮箱，并留意垃圾邮件箱，别错过面试。' },
+  { title: '照片', content: '近期免冠正面照，背景简洁，大小不超过 5MB。面试当天我们靠它认人。' },
+  { title: '意愿加入部门', content: '社团设有技术部、项目部、媒体部、综合部。可以选 1～2 个，最终只会录取到其中一个部门；填了第二志愿的同学，在第一志愿名额已满时仍有机会。' },
+  { title: '可参加的面试时间', content: '把所有能到场的时间段都勾上——可选的时段越多，越容易排到合适的面试。如果列出的时间确实都来不了，请按页面提示说明情况，我们会安排线上面试。' },
+  { title: '技术栈', content: '写你实际用过的语言、框架或算法，例如 Java、Python、C/C++、Go、MySQL、Spring Boot、Vue。写会的就好，不必凑数量——面试可能就着这里问。' },
+  { title: '项目经验', content: '有做过的项目就具体写：做的是什么、你负责哪一部分、用到了什么。没有也不影响，非技术岗尤其不必因此犹豫。' },
+  { title: '个人简介', content: '面试官主要靠这一段认识你。可以写特长、兴趣、经历，以及为什么想加入、想在社团里做什么。写得具体比写得长更有用。' },
+  { title: 'GitHub 与附件', content: '都是选填。有代码仓库、作品集或获奖材料可以放上来，是加分项，没有也完全不影响。' },
+  { title: '提交之后', content: '简历先经过初筛，通过的同学会收到面试安排邮件；每一步进展都可以在「我的申请」页里看到。有疑问随时联系我们。' },
 ];
 
 /** 同上，但保证结果是普通对象（非数组、非 null）。拿到数字虽然不崩，但字段会全变 undefined */
@@ -227,6 +244,15 @@ const parseObjectField = <T extends object>(raw: unknown, fallback: T): T => {
     return fallback;
   }
 };
+
+/**
+ * 技术栈至少留一个空行。
+ *
+ * 存进库的是过滤掉空行后的数组，全空时就是 []；读回来直接当 items 用，
+ * 输入框一行都不渲染，而「加一行」的按钮挂在最后一行上——没有行就没有按钮，
+ * 这一栏就再也编辑不了了（用户报的 bug）。
+ */
+const atLeastOneRow = (arr: string[]): string[] => (arr.length > 0 ? arr : ['']);
 
 const parseStringArray = (raw: unknown, fallback: string[]): string[] => {
   try {
@@ -294,6 +320,9 @@ const Publish: React.FC = () => {
   // 存整份预告列表而不只是落点那一届：管理员可以同时排好几届，
   // 只留一个的话其余的在用户端就凭空消失了
   const [upcomingCycles, setUpcomingCycles] = useState<OpenCycle[]>([]);
+  // 开放/预告两个列表有没有拿到。拿不到时 phase 会兜底成 ended，但那不等于
+  // 「已结束」——空状态要如实说「加载失败」，不能冒充「现在没有招新」
+  const [cycleListsFailed, setCycleListsFailed] = useState<boolean>(false);
   const cycleClosed = cyclePhase !== 'open';
 
 
@@ -460,14 +489,64 @@ const Publish: React.FC = () => {
 
   const handleDepartmentChange = useCallback((type: keyof DepartmentsState, value: string): void => {
     setDepartments(prev => {
-      const next = { ...prev, [type]: value };
+      const next = { ...prev, [type]: value } as DepartmentsState;
+
+      /*
+       * 两个志愿不能相同。
+       *
+       * 原来只把「第一志愿已选的那项」在第二志愿的下拉里禁掉，是单向的：
+       * 先选第二志愿、再把第一志愿改成同一个部门，就绕过去了——用户报的正是
+       * 这条路径，改完两个志愿一模一样，等于白填一个。
+       *
+       * 这里改成：谁后改就以谁为准，把另一个撞车的志愿清掉并说明原因。
+       * 比直接拦下不让选友好——用户的意图很明确，是想把这个部门放到这一栏。
+       */
+      const other: keyof DepartmentsState = type === 'first' ? 'second' : 'first';
+      if (value && value !== '无' && next[other] === value) {
+        next[other] = type === 'first' ? '无' : '';
+        message.info(
+          type === 'first'
+            ? '第二志愿与新的第一志愿相同，已清空第二志愿'
+            : '第一志愿与新的第二志愿相同，已清空第一志愿',
+        );
+      }
+
       const deptArray: string[] = [];
       if (next.first && next.first !== '无') deptArray.push(next.first);
-      if (next.second && next.second !== '无') deptArray.push(next.second);
+      // 去重是最后一道保险：上面已经不让撞车了，但导入简历、历史数据这些
+      // 不走这个回调的路径也会写进来
+      if (next.second && next.second !== '无' && next.second !== next.first) {
+        deptArray.push(next.second);
+      }
       handleFieldChange('expected_departments', JSON.stringify(deptArray));
       return next;
     });
   }, [handleFieldChange]);
+
+  /**
+   * 从两个下拉合成 expected_departments。
+   *
+   * 保存草稿、提交、修改三处原本各拼一遍，去重规则要改就得改三处；
+   * 两个志愿相同的问题也正是从这里漏出去的——回调里拦住了，
+   * 但导入简历、历史数据不走回调，落到这里照样拼成 ["技术部","技术部"]。
+   */
+  const buildDeptArray = useCallback((): string[] => {
+    const out: string[] = [];
+    if (departments.first && departments.first !== '无') out.push(departments.first);
+    if (departments.second && departments.second !== '无' && departments.second !== departments.first) {
+      out.push(departments.second);
+    }
+    return out;
+  }, [departments]);
+
+  /** 两个志愿撞车时挡下保存，并说清怎么办 */
+  const blockedBySameDept = useCallback((): boolean => {
+    if (departments.first && departments.first !== '无' && departments.first === departments.second) {
+      message.error('第一志愿与第二志愿不能相同，请改掉其中一个再保存');
+      return true;
+    }
+    return false;
+  }, [departments]);
 
   const handleInterviewTimeChange = useCallback((type: keyof InterviewTimesState, value: string): void => {
     setInterviewTimes(prev => {
@@ -562,6 +641,17 @@ const Publish: React.FC = () => {
     return [departments.first];
   }, [departments.first]);
 
+  /** 第一志愿里也要把第二志愿已选的那项禁掉——只禁一边等于没禁 */
+  const disabledFirstDepts = useMemo<string[]>(() => {
+    if (!departments.second || departments.second === '无') return [];
+    return [departments.second];
+  }, [departments.second]);
+
+  const disabledSecondInterviewTimes = useMemo<string[]>(() => {
+    if (!interviewTimes.first || interviewTimes.first === '无') return [];
+    return [interviewTimes.first];
+  }, [interviewTimes.first]);
+
   // ---- 数据初始化（并行API调用） ----
   const initData = useCallback(async (): Promise<void> => {
     try {
@@ -573,20 +663,36 @@ const Publish: React.FC = () => {
       // 但用户显式点过切换器就一律尊重他的选择 —— 切换器里也列已结束的周期
       // 供查看历史投递，不判断这个的话，点已结束的卡片会被立刻弹回第一个
       // 开放周期（线上实测到的 bug）。
-      const [open, upcoming] = await Promise.all([
-        dispatch(fetchOpenCycles()).unwrap().catch(() => [] as typeof openCycles),
+      // 失败落成 null 而不是 []：空数组是「确实没有」，null 是「不知道」，
+      // 空状态那一屏要靠这个区别决定说「没有招新」还是「加载失败」
+      const [openOrNull, upcomingOrNull] = await Promise.all([
+        dispatch(fetchOpenCycles()).unwrap().catch(() => null),
         // 预告列表拿不到不该拖垮整页：最坏情况是未开始的周期退化成「已结束」的旧行为
-        dispatch(fetchUpcomingCycles()).unwrap().catch(() => [] as typeof openCycles),
+        dispatch(fetchUpcomingCycles()).unwrap().catch(() => null),
       ]);
-      const openIds = (open ?? []).map((c) => Number(c.cycleId));
-      const upcomingIds = (upcoming ?? []).map((c) => Number(c.cycleId));
+      setCycleListsFailed(openOrNull == null || upcomingOrNull == null);
+      const open = (openOrNull ?? []) as typeof openCycles;
+      const upcoming = (upcomingOrNull ?? []) as typeof openCycles;
+      // /open 列表里混着「已停止投递但时间未过」的周期（intakeOpen=false）：
+      // 它们可见、可看自己的简历，但不可投，所以要和真正开放的分开
+      const { openIds, pausedIds } = splitVisibleCycles(open);
+      const upcomingIds = upcoming.map((c) => Number(c.cycleId));
       // 落点规则与理由见 resolveActiveCycleId（有回归测试）
-      const cid = Number(resolveActiveCycleId(cycleId, openIds, upcomingIds, userPickedCycle));
+      const cid = Number(resolveActiveCycleId(cycleId, openIds, upcomingIds, userPickedCycle, pausedIds));
 
       // 没有任何开放周期时 cid 会回退到历史/未开始周期——那只用于展示，必须锁死编辑
-      const phase = resolveCyclePhase(cid, openIds, upcomingIds);
+      const phase = resolveCyclePhase(cid, openIds, upcomingIds, pausedIds);
       setCyclePhase(phase);
-      setUpcomingCycles(upcoming ?? []);
+      setUpcomingCycles(upcoming);
+
+      // #161 起 store 的 cycleId 初始为 null、无开放周期时归零。既没开放也没预告、
+      // 用户也没手选时 cid 就是 Number(null) = 0：没有任何周期可加载，直接进空状态，
+      // 不要拿 0 去请求字段和简历，再弹一个「加载简历信息失败」
+      if (!Number.isFinite(cid) || cid <= 0) {
+        initedCidRef.current = null;
+        setIsInitializing(false);
+        return;
+      }
 
       // fetchOpenCycles 的 reducer 也会把 store 里的 cycleId 校正到开放列表内，
       // 那会让本 effect 因 cycleId 变化再跑一次。这里记下已初始化的周期，
@@ -670,7 +776,7 @@ const Publish: React.FC = () => {
 
           const techField = sf.find(f => f.fieldId === techFid);
           if (techField?.fieldValue) {
-            setTechStackItems(parseStringArray(techField.fieldValue, ['']));
+            setTechStackItems(atLeastOneRow(parseStringArray(techField.fieldValue, [''])));
           } else { setTechStackItems(['']); }
 
           const deptField = sf.find(f => f.fieldId === deptFid);
@@ -879,9 +985,8 @@ const Publish: React.FC = () => {
   const handleSaveDraft = useCallback(async (): Promise<void> => {
     const currentResumeId = resume?.resume_id || resume?.id;
     if (!currentResumeId) { message.error('简历ID不存在，请刷新页面重试'); return; }
-    const deptArray: string[] = [];
-    if (departments.first && departments.first !== '无') deptArray.push(departments.first);
-    if (departments.second && departments.second !== '无') deptArray.push(departments.second);
+    if (blockedBySameDept()) return;
+    const deptArray = buildDeptArray();
     const filteredTech = techStackItems.filter(item => item && item.trim());
     if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
     if (filteredTech.length > 0) handleFieldChange('tech_stack', JSON.stringify(filteredTech));
@@ -900,14 +1005,14 @@ const Publish: React.FC = () => {
     } finally {
       setSavingDraft(false);
     }
-  }, [resume, departments, techStackItems, buildFieldValuesForSubmit, cycleId, dispatch, handleFieldChange]);
+  }, [resume, departments, techStackItems, buildFieldValuesForSubmit, cycleId, dispatch,
+      buildDeptArray, blockedBySameDept]);
 
   const handleSubmit = useCallback(async (): Promise<void> => {
     try {
       await form.validateFields();
-      const deptArray: string[] = [];
-      if (departments.first && departments.first !== '无') deptArray.push(departments.first);
-      if (departments.second && departments.second !== '无') deptArray.push(departments.second);
+      if (blockedBySameDept()) return;
+      const deptArray = buildDeptArray();
       const filteredTech = techStackItems.filter(item => item && item.trim());
       if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
       if (filteredTech.length > 0) handleFieldChange('tech_stack', JSON.stringify(filteredTech));
@@ -944,15 +1049,14 @@ const Publish: React.FC = () => {
         ? String((err as any).message) : String(err);
       message.error(`操作失败: ${msg}`);
     }
-  }, [form, departments, techStackItems, resume, cycleId, dispatch,
+  }, [form, departments, techStackItems, resume, cycleId, dispatch, buildDeptArray, blockedBySameDept,
       handleFieldChange, buildFieldValuesForSubmit, savePreferenceBestEffort]);
 
   const handleUpdateResume = useCallback(async (): Promise<void> => {
     try {
       await form.validateFields();
-      const deptArray: string[] = [];
-      if (departments.first && departments.first !== '无') deptArray.push(departments.first);
-      if (departments.second && departments.second !== '无') deptArray.push(departments.second);
+      if (blockedBySameDept()) return;
+      const deptArray = buildDeptArray();
       const filteredTech = techStackItems.filter(item => item && item.trim());
       if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
       if (filteredTech.length > 0) handleFieldChange('tech_stack', JSON.stringify(filteredTech));
@@ -983,7 +1087,7 @@ const Publish: React.FC = () => {
         message.error(`更新失败: ${msg}`);
       }
     }
-  }, [form, departments, techStackItems, resume, cycleId, dispatch,
+  }, [form, departments, techStackItems, resume, cycleId, dispatch, buildDeptArray, blockedBySameDept,
       handleFieldChange, buildFieldValuesForSubmit, savePreferenceBestEffort]);
 
   const handleEdit = useCallback(async (): Promise<void> => {
@@ -1012,7 +1116,7 @@ const Publish: React.FC = () => {
           const techFid = fieldIdMapping['tech_stack'];
           const deptFid = fieldIdMapping['expected_departments'];
           const techField = sf.find(f => f.fieldId === techFid);
-          setTechStackItems(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']);
+          setTechStackItems(atLeastOneRow(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']));
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
             const arr = parseStringArray(deptField.fieldValue, []);
@@ -1042,7 +1146,7 @@ const Publish: React.FC = () => {
           const deptFid = fieldIdMapping['expected_departments'];
           const photoFid = fieldIdMapping['personal_photo'];
           const techField = sf.find(f => f.fieldId === techFid);
-          setTechStackItems(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']);
+          setTechStackItems(atLeastOneRow(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']));
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
             const arr = parseStringArray(deptField.fieldValue, []);
@@ -1202,11 +1306,32 @@ const Publish: React.FC = () => {
   }, [resume, exportData.name, exportIsEmpty]);
 
   // ---- 导入处理 ----
+  /**
+   * 本周期的自定义字段（标准字段之外的那些），供导入时动态生成解析规则。
+   *
+   * 导出的 Word 会把它们逐行写成「标签：值」（其他信息一节），
+   * 但导入原先只认写死的十几条标准正则，这些字段导得出去、导不回来，
+   * 用户得对着文档手抄一遍。
+   */
+  const importCustomFields = useMemo(() => {
+    const KNOWN = new Set<string>([
+      ...RESUME_FIELDS.map((f) => f.key),
+      ...DEPRECATED_RESUME_FIELD_KEYS,
+      'photo',
+    ]);
+    return (fieldDefinitions ?? [])
+      .map((def: any) => ({
+        fieldKey: String(def.fieldKey ?? def.field_key ?? '').trim(),
+        label: String(def.fieldLabel ?? def.field_label ?? '').trim(),
+      }))
+      .filter((f) => f.fieldKey && f.label && !KNOWN.has(f.fieldKey));
+  }, [fieldDefinitions]);
+
   const handleImportFile = useCallback(async (file: File): Promise<void> => {
     setImportLoading(true);
     try {
       // 传当前配置的标签：管理员改过名时，导入才认得出自家导出的模板
-      const result = await importResumeFile(file, exportFieldMeta.labelOf);
+      const result = await importResumeFile(file, exportFieldMeta.labelOf, importCustomFields);
       if (result) {
         setExtractedFields(result);
         setImportModalOpen(true);
@@ -1216,7 +1341,7 @@ const Publish: React.FC = () => {
       // 重置 file input，允许重复选择同一文件
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, [exportFieldMeta]);
+  }, [exportFieldMeta, importCustomFields]);
 
   const handleConfirmImport = useCallback((): void => {
     if (!extractedFields) return;
@@ -1241,6 +1366,16 @@ const Publish: React.FC = () => {
       const value = (extractedFields as any)[extractKey];
       if (value && String(value).trim()) {
         dispatch(setFieldValue({ fieldId: fieldIdMapping[fieldKey], value: String(value).trim() }));
+        importedCount++;
+      }
+    });
+
+    // 自定义字段：按 fieldKey 找到对应的 fieldId 写回。
+    // 标准字段走上面那张映射表，这些走周期配置——两条路合起来才是「全都匹配上」
+    Object.entries(extractedFields.custom ?? {}).forEach(([fieldKey, value]) => {
+      const fieldId = fieldIdMapping[fieldKey];
+      if (fieldId && String(value).trim()) {
+        dispatch(setFieldValue({ fieldId, value: String(value).trim() }));
         importedCount++;
       }
     });
@@ -1306,7 +1441,11 @@ const Publish: React.FC = () => {
     已经有简历的情况（投过之后管理员把开始时间往后推）不走这里：
     那份简历得让人看得到，上面的 Alert 已经说明了周期状态。
   */
-  if (cyclePhase === 'upcoming' && !resume) {
+  // 「有没有简历」要看有没有 id：store 在只读查询查不到简历时会放一个
+  // { resume_id: null, status: 1 } 的占位对象，按对象真值判断会把它当成一份草稿——
+  // 截图里那个「草稿（不可修改）」标签就是它
+  const hasRealResume = Boolean(resume?.resume_id ?? resume?.id);
+  if (cyclePhase === 'upcoming' && !hasRealResume) {
     const shown = upcomingCycles.find((c) => Number(c.cycleId) === Number(cycleId))
       ?? upcomingCycles[0];
     return (
@@ -1330,6 +1469,40 @@ const Publish: React.FC = () => {
     );
   }
 
+  /*
+    落点周期已结束，且本人在这一届没有简历：同样整页只说一件事。
+    以前这里会照常渲染一份全是「未填写」的空简历，顶上挂着
+    「本周期已停止投递 · 草稿（不可修改）」——「草稿」只是 status 为空时
+    的兜底标签，那份简历从未存在过。招新间歇期（没有任何开放/预告周期）
+    落点回退到 store 里写死的旧周期，用户看到的就是这一幕（线上截图）。
+    有简历的已结束周期不走这里：历史投递得让人看得到。
+  */
+  const emptyState = resolvePublishEmptyState({
+    phase: cyclePhase,
+    hasResume: hasRealResume,
+    openCount: (openCycles ?? []).length,
+    upcomingCount: upcomingCycles.length,
+    cycleListsFailed,
+  });
+  if (emptyState) {
+    const current = switchableCycles.find((c) => Number(c.cycleId) === Number(cycleId));
+    // 历届投递单独列出：切换器少于两项就不渲染，用户唯一一份历史简历会没有入口
+    const history = switchableCycles
+      .filter((c) => myResumes.some((r) => Number(r.cycleId) === Number(c.cycleId)))
+      .map((c) => ({ cycleId: Number(c.cycleId), cycleName: c.cycleName }));
+    return (
+      <div className="publish-page">
+        <NoOpenCycleNotice
+          kind={emptyState}
+          cycleName={current?.cycleName}
+          history={history}
+          onPickHistory={(id) => dispatch(setSelectedCycle(id))}
+          onBack={() => navigate('/main/dashboard')}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="publish-page">
       {/* 周期切换放在 isEditing 分支之外：简历一提交页面就切到只读分支，
@@ -1340,10 +1513,11 @@ const Publish: React.FC = () => {
         cycles={switchableCycles as any}
         value={Number(cycleId)}
         onChange={(id) => dispatch(setSelectedCycle(id))}
-        openCount={(openCycles ?? []).length}
+        openCount={(openCycles ?? []).filter((c) => c.intakeOpen !== false).length}
         statusOf={(id) => {
-          const open = (openCycles ?? []).some((c) => Number(c.cycleId) === Number(id));
-          if (!open) return '已结束 · 可查看';
+          const visible = (openCycles ?? []).find((c) => Number(c.cycleId) === Number(id));
+          if (!visible) return '已结束 · 可查看';
+          if (visible.intakeOpen === false) return '已停止投递 · 可查看';
           return submittedCycleIds.has(Number(id)) ? '已投递' : undefined;
         }}
       />
@@ -1553,6 +1727,7 @@ const Publish: React.FC = () => {
                       firstDeptOptions={firstDeptOptions}
                       secondDeptOptions={secondDeptOptions}
                       disabledSecondDepts={disabledSecondDepts}
+                      disabledFirstDepts={disabledFirstDepts}
                       intentLocked={intentLocked}
                     />
 

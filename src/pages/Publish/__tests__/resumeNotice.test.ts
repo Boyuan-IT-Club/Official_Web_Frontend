@@ -8,7 +8,7 @@ describe('简历状态提示的判定', () => {
   it('周期状态优先于简历状态', () => {
     // 周期没开放时，简历是评审中还是已通过都不影响「现在动不了」，
     // 而原因是周期不是简历——说「已进入审核阶段所以不能改」是错的归因
-    (['upcoming', 'ended'] as const).forEach((phase) => {
+    (['upcoming', 'paused', 'ended'] as const).forEach((phase) => {
       ([1, 2, 3, 4, 5] as const).forEach((st) => {
         const n = notice(phase, st);
         expect(n.title).toMatch(/本周期/);
@@ -16,9 +16,12 @@ describe('简历状态提示的判定', () => {
     });
   });
 
-  it('周期未开始与已结束说的是不同的话', () => {
+  it('周期未开始、已停止投递、已结束说的是三句不同的话', () => {
     expect(notice('upcoming', 2).title).toBe('本周期尚未开始');
-    expect(notice('ended', 2).title).toBe('本周期已停止投递');
+    // 停止投递 != 结束：前者是管理员按了开关、周期时间还没过，后者是时间到了
+    expect(notice('paused', 2).title).toBe('本周期已停止投递');
+    expect(notice('paused', 2).description).toMatch(/管理员已停止接收/);
+    expect(notice('ended', 2).title).toBe('本周期已结束');
   });
 
   it('周期开着时，按简历自身状态给结论', () => {
@@ -44,7 +47,7 @@ describe('简历状态提示的判定', () => {
   });
 
   it('每种组合都给得出结论，没有空文案', () => {
-    const phases: CyclePhase[] = ['open', 'upcoming', 'ended'];
+    const phases: CyclePhase[] = ['open', 'upcoming', 'paused', 'ended'];
     const statuses: ResumeStatus[] = [1, 2, 3, 4, 5, null, undefined];
     phases.forEach((p) => statuses.forEach((s) => {
       const n = notice(p, s);

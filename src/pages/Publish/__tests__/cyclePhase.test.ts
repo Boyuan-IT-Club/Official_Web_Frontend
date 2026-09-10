@@ -1,4 +1,6 @@
-import { resolveCyclePhase, isCycleWritable, daysUntil, resolveActiveCycleId } from '../cyclePhase';
+import {
+  resolveCyclePhase, isCycleWritable, daysUntil, resolveActiveCycleId, resolvePublishEmptyState, splitVisibleCycles,
+} from '../cyclePhase';
 
 describe('招募周期的三态判定', () => {
   it('在开放列表里 → open', () => {
@@ -95,5 +97,84 @@ describe('投递页落在哪个周期', () => {
     const phase = resolveCyclePhase(cid, [], [6, 7]);
     expect(phase).toBe('upcoming');
     expect(isCycleWritable(phase)).toBe(false);
+  });
+});
+
+describe('投递页的空状态判定', () => {
+  const base = { phase: 'ended' as const, hasResume: false, openCount: 0, upcomingCount: 0, cycleListsFailed: false };
+
+  it('招新间歇期：没有开放也没有预告，本人也没这届的简历 → 「当前没有招新」', () => {
+    // 线上截图的场景：落点回退到 store 写死的旧周期，页面渲染了一份
+    // 全是「未填写」的空简历，顶上挂着「草稿（不可修改）」
+    expect(resolvePublishEmptyState(base)).toBe('no-recruitment');
+  });
+
+  it('有别的周期在招/预告，只是当前这届结束且没投过 → 「这一届没投递记录」', () => {
+    expect(resolvePublishEmptyState({ ...base, openCount: 1 })).toBe('ended-no-resume');
+    expect(resolvePublishEmptyState({ ...base, upcomingCount: 1 })).toBe('ended-no-resume');
+  });
+
+  it('周期列表没拿到 → 如实说加载失败，不冒充「没有招新」', () => {
+    // 接口挂了时 phase 同样兜底成 ended，但那是「不知道」而不是「已结束」
+    expect(resolvePublishEmptyState({ ...base, cycleListsFailed: true })).toBe('cycles-unavailable');
+  });
+
+  it('有简历的已结束周期不进空状态：历史投递得让人看得到', () => {
+    expect(resolvePublishEmptyState({ ...base, hasResume: true })).toBeNull();
+  });
+
+  it('周期开放中或预告中不由这里决定', () => {
+    expect(resolvePublishEmptyState({ ...base, phase: 'open' })).toBeNull();
+    expect(resolvePublishEmptyState({ ...base, phase: 'upcoming' })).toBeNull();
+  });
+});
+
+describe('已停止投递但周期时间未过（paused）', () => {
+  it('/open 列表按 intakeOpen 拆成可投与已停止两组；缺字段按可投', () => {
+    const { openIds, pausedIds } = splitVisibleCycles([
+      { cycleId: 5, intakeOpen: true },
+      { cycleId: 6, intakeOpen: false },
+      { cycleId: 7 },                     // 旧后端没有这个字段
+    ]);
+    expect(openIds).toEqual([5, 7]);
+    expect(pausedIds).toEqual([6]);
+    expect(splitVisibleCycles(null)).toEqual({ openIds: [], pausedIds: [] });
+  });
+
+  it('在 paused 组里 → paused，且不可写', () => {
+    // 管理员点了「停止投递」：周期在用户端要继续可见，只是不能再提交/修改/新建
+    const phase = resolveCyclePhase(6, [5], [9], [6]);
+    expect(phase).toBe('paused');
+    expect(isCycleWritable(phase)).toBe(false);
+  });
+
+  it('同一个 id 既在 open 又在 paused 时以 open 为准（不会发生，但别把能投的判成不能投）', () => {
+    expect(resolveCyclePhase(6, [6], [], [6])).toBe('open');
+  });
+
+  it('落点：store 里是已停止投递的周期就留在它上面（投过的同学要看自己的简历）', () => {
+    expect(resolveActiveCycleId(6, [5], [9], false, [6])).toBe(6);
+  });
+
+  it('落点：没有可投周期时先落到已停止投递的，再落预告', () => {
+    // 已停止投递的仍是「当前这届」，比下一届预告更该先看到
+    expect(resolveActiveCycleId(null, [], [9], false, [6])).toBe(6);
+    expect(resolveActiveCycleId(null, [], [9], false, [])).toBe(9);
+  });
+
+  it('落点：有可投的就优先可投的，不落到已停止投递的', () => {
+    expect(resolveActiveCycleId(null, [5], [], false, [6])).toBe(5);
+  });
+
+  it('paused 且本人没这届的简历 → 专门的空状态，不能再新建', () => {
+    expect(resolvePublishEmptyState({
+      phase: 'paused', hasResume: false, openCount: 0, upcomingCount: 0, cycleListsFailed: false,
+    })).toBe('paused-no-resume');
+  });
+
+  it('paused 且有简历 → 正常渲染（只读）', () => {
+    expect(resolvePublishEmptyState({
+      phase: 'paused', hasResume: true, openCount: 0, upcomingCount: 0, cycleListsFailed: false,
+    })).toBeNull();
   });
 });

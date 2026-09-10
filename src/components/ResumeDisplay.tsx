@@ -29,7 +29,8 @@ export interface Departments {
 export interface InterviewTimes {
   first: string;
   second: string;
-  canAttend: 'yes' | 'no';
+  /** null = 简历里根本没有面试意向数据（没填/空简历），不能默认成「能参加」 */
+  canAttend: 'yes' | 'no' | null;
   customTime: string;
 }
 
@@ -122,7 +123,9 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = React.memo(({
       // eslint-disable-next-line no-console
       console.error('解析面试时间失败', e);
     }
-    return { first: '', second: '', canAttend: 'yes', customTime: '' };
+    // 没有这个字段值就是没填过意向。以前这里兜底成 'yes'，空简历上会凭空
+    // 显示「是否能参加线下面试: 能参加」——那不是用户填的
+    return { first: '', second: '', canAttend: null, customTime: '' };
   };
 
   const interviewTimes = parseInterviewTimes();
@@ -191,7 +194,7 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = React.memo(({
           {renderDepartment('第一志愿', departments.first)}
           {renderDepartment('第二志愿', departments.second)}
 
-          {interviewTimes.canAttend === 'yes' ? (
+          {interviewTimes.canAttend !== 'no' ? (
             <>
               {renderInterviewTime('第一面试时间', interviewTimes.first)}
               {renderInterviewTime('第二面试时间', interviewTimes.second)}
@@ -206,7 +209,7 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = React.memo(({
             </div>
           )}
 
-          {renderInterviewTime(
+          {interviewTimes.canAttend != null && renderInterviewTime(
             '是否能参加线下面试',
             interviewTimes.canAttend === 'yes' ? '能参加' : '不能参加'
           )}

@@ -1,0 +1,16 @@
+.eval-overview {
+  display: flex; flex-direction: column; gap: 14px;
+  .ov-nums { display: flex; gap: 22px; margin-bottom: 10px; }
+  .ov-num { b { display: block; font-family: ui-monospace, monospace; font-size: 24px; line-height: 1.1; color: #2563b8; }
+    span { font-size: 12px; color: #8a93a8; }
+    &.good b { color: #2e7d4f; } &.warn b { color: #b45309; } &.muted b { color: #8a93a8; } }
+  .ov-row { display: grid; grid-template-columns: 140px 1fr 84px; gap: 12px; align-items: center; padding: 5px 0; border-top: 1px solid #edf1f8; font-size: 13px; }
+  .ov-label { color: #33405c; font-weight: 600; }
+  .ov-track { height: 9px; border-radius: 5px; background: #e6ebf5; position: relative; overflow: hidden;
+    i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #2563b8, #4da6ff); }
+    em { position: absolute; top: 0; bottom: 0; background: #f0b429; } }
+  .ov-pct { font-family: ui-monospace, monospace; font-size: 12px; color: #66738f; text-align: right; }
+  .ov-hist { display: flex; align-items: flex-end; gap: 4px; height: 64px; padding-top: 8px;
+    i { flex: 1; background: #cfe0f6; border-radius: 3px 3px 0 0; min-height: 2px; &.hi { background: #2563b8; } } }
+  .ov-hx { display: flex; justify-content: space-between; font-family: ui-monospace, monospace; font-size: 10px; color: #93a0b8; }
+}

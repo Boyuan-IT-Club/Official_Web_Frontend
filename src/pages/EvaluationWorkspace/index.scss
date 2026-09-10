@@ -191,3 +191,238 @@ $mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
     }
   }
 }
+
+// ── 评价舞台（沉浸模式）──
+// 全视口盖住管理端外壳；底部固定胶片条，内容区留出它的高度
+.eval-ws.is-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow-y: auto;
+  background: linear-gradient(160deg, #eef3fb 0%, #fbfcfe 55%), #fbfcfe;
+  padding: 16px 28px 110px;
+}
+
+.eval-ws-film {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  background: #eef1f7;   // 比页面底深半档，层次：底 < 面板 < 聚焦输入
+  border-top: 1px solid #e2e8f2;
+}
+
+// ── 评价舞台 v2：等高分栏 / 拖拽中缝 / 折叠细轨 / 卡片翻新 ──
+.eval-ws.is-stage {
+  .eval-ws-split {
+    gap: 0;
+    align-items: stretch;
+    // 顶栏 ~52px + 上边距 + 胶片条 ~86px：两栏底边永远对齐
+    height: calc(100vh - 175px);
+
+    @media (max-width: 1100px) {
+      // 窄屏没有拖拽的意义，退回上下堆叠由原规则接管
+      height: auto;
+    }
+  }
+
+  .ws-pane {
+    height: 100%;
+    max-height: none;
+    overflow-y: auto;
+    border-radius: 12px;
+    border-color: #e3e8f2;
+    box-shadow: 0 8px 24px rgba(30, 50, 100, 0.07);
+    position: relative;
+    // 方案 A 的纸感底：面板不是纯白，纯白只留给聚焦时的输入区
+    background: #fcfcfd;
+
+    &.is-folded {
+      padding: 0;
+      overflow: hidden;
+      > *:not(.ws-rail) { display: none; }
+    }
+  }
+  .ws-resume { max-height: none; }
+
+  // 中缝：默认只有一根细线，悬浮浮出抓手
+  .ws-divider {
+    position: relative;
+    cursor: col-resize;
+    touch-action: none;
+    &::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #dde4f0; }
+    &:hover .ws-grip { opacity: 1; }
+  }
+  .ws-grip {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 12px; height: 40px; border-radius: 6px;
+    background: #fff; border: 1px solid #c9d6ec; box-shadow: 0 2px 8px rgba(30, 50, 100, 0.14);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    opacity: 0.55; transition: opacity 0.12s;
+    i { width: 5px; height: 2px; background: #93a0b8; border-radius: 1px; }
+  }
+  .ws-fold {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; border: 1px solid #c9d6ec; color: #66738f;
+    font-size: 10px; line-height: 1; cursor: pointer; padding: 0;
+    &:hover { color: #2563b8; border-color: #2563b8; }
+    &.ws-fold-top { top: 14px; }
+    &.ws-fold-bottom { bottom: 14px; }
+  }
+  // 收起后的细轨：竖排标签，点击恢复
+  .ws-rail {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    writing-mode: vertical-rl; letter-spacing: 0.2em;
+    background: #fff; border: none; color: #66738f; font-size: 12px; cursor: pointer;
+    &:hover { color: #2563b8; background: #f4f8fe; }
+  }
+
+  // ── 方案 A · 静谧纸感（主体）+ 专注模式（方案 C 开关）──
+  .ws-eval { padding: 18px 26px; }
+
+  .dim-card {
+    border: none;
+    border-bottom: 1px solid #e2e7f2;   // 分界线比之前明显一档
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 16px 2px 14px;
+    margin: 0;
+  }
+  .dim-card-empty { border-bottom-style: solid; }
+
+  .dim-card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    .dim-name { font-size: 15px; font-weight: 700; color: #18233f; }
+    .dim-weight { color: #a0a9bc; font-size: 11px; }
+  }
+  .dim-score {
+    margin-left: auto;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    .ant-input-number {
+      width: 64px !important;
+      border: 1px solid #e2e8f2;
+      background: #f4f7fc;
+      border-radius: 8px;
+      box-shadow: none !important;
+      input {
+        font-family: ui-monospace, monospace;
+        font-size: 24px;
+        font-weight: 700;
+        color: #2563b8;
+        text-align: right;
+        padding: 0 2px;
+        &::placeholder { color: #c3cad6; font-weight: 400; }
+      }
+      &:focus-within { background: #fff; border-radius: 6px; box-shadow: 0 0 0 1px #c9d6ec !important; }
+    }
+    .dim-max { color: #a0a9bc; font-size: 12px; }
+  }
+
+  .dim-note {
+    padding: 7px 10px;
+    font-size: 13.5px;
+    color: #4c5a76;
+    border: 1px solid #e7ecf5;
+    border-radius: 8px;
+    background: #f7f9fc;
+    &:focus-within, &:focus {
+      background: #fff;
+      border-color: #b9cdec;
+      box-shadow: none;   // 不再有下划线/描影残留
+    }
+    &::placeholder { color: #b6bece; }
+  }
+  .dim-note-wrap {
+    position: relative;
+    // 有署名时给评语末行让出角落，避免文字压住署名
+    &:has(.dim-signature) .dim-note { padding-right: 96px; }
+  }
+  .dim-signature {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    pointer-events: none;   // 点署名等于点评语框，写作区一寸不少
+    color: #b6bece;
+    font-size: 12px;
+    background: linear-gradient(90deg, transparent, #f7f9fc 25%);
+    padding-left: 16px;
+  }
+  // 正在输入时署名让位，避免和光标/文字叠影
+  .dim-note-wrap:focus-within .dim-signature { display: none; }
+
+  .ws-total-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 14px 2px 4px;
+    b { font-family: ui-monospace, monospace; font-size: 30px; color: #18233f; font-weight: 700; }
+    span { color: #8a93a8; font-size: 12px; }
+  }
+  .ws-conclusion { border-top: 1px solid #edf0f6; padding-top: 10px; }
+
+  // ── 专注模式（C）：放大版 A 卡 + 右侧队列 ──
+  .focus-flow {
+    display: grid;
+    grid-template-columns: 1fr 150px;
+    gap: 12px;
+    align-items: start;
+  }
+  .focus-main {
+    background: #fff;
+    border: 1px solid #dde4f0;
+    border-radius: 14px;
+    padding: 18px 22px;
+    box-shadow: 0 10px 28px rgba(30, 50, 100, 0.10);
+    .dim-card { border: none; padding: 0; }
+    .dim-card-head .dim-name { font-size: 19px; font-family: 'Noto Serif SC', serif; }
+    .dim-score .ant-input-number input { font-size: 36px; }
+    .dim-note { font-size: 14px; min-height: 72px; }
+    .ws-conclusion { border-top: none; padding-top: 0; }
+  }
+  .focus-step {
+    margin: 0 0 8px;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: #a0a9bc;
+  }
+  .focus-queue {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    button.focus-q {
+      background: #fcfcfd;
+      border: 1px solid #dde4f0;
+      border-radius: 9px;
+      padding: 8px 10px;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      color: #33405c;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+      b { font-size: 12.5px; }
+      .s { font-family: ui-monospace, monospace; color: #2563b8; font-weight: 700; }
+      .u { color: #b6bece; font-size: 11px; }
+      &.now { border-color: #2563b8; box-shadow: 0 2px 8px rgba(37, 99, 184, 0.16); background: #fff; }
+      &:focus-visible { outline: 2px solid #2563b8; outline-offset: 1px; }
+    }
+  }
+}
+
+// 非舞台模式：总分行与署名收敛为常规密度
+.eval-ws:not(.is-stage) {
+  .ws-total-line { padding: 8px 0 0; b { font-size: 16px; } }
+  .dim-score .ant-input-number input { font-size: 15px; font-weight: 700; color: #2563b8; }
+  .dim-signature { font-size: 12px; color: #a8a8b3; }
+}

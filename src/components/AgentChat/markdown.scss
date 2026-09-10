@@ -1,0 +1,127 @@
+/* agent-md:浮窗内 markdown 排版(宽度 390px 抽屉内优化;主色 #1890ff 系) */
+
+.agent-md {
+  font-size: 14px;
+  line-height: 1.65;
+  word-break: break-word;
+
+  > *:first-child { margin-top: 0; }
+  > *:last-child { margin-bottom: 0; }
+
+  p { margin: 6px 0; }
+
+  h1, h2, h3, h4, h5, h6 {
+    margin: 12px 0 6px;
+    line-height: 1.4;
+  }
+  h1 { font-size: 1.25em; }
+  h2 { font-size: 1.15em; }
+  h3, h4 { font-size: 1.05em; }
+
+  ul, ol { margin: 6px 0; padding-left: 20px; }
+  li { margin: 2px 0; }
+
+  blockquote {
+    margin: 8px 0;
+    padding: 4px 12px;
+    border-left: 3px solid #91caff;
+    background: #f6f8fa;
+    color: #595959;
+    border-radius: 0 6px 6px 0;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid #e8e8e8;
+    margin: 12px 0;
+  }
+
+  /* 行内代码 */
+  :not(pre) > code {
+    background: #f0f2f5;
+    border: 1px solid #e6e8eb;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.9em;
+    color: #c7254e;
+  }
+
+  /* 表格:横向滚动(窄抽屉),斑马纹 */
+  &__table-wrap {
+    overflow-x: auto;
+    margin: 8px 0;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 360px;
+      font-size: 13px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #f0f0f0;
+      padding: 6px 10px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th { background: #fafafa; font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:nth-child(even) { background: #fafafa; }
+  }
+
+  /* 代码块:标题栏(语言 + 复制) */
+  &-code {
+    margin: 8px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e6e8eb;
+
+    &__bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f0f2f5;
+      padding: 3px 10px;
+      font-size: 12px;
+      color: #8c8c8c;
+    }
+
+    &__copy {
+      border: none;
+      background: transparent;
+      color: #1890ff;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 0 4px;
+
+      &:hover { color: #40a9ff; }
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px 12px;
+      overflow-x: auto;
+      background: #fafafa;
+
+      code {
+        background: transparent;
+        padding: 0;
+        font-size: 12.5px;
+        line-height: 1.55;
+      }
+    }
+  }
+
+  /* KaTeX 块级公式横向滚动 */
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0;
+  }
+
+  /* 图片不撑破气泡 */
+  img { max-width: 100%; border-radius: 6px; }
+}

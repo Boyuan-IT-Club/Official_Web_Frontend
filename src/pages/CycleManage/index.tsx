@@ -153,7 +153,9 @@ const CycleManage: React.FC = () => {
         status: record.status,
         isActive: open ? 0 : 1,
       } as any);
-      message.success(open ? "已停止投递：学生端不再显示该周期，也无法提交" : "已开放投递");
+      message.success(open
+        ? "已停止投递：周期结束前学生端仍可查看，但不能提交、修改或新建简历"
+        : "已开放投递");
       load();
     } catch (e: any) {
       message.error(e?.message || "操作失败");
@@ -338,7 +340,7 @@ const CycleManage: React.FC = () => {
             <Select
               options={[
                 { value: 1, label: "开放投递（学生端可见，可提交/修改简历）" },
-                { value: 0, label: "停止投递（学生端不可见，无法提交）" },
+                { value: 0, label: "停止投递（周期结束前学生端仍可见但只读，不能提交/修改/新建）" },
               ]}
             />
           </Form.Item>

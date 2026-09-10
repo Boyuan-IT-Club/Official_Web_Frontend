@@ -1,0 +1,7 @@
+.final-matrix {
+  .fm-cell { display: inline-block; min-width: 40px; padding: 1px 8px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+  .fm-h1 { background: #e9f3f7; }
+  .fm-h2 { background: #cfe6ef; }
+  .fm-h3 { background: #0e6e8e; color: #fff; font-weight: 700; b { color: #fff; } }
+  .fm-expand { padding: 4px 8px; p { margin: 3px 0; max-width: 100ch; } }
+}

@@ -13,6 +13,7 @@ import StatsCard from './components/StatsCard';
 import Toolbar from './components/UserToolbar';
 import UserTable, { User } from './components/UserTable';
 import RoleManager from './components/RoleManager';
+import MemberClaimReview from './components/MemberClaimReview';
 import DeptManage from './components/DeptManage';
 
 // 导入API
@@ -354,6 +355,13 @@ const Management: React.FC = () => {
                 </>
               ),
             },
+            // 老社员认领：往届社员自助申请、管理员核对名册后置为社员。
+            // 与用户管理同属 user:manage，只读管理员不给这个 tab（进去也审批不了）
+            ...(canManage ? [{
+              key: 'member-claims',
+              label: '老社员认领',
+              children: <MemberClaimReview />,
+            }] : []),
             // 角色管理整块要 role:assign;只读管理员没有,挂出来点进去只会看到一片
             // 加载失败,所以直接不给这个 tab
             ...(canAssignRole ? [{

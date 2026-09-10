@@ -3,7 +3,7 @@
 // 实测踩过的坑：单行标签正则用 \s* 会匹配换行——「GitHub：」为空时，
 // 把下一行「第一志愿：项目部」整行吞进 GitHub 字段。这组用例按
 // 导出模板（exportResume.ts）的真实文本形态锁定解析行为。
-import { extractFieldsFromText } from './importResume';
+import { extractFieldsFromText, hasAnyExtractedField } from './importResume';
 
 /** 模拟 mammoth 对导出 docx 的提取结果（每个单元格/段落一行） */
 const EXPORTED_TEXT = [
@@ -109,5 +109,47 @@ describe('管理员改过标签后的导入回环', () => {
   it('标签为空的字段跳过，不生成会吞掉下一行的模式', () => {
     const fields = extractFieldsFromText('姓名：赵六', { github: '' });
     expect(fields.name).toBe('赵六');
+  });
+});
+
+describe('自定义字段按周期配置动态解析', () => {
+  const CUSTOM = [
+    { fieldKey: 'portfolio', label: '作品链接' },
+    { fieldKey: 'club_exp', label: '社团经历' },
+  ];
+
+  it('认得出管理员新加的字段', () => {
+    const text = [
+      '姓名：李明',
+      '学号：10245101480',
+      '其他信息：',
+      '作品链接：github.com/liming/portfolio',
+      '社团经历：大一在学生会宣传部做过海报设计，',
+      '也帮系里办过两次活动。',
+    ].join('\n');
+
+    const r = extractFieldsFromText(text, {}, CUSTOM);
+    expect(r.name).toBe('李明');
+    expect(r.custom.portfolio).toBe('github.com/liming/portfolio');
+    // 多行的自定义字段要吃到下一个标签为止，不能只截第一行
+    expect(r.custom.club_exp).toContain('海报设计');
+    expect(r.custom.club_exp).toContain('办过两次活动');
+  });
+
+  it('没配自定义字段时行为不变', () => {
+    const r = extractFieldsFromText('姓名：李明\n作品链接：xxx');
+    expect(r.name).toBe('李明');
+    expect(r.custom).toEqual({});
+  });
+
+  it('标签里的正则元字符不会炸', () => {
+    const r = extractFieldsFromText('C++ 经验（选填）：写过两年',
+      {}, [{ fieldKey: 'cpp', label: 'C++ 经验（选填）' }]);
+    expect(r.custom.cpp).toBe('写过两年');
+  });
+
+  it('只提取到自定义字段也算有内容', () => {
+    const r = extractFieldsFromText('作品链接：github.com/x', {}, CUSTOM);
+    expect(hasAnyExtractedField(r)).toBe(true);
   });
 });

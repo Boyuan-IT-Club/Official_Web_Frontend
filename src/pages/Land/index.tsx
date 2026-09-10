@@ -226,7 +226,7 @@ const Land: React.FC = () => {
             <div>
               <h3>联系我们</h3>
               <ul>
-                <li>邮箱：cr@stu.ecnu.edu.cn</li>
+                <li>邮箱：10255101547@stu.ecnu.edu.cn</li>
                 <li>地址: 上海市中山北路3663号</li>
               </ul>
             </div>

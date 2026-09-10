@@ -169,6 +169,17 @@ export interface ScheduleRosterItem {
   name?: string;
   username?: string;
   deptName?: string;
+  /** 简历里填的学号；本届没有学号字段时为空。别拿 username 顶替 */
+  studentId?: string | null;
+  /** 场次地点 */
+  location?: string | null;
+  firstDeptName?: string | null;
+  secondDeptName?: string | null;
+  /** 1 = 面试安排通知已发出 */
+  notifStatus?: number | null;
+  syncStatus?: number | null;
+  /** 1 = 时间被管理员手动调整过，自动分配/换场不会再覆盖 */
+  timeOverridden?: number;
 }
 
 export interface OfflineUnavailableItem {
@@ -268,6 +279,14 @@ export function getFeishuTask(taskId: number) {
   return request({ url: `/api/interview/feishu/import/tasks/${taskId}`, method: 'get' });
 }
 
+/** 手动把某条面试安排的时间调到精确钟点；会触发飞书重同步与重新通知标记 */
+export const updateScheduleInterviewTime = (scheduleId: number, interviewTime: string) =>
+  request({
+    url: `/api/interview/admin/schedules/${scheduleId}/interview-time`,
+    method: 'put',
+    data: { interviewTime },
+  });
+
 // ---- 预录取名单（录取决策草稿，学生端不可见） ----
 
 export interface PreAdmissionDraftItem {
@@ -324,6 +343,8 @@ export interface InterviewResultItem {
    */
   userName?: string;
   departmentName?: string;
+  /** 生效面试安排的时间；后端按简历+周期实时回退取得，先生成名单后排面试也有值 */
+  interviewTime?: string | null;
   /** 简历平均分；null = 没打过分（列默认 0 不代表打过 0 分） */
   resumeScore?: number | null;
   /** 面试评价加权总分；null = 无评价（如未面试/未定稿） */
@@ -373,4 +394,84 @@ export function batchDecision(data: {
 /** 批量发送结果通知邮件 */
 export function sendResultNotifications(data: { resultIds: number[]; notificationType: string; customMessage?: string }) {
   return request({ url: '/api/interview/result/send-notifications', method: 'post', data });
+}
+
+/** 招新流程各环节的产出量，管理端「流程指引」据此判断当前该做哪一步 */
+export interface RecruitFlowProgress {
+  fieldCount: number;
+  submittedResumes: number;
+  screenedResumes: number;
+  schedules: number;
+  finalizedEvaluations: number;
+  preAdmitted: number;
+  decided: number;
+  notified: number;
+}
+
+export function getFlowProgress(cycleId: number) {
+  return request({ url: '/api/interview/flow/progress', method: 'get', params: { cycleId } });
+}
+
+/** 通知中心：某类通知的进度 */
+export interface NotificationBucket {
+  total: number;
+  sent: number;
+  pending: number;
+}
+
+export interface ScreenedOutItem {
+  resumeId: number;
+  userId?: number | null;
+  name?: string | null;
+  studentId?: string | null;
+  email?: string | null;
+  /** 简历平均分；null = 没打过分（与打 0 分区分） */
+  resumeScore?: number | null;
+  /** 最近一次初筛未通过通知的发送时间；null = 还没通知 */
+  notifiedAt?: string | null;
+}
+
+/** 面试安排名单里的一行，附三类通知各自发没发 */
+export interface ScheduleNoticeItem {
+  scheduleId: number;
+  userId?: number | null;
+  name?: string | null;
+  studentId?: string | null;
+  interviewTime?: string | null;
+  deptName?: string | null;
+  location?: string | null;
+  /** 面试安排通知已发 */
+  arranged: boolean;
+  /** 前一天提醒已发 */
+  eve: boolean;
+  /** 当天提醒已发 */
+  day: boolean;
+}
+
+export interface NotificationOverview {
+  resumeRejected: NotificationBucket;
+  interviewArranged: NotificationBucket;
+  eveReminder: NotificationBucket;
+  dayReminder: NotificationBucket;
+  result: NotificationBucket;
+  screenedOut: ScreenedOutItem[];
+  schedules: ScheduleNoticeItem[];
+}
+
+/** 通知中心总览：四类对外邮件各发了多少、还差谁 */
+export function getNotificationOverview(cycleId: number) {
+  return request({ url: '/api/interview/notifications/overview', method: 'get', params: { cycleId } });
+}
+
+/** 手动补发挂在面试安排上的通知；只发没发过的，返回入队数与跳过的 id */
+export function sendScheduleNotices(
+  cycleId: number,
+  type: 'BOOKING_SUCCESS' | 'EVE_REMINDER' | 'DAY_REMINDER',
+  scheduleIds: number[],
+) {
+  return request({
+    url: '/api/interview/notifications/send',
+    method: 'post',
+    data: { cycleId, type, scheduleIds },
+  });
 }

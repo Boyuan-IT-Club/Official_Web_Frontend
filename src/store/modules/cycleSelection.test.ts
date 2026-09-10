@@ -10,7 +10,7 @@ const stateWith = (over: any) => reducer(undefined, { type: '@@INIT' } as any) &
   ...over,
 };
 
-const openCyclesFulfilled = (list: Array<{ cycleId: number }>) => ({
+const openCyclesFulfilled = (list: Array<{ cycleId: number; intakeOpen?: boolean }>) => ({
   type: fetchOpenCycles.fulfilled.type,
   payload: list,
 });
@@ -45,10 +45,29 @@ describe('周期选择', () => {
     expect(st.cycleId).toBe(1);
   });
 
-  it('开放列表为空时不把选择清成 undefined', () => {
+  it('开放列表为空时选中项归零为 null，而不是留着旧值或变成 undefined', () => {
+    // #161 的决定：保留旧值会拿已删除/已结束周期的数据冒充当前状态。
+    // 归零必须是 null（明确的「没有周期」），不能是 undefined
     const before = stateWith({ cycleId: 7, cycleUserPicked: false });
     const after = reducer(before as any, openCyclesFulfilled([]) as any);
-    expect(after.cycleId).toBe(7);
+    expect(after.cycleId).toBeNull();
+  });
+
+  it('默认落点跳过已停止投递的周期，优先还能投的那个', () => {
+    // /open 列表现在混着 intakeOpen=false 的周期（可见但只读），排在前面时
+    // 不该成为新用户的默认落点
+    const before = stateWith({ cycleId: null, cycleUserPicked: false });
+    const after = reducer(before as any, openCyclesFulfilled([
+      { cycleId: 8, intakeOpen: false },
+      { cycleId: 5, intakeOpen: true },
+    ]) as any);
+    expect(after.cycleId).toBe(5);
+  });
+
+  it('只剩已停止投递的周期时就落到它上面（可见，只读）', () => {
+    const before = stateWith({ cycleId: null, cycleUserPicked: false });
+    const after = reducer(before as any, openCyclesFulfilled([{ cycleId: 8, intakeOpen: false }]) as any);
+    expect(after.cycleId).toBe(8);
   });
 
   it('setSelectedCycle 接受字符串型 id 也存成数字', () => {

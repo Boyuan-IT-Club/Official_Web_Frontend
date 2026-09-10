@@ -23,6 +23,7 @@ import { useSkin } from "@/theme/SkinProvider";
 import { BgColorsOutlined, CheckOutlined } from "@ant-design/icons";
 import { useOnboardingTour, IntroList } from "@/components/OnboardingTour";
 import logo from "../../assets/SingleLogo.png";
+import AgentChatWidget from "@/components/AgentChat/AgentChatWidget";
 import "./index.scss";
 import { useAppDispatch } from "@/store/hooks";
 
@@ -288,6 +289,7 @@ const MainLayout = () => {
           </div>
         </Content>
         {tour.node}
+        <AgentChatWidget />
       </AntdLayout>
     </AntdLayout>
   );

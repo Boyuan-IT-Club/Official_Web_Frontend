@@ -20,6 +20,7 @@ import { getUpcomingCycles } from '@/api/manage/cycleApis';
 import InterviewReminderCard from '@/components/InterviewReminderCard';
 import ActivitiesPreviewCard from '@/components/ActivitiesPreviewCard';
 import SkinHero from '@/components/SkinHero';
+import MemberClaimCard from '@/components/MemberClaimCard';
 import { useSkin } from '@/theme/SkinProvider';
 import './index.scss';
 
@@ -77,6 +78,10 @@ const Dashboard = () => {
   const rawCycleId = resumeState?.cycleId ?? null;
   const selectedCycleId = rawCycleId != null && openCycleIds.includes(Number(rawCycleId))
     ? Number(rawCycleId) : null;
+  // 选中的周期可能已「停止投递」（时间未过、仍可见）：进度卡要据此换文案，
+  // 不能再用「开始填写简历」把没投过的人引到一个不能新建的页面
+  const selectedCycle = (resumeState?.openCycles ?? []).find((c) => Number(c.cycleId) === selectedCycleId);
+  const selectedIntakeOpen = selectedCycle ? selectedCycle.intakeOpen !== false : true;
 
   // 下一届招新预告。单独取而不是并进 openCycles：那个列表是「能不能投」的闸门。
   // 取不到就当没有下一届，静默跳过——预告缺失不该影响首页其余部分。
@@ -157,6 +162,7 @@ const Dashboard = () => {
             cycleId={selectedCycleId}
             resumeStatus={resumeState?.resume?.status ?? null}
             canAttendOffline={canAttendOffline}
+            intakeOpen={selectedIntakeOpen}
           />
         </div>
       )}
@@ -173,7 +179,7 @@ const Dashboard = () => {
         <Row gutter={[12, 12]}>
           {hasInterview && selectedCycleId != null && (
             <Col xs={24} md={12}>
-              <InterviewReminderCard cycleId={selectedCycleId} onVisibleChange={setHasInterview} />
+              <InterviewReminderCard cycleId={selectedCycleId} resumeStatus={resumeState?.resume?.status ?? null} onVisibleChange={setHasInterview} />
             </Col>
           )}
           <Col xs={24} md={hasInterview ? 12 : 24}>
@@ -181,10 +187,16 @@ const Dashboard = () => {
           </Col>
           {!hasInterview && selectedCycleId != null && (
             <Col span={0} style={{ display: 'none' }}>
-              <InterviewReminderCard cycleId={selectedCycleId} onVisibleChange={setHasInterview} />
+              <InterviewReminderCard cycleId={selectedCycleId} resumeStatus={resumeState?.resume?.status ?? null} onVisibleChange={setHasInterview} />
             </Col>
           )}
         </Row>
+      </div>
+
+      {/* 老社员认领：往届社员注册后自报家门。组件内部判断是否显示
+          （已是社员、或申请已通过时返回 null，不占位） */}
+      <div style={{ maxWidth: 'var(--skin-page-max-narrow, 960px)', margin: '12px auto 0', padding: '0 16px' }}>
+        <MemberClaimCard />
       </div>
 
       {/* 快捷入口：申请者看投递/进度，社员看活动/评测——两拨人关心的事不一样 */}

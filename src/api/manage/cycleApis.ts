@@ -87,10 +87,16 @@ export interface OpenCycle {
   startDate: string;
   endDate: string;
   fieldCount: number;
+  /**
+   * 是否仍接收投递。false = 管理员已「停止投递」：周期在时间内仍可见
+   * （看简历、看进度），但不能提交、修改或新建简历。旧后端没有这个字段时按 true 处理。
+   */
+  intakeOpen?: boolean;
 }
 
 /**
- * 当前开放投递的周期列表（启用中 + 今天在起止日期内），按 start_date 倒序。
+ * 当前周期列表（今天在起止日期内，含已停止投递的），按 start_date 倒序。
+ * 每项的 intakeOpen 标出是否还能投；「可见」与「可投」由前端据此分开。
  *
  * 不要再用 getActiveCycles() 判断「现在该投哪个周期」：is_active 只表示
  * 「是否启用」，往届周期为了查历史简历通常也保持启用，取第一条会任选一个。

@@ -30,6 +30,10 @@ import {
   type BoardColumn,
   type BoardRow,
 } from '../EvaluationBoard/collab';
+import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
+import EvalOverview from './EvalOverview';
+import { chipStatus, currentScheduleId, sortSessionRows } from './evalStage';
+import { PaneFold, clampRatio, gridColumns, loadLayoutPrefs, nextFold, saveLayoutPrefs } from './stageLayout';
 import './index.scss';
 
 const RECOMMENDATION_OPTIONS = [
@@ -56,45 +60,47 @@ const DimensionCard: React.FC<{
   );
 
   const filled = score !== '' || note.trim() !== '';
+  const max = column.maxScore ?? 10;
+  const current = score === '' ? null : Number(score);
+  const setScore = (v: number | null) =>
+    board.writeScore(scheduleId, dimensionColId(dimensionId), v);
 
   return (
     <div className={`dim-card${filled ? '' : ' dim-card-empty'}`}>
       <div className="dim-card-head">
         <span className="dim-name">{column.label}</span>
+        {column.weight != null && <span className="dim-weight">权重 {Math.round(column.weight * 100)}%</span>}
         <span className="dim-score">
+          {/* A 案：分数是右上角一枚大数字，无边框，聚焦才浮白（样式见 scss） */}
           <InputNumber
-            size="small"
-            min={0}
-            max={column.maxScore ?? 10}
-            value={score === '' ? null : Number(score)}
-            disabled={disabled}
-            placeholder="—"
-            controls={false}
-            onChange={(v) =>
-              board.writeScore(scheduleId, dimensionColId(dimensionId), v === null ? null : Number(v))
-            }
-            style={{ width: 52 }}
+            min={0} max={max}
+            value={current} disabled={disabled} placeholder="–" controls={false}
+            onChange={(v) => setScore(v === null ? null : Number(v))}
           />
-          <span className="dim-max">/ {column.maxScore ?? 10}</span>
+          <span className="dim-max">/ {max}</span>
         </span>
+      </div>
+      {/* 署名不再独占一行：悬浮缀在评语区右下角、点击穿透——
+          整块区域都是可写的，不留死空间 */}
+      <div className="dim-note-wrap">
+        <CollabTextArea
+          board={board}
+          scheduleId={scheduleId}
+          field={dimensionNoteColId(dimensionId)}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          disabled={disabled}
+          autoSize={{ minRows: 2, maxRows: 6 }}
+          placeholder={`${column.label}的具体表现…`}
+          variant="borderless"
+          className="dim-note"
+        />
         {writerName && (
           <Tooltip title="这一项的评价由该面试官写入，取自服务端记录">
-            <span className="dim-writer">{writerName}</span>
+            <span className="dim-signature" aria-hidden="true">—— {writerName}</span>
           </Tooltip>
         )}
       </div>
-      <CollabTextArea
-        board={board}
-        scheduleId={scheduleId}
-        field={dimensionNoteColId(dimensionId)}
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        disabled={disabled}
-        autoSize={{ minRows: 2, maxRows: 6 }}
-        placeholder={`${column.label}的具体表现…`}
-        variant="borderless"
-        className="dim-note"
-      />
     </div>
   );
 };
@@ -124,6 +130,107 @@ const EvaluationWorkspace: React.FC = () => {
     () => board.rows.find((r) => r.scheduleId === scheduleId),
     [board.rows, scheduleId],
   );
+
+  // ── 评价舞台（沉浸模式）──
+  // stage=1 时全屏盖住管理端外壳，底部胶片条显示本场时间表。
+  // 用 URL 参数而不是本地状态：把带 stage 的链接发给同伴，对方进来就是舞台。
+  const stageOn = searchParams.get('stage') === '1';
+  const setStage = useCallback((on: boolean) => {
+    navigate(`/evaluation/${cycleId}/${scheduleId}${on ? '?stage=1' : ''}`, { replace: true });
+  }, [navigate, cycleId, scheduleId]);
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  // 专注模式（方案 C 作为开关）：一次只放大一个维度，回车下一维
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusIdx, setFocusIdx] = useState(0);
+
+  // v2 分栏：比例可拖、可收起一侧；偏好记 localStorage
+  const [layout, setLayout] = useState(loadLayoutPrefs);
+  const patchLayout = useCallback((patch: Partial<{ ratio: number; fold: PaneFold }>) => {
+    setLayout((prev) => {
+      const next = { ...prev, ...patch };
+      saveLayoutPrefs(next);
+      return next;
+    });
+  }, []);
+  const layoutRef = React.useRef(layout);
+  layoutRef.current = layout;
+  const splitRef = React.useRef<HTMLDivElement>(null);
+  const onDividerPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!stageOn) return;
+    const el = splitRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const rect = el.getBoundingClientRect();
+    const onMove = (ev: PointerEvent) => {
+      patchLayout({ ratio: clampRatio((ev.clientX - rect.left) / rect.width), fold: 'none' });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [stageOn, patchLayout]);
+
+  // 本场次名单（线上单约没有场次，就只有自己一张卡）
+  const sessionRows = useMemo(() => {
+    const sameSession = row?.sessionId != null
+      ? board.rows.filter((r) => r.sessionId === row.sessionId)
+      : board.rows.filter((r) => r.scheduleId === scheduleId);
+    return sortSessionRows(sameSession);
+  }, [board.rows, row?.sessionId, scheduleId]);
+
+  // 「正在面试」随时间前移：舞台开着时每 30 秒重推定一次
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!stageOn) return undefined;
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, [stageOn]);
+  const nowInterviewingId = useMemo(
+    () => currentScheduleId(sessionRows, now),
+    [sessionRows, now],
+  );
+
+  // Ctrl/⌘ + ←→ 在本场次内换人（纯方向键留给文字框）
+  useEffect(() => {
+    if (!stageOn) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setStage(false); return; }
+      const t = e.target as HTMLElement | null;
+      const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+      if (!typing && e.key === '[') { patchLayout({ fold: nextFold(layoutRef.current.fold, 'left') }); return; }
+      if (!typing && e.key === ']') { patchLayout({ fold: nextFold(layoutRef.current.fold, 'right') }); return; }
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const idx = sessionRows.findIndex((r) => r.scheduleId === scheduleId);
+      if (idx < 0 || sessionRows.length === 0) return;
+      e.preventDefault();
+      const next = sessionRows[(idx + (e.key === 'ArrowRight' ? 1 : -1) + sessionRows.length) % sessionRows.length];
+      navigate(`/evaluation/${cycleId}/${next.scheduleId}?stage=1`, { replace: true });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stageOn, sessionRows, scheduleId, navigate, cycleId, setStage]);
+
+  const filmItems: FilmChip[] = useMemo(() => sessionRows.map((r) => {
+    const submitted = Number(board.readCell(r.scheduleId, 'status')) === 2;
+    const hasScores = Object.keys(board.readEvaluation(r.scheduleId).scores ?? {}).length > 0;
+    const timePassed = !!r.interviewTime && new Date(String(r.interviewTime)).getTime() < now.getTime();
+    const st = chipStatus({ submitted, hasScores, isCurrent: r.scheduleId === nowInterviewingId, timePassed });
+    const peersHere = board.peers
+      .filter((pr) => pr.activeScheduleId === r.scheduleId && pr.userId !== userId)
+      .map((pr) => pr.name);
+    return {
+      key: r.scheduleId,
+      name: r.candidateName || `#${r.scheduleId}`,
+      sub: r.interviewTime ? String(r.interviewTime).replace('T', ' ').slice(11, 16) : '时间未定',
+      tag: st.tag,
+      tagTone: st.tone,
+      extra: peersHere.length ? `${peersHere.join('、')} 也在评` : undefined,
+      selected: r.scheduleId === scheduleId,
+    };
+  }), [sessionRows, board, now, nowInterviewingId, scheduleId, userId]);
 
   // 广播「我在这位候选人上」：评价表页的行内头像、抽屉里的同伴提示都靠它。
   // 原先只有抽屉会广播，从工作台进来的人对同事是隐身的。
@@ -222,10 +329,14 @@ const EvaluationWorkspace: React.FC = () => {
   const evaluation = board.readEvaluation(scheduleId);
   const editable = board.canEdit(row) && !board.readOnly && !board.locked;
   const total = weightedTotal(evaluation.scores, board.columns);
+  const scoredCount = dimensionColumns.filter((c) => {
+    const v = evaluation.scores[c.id];
+    return v !== undefined && v !== null && !Number.isNaN(v);
+  }).length;
   const submitted = Number(board.readCell(scheduleId, 'status')) === 2;
 
   return (
-    <div className="eval-ws">
+    <div className={`eval-ws${stageOn ? ' is-stage' : ''}`}>
       <div className="eval-ws-bar">
         <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/evaluation')}>
           评价表
@@ -239,6 +350,24 @@ const EvaluationWorkspace: React.FC = () => {
         <span className="ws-total">加权总分 {total ?? '—'}</span>
 
         <Space size={4} style={{ marginLeft: 'auto' }}>
+          {stageOn && sessionRows.length > 1 && (
+            <span style={{ fontSize: 12, color: '#8a93a8' }}>
+              第 {Math.max(1, sessionRows.findIndex((r) => r.scheduleId === scheduleId) + 1)} / {sessionRows.length} 位 · ⌘/Ctrl+←→ 换人
+            </span>
+          )}
+          <Button size="small" onClick={() => setOverviewOpen(true)}>评价总览</Button>
+          {stageOn && (
+            <>
+              <Button size="small" type={focusMode ? 'primary' : 'default'} ghost={focusMode}
+                      onClick={() => { setFocusMode((v) => !v); setFocusIdx(0); }}>
+                专注模式
+              </Button>
+              <Button size="small" onClick={() => patchLayout({ ratio: 0.45, fold: 'none' })}>重置分栏</Button>
+            </>
+          )}
+          <Button size="small" type={stageOn ? 'default' : 'primary'} onClick={() => setStage(!stageOn)}>
+            {stageOn ? '退出舞台（Esc）' : '进入评价舞台'}
+          </Button>
           {board.peers.map((p) => (
             <Tooltip key={p.clientId} title={`${p.name} 在线`}>
               <Avatar size={22} style={{ background: peerColor(p.userId), fontSize: 11 }}>
@@ -281,8 +410,17 @@ const EvaluationWorkspace: React.FC = () => {
         />
       )}
 
-      <div className="eval-ws-split">
-        <section className="ws-pane ws-resume">
+      <div
+        className="eval-ws-split"
+        ref={splitRef}
+        style={stageOn ? { gridTemplateColumns: gridColumns(layout.ratio, layout.fold) } : undefined}
+      >
+        <section className={`ws-pane ws-resume${stageOn && layout.fold === 'left' ? ' is-folded' : ''}`}>
+          {stageOn && layout.fold === 'left' && (
+            <button type="button" className="ws-rail" onClick={() => patchLayout({ fold: 'none' })}>
+              简历 »
+            </button>
+          )}
           <div className="ws-pane-title">
             简历
             {row.resumeScore !== undefined && row.resumeScore !== null && (
@@ -346,7 +484,30 @@ const EvaluationWorkspace: React.FC = () => {
           )}
         </section>
 
-        <section className="ws-pane ws-eval">
+        {stageOn && (
+          /* 中缝：拖拽改比例，上下两钮收起一侧 */
+          <div
+            className="ws-divider"
+            onPointerDown={onDividerPointerDown}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="拖拽调整分栏宽度"
+          >
+            <button type="button" className="ws-fold ws-fold-top" title="收起简历（[）"
+                    onClick={(e) => { e.stopPropagation(); patchLayout({ fold: nextFold(layout.fold, 'left') }); }}
+                    onPointerDown={(e) => e.stopPropagation()}>«</button>
+            <span className="ws-grip"><i /><i /><i /></span>
+            <button type="button" className="ws-fold ws-fold-bottom" title="收起评价（]）"
+                    onClick={(e) => { e.stopPropagation(); patchLayout({ fold: nextFold(layout.fold, 'right') }); }}
+                    onPointerDown={(e) => e.stopPropagation()}>»</button>
+          </div>
+        )}
+        <section className={`ws-pane ws-eval${stageOn && layout.fold === 'right' ? ' is-folded' : ''}`}>
+          {stageOn && layout.fold === 'right' && (
+            <button type="button" className="ws-rail" onClick={() => patchLayout({ fold: 'none' })}>
+              « 评价
+            </button>
+          )}
           <div className="ws-pane-title">
             评价
             <span className="ws-pane-hint">每个维度独立记录</span>
@@ -354,6 +515,77 @@ const EvaluationWorkspace: React.FC = () => {
 
           {dimensionColumns.length === 0 ? (
             <Empty description="本周期还没有配置评分维度" />
+          ) : stageOn && focusMode ? (
+            /* 专注流：一次一个维度放大，右侧队列看全局；最后一步是共同结论 */
+            <div className="focus-flow">
+              <div
+                className="focus-main"
+                onKeyDownCapture={(e) => {
+                  // 回车 → 下一步；Shift+回车留给换行
+                  if (e.key === 'Enter' && !e.shiftKey && (e.target as HTMLElement).tagName === 'TEXTAREA') {
+                    e.preventDefault();
+                    setFocusIdx((i) => Math.min(i + 1, dimensionColumns.length));
+                  }
+                }}
+              >
+                <p className="focus-step">
+                  {Math.min(focusIdx + 1, dimensionColumns.length + 1)} / {dimensionColumns.length + 1}
+                  {focusIdx < dimensionColumns.length ? ' 维度' : ' 共同结论'} · 回车下一步 · Shift+回车换行
+                </p>
+                {focusIdx < dimensionColumns.length ? (
+                  <DimensionCard
+                    key={dimensionColumns[focusIdx].id}
+                    column={dimensionColumns[focusIdx]}
+                    scheduleId={scheduleId}
+                    board={board}
+                    disabled={!editable}
+                    writerName={writers[dimensionColumns[focusIdx].dimensionId as number]}
+                  />
+                ) : (
+                  <div className="ws-conclusion">
+                    <div className="ws-conclusion-row">
+                      <span className="ws-label">共同结论</span>
+                      <Select
+                        size="small" style={{ width: 130 }} placeholder="未填" allowClear
+                        disabled={!editable}
+                        value={evaluation.recommendation ?? undefined}
+                        options={RECOMMENDATION_OPTIONS}
+                        onChange={(v) => board.writeRecommendation(scheduleId, v ?? null)}
+                      />
+                    </div>
+                    <CollabTextArea
+                      board={board} scheduleId={scheduleId} field={COMMENT_COL}
+                      value={overallComment}
+                      onChange={(e) => setOverallComment(e.target.value)}
+                      disabled={!editable}
+                      autoSize={{ minRows: 3, maxRows: 6 }}
+                      placeholder="总体结论（可选，维度评价之外的补充）"
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="focus-queue">
+                {dimensionColumns.map((c, i) => {
+                  const v = evaluation.scores[c.id];
+                  const has = v !== undefined && v !== null && !Number.isNaN(v);
+                  return (
+                    <button type="button" key={c.id}
+                            className={`focus-q${i === focusIdx ? ' now' : ''}`}
+                            onClick={() => setFocusIdx(i)}>
+                      <b>{c.label}</b>
+                      {has ? <span className="s">{v}</span> : <span className="u">未评</span>}
+                    </button>
+                  );
+                })}
+                <button type="button"
+                        className={`focus-q${focusIdx === dimensionColumns.length ? ' now' : ''}`}
+                        onClick={() => setFocusIdx(dimensionColumns.length)}>
+                  <b>共同结论</b>
+                  {evaluation.recommendation != null
+                    ? <span className="s">已填</span> : <span className="u">未填</span>}
+                </button>
+              </div>
+            </div>
           ) : (
             dimensionColumns.map((column) => (
               <DimensionCard
@@ -366,6 +598,13 @@ const EvaluationWorkspace: React.FC = () => {
               />
             ))
           )}
+
+          {!(stageOn && focusMode) && (
+          <>
+          <div className="ws-total-line">
+            <b>{total ?? '–'}</b>
+            <span>加权总分 · 已评 {scoredCount}/{dimensionColumns.length} 维度 · 实时</span>
+          </div>
 
           <div className="ws-conclusion">
             <div className="ws-conclusion-row">
@@ -395,8 +634,20 @@ const EvaluationWorkspace: React.FC = () => {
               placeholder="总体结论（可选，维度评价之外的补充）"
             />
           </div>
+          </>
+          )}
         </section>
       </div>
+      {stageOn && (
+        <div className="eval-ws-film">
+          <FilmStrip
+            items={filmItems}
+            onSelect={(key) => navigate(`/evaluation/${cycleId}/${Number(key)}?stage=1`, { replace: true })}
+          />
+        </div>
+      )}
+
+      <EvalOverview cycleId={cycleId} open={overviewOpen} onClose={() => setOverviewOpen(false)} />
     </div>
   );
 };

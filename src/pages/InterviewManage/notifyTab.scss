@@ -1,0 +1,65 @@
+// 通知中心的进度卡：整块可点，要让人一眼看出它能点。
+.notify-card {
+  width: 210px;
+  cursor: pointer;
+  border-color: var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+
+  &:hover {
+    border-color: var(--ant-color-primary, #1677ff);
+    transform: translateY(-1px);
+  }
+
+  // 「点击查看名单」平时压得很淡，悬浮时才亮起来 —— 常驻高亮会让五张卡很吵
+  &:hover .notify-card__more {
+    color: var(--ant-color-primary, #1677ff);
+  }
+
+  &__title {
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  &__desc {
+    font-size: 12px;
+    color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+    margin-bottom: 8px;
+  }
+
+  &__stat {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  &__num {
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  &__total {
+    color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+  }
+
+  &__more {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.28));
+    transition: color 0.15s;
+  }
+}
+
+.notify-modal__scope {
+  margin: 0 0 12px;
+  padding-left: 10px;
+  border-left: 2px solid var(--ant-color-border, rgba(0, 0, 0, 0.12));
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+
+  b {
+    font-weight: 600;
+    color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+  }
+}

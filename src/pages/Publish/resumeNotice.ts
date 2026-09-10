@@ -61,10 +61,19 @@ export function resolveResumeNotice(args: {
     };
   }
 
-  if (cyclePhase === 'ended') {
+  if (cyclePhase === 'paused') {
     return {
       tone: 'warning',
       title: '本周期已停止投递',
+      badge,
+      description: '管理员已停止接收简历，简历不可再修改或提交，以下内容仅供查看。',
+    };
+  }
+
+  if (cyclePhase === 'ended') {
+    return {
+      tone: 'warning',
+      title: '本周期已结束',
       badge,
       description: '招募周期已结束，简历不可再修改或提交，以下内容仅供查看。',
     };

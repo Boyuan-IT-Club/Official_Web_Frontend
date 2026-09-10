@@ -28,7 +28,8 @@ import './index.scss';
 const { Text } = Typography;
 
 const RESUME_STATUS_TEXT: Record<number, string> = {
-  1: '草稿（尚未提交）', 2: '已提交', 3: '已提交', 4: '已提交', 5: '已提交',
+  1: '草稿（尚未提交）', 2: '已提交', 3: '已提交',
+  4: '已提交 · 通过初筛', 5: '已提交 · 未通过初筛',
 };
 
 const fmtDT = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
@@ -71,6 +72,8 @@ const InterviewAppointment: React.FC = () => {
         // 没带参数且当前周期不在自己投过的里面时，落到最近投的那一届 ——
         // 否则页面会停在一个「你没投过」的周期上，全是空状态
         setPickedCycleId((prev) => {
+          // 开放列表解析或用户手选已给出值时不抢；加载 effect 跟着 cycleId 走，
+          // 这里晚到也不会再造成「高亮与数据错位」
           if (prev != null) return prev;
           if (list.length === 0) return null;
           const storeCycle = resumeState?.cycleId ?? null;
@@ -126,41 +129,53 @@ const InterviewAppointment: React.FC = () => {
     }
   }, []);
 
+  /**
+   * 周期解析与数据加载拆成两段——原先并在一个只跑一次的 effect 里，
+   * 和「我投过的周期」那个 effect 赛跑：谁后到谁的选中值作废，但数据
+   * 已经按先到者加载了，结果就是切换器高亮 A、下面全是 B 的内容
+   * （停止投递的周期进入可见列表后必现）。
+   * 现在：本段只负责解析开放列表并给出初始选中；加载统一由下一个
+   * 以 cycleId 为依赖的 effect 承担，选中变到哪数据就跟到哪。
+   */
+  const [openIds, setOpenIds] = useState<number[] | null>(null);
   useEffect(() => {
     (async () => {
-      let cid = cycleId;
-      // 「当前」不再是单个周期：同时可能有多个周期在开放投递，
-      // 所以往届判定改成「不在开放列表里」，而不是「不等于那一个活跃周期」
-      let openIds: number[] = [];
+      let ids: number[] = [];
       try {
         const open = await dispatch(fetchOpenCycles()).unwrap();
-        openIds = (open ?? []).map((c) => Number(c.cycleId));
-      } catch { /* 回退：拿不到开放列表就沿用 store 里的 cycleId，不标往届 */ }
-      if (!paramCycleId && openIds.length > 0 && (cid == null || !openIds.includes(Number(cid)))) {
-        cid = openIds[0];
+        ids = (open ?? []).map((c) => Number(c.cycleId));
+      } catch { /* 拿不到开放列表就不标往届，也不参与初始选中 */ }
+      setOpenIds(ids);
+      if (!paramCycleId && ids.length > 0) {
+        setPickedCycleId((prev) => (prev != null && ids.includes(Number(prev)) ? prev : ids[0]));
       }
-      // 开放列表为空、没带参数、也没投过任何届：确无周期，渲染空态
-      if (cid == null) {
-        setNoCycle(true);
-        setLoading(false);
-        return;
-      }
-      setNoCycle(false);
-      // 解析结果回写选择器，让页内所有动作（改期/意向/切换器）都用同一个周期号
-      setPickedCycleId((prev) => (prev == null ? Number(cid) : prev));
-      setIsHistory(openIds.length > 0 && !openIds.includes(Number(cid)));
-      // 解析周期名，明确标识当前查看的是哪一届
-      getAllCycles()
-        .then((res: any) => {
-          const found = (res?.data ?? []).find((c: RecruitmentCycle) => c.cycleId === cid);
-          setCycleName(found?.cycleName ?? `招募周期 #${cid}`);
-        })
-        .catch(() => setCycleName(`招募周期 #${cid}`));
-      dispatch(fetchMyResumeReadonly(cid));
-      loadAll(cid);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, loadAll, paramCycleId]);
+  }, [dispatch, paramCycleId]);
+
+  useEffect(() => {
+    // 两个解析 effect 都没给出周期（没投过、也没有可见周期）→ 空态。
+    // openIds 未返回前不下结论，避免闪一下空态又恢复。
+    if (cycleId == null) {
+      if (openIds != null) {
+        setNoCycle(true);
+        setLoading(false);
+      }
+      return;
+    }
+    const cid = Number(cycleId);
+    setNoCycle(false);
+    setIsHistory((openIds ?? []).length > 0 && !(openIds ?? []).includes(cid));
+    getAllCycles()
+      .then((res: any) => {
+        const found = (res?.data ?? []).find((c: RecruitmentCycle) => c.cycleId === cid);
+        setCycleName(found?.cycleName ?? `招募周期 #${cid}`);
+      })
+      .catch(() => setCycleName(`招募周期 #${cid}`));
+    dispatch(fetchMyResumeReadonly(cid));
+    loadAll(cid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleId, openIds, dispatch, loadAll]);
 
   // 这个值藏在 expected_interview_time 的 JSON 里，解析见 readCanAttendOffline
   const canAttendOffline = useMemo(
@@ -218,12 +233,21 @@ const InterviewAppointment: React.FC = () => {
   // ---- 时间线节点 ----
   const status: number | null = resume?.status ?? null;
   const submitted = (status ?? 0) >= 2;
+  // 简历状态 4=通过初筛 5=未通过初筛
+  const screenPassed = status === 4;
+  const screenRejected = status === 5;
 
   // 当前阶段（英雄区展示）
+  //
+  // screenRejected 要排在 schedule 之前判断：面试安排是初筛之前排的，
+  // 被刷掉之后那条排期数据还在，先看 schedule 就会顶出「面试已安排，请准时到场」，
+  // 而下面的时间线同时写着「未通过初筛」——线上截图里就是这两句在打架。
   const stage = result
     ? (result.decision === 1
         ? { emoji: '🎉', title: `已被${result.assignedDeptName || '社团'}录取`, sub: '欢迎加入博远！后续安排请留意邮件与群通知' }
         : { emoji: '🌱', title: '本次未能录取', sub: '感谢参与，欢迎常来社团活动，期待下次相遇' })
+    : screenRejected
+      ? { emoji: '🌱', title: '本届招新到这里结束', sub: '感谢投递！社团的技术分享与公开活动欢迎继续参与' }
     : schedule?.interviewTime
       ? { emoji: '📅', title: '面试已安排', sub: `${fmtDT(schedule.interviewTime)}${schedule.deptName ? ` · ${schedule.deptName}` : ''}${schedule.location ? ` · ${schedule.location}` : ''}，请准时到场` }
       : preference
@@ -274,6 +298,40 @@ const InterviewAppointment: React.FC = () => {
                 {preference ? '修改面试意向' : '填写面试意向'}
               </Button>
             </div>
+          )}
+        </div>
+      </>
+    ),
+  });
+
+  items.push({
+    /*
+     * 未通过不用红点。红是「出错/危险」的语气，用在别人给你的结果上太重；
+     * 这里用中性灰收尾——「到此为止」的信息由文案说清楚，颜色不必再喊一遍。
+     */
+    color: screenRejected ? 'gray' : screenPassed ? 'green' : 'gray',
+    dot: <FileTextOutlined />,
+    children: (
+      <>
+        <Text strong>简历初筛</Text>
+        <div>
+          {screenRejected ? (
+            /*
+             * 原先是一整块蓝色 Alert：图标 + 加粗标题 + 大段描述，在这条
+             * 时间线里显得又重又吵，而且蓝色的「信息提示」和内容语气也不搭。
+             * 改成一段克制的正文——坏消息不需要被框起来强调。
+             */
+            <div className="screen-result">
+              <div className="screen-result__title">本届招新到这里结束</div>
+              <p className="screen-result__desc">
+                很感谢你花时间准备并投递简历。这次没能继续往下走，
+                但社团的技术分享和公开活动一直欢迎你来，下一届也期待再看到你。
+              </p>
+            </div>
+          ) : screenPassed ? (
+            <Text type="secondary">已通过初筛，等待面试安排</Text>
+          ) : (
+            <Text type="secondary">{submitted ? '简历评审中，请耐心等待' : '提交简历后进入评审'}</Text>
           )}
         </div>
       </>
@@ -455,7 +513,9 @@ const InterviewAppointment: React.FC = () => {
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
         ) : (
-          <Timeline className="progress-timeline" items={items} />
+          // 未通过初筛的同学后面几步都不会发生，时间线到初筛为止——
+          // 继续显示「面试意向/安排/结果」只会让人一直等不会来的通知
+          <Timeline className="progress-timeline" items={screenRejected ? items.slice(0, 3) : items} />
         )}
       </Card>
 

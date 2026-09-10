@@ -1,0 +1,41 @@
+.final-stage {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 28px 8px;
+
+  .fs-grid { display: grid; grid-template-columns: 1fr 300px; gap: 28px; align-items: start; }
+  .fs-name { font-family: 'Noto Serif SC', 'Songti SC', serif; font-size: 34px; font-weight: 700; color: #18233f; margin: 0; line-height: 1.2; }
+  .fs-meta { color: #7a86a0; font-size: 13px; margin: 4px 0 16px; b { color: #2563b8; } }
+  .fs-empty { border: 1px dashed #cfd9ea; border-radius: 10px; padding: 18px; color: #66738f; background: #fff; max-width: 56ch; }
+
+  .fs-dim {
+    display: grid; grid-template-columns: 84px 190px 1fr; gap: 14px; align-items: start;
+    padding: 10px 0; border-top: 1px solid #e8edf6;
+  }
+  .fs-dim-name { font-weight: 600; color: #33405c; font-size: 13.5px; padding-top: 2px; }
+  .fs-bar-wrap { position: relative; padding-top: 18px; }
+  .fs-bar { height: 9px; border-radius: 5px; background: #e6ebf5; position: relative; overflow: hidden;
+    i { position: absolute; inset: 0 auto 0 0; border-radius: 5px; background: linear-gradient(90deg, #2563b8, #4da6ff); } }
+  .fs-bar-score { position: absolute; right: 0; top: 0; font-style: normal; font-family: ui-monospace, monospace; font-size: 12.5px; color: #2563b8; font-weight: 700; }
+  .fs-quote { margin: 0; border-left: 2px solid #c9d6ec; padding-left: 10px; color: #4c5a76; font-size: 13px; white-space: pre-wrap;
+    i { font-style: normal; color: #93a0b8; } }
+
+  .fs-side { background: #fff; border: 1px solid #dde4f0; border-radius: 12px; padding: 18px 20px; box-shadow: 0 8px 24px rgba(30, 50, 100, 0.08); position: sticky; top: 12px; }
+  .fs-big { font-family: ui-monospace, monospace; font-size: 46px; font-weight: 700; color: #2563b8; line-height: 1; letter-spacing: -1px;
+    small { display: block; font-family: inherit; font-size: 12px; color: #7a86a0; letter-spacing: 0; margin-top: 4px; font-weight: 400; } }
+  .fs-kv { display: flex; justify-content: space-between; font-size: 13px; color: #66738f; padding: 7px 0; border-top: 1px solid #edf1f8; margin-top: 8px;
+    b { color: #1c2742; font-family: ui-monospace, monospace; } }
+  .fs-rec { margin-top: 10px; font-weight: 600; }
+
+  .fs-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 16px 0 12px; border-top: 1px solid #e5eaf4; margin-top: 18px; }
+  .fs-dept {
+    padding: 6px 20px; border-radius: 999px; border: 1px solid #cfd9ea; background: #fff; color: #33405c;
+    font-size: 13.5px; cursor: pointer; font: inherit;
+    small { margin-left: 6px; color: #93a0b8; font-family: ui-monospace, monospace; font-size: 10px; }
+    &:focus-visible { outline: 2px solid #2563b8; outline-offset: 1px; }
+    &.is-on { background: #2563b8; border-color: #2563b8; color: #fff; font-weight: 700; small { color: rgba(255,255,255,.7); } }
+  }
+  .fs-hint { margin-left: auto; font-size: 12px; color: #93a0b8; }
+
+  @media (max-width: 820px) { .fs-grid { grid-template-columns: 1fr; } .fs-side { position: static; } }
+}
