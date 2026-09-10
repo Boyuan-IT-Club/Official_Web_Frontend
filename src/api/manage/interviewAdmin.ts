@@ -462,3 +462,16 @@ export interface NotificationOverview {
 export function getNotificationOverview(cycleId: number) {
   return request({ url: '/api/interview/notifications/overview', method: 'get', params: { cycleId } });
 }
+
+/** 手动补发挂在面试安排上的通知；只发没发过的，返回入队数与跳过的 id */
+export function sendScheduleNotices(
+  cycleId: number,
+  type: 'BOOKING_SUCCESS' | 'EVE_REMINDER' | 'DAY_REMINDER',
+  scheduleIds: number[],
+) {
+  return request({
+    url: '/api/interview/notifications/send',
+    method: 'post',
+    data: { cycleId, type, scheduleIds },
+  });
+}

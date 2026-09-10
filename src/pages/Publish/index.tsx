@@ -1324,11 +1324,32 @@ const Publish: React.FC = () => {
   }, [resume, exportData.name, exportIsEmpty]);
 
   // ---- 导入处理 ----
+  /**
+   * 本周期的自定义字段（标准字段之外的那些），供导入时动态生成解析规则。
+   *
+   * 导出的 Word 会把它们逐行写成「标签：值」（其他信息一节），
+   * 但导入原先只认写死的十几条标准正则，这些字段导得出去、导不回来，
+   * 用户得对着文档手抄一遍。
+   */
+  const importCustomFields = useMemo(() => {
+    const KNOWN = new Set<string>([
+      ...RESUME_FIELDS.map((f) => f.key),
+      ...DEPRECATED_RESUME_FIELD_KEYS,
+      'photo',
+    ]);
+    return (fieldDefinitions ?? [])
+      .map((def: any) => ({
+        fieldKey: String(def.fieldKey ?? def.field_key ?? '').trim(),
+        label: String(def.fieldLabel ?? def.field_label ?? '').trim(),
+      }))
+      .filter((f) => f.fieldKey && f.label && !KNOWN.has(f.fieldKey));
+  }, [fieldDefinitions]);
+
   const handleImportFile = useCallback(async (file: File): Promise<void> => {
     setImportLoading(true);
     try {
       // 传当前配置的标签：管理员改过名时，导入才认得出自家导出的模板
-      const result = await importResumeFile(file, exportFieldMeta.labelOf);
+      const result = await importResumeFile(file, exportFieldMeta.labelOf, importCustomFields);
       if (result) {
         setExtractedFields(result);
         setImportModalOpen(true);
@@ -1338,7 +1359,7 @@ const Publish: React.FC = () => {
       // 重置 file input，允许重复选择同一文件
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, [exportFieldMeta]);
+  }, [exportFieldMeta, importCustomFields]);
 
   const handleConfirmImport = useCallback((): void => {
     if (!extractedFields) return;
@@ -1363,6 +1384,16 @@ const Publish: React.FC = () => {
       const value = (extractedFields as any)[extractKey];
       if (value && String(value).trim()) {
         dispatch(setFieldValue({ fieldId: fieldIdMapping[fieldKey], value: String(value).trim() }));
+        importedCount++;
+      }
+    });
+
+    // 自定义字段：按 fieldKey 找到对应的 fieldId 写回。
+    // 标准字段走上面那张映射表，这些走周期配置——两条路合起来才是「全都匹配上」
+    Object.entries(extractedFields.custom ?? {}).forEach(([fieldKey, value]) => {
+      const fieldId = fieldIdMapping[fieldKey];
+      if (fieldId && String(value).trim()) {
+        dispatch(setFieldValue({ fieldId, value: String(value).trim() }));
         importedCount++;
       }
     });

@@ -2,10 +2,13 @@
 //
 // 原来只有「结果与通知」一个页面，发的其实只是录取/未录取那一类；
 // 简历初筛未通过要去简历页发、面试安排与提醒是系统自动发但看不到发没发。
-// 谁收到过什么、还差谁，散在三处，靠人记。这里按通知类型分区列出，
-// 每类都给出「应发 / 已发 / 待发」，能补发的直接在本页勾选补发。
+// 谁收到过什么、还差谁，散在三处，靠人记。
+//
+// 交互按实际用法定：五张卡各是一类通知，点开是一个弹窗——里面有这一类
+// 该发多少人、谁发过谁没发过，可以直接勾人补发。第一版做成卡片下方就地
+// 筛选的长列表，管理员反馈「点不动、也看不出谁通知过」，于是改成弹窗。
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Input, Modal, Segmented, Space, Table, Tag, Tooltip, message } from 'antd';
+import { Button, Card, Input, Modal, Segmented, Space, Table, Tag, Tooltip, message } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import PageHint from '@/components/PageHint';
 import {
@@ -17,23 +20,52 @@ import {
   getNotificationOverview,
   listResults,
   sendResultNotifications,
+  sendScheduleNotices,
 } from '@/api/manage/interviewAdmin';
 import { notifyScreenedOut } from '@/api/manage/resumeEntry';
 import './notifyTab.scss';
 
 const fmt = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
 
-/** 名单要看全部还是只看已发/未发 */
-type Filter = 'all' | 'sent' | 'pending';
-/** 当前聚焦哪一类通知 —— 决定下面显示哪份名单 */
+/** 五类通知 */
 type Kind = 'rejected' | 'arranged' | 'eve' | 'day' | 'result';
+/** 名单看全部还是只看已发/未发 */
+type Filter = 'all' | 'sent' | 'pending';
 
-const KIND_TITLE: Record<Kind, string> = {
-  rejected: '简历初筛未通过',
-  arranged: '面试安排通知',
-  eve: '面试前一天提醒',
-  day: '面试当天提醒',
-  result: '录取 / 未录取',
+interface KindMeta {
+  title: string;
+  desc: string;
+  /** 系统定时发送的，手动只用于补发 */
+  auto?: boolean;
+  /** 弹窗里对「这一类该发给谁」的一句话解释 */
+  scope: string;
+}
+
+const KINDS: Record<Kind, KindMeta> = {
+  rejected: {
+    title: '简历初筛未通过', desc: '初筛出结论后手动发',
+    scope: '本周期被标记为「未通过初筛」的同学',
+  },
+  arranged: {
+    title: '面试安排通知', desc: '排上场次后发出',
+    scope: '本周期已排上面试的同学',
+  },
+  eve: {
+    title: '面试前一天提醒', desc: '前一天 12:00', auto: true,
+    scope: '本周期已排上面试的同学；系统在面试前一天中午自动发',
+  },
+  day: {
+    title: '面试当天提醒', desc: '当天 08:00', auto: true,
+    scope: '本周期已排上面试的同学；系统在面试当天早上自动发',
+  },
+  result: {
+    title: '录取 / 未录取', desc: '录入决定后手动发',
+    scope: '已录入录取或未录取决定的同学（「待定」不发）',
+  },
+};
+
+const SCHEDULE_KINDS: Record<string, 'BOOKING_SUCCESS' | 'EVE_REMINDER' | 'DAY_REMINDER'> = {
+  arranged: 'BOOKING_SUCCESS', eve: 'EVE_REMINDER', day: 'DAY_REMINDER',
 };
 
 const DECISION_TAG: Record<number, { text: string; color: string }> = {
@@ -43,54 +75,39 @@ const DECISION_TAG: Record<number, { text: string; color: string }> = {
   3: { text: '待调剂', color: 'orange' },
 };
 
-/**
- * 一类通知的进度卡。整块可点：点数字那半边看已发，点「待发」看没发的，
- * 点标题看全部——之前卡片只是个只读计数，看到「待发 6」也没有去处，
- * 还得自己去别的页翻名单。
- */
+const sentTag = (sent: boolean, at?: string | null) => (sent
+  ? (at
+    ? <Tooltip title={`发送于 ${fmt(at)}`}><Tag color="green">已发送</Tag></Tooltip>
+    : <Tag color="green">已发送</Tag>)
+  : <Tag color="orange">未发送</Tag>);
+
+/** 一类通知的进度卡。整块可点，点开是这一类的名单弹窗 */
 const BucketCard: React.FC<{
-  title: string;
-  desc: string;
+  meta: KindMeta;
   bucket?: NotificationBucket;
-  auto?: boolean;
-  active?: boolean;
-  activeFilter?: Filter;
-  onPick: (filter: Filter) => void;
-}> = ({ title, desc, bucket, auto, active, activeFilter, onPick }) => {
+  onOpen: () => void;
+}> = ({ meta, bucket, onOpen }) => {
   const total = bucket?.total ?? 0;
   const sent = bucket?.sent ?? 0;
   const pending = bucket?.pending ?? 0;
   return (
-    <Card
-      size="small"
-      hoverable
-      className={`notify-card${active ? ' is-active' : ''}`}
-      styles={{ body: { padding: 12 } }}
-      onClick={() => onPick('all')}
-    >
-      <div style={{ fontWeight: 600, marginBottom: 2 }}>
-        {title}
-        {auto && <Tooltip title="由系统定时发送，无需手动操作"><Tag style={{ marginLeft: 6 }}>自动</Tag></Tooltip>}
-      </div>
-      <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>{desc}</div>
-      <Space size={4} wrap>
-        <Tag
-          color={active && activeFilter === 'sent' ? 'blue' : undefined}
-          style={{ cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}
-          onClick={(e) => { e.stopPropagation(); onPick('sent'); }}
-        >
-          已发 {sent} / {total}
-        </Tag>
-        {pending > 0 && (
-          <Tag
-            color={active && activeFilter === 'pending' ? 'orange' : 'warning'}
-            style={{ cursor: 'pointer' }}
-            onClick={(e) => { e.stopPropagation(); onPick('pending'); }}
-          >
-            待发 {pending}
-          </Tag>
+    <Card size="small" hoverable className="notify-card" onClick={onOpen}
+          styles={{ body: { padding: 12 } }}>
+      <div className="notify-card__title">
+        {meta.title}
+        {meta.auto && (
+          <Tooltip title="系统定时发送，手动只用于补发漏掉的人">
+            <Tag style={{ marginLeft: 6 }}>自动</Tag>
+          </Tooltip>
         )}
-      </Space>
+      </div>
+      <div className="notify-card__desc">{meta.desc}</div>
+      <div className="notify-card__stat">
+        <span className="notify-card__num">{sent}</span>
+        <span className="notify-card__total">/ {total} 已发</span>
+        {pending > 0 && <Tag color="warning">待发 {pending}</Tag>}
+      </div>
+      <div className="notify-card__more">点击查看名单 →</div>
     </Card>
   );
 };
@@ -100,20 +117,12 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const [results, setResults] = useState<InterviewResultItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 聚焦到哪一类通知、只看哪一档。默认落在初筛未通过：
-  // 它是唯一需要人工判断该不该发的一类
-  const [kind, setKind] = useState<Kind>('rejected');
+  /** 打开的是哪一类；null = 没开弹窗 */
+  const [openKind, setOpenKind] = useState<Kind | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
-
-  const [screenSel, setScreenSel] = useState<number[]>([]);
-  const [screenOpen, setScreenOpen] = useState(false);
-  const [screenMsg, setScreenMsg] = useState('');
-  const [screenSending, setScreenSending] = useState(false);
-
-  const [resultSel, setResultSel] = useState<number[]>([]);
-  const [resultOpen, setResultOpen] = useState(false);
-  const [resultMsg, setResultMsg] = useState('');
-  const [resultSending, setResultSending] = useState(false);
+  const [selected, setSelected] = useState<React.Key[]>([]);
+  const [customMsg, setCustomMsg] = useState('');
+  const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -136,333 +145,248 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const screenedOut = overview?.screenedOut ?? [];
   const scheduleRows = overview?.schedules ?? [];
   // 只有已录入决定的人才该收到结果通知，「待定」发出去等于乱通知
-  const decided = useMemo(() => results.filter((r) => r.decision != null && r.decision !== 0), [results]);
+  const decided = useMemo(
+    () => results.filter((r) => r.decision != null && r.decision !== 0), [results]);
 
-  const pick = (k: Kind, f: Filter) => {
-    setKind(k);
-    setFilter(f);
-    // 换了名单就清掉勾选：上一份名单的勾选留着，发送时会发给一批看不见的人
-    setScreenSel([]);
-    setResultSel([]);
-  };
+  const bucketOf = (k: Kind) => (k === 'rejected' ? overview?.resumeRejected
+    : k === 'arranged' ? overview?.interviewArranged
+      : k === 'eve' ? overview?.eveReminder
+        : k === 'day' ? overview?.dayReminder
+          : overview?.result);
 
-  /** 某行在当前这类通知下算不算「已发」 */
-  const flagOf = (r: ScheduleNoticeItem, k: Kind) =>
+  /** 某条面试安排在这一类通知下发没发 */
+  const scheduleSent = (r: ScheduleNoticeItem, k: Kind) =>
     (k === 'eve' ? r.eve : k === 'day' ? r.day : r.arranged);
 
-  const keep = (sent: boolean) => filter === 'all' || (filter === 'sent' ? sent : !sent);
+  /** 弹窗里的行：统一成 {key, sent} 以便共用筛选与勾选逻辑 */
+  const rows = useMemo(() => {
+    if (!openKind) return [] as Array<{ key: number; sent: boolean; raw: any }>;
+    if (openKind === 'rejected') {
+      return screenedOut.map((i) => ({ key: i.resumeId, sent: !!i.notifiedAt, raw: i }));
+    }
+    if (openKind === 'result') {
+      return decided.map((r) => ({ key: r.resultId, sent: !!r.notifiedAt, raw: r }));
+    }
+    return scheduleRows.map((r) => ({
+      key: r.scheduleId, sent: scheduleSent(r, openKind), raw: r,
+    }));
+  }, [openKind, screenedOut, decided, scheduleRows]);
 
-  const visibleScreened = useMemo(
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    () => screenedOut.filter((i) => keep(!!i.notifiedAt)), [screenedOut, filter]);
-  const visibleDecided = useMemo(
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    () => decided.filter((r) => keep(!!r.notifiedAt)), [decided, filter]);
-  const visibleSchedules = useMemo(
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    () => scheduleRows.filter((r) => keep(flagOf(r, kind))), [scheduleRows, kind, filter]);
+  const visible = useMemo(
+    () => rows.filter((r) => filter === 'all' || (filter === 'sent' ? r.sent : !r.sent)),
+    [rows, filter]);
 
-  /** 当前这一类的三个计数，给标题上的分段器用 */
   const counts = useMemo(() => {
-    const b = kind === 'rejected' ? overview?.resumeRejected
-      : kind === 'arranged' ? overview?.interviewArranged
-        : kind === 'eve' ? overview?.eveReminder
-          : kind === 'day' ? overview?.dayReminder
-            : overview?.result;
-    return { total: b?.total ?? 0, sent: b?.sent ?? 0, pending: b?.pending ?? 0 };
-  }, [overview, kind]);
+    const sent = rows.filter((r) => r.sent).length;
+    return { total: rows.length, sent, pending: rows.length - sent };
+  }, [rows]);
 
-  const sentTag = (sent: boolean, at?: string | null) => (sent
-    ? (at
-      ? <Tooltip title={`发送于 ${fmt(at)}`}><Tag color="green">已发送</Tag></Tooltip>
-      : <Tag color="green">已发送</Tag>)
-    : <Tag color="orange">未发送</Tag>);
-
-  /** 筛选后为空和本来就没有人，是两回事 */
-  const emptyText = (whenNoData: string) => (
-    counts.total === 0 ? whenNoData
-      : filter === 'sent' ? '这一类还没有发送记录'
-        : filter === 'pending' ? '都发过了，没有待发的' : whenNoData);
-
-  const doNotifyScreened = async () => {
-    setScreenSending(true);
-    try {
-      const res: any = await notifyScreenedOut(screenSel, screenMsg.trim() || undefined);
-      const d = res?.data ?? {};
-      const skipped = d.skipped?.length ?? 0;
-      // 这一步只是入队，邮件由 MQ 消费者实际发出，「已通知」状态要几秒后才会变
-      message.success(`已提交 ${d.queued ?? screenSel.length} 封初筛未通过通知`
-        + (skipped > 0 ? `，跳过 ${skipped} 人（状态已不是未通过）` : '')
-        + '，稍后刷新查看发送状态');
-      setScreenOpen(false);
-      setScreenSel([]);
-      load();
-    } catch (e: any) {
-      message.error(e?.message || '发送失败');
-    } finally {
-      setScreenSending(false);
-    }
+  const openModal = (k: Kind) => {
+    setOpenKind(k);
+    setCustomMsg('');
+    // 默认落在「未发」并把他们全勾上：打开这个弹窗多半就是来补发的
+    setFilter('pending');
+    const pending = (k === 'rejected'
+      ? screenedOut.filter((i) => !i.notifiedAt).map((i) => i.resumeId)
+      : k === 'result'
+        ? decided.filter((r) => !r.notifiedAt).map((r) => r.resultId)
+        : scheduleRows.filter((r) => !scheduleSent(r, k)).map((r) => r.scheduleId));
+    setSelected(pending);
   };
 
-  const doNotifyResults = async () => {
-    setResultSending(true);
+  const doSend = async () => {
+    if (!openKind || selected.length === 0) return;
+    setSending(true);
     try {
-      const res: any = await sendResultNotifications({
-        resultIds: resultSel,
-        notificationType: 'email',
-        customMessage: resultMsg.trim() || undefined,
-      });
-      const d = res?.data ?? {};
-      if ((d.failedCount ?? 0) > 0) {
-        message.warning(`发送完成：成功 ${d.sentCount ?? 0}，失败 ${d.failedCount}`);
+      const ids = selected.map(Number);
+      if (openKind === 'rejected') {
+        const res: any = await notifyScreenedOut(ids, customMsg.trim() || undefined);
+        const d = res?.data ?? {};
+        const skipped = d.skipped?.length ?? 0;
+        // 这一步只是入队，邮件由 MQ 消费者实际发出，「已发送」几秒后才会变
+        message.success(`已提交 ${d.queued ?? ids.length} 封通知`
+          + (skipped > 0 ? `，跳过 ${skipped} 人（状态已不是未通过）` : '')
+          + '，稍后刷新查看发送状态');
+      } else if (openKind === 'result') {
+        const res: any = await sendResultNotifications({
+          resultIds: ids, notificationType: 'email',
+          customMessage: customMsg.trim() || undefined,
+        });
+        const d = res?.data ?? {};
+        if ((d.failedCount ?? 0) > 0) {
+          message.warning(`发送完成：成功 ${d.sentCount ?? 0}，失败 ${d.failedCount}`);
+        } else {
+          message.success(`已发送 ${d.sentCount ?? ids.length} 封结果通知`);
+        }
       } else {
-        message.success(`已发送 ${d.sentCount ?? resultSel.length} 封结果通知`);
+        const res: any = await sendScheduleNotices(cycleId, SCHEDULE_KINDS[openKind], ids);
+        const d = res?.data ?? {};
+        const skipped = d.skipped?.length ?? 0;
+        message.success(`已提交 ${d.queued ?? 0} 封通知`
+          + (skipped > 0 ? `，跳过 ${skipped} 人（此前已发过或不在本周期）` : '')
+          + '，稍后刷新查看发送状态');
       }
-      setResultOpen(false);
-      setResultSel([]);
+      setOpenKind(null);
+      setSelected([]);
       load();
     } catch (e: any) {
       message.error(e?.message || '发送失败');
     } finally {
-      setResultSending(false);
+      setSending(false);
     }
   };
 
-  const resentCount = (ids: number[], sentIds: Set<number>) => ids.filter((i) => sentIds.has(i)).length;
-  const screenSentIds = new Set(screenedOut.filter((i) => i.notifiedAt).map((i) => i.resumeId));
-  const resultSentIds = new Set(decided.filter((r) => r.notifiedAt).map((r) => r.resultId));
+  const columns = useMemo(() => {
+    if (openKind === 'rejected') {
+      return [
+        { title: '姓名', dataIndex: ['raw', 'name'], width: 110,
+          render: (_: unknown, r: any) => r.raw.name || `用户#${r.raw.userId}` },
+        { title: '学号', dataIndex: ['raw', 'studentId'], width: 140,
+          render: (_: unknown, r: any) => r.raw.studentId || '-' },
+        { title: '邮箱', dataIndex: ['raw', 'email'], ellipsis: true,
+          render: (_: unknown, r: any) => r.raw.email || <Tag color="warning">缺邮箱</Tag> },
+        { title: '简历分', width: 90, align: 'right' as const,
+          // null 是「没打过分」，0 分才是初筛不通过的依据，两者不能混
+          render: (_: unknown, r: any) => (r.raw.resumeScore == null
+            ? <span style={{ color: '#bbb' }}>未打分</span> : r.raw.resumeScore) },
+        { title: '通知状态', width: 140,
+          render: (_: unknown, r: any) => sentTag(r.sent, r.raw.notifiedAt) },
+      ];
+    }
+    if (openKind === 'result') {
+      return [
+        { title: '姓名', width: 110,
+          render: (_: unknown, r: any) => r.raw.userName || `用户#${r.raw.userId}` },
+        { title: '结果', width: 100,
+          render: (_: unknown, r: any) => (
+            <Tag color={DECISION_TAG[r.raw.decision]?.color}>
+              {DECISION_TAG[r.raw.decision]?.text ?? r.raw.decision}
+            </Tag>) },
+        { title: '录取部门', width: 120,
+          render: (_: unknown, r: any) => r.raw.departmentName || '-' },
+        { title: '志愿', width: 150,
+          render: (_: unknown, r: any) => (r.raw.firstDeptName
+            ? <span>{r.raw.firstDeptName}{r.raw.secondDeptName ? ` / ${r.raw.secondDeptName}` : ''}</span>
+            : <span style={{ color: '#bbb' }}>—</span>) },
+        { title: '通知状态', width: 140,
+          render: (_: unknown, r: any) => sentTag(r.sent, r.raw.notifiedAt) },
+      ];
+    }
+    return [
+      { title: '面试时间', width: 140,
+        render: (_: unknown, r: any) => (r.raw.interviewTime ? fmt(r.raw.interviewTime).slice(5) : '-') },
+      { title: '姓名', width: 110,
+        render: (_: unknown, r: any) => r.raw.name || `用户#${r.raw.userId}` },
+      { title: '学号', width: 140, render: (_: unknown, r: any) => r.raw.studentId || '-' },
+      { title: '部门', width: 100, render: (_: unknown, r: any) => r.raw.deptName || '-' },
+      { title: '地点', ellipsis: true, render: (_: unknown, r: any) => r.raw.location || '-' },
+      { title: '本类通知', width: 130, render: (_: unknown, r: any) => sentTag(r.sent) },
+      {
+        // 三类一起列出来：管理员多半是想确认「这个人该收到的都收到了没」
+        title: '安排 / 前一天 / 当天', width: 200,
+        render: (_: unknown, r: any) => (
+          <Space size={4}>
+            <Tag color={r.raw.arranged ? 'green' : undefined}>安排</Tag>
+            <Tag color={r.raw.eve ? 'green' : undefined}>前一天</Tag>
+            <Tag color={r.raw.day ? 'green' : undefined}>当天</Tag>
+          </Space>),
+      },
+    ];
+  }, [openKind]);
+
+  const meta = openKind ? KINDS[openKind] : null;
+  const canCustomize = openKind === 'rejected' || openKind === 'result';
 
   return (
     <>
       <PageHint style={{ marginBottom: 12 }}>
-        对外邮件都在这里发与查。点上方任意一张卡片看对应名单，点「已发 / 待发」直接筛。
-        提醒类由系统定时发送，其余按名单勾选；已通知过的再发一次是重发。
+        对外邮件都在这里发与查。点任意一张卡片，能看到这一类该发给谁、谁已经发过，并直接补发。
       </PageHint>
 
-      <Space wrap size={12} style={{ marginBottom: 16 }} align="start">
-        <BucketCard title={KIND_TITLE.rejected} desc="初筛出结论后手动发"
-                    bucket={overview?.resumeRejected}
-                    active={kind === 'rejected'} activeFilter={filter}
-                    onPick={(f) => pick('rejected', f)} />
-        <BucketCard title={KIND_TITLE.arranged} desc="排上场次后发出"
-                    bucket={overview?.interviewArranged}
-                    active={kind === 'arranged'} activeFilter={filter}
-                    onPick={(f) => pick('arranged', f)} />
-        <BucketCard title={KIND_TITLE.eve} desc="前一天 12:00" auto
-                    bucket={overview?.eveReminder}
-                    active={kind === 'eve'} activeFilter={filter}
-                    onPick={(f) => pick('eve', f)} />
-        <BucketCard title={KIND_TITLE.day} desc="当天 08:00" auto
-                    bucket={overview?.dayReminder}
-                    active={kind === 'day'} activeFilter={filter}
-                    onPick={(f) => pick('day', f)} />
-        <BucketCard title={KIND_TITLE.result} desc="录入决定后手动发"
-                    bucket={overview?.result}
-                    active={kind === 'result'} activeFilter={filter}
-                    onPick={(f) => pick('result', f)} />
-        <Button icon={<ReloadOutlined />} onClick={load} loading={loading} style={{ marginTop: 28 }}>
+      <Space wrap size={12} align="start" style={{ marginBottom: 8 }}>
+        {(Object.keys(KINDS) as Kind[]).map((k) => (
+          <BucketCard key={k} meta={KINDS[k]} bucket={bucketOf(k)} onOpen={() => openModal(k)} />
+        ))}
+        <Button icon={<ReloadOutlined />} onClick={load} loading={loading} style={{ marginTop: 34 }}>
           刷新
         </Button>
       </Space>
 
-      <Card
-        size="small"
-        title={(
+      <Modal
+        open={!!openKind}
+        onCancel={() => setOpenKind(null)}
+        width={960}
+        title={meta ? `${meta.title} · 名单` : ''}
+        footer={(
           <Space>
-            <span>{KIND_TITLE[kind]}</span>
-            <Segmented
-              size="small"
-              value={filter}
-              onChange={(v) => setFilter(v as Filter)}
-              options={[
-                { label: `全部 ${counts.total}`, value: 'all' },
-                { label: `已发 ${counts.sent}`, value: 'sent' },
-                { label: `未发 ${counts.pending}`, value: 'pending' },
-              ]}
-            />
+            <span style={{ color: '#999', fontSize: 12 }}>已选 {selected.length} 人</span>
+            <Button onClick={() => setOpenKind(null)}>关闭</Button>
+            <Button type="primary" loading={sending} disabled={selected.length === 0} onClick={doSend}>
+              发送通知
+            </Button>
           </Space>
         )}
-        style={{ marginBottom: 16 }}
-        extra={kind === 'rejected' ? (
-          <Button
-            type="primary"
-            disabled={screenSel.length === 0}
-            onClick={() => {
-              setScreenMsg('');
-              const again = resentCount(screenSel, screenSentIds);
-              if (again > 0) message.info(`所选名单中 ${again} 人此前已通知过，本次为重发`);
-              setScreenOpen(true);
-            }}
-          >
-            发送通知（已选 {screenSel.length}）
-          </Button>
-        ) : kind === 'result' ? (
-          <Button
-            type="primary"
-            disabled={resultSel.length === 0}
-            onClick={() => {
-              setResultMsg('');
-              const again = resentCount(resultSel, resultSentIds);
-              if (again > 0) message.info(`所选名单中 ${again} 人此前已通知过，本次为重发`);
-              setResultOpen(true);
-            }}
-          >
-            发送通知（已选 {resultSel.length}）
-          </Button>
-        ) : (
-          <Tooltip title="排上场次时自动发出，提醒按面试时间定时发送，不需要手动操作">
-            <Tag>系统自动发送</Tag>
-          </Tooltip>
-        )}
       >
-        {kind === 'result' && results.length > decided.length && (
-          <Alert
-            type="info"
-            showIcon
-            style={{ marginBottom: 12 }}
-            message={`另有 ${results.length - decided.length} 人还没录入录取决定，到「录取结果」页处理后才会出现在这里`}
-          />
+        {meta && (
+          <>
+            <p className="notify-modal__scope">
+              {meta.scope}。共 <b>{counts.total}</b> 人，已发 <b>{counts.sent}</b>，未发 <b>{counts.pending}</b>。
+              {meta.auto && '这一类由系统定时发送，手动发只用于补发漏掉的人。'}
+              已发过的再发一次会被跳过，不会重复打扰。
+            </p>
+
+            <Space wrap style={{ marginBottom: 10 }}>
+              <Segmented
+                size="small"
+                value={filter}
+                onChange={(v) => setFilter(v as Filter)}
+                options={[
+                  { label: `全部 ${counts.total}`, value: 'all' },
+                  { label: `已发 ${counts.sent}`, value: 'sent' },
+                  { label: `未发 ${counts.pending}`, value: 'pending' },
+                ]}
+              />
+              <Button size="small" onClick={() => setSelected(visible.map((r) => r.key))}>
+                全选当前 {visible.length} 人
+              </Button>
+              <Button size="small" onClick={() => setSelected([])}>清空勾选</Button>
+            </Space>
+
+            <Table
+              rowKey="key"
+              size="small"
+              loading={loading}
+              dataSource={visible}
+              pagination={visible.length > 15 ? { pageSize: 15, showTotal: (t) => `共 ${t} 人` } : false}
+              scroll={{ y: 380 }}
+              locale={{
+                emptyText: counts.total === 0
+                  ? '这一类现在没有人需要通知'
+                  : filter === 'sent' ? '还没有发送记录' : '都发过了，没有待发的',
+              }}
+              rowSelection={{ selectedRowKeys: selected, onChange: setSelected }}
+              columns={columns as any}
+            />
+
+            {canCustomize && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>
+                  补充说明（选填）——会附在模板正文之后，不会替换原文
+                </div>
+                <Input.TextArea
+                  rows={3}
+                  maxLength={500}
+                  showCount
+                  value={customMsg}
+                  onChange={(e) => setCustomMsg(e.target.value)}
+                  placeholder={openKind === 'rejected'
+                    ? '例如：欢迎关注下学期的招新'
+                    : '例如：请于本周五前加入新社员群'}
+                />
+              </div>
+            )}
+          </>
         )}
-
-        {kind === 'rejected' && (
-          <Table
-            rowKey="resumeId"
-            size="small"
-            loading={loading}
-            dataSource={visibleScreened}
-            pagination={visibleScreened.length > 20 ? { pageSize: 20, showTotal: (t) => `共 ${t} 人` } : false}
-            locale={{ emptyText: emptyText('本周期还没有被标记为初筛未通过的简历') }}
-            rowSelection={{ selectedRowKeys: screenSel, onChange: (k) => setScreenSel(k as number[]) }}
-            columns={[
-              { title: '姓名', dataIndex: 'name', width: 110, render: (v: string, r: ScreenedOutItem) => v || `用户#${r.userId}` },
-              { title: '学号', dataIndex: 'studentId', width: 140, render: (v: string) => v || '-' },
-              { title: '邮箱', dataIndex: 'email', ellipsis: true, render: (v: string) => v || <Tag color="warning">缺邮箱</Tag> },
-              {
-                title: '简历分', dataIndex: 'resumeScore', width: 90, align: 'right' as const,
-                // null 是「没打过分」，0 分才是初筛不通过的依据，两者不能混
-                render: (v: number | null) => (v == null ? <span style={{ color: '#bbb' }}>未打分</span> : v),
-              },
-              {
-                title: '通知状态', dataIndex: 'notifiedAt', width: 150,
-                render: (v: string | null) => sentTag(!!v, v),
-              },
-            ] as any}
-          />
-        )}
-
-        {kind === 'result' && (
-          <Table
-            rowKey="resultId"
-            size="small"
-            loading={loading}
-            dataSource={visibleDecided}
-            pagination={visibleDecided.length > 20 ? { pageSize: 20, showTotal: (t) => `共 ${t} 人` } : false}
-            locale={{ emptyText: emptyText('还没有人录入录取决定') }}
-            rowSelection={{ selectedRowKeys: resultSel, onChange: (k) => setResultSel(k as number[]) }}
-            columns={[
-              {
-                title: '姓名', dataIndex: 'userName', width: 110,
-                render: (v: string, r: InterviewResultItem) => v || `用户#${r.userId}`,
-              },
-              {
-                title: '结果', dataIndex: 'decision', width: 100,
-                render: (d: number) => <Tag color={DECISION_TAG[d]?.color}>{DECISION_TAG[d]?.text ?? d}</Tag>,
-              },
-              { title: '录取部门', dataIndex: 'departmentName', width: 120, render: (v: string) => v || '-' },
-              {
-                title: '志愿', dataIndex: 'firstDeptName', width: 150,
-                render: (_: unknown, r: InterviewResultItem) => (r.firstDeptName
-                  ? <span>{r.firstDeptName}{r.secondDeptName ? ` / ${r.secondDeptName}` : ''}</span>
-                  : <span style={{ color: '#bbb' }}>—</span>),
-              },
-              {
-                title: '通知状态', dataIndex: 'notifiedAt', width: 150,
-                render: (v: string) => sentTag(!!v, v),
-              },
-            ] as any}
-          />
-        )}
-
-        {/* 三类挂在面试安排上的通知共用一张名单，只是「已发」看的列不同。
-            提醒虽然是系统发的，但发没发必须逐人看得见——手动改过时间后
-            提醒没重发这种事，只看总数是发现不了的 */}
-        {(kind === 'arranged' || kind === 'eve' || kind === 'day') && (
-          <Table
-            rowKey="scheduleId"
-            size="small"
-            loading={loading}
-            dataSource={visibleSchedules}
-            pagination={visibleSchedules.length > 20 ? { pageSize: 20, showTotal: (t) => `共 ${t} 人` } : false}
-            locale={{ emptyText: emptyText('本周期还没有面试安排 —— 先到「分配与调剂」一键分配') }}
-            columns={[
-              {
-                title: '面试时间', dataIndex: 'interviewTime', width: 140,
-                render: (v: string) => (v ? fmt(v).slice(5) : '-'),
-              },
-              { title: '姓名', dataIndex: 'name', width: 110, render: (v: string, r: ScheduleNoticeItem) => v || `用户#${r.userId}` },
-              { title: '学号', dataIndex: 'studentId', width: 140, render: (v: string) => v || '-' },
-              { title: '部门', dataIndex: 'deptName', width: 100, render: (v: string) => v || '-' },
-              { title: '地点', dataIndex: 'location', ellipsis: true, render: (v: string) => v || '-' },
-              {
-                title: '本类通知', width: 120,
-                render: (_: unknown, r: ScheduleNoticeItem) => sentTag(flagOf(r, kind)),
-              },
-              {
-                // 三类一起列出来：管理员多半是想确认「这个人该收到的都收到了没」
-                title: '安排 / 前一天 / 当天', width: 190,
-                render: (_: unknown, r: ScheduleNoticeItem) => (
-                  <Space size={4}>
-                    <Tag color={r.arranged ? 'green' : undefined}>安排</Tag>
-                    <Tag color={r.eve ? 'green' : undefined}>前一天</Tag>
-                    <Tag color={r.day ? 'green' : undefined}>当天</Tag>
-                  </Space>
-                ),
-              },
-            ] as any}
-          />
-        )}
-      </Card>
-
-      <Modal
-        title={`向 ${screenSel.length} 人发送「简历初筛未通过」通知`}
-        open={screenOpen}
-        confirmLoading={screenSending}
-        okText="确认发送"
-        onOk={doNotifyScreened}
-        onCancel={() => setScreenOpen(false)}
-      >
-        <p style={{ color: '#888', marginTop: 0 }}>
-          邮件正文用统一模板。下面填的内容会附在模板正文之后，作为「社团补充说明」，不会替换原文。
-        </p>
-        <Input.TextArea
-          rows={4}
-          maxLength={500}
-          showCount
-          placeholder="选填，例如：欢迎关注下学期的招新"
-          value={screenMsg}
-          onChange={(e) => setScreenMsg(e.target.value)}
-        />
-      </Modal>
-
-      <Modal
-        title={`向 ${resultSel.length} 人发送录取 / 未录取通知`}
-        open={resultOpen}
-        confirmLoading={resultSending}
-        okText="确认发送"
-        onOk={doNotifyResults}
-        onCancel={() => setResultOpen(false)}
-      >
-        <p style={{ color: '#888', marginTop: 0 }}>
-          按每个人的结果自动选用录取信或感谢信。下面填的内容会附在模板正文之后，不会替换原文。
-        </p>
-        <Input.TextArea
-          rows={4}
-          maxLength={500}
-          showCount
-          placeholder="选填，例如：请于本周五前加入新社员群"
-          value={resultMsg}
-          onChange={(e) => setResultMsg(e.target.value)}
-        />
       </Modal>
     </>
   );
