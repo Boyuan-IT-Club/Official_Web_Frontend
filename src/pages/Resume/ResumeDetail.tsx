@@ -21,7 +21,7 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
-  DownloadOutlined,
+  DownloadOutlined, ThunderboltOutlined,
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 
@@ -157,10 +157,12 @@ type ResumeDetailProps = {
   /** 顺序里的下一位（含已打分），复查时用 */
   nextName?: string | null;
   onNext?: () => void;
+  /** 进入沉浸式打分舞台；不传则不显示该入口（舞台内部复用本组件时即不传） */
+  onEnterStage?: () => void;
 };
 
 // --- 主要组件 ---
-const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext }) => {
+const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext, onEnterStage }) => {
   const dispatch = useDispatch<any>();
 
   // 多人打分：resumeScore 是平均分，输入框编辑的是「我这一票」。
@@ -173,6 +175,18 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
   const [score, setScore] = useState<number | undefined>(initialMyScore);
   const [savedScore, setSavedScore] = useState<number | undefined>(initialMyScore);
   const [scoreSaving, setScoreSaving] = useState(false);
+
+  // 「下一位」跳转不重挂载本组件，打分状态必须跟着简历重置——
+  // 否则上一位的分数残留在输入框，一点保存就把别人的分写给了这一位。
+  React.useEffect(() => {
+    const freshEntries: ScoreEntry[] = (resume as any)?.scoreEntries ?? [];
+    const mine = myScoreOf(freshEntries, myUserId);
+    setEntries(freshEntries);
+    setAvgScore((resume as any)?.resumeScore ?? undefined);
+    setScore(mine);
+    setSavedScore(mine);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resume?.resumeId, myUserId]);
 
   // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
   // hook 内部两种都解析成可渲染的 URL。hook 必须在下面的 early return 之前调用
@@ -237,6 +251,11 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
           {backText || '返回列表'}
         </Button>
         <Space>
+          {onEnterStage && (
+            <Button type="primary" icon={<ThunderboltOutlined />} onClick={onEnterStage}>
+              打分舞台
+            </Button>
+          )}
           <Button type="default" icon={<DownloadOutlined />} onClick={() => onDownload?.(resume.resumeId)}>
             下载 PDF
           </Button>

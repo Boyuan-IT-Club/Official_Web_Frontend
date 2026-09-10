@@ -36,7 +36,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { compressImage } from '@/utils/imageCompress';
 import { dataUrlToBlob, resolveResumePhotoDataUrl, uploadResumePhoto } from '@/api/resumePhoto';
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
-import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
+import { specOf, RESUME_FIELDS, isFormField } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
 import {
   CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId, resolvePublishEmptyState,
@@ -289,8 +289,11 @@ const Publish: React.FC = () => {
     }
   });
 
-  // 首次弹出后立刻记账，不等用户点关闭 —— 他可能直接刷新或返回，
-  // 那时不该再弹一次
+  // 首次弹出后立刻记账，不等用户点关闭 —— 他可能直接刷新或返回，那时不该再弹一次。
+  //
+  // 依赖必须是 tipsOpen：曾经写成空数组（只在挂载时跑一次），而挂载那一刻
+  // 弹窗还没真正呈现，标记就已经落盘 —— 结果是「第一次进来也不弹」，
+  // 提示等于废掉。以 tipsOpen 为依赖，只有真的弹出来了才记账。
   useEffect(() => {
     if (!tipsOpen) return;
     try {
@@ -298,8 +301,7 @@ const Publish: React.FC = () => {
     } catch {
       /* 存不了就只在本次会话内不再自动弹 */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tipsOpen]);
   const [techStackItems, setTechStackItems] = useState<string[]>(['']);
   const [departments, setDepartments] = useState<DepartmentsState>({ first: '', second: '' });
   const [interviewTimes, setInterviewTimes] = useState<InterviewTimesState>({
@@ -1242,7 +1244,10 @@ const Publish: React.FC = () => {
       const cf = configFieldMap.get(key);
       const label = cf?.label || def.fieldLabel || def.field_label;
       if (label) labelOf[key] = String(label);
-      enabledOf[key] = isFieldEnabled(key);
+      // 导出必须和表单一致：不光看有没有停用，还要看它在不在表单里渲染。
+      // 只看 isFieldEnabled 的话，「个人简介」这种表单不显示的字段会被印进
+      // 导出的 Word，学生看到一个自己填不了的空栏。
+      enabledOf[key] = isFormField(key, isFieldEnabled(key), DEPRECATED_RESUME_FIELD_KEYS);
     });
     return { labelOf, enabledOf };
   }, [fieldDefinitions, configFieldMap, isFieldEnabled]);

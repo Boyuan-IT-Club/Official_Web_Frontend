@@ -106,13 +106,14 @@ const RecruitProgressCard: React.FC<Props> = ({
   const online = canAttendOffline === false;
 
   const steps = [
-    { title: '完善简历', description: resumeStatus == null ? '还未开始填写' : (resumeStatus >= 2 ? '已完成' : '填写中，记得提交') },
-    { title: '提交简历', description: submitted ? '已提交' : '完成后记得提交' },
+    // 说明文字必须短：六步平分卡片宽度，每步只有约 120px，
+    // 「填写中，记得提交」这类长句会被挤成「记得提3」或错行。
+    // 一律控制在 6 字以内，长的语气交给标题与页面其他位置承担。
+    { title: '完善简历', description: resumeStatus == null ? '未开始' : (resumeStatus >= 2 ? '已完成' : '填写中') },
+    { title: '提交简历', description: submitted ? '已提交' : '待提交' },
     {
       title: '面试意向',
-      description: hasPreference
-        ? '志愿已提交'
-        : (online ? '选志愿部门' : '选志愿部门与可面试时间'),
+      description: hasPreference ? '已提交' : '待选择',
     },
     {
       title: '简历初筛',
@@ -123,30 +124,30 @@ const RecruitProgressCard: React.FC<Props> = ({
        */
       status: screenRejected ? ('finish' as const) : undefined,
       description: screenRejected
-        ? '本届未进入面试'
+        ? '未进入面试'
         : screenPassed
-          ? '已通过，等待面试安排'
-          : (submitted ? '评审中，请耐心等待' : '提交后进入评审'),
+          ? '已通过'
+          : (submitted ? '评审中' : '待提交'),
     },
     online
       ? {
           title: '线上面试',
           // 线上场次由管理员一对一约，站内没有排期数据可显示，
           // 所以这一步给的是「等谁联系你」而不是时间地点
-          description: hasPreference ? '管理员将与你单独约时间' : '',
+          description: hasPreference ? '待约时间' : '',
         }
       : {
           title: '面试安排',
           description: scheduled
-            ? `${String(schedule!.interviewTime).replace('T', ' ').slice(0, 16)} · ${schedule!.deptName ?? ''}`
-            : (hasPreference ? '管理员安排中' : ''),
+            ? `${String(schedule!.interviewTime).replace('T', ' ').slice(5, 16)}`
+            : (hasPreference ? '安排中' : ''),
         },
     {
       title: '面试结果',
       status: decided && result!.decision === 2 ? ('error' as const) : undefined,
       description: decided
-        ? (result!.decision === 1 ? `🎉 已录取${result!.assignedDeptName ? ` · ${result!.assignedDeptName}` : ''}` : '未录取，感谢参与')
-        : '出结果后可在此查看',
+        ? (result!.decision === 1 ? `已录取${result!.assignedDeptName ? ` · ${result!.assignedDeptName}` : ''}` : '未录取')
+        : '待公布',
     },
   ];
 
@@ -172,7 +173,13 @@ const RecruitProgressCard: React.FC<Props> = ({
     >
       {/* 未通过初筛的同学后面几步都不会发生，进度条到初筛为止——
           继续显示「管理员安排中」只会让人一直等不会来的面试通知 */}
-      <Steps size="small" current={current} items={screenRejected ? steps.slice(0, 4) : steps} responsive />
+      <Steps
+        className="recruit-steps"
+        size="small"
+        current={current}
+        items={screenRejected ? steps.slice(0, 4) : steps}
+        responsive
+      />
       {/*
         初筛没过就不再显示面试时间。线上撞到过：进度条已经写着「未通过初筛」，
         下面却还挂着「请准时到场 09-11 09:05」和倒计时——安排是初筛之前排的，

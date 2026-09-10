@@ -338,3 +338,23 @@ $border-color: #e2e8f0;
     }
   }
 }
+// 招新进度条：antd 给 Steps 的说明文字按标题宽度裁切（默认 max-width 跟随
+// 标题、并带 text-overflow），中文说明比标题长时会被切成「记得提3」。
+// 双管齐下：文案本身压到 6 字以内（见 RecruitProgressCard），
+// 这里再放开宽度限制与换行，保证任何皮肤/窄屏下都不被截断。
+.recruit-steps.ant-steps {
+  .ant-steps-item-description {
+    max-width: none !important;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.5;
+    padding-right: 12px;
+  }
+
+  // 标题同理：短标题不该被省略号
+  .ant-steps-item-title { white-space: nowrap; }
+
+  // 说明换行后各步高度不齐，顶端对齐更整齐
+  .ant-steps-item-content { align-self: flex-start; }
+}

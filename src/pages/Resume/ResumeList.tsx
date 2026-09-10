@@ -40,10 +40,10 @@ import { resumeActions } from '@/store/modules/resume';
 import { getAllCycles } from '@/api/manage/cycleApis';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
-import { batchScreening, notifyScreenedOut } from '@/api/manage/resumeEntry';
+import { batchScreening } from '@/api/manage/resumeEntry';
 import ResumePhotoAvatar from '@/components/ResumePhotoAvatar';
 import {
-  ScorecardRow, listEvaluationQueue, runResumeEvaluation,
+  ScorecardRow, listEvaluationJobs, listEvaluationQueue, runResumeEvaluation,
 } from '@/api/manage/evaluationApis';
 import { aiRecommendation } from '@/components/ResumeAiEvaluation';
 import { getToken } from '@/utils';
@@ -87,7 +87,9 @@ type RootStateLike = {
 };
 
 type ResumeListProps = {
-  onShowDetail?: (resume: Resume, currentPage?: number, cycleId?: number) => void;
+  onShowDetail?: (resume: Resume, currentPage?: number) => void;
+  /** 进入沉浸式打分舞台（从这一份开始批改，队列即当前筛选结果） */
+  onEnterStage?: (resume: Resume) => void;
   onApprove?: (resumeId: string | number) => void;
   onReject?: (resumeId: string | number) => void;
   onDownload?: (resumeId: string | number) => void;
@@ -133,8 +135,22 @@ const scoreColor = (score: number): string => {
   return 'orange';
 };
 
+/**
+ * 「已提交」= 待初筛 + 通过初筛 + 未通过初筛 + AI 初筛中。
+ *
+ * 默认落在这一档而不是只看「待初筛」：初筛一旦出结论，简历就从 2 变成 4/5，
+ * 在只看 2 的视图里当场消失——管理员刚标完就找不到人了，也没法回头核对
+ * 自己判过什么。草稿不在其中，它还没交上来。
+ *
+ * AI 初筛中（6）也必须在内：它是提交后的瞬态，agent 任务跑完就落成 4/5。
+ * 不放在默认档里的话，管理员刚点完「启动 AI 初筛」，这批简历就当场从列表消失，
+ * 界面看上去像是操作没生效。
+ */
+const SUBMITTED_STATUSES = '2,4,5,6';
+
 const ResumeList: React.FC<ResumeListProps> = ({
   onShowDetail,
+  onEnterStage,
   onApprove,
   onReject,
   onDownload,
@@ -156,6 +172,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     searchText: string;
     searchType: string;
     expectedDepartment: string;
+    choiceRank: string;
     statusFilter: string;
     cycleId?: number;
     sortBy: string;
@@ -164,7 +181,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
     searchText: '',
     searchType: 'name',
     expectedDepartment: '',
-    statusFilter: '2',
+    choiceRank: '',
+    statusFilter: SUBMITTED_STATUSES,
     cycleId: undefined,
     sortBy: 'submitted_at',
     sortOrder: 'DESC',
@@ -174,16 +192,19 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [searchText, setSearchText] = useState<string>('');
   const [searchType, setSearchType] = useState<string>('name');
   const [expectedDepartment, setExpectedDepartment] = useState<string>('');
+  /**
+   * 志愿位次：''=不限（一二志愿命中任一）、first、second。
+   * 原来只有一个部门下拉，匹配的是简历字段里 ["第一志愿","第二志愿"] 那个数组，
+   * 只能 LIKE，分不出这人是把该部门填成第一还是第二——而这恰恰是筛人时最想知道的。
+   */
+  const [choiceRank, setChoiceRank] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('submitted_at');
   const [sortOrder, setSortOrder] = useState<string>('DESC');
-  const [statusFilter, setStatusFilter] = useState<string>('2');
+  const [statusFilter, setStatusFilter] = useState<string>(SUBMITTED_STATUSES);
   // 批量初筛：勾选后统一标通过/未通过、给未通过的发通知。
   // 卡片式列表没有 Table 的 rowSelection，用卡片左上角的勾选框自己管一份 id 集合。
   const [picked, setPicked] = useState<number[]>([]);
   const [screening, setScreening] = useState(false);
-  const [notifyOpen, setNotifyOpen] = useState(false);
-  const [notifyMsg, setNotifyMsg] = useState('');
-  const [notifying, setNotifying] = useState(false);
 
   // 本页简历 id，供「全选本页」用
   const pageResumeIds: number[] = (resumes ?? []).map((r: any) => Number(r.resumeId));
@@ -207,23 +228,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
     }
   };
 
-  const doNotify = async () => {
-    setNotifying(true);
-    try {
-      const res: any = await notifyScreenedOut(picked, notifyMsg.trim() || undefined);
-      const queued = res?.data?.queued ?? 0;
-      const skipped = res?.data?.skipped?.length ?? 0;
-      message.success(`已发送 ${queued} 封落选通知`
-        + (skipped > 0 ? `，跳过 ${skipped} 份（状态不是未通过初筛）` : ''));
-      setNotifyOpen(false);
-      setNotifyMsg('');
-      setPicked([]);
-    } catch (e: any) {
-      message.error(e?.message || '发送失败');
-    } finally {
-      setNotifying(false);
-    }
-  };
   // 招募周期筛选：后端 /api/resumes/search 早就支持 cycleId 参数，只是前端一直没传，
   // 于是列表把历届简历混在一起显示
   const [cycleId, setCycleId] = useState<number | undefined>();
@@ -241,12 +245,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
   // 检查搜索参数是否真正变化
   const hasSearchParamsChanged = (): boolean => {
-    const currentParams = { searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder };
+    const currentParams = { searchText, searchType, expectedDepartment, choiceRank, statusFilter, cycleId, sortBy, sortOrder };
     const prevParams = searchParamsRef.current;
     return (
       currentParams.searchText !== prevParams.searchText ||
       currentParams.searchType !== prevParams.searchType ||
       currentParams.expectedDepartment !== prevParams.expectedDepartment ||
+      currentParams.choiceRank !== prevParams.choiceRank ||
       currentParams.statusFilter !== prevParams.statusFilter ||
       currentParams.cycleId !== prevParams.cycleId ||
       currentParams.sortBy !== prevParams.sortBy ||
@@ -256,7 +261,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
   // 更新搜索参数引用
   const updateSearchParamsRef = (): void => {
-    searchParamsRef.current = { searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder };
+    searchParamsRef.current = { searchText, searchType, expectedDepartment, choiceRank, statusFilter, cycleId, sortBy, sortOrder };
   };
 
   // 加载简历数据的函数（保持原逻辑不变）
@@ -284,6 +289,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
     // 添加部门筛选
     if (expectedDepartment) {
       params.expectedDepartment = expectedDepartment;
+      // 位次只在选了部门时才有意义，单独传等于没有条件
+      if (choiceRank) params.choiceRank = choiceRank;
     }
 
     // 添加状态筛选
@@ -365,6 +372,37 @@ const ResumeList: React.FC<ResumeListProps> = ({
     return () => { cancelled = true; };
   }, [cycleId, canUseAiScreening]);
 
+  // 闸门4:初筛中简历的轮询——有 screeningIds 时,每 5s 查一次 job 执行面,
+  // 全部终态(succeeded/failed)后清除本地"初筛中"乐观标记并刷新列表,
+  // 避免页面永久显示"AI 初筛中"。
+  useEffect(() => {
+    if (!cycleId || screeningIds.length === 0 || !canUseAiScreening) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res: any = await listEvaluationJobs(cycleId);
+        const jobs: any[] = res?.data?.items ?? [];
+        const terminal = new Set<string>();
+        for (const j of jobs) {
+          if (j.status === 'succeeded' || j.status === 'failed') {
+            terminal.add(String(j.resume_id));
+          }
+        }
+        if (cancelled) return;
+        setScreeningIds((current) => current.filter((id) => !terminal.has(String(id))));
+        if (screeningIds.every((id) => terminal.has(String(id)))) {
+          loadResumes(localCurrentPage, pagination.pageSize);
+        }
+      } catch {
+        /* 轮询失败静默,下次再试 */
+      }
+    };
+    const timer = setInterval(poll, 5000);
+    poll();
+    return () => { cancelled = true; clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleId, screeningIds.length, canUseAiScreening, pagination.pageSize]);
+
   // 搜索、筛选、排序变化时重新加载数据（重置到第一页）
   useEffect(() => {
     if (isReturningFromDetail.current) {
@@ -381,7 +419,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
       loadResumes(1, pagination.pageSize);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder, onPageChange]);
+  }, [searchText, searchType, expectedDepartment, choiceRank, statusFilter, cycleId, sortBy, sortOrder, onPageChange]);
 
   // 获取状态信息
   // 简历状态三态：草稿 / 已提交 / 已截止（录取与否见「面试管理 → 结果与通知」）
@@ -417,7 +455,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     // eslint-disable-next-line no-console
     console.log('Viewing resume:', resumeObject);
     if (onShowDetail) {
-      onShowDetail(resumeObject, localCurrentPage, cycleId);
+    onShowDetail(resumeObject, localCurrentPage);
     }
   };
 
@@ -502,11 +540,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
       message.info('请先选择当前周期内要初筛的简历');
       return;
     }
-    const missingUser = selected.find((resume) => !(resume.userId ?? resume.user_id));
-    if (missingUser) {
-      message.error(`简历 #${missingUser.resumeId} 缺少候选人信息，无法启动初筛`);
-      return;
-    }
+    // 方案A(闸门1):只传 resume_id,user_id 由 Agent 权威派生——
+    // 不再需要候选人字段守卫,前端也不携带归属号码。
     Modal.confirm({
       title: `启动 ${selected.length} 份简历的 AI 初筛？`,
       content: '任务将在后台运行。已有结果的简历会生成新版本，人工评分不会被改动。',
@@ -515,10 +550,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
       onOk: async () => {
         setScreening(true);
         try {
-          await runResumeEvaluation(cycleId, selected.map((resume) => ({
-            resume_id: Number(resume.resumeId),
-            user_id: Number(resume.userId ?? resume.user_id),
-          })));
+          await runResumeEvaluation(cycleId, selected.map((resume) => Number(resume.resumeId)));
           setScreeningIds((current) => Array.from(new Set([...current, ...selected.map((r) => String(r.resumeId))])));
           setSelectedIds([]);
           message.success(`已提交 ${selected.length} 份简历，AI 正在后台初筛`);
@@ -562,7 +594,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
             </Select>
           </div>
 
-          <div className="control-item department-filter-select">
+          {/* 周期选择器一直沿用「部门筛选」的类名，宽度也就跟着部门走，
+              而周期名比部门名长得多，选中后把整行顶偏。给它自己的类名 */}
+          <div className="control-item cycle-filter-select">
             <Select
               style={{ width: '100%' }}
               placeholder="招募周期"
@@ -576,12 +610,34 @@ const ResumeList: React.FC<ResumeListProps> = ({
             />
           </div>
 
+          <div className="control-item">
+            {onEnterStage && (
+              <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                disabled={(resumes ?? []).length === 0}
+                onClick={() => {
+                  // 从第一位未打分的开始；都打完了就从第一份开始复查
+                  const list: any[] = resumes ?? [];
+                  const target = list.find((r) => r.resumeScore == null) ?? list[0];
+                  if (target) onEnterStage(target);
+                }}
+              >
+                打分舞台
+              </Button>
+            )}
+          </div>
+
           <div className="control-item department-filter-select">
             <Select
               style={{ width: '100%' }}
-              placeholder="部门筛选"
-              value={expectedDepartment}
-              onChange={setExpectedDepartment}
+              placeholder="志愿部门"
+              value={expectedDepartment || undefined}
+              onChange={(v) => {
+                setExpectedDepartment(v ?? '');
+                // 清空部门时位次一并清掉，否则留着一个不起作用的「第一志愿」很费解
+                if (!v) setChoiceRank('');
+              }}
               allowClear
               suffixIcon={<AppstoreOutlined />}
             >
@@ -592,6 +648,23 @@ const ResumeList: React.FC<ResumeListProps> = ({
             </Select>
           </div>
 
+          {/* 位次只在选了部门后出现：没选部门时它没有意义，
+              常驻两个下拉只会把工具条撑满、显得都要填 */}
+          {expectedDepartment && (
+            <div className="control-item choice-rank-select">
+              <Select
+                style={{ width: '100%' }}
+                value={choiceRank}
+                onChange={setChoiceRank}
+                options={[
+                  { value: '', label: '不限志愿' },
+                  { value: 'first', label: '第一志愿' },
+                  { value: 'second', label: '第二志愿' },
+                ]}
+              />
+            </div>
+          )}
+
           <div className="control-item status-filter-select">
             <Select
               style={{ width: '100%' }}
@@ -600,12 +673,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
               onChange={setStatusFilter}
               allowClear
             >
-              <Option value="1,2,4,5,6">全部</Option>
-              <Option value="2">待初筛（已提交）</Option>
+              <Option value={SUBMITTED_STATUSES}>已提交（全部）</Option>
+              <Option value="2">待初筛</Option>
               <Option value="4">通过初筛</Option>
               <Option value="5">未通过初筛</Option>
               <Option value="6">AI初筛中</Option>
-              <Option value="1">草稿</Option>
+              <Option value="1">草稿（未提交）</Option>
+              <Option value="1,2,4,5,6">含草稿的全部</Option>
             </Select>
           </div>
 
@@ -622,11 +696,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
       </div>
 
       {/*
-        批量初筛条：常驻显示。
-        原先做成「勾选后才浮出」，结果没人知道这里能发落选通知——
+        批量初筛条：常驻显示。原先做成「勾选后才浮出」，结果没人知道这里能操作——
         功能藏在一个需要先猜到的前置操作后面等于不存在（用户实测反馈）。
         现在按钮一直在，未勾选时禁用并直接写清该怎么用。
-        初筛决定谁能进面试，与「面试管理 → 结果与通知」的录取决定是两回事。
+
+        这里只管「判」不管「发」：落选通知统一在「面试管理 → 通知」里发。
+        两处都能发的时候，管理员在这边发一批、那边看到的却是另一套统计，
+        没人说得清到底通知过谁。初筛决定谁能进面试，与录取决定也是两回事。
       */}
       <div className="screening-bar">
           <Space wrap>
@@ -663,43 +739,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 标为未通过初筛
               </Button>
             </Popconfirm>
-            <Tooltip title="只发给状态已是「未通过初筛」的简历，其余自动跳过">
-              <Button
-                disabled={picked.length === 0}
-                onClick={() => { setNotifyMsg(''); setNotifyOpen(true); }}
-              >
-                发送落选通知
-              </Button>
-            </Tooltip>
             {picked.length > 0 && (
               <Button type="text" onClick={() => setPicked([])}>取消选择</Button>
             )}
           </Space>
       </div>
-
-      <Modal
-        title={`发送落选通知（已选 ${picked.length} 份）`}
-        open={notifyOpen}
-        onOk={doNotify}
-        okText="确认发送"
-        confirmLoading={notifying}
-        onCancel={() => setNotifyOpen(false)}
-        destroyOnClose
-      >
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 12 }}
-          message="只会发给状态确为「未通过初筛」的简历，其余自动跳过。邮件说明未进入面试环节、本届流程结束，不含任何面试相关措辞。"
-        />
-        <Input.TextArea
-          rows={3}
-          maxLength={500}
-          value={notifyMsg}
-          onChange={(e) => setNotifyMsg(e.target.value)}
-          placeholder="补充说明（可选）——会附在模板正文之后，不会替换原文"
-        />
-      </Modal>
 
       <div className="list-header">
         <div>

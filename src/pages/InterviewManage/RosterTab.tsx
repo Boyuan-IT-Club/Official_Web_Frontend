@@ -4,7 +4,7 @@
 // 想按姓名找人、想核对某个志愿部门都做不到。这里把全周期拉平成一张表，
 // 带搜索与筛选，并把决策时要看的信息（学号、志愿、地点）并进来。
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Input, Select, Space, Spin, Table, Tag, Tooltip, Modal, DatePicker, message } from 'antd';
+import { Button, Input, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, Modal, DatePicker, message } from 'antd';
 import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import PageHint from '@/components/PageHint';
@@ -14,6 +14,7 @@ import {
   listSchedulesRoster,
   listSessions,
   updateScheduleInterviewTime,
+  cancelSchedules,
 } from '@/api/manage/interviewAdmin';
 import { getCandidateResume } from '@/api/manage/interviewEvaluation';
 import ResumeDetail from '@/pages/Resume/ResumeDetail';
@@ -54,6 +55,10 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const [loading, setLoading] = useState(false);
   const [kw, setKw] = useState('');
   const [deptFilter, setDeptFilter] = useState<string | undefined>();
+  // 志愿部门 + 位次：面试部门筛的是「被排到哪个部门面试」，
+  // 志愿筛的是「他自己想去哪」——调剂时看的正是这两者的差
+  const [choiceDept, setChoiceDept] = useState<string | undefined>();
+  const [choiceRank, setChoiceRank] = useState<'any' | 'first' | 'second'>('any');
   const [sessionFilter, setSessionFilter] = useState<number | undefined>();
   const [timeEditing, setTimeEditing] = useState<ScheduleRosterItem | null>(null);
   const [timeValue, setTimeValue] = useState<any>(null);
@@ -61,6 +66,8 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const [resumeDetail, setResumeDetail] = useState<any>(null);
   const [resumeOpen, setResumeOpen] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [picked, setPicked] = useState<number[]>([]);
+  const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,6 +123,11 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     new Set(rows.map((r) => r.deptName).filter(Boolean) as string[]),
   ).map((d) => ({ value: d, label: d })), [rows]);
 
+  // 志愿候选从名单里现取，不写死四个部门——部门是可以增删的
+  const choiceOptions = useMemo(() => Array.from(new Set([
+    ...rows.map((r) => r.firstDeptName), ...rows.map((r) => r.secondDeptName),
+  ].filter(Boolean) as string[])).map((d) => ({ value: d, label: d })), [rows]);
+
   const sessionOptions = useMemo(() => sessions.map((s) => ({
     value: s.sessionId,
     label: `#${s.sessionId} ${s.deptName || ''} @${s.location}`,
@@ -126,13 +138,42 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     return rows.filter((r) => {
       if (sessionFilter != null && r.sessionId !== sessionFilter) return false;
       if (deptFilter && r.deptName !== deptFilter) return false;
+      if (choiceDept) {
+        const hit = choiceRank === 'first' ? r.firstDeptName === choiceDept
+          : choiceRank === 'second' ? r.secondDeptName === choiceDept
+            : (r.firstDeptName === choiceDept || r.secondDeptName === choiceDept);
+        if (!hit) return false;
+      }
       if (!k) return true;
       return [r.name, r.username, r.studentId, r.firstDeptName, r.secondDeptName, r.location]
         .some((v) => String(v ?? '').toLowerCase().includes(k));
     });
-  }, [rows, kw, deptFilter, sessionFilter]);
+  }, [rows, kw, deptFilter, sessionFilter, choiceDept, choiceRank]);
 
-  const filtered = kw.trim() || deptFilter || sessionFilter != null;
+  const filtered = !!(kw.trim() || deptFilter || choiceDept || sessionFilter != null);
+
+  /** 已初筛未通过却还挂着安排的人 */
+  const screenedOutRows = useMemo(() => rows.filter((r) => r.resumeStatus === 5), [rows]);
+
+  const doCancel = async () => {
+    // 没勾人就默认处理「初筛未通过」那批——这是这个按钮九成的用法
+    const ids = picked.length > 0 ? picked : screenedOutRows.map((r) => r.scheduleId);
+    if (ids.length === 0) return;
+    setCancelling(true);
+    try {
+      const res: any = await cancelSchedules(cycleId, ids);
+      const d = res?.data ?? {};
+      const skipped = d.skipped?.length ?? 0;
+      message.success(`已取消 ${d.cancelled ?? ids.length} 条安排`
+        + (skipped > 0 ? `，跳过 ${skipped} 条（已取消或不属于本周期）` : ''));
+      setPicked([]);
+      load();
+    } catch (e: any) {
+      message.error(e?.message || '取消失败');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <>
@@ -157,6 +198,27 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
         />
         <Select
           allowClear
+          placeholder="按志愿部门"
+          style={{ width: 150 }}
+          value={choiceDept}
+          onChange={(v) => { setChoiceDept(v); if (!v) setChoiceRank('any'); }}
+          options={choiceOptions}
+        />
+        {/* 位次只在选了志愿部门后出现：没选部门时它没有意义 */}
+        {choiceDept && (
+          <Select
+            style={{ width: 116 }}
+            value={choiceRank}
+            onChange={setChoiceRank}
+            options={[
+              { value: 'any', label: '不限志愿' },
+              { value: 'first', label: '第一志愿' },
+              { value: 'second', label: '第二志愿' },
+            ]}
+          />
+        )}
+        <Select
+          allowClear
           showSearch
           optionFilterProp="label"
           placeholder="按场次"
@@ -171,6 +233,23 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           导出 CSV
         </Button>
         <Tag>{filtered ? `筛选后 ${visible.length} / ${rows.length} 人` : `共 ${rows.length} 人`}</Tag>
+        {/* 初筛未通过却还占着场次的人，一键摘出来。数量为 0 时不显示，
+            平时这条工具栏不该多一个用不上的红按钮 */}
+        {screenedOutRows.length > 0 && (
+          <Popconfirm
+            title={`取消 ${picked.length > 0 ? picked.length : screenedOutRows.length} 条面试安排？`}
+            description="安排置为已取消、清空面试时间并归还场次名额。学生端不再显示这场面试。"
+            okText="确认取消"
+            okButtonProps={{ danger: true }}
+            onConfirm={doCancel}
+          >
+            <Button danger loading={cancelling}>
+              {picked.length > 0
+                ? `取消所选 ${picked.length} 条安排`
+                : `取消 ${screenedOutRows.length} 条初筛未通过的安排`}
+            </Button>
+          </Popconfirm>
+        )}
       </Space>
 
       <Table
@@ -179,7 +258,8 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
         loading={loading}
         dataSource={visible}
         pagination={{ pageSize: 50, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
-        scroll={{ x: 1080 }}
+        scroll={{ x: 1280 }}
+        rowSelection={{ selectedRowKeys: picked, onChange: (k) => setPicked(k as number[]) }}
         locale={{ emptyText: rows.length === 0 ? '本周期还没有面试安排 —— 先到「分配与调剂」一键分配' : '没有符合条件的记录' }}
         columns={[
           {
@@ -199,8 +279,19 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
             ),
           },
           {
-            title: '姓名', dataIndex: 'name', width: 100,
-            render: (v: string, r: ScheduleRosterItem) => v || r.username || `用户#${r.userId}`,
+            title: '姓名', dataIndex: 'name', width: 150,
+            render: (v: string, r: ScheduleRosterItem) => (
+              <Space size={4}>
+                <span>{v || r.username || `用户#${r.userId}`}</span>
+                {/* 初筛之后才被刷掉的人，安排是初筛之前排的，不会自动回收——
+                    面试官会白等，场次名额也一直占着 */}
+                {r.resumeStatus === 5 && (
+                  <Tooltip title="简历已初筛未通过，但面试安排是初筛之前排的，建议取消">
+                    <Tag color="warning">已初筛未通过</Tag>
+                  </Tooltip>
+                )}
+              </Space>
+            ),
           },
           {
             // 学号取简历里填的那个；没填才退回登录名，并标出来免得当成学号
@@ -226,10 +317,20 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
             ),
           },
           {
-            title: '通知', dataIndex: 'notifStatus', width: 80,
-            render: (v: number | null) => (v === 1
-              ? <Tag color="green">已通知</Tag>
-              : <Tag>未通知</Tag>),
+            /*
+              三类通知分开标，绿=已发。
+              原来这一列读 notifStatus，而那个字段只在发「面试安排通知」时置 1，
+              发了别的通知它一动不动——用户发完初筛通知回头看名单，
+              看到的还是「未通知」，以为没发出去。
+            */
+            title: '通知（安排/前一天/当天）', width: 176,
+            render: (_: unknown, r: ScheduleRosterItem) => (
+              <Space size={4}>
+                <Tag color={r.notifiedArranged ? 'green' : undefined}>安排</Tag>
+                <Tag color={r.notifiedEve ? 'green' : undefined}>前一天</Tag>
+                <Tag color={r.notifiedDay ? 'green' : undefined}>当天</Tag>
+              </Space>
+            ),
           },
           {
             title: '备注', dataIndex: 'notes', ellipsis: { showTitle: false },

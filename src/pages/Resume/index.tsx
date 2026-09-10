@@ -1,6 +1,8 @@
 // src/pages/Resume/index.tsx
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
+import ScoringStage from './stage/ScoringStage';
 import { resumeActions } from '@/store/modules/resume';
 import ResumeList from './ResumeList';
 import ResumeDetail from './ResumeDetail';
@@ -68,6 +70,10 @@ export function findNextSequential(
 
 const Resume: React.FC = () => {
   const dispatch = useDispatch<any>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const myUserId = useSelector((state: any) => state.user?.userInfo?.userId);
+  // 舞台态放 URL（与评价舞台同一约定）：链接可分享、刷新不丢位置
+  const stageOn = searchParams.get('stage') === '1';
   const [selectedResume, setSelectedResume] = useState<ResumeItem | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -113,6 +119,27 @@ const Resume: React.FC = () => {
     if (nextSequential) setSelectedResume(nextSequential);
   }, [nextSequential]);
 
+  /** 进入/退出舞台。带上当前这位，退出后回到列表原位 */
+  const openStage = useCallback((resume: ResumeItem): void => {
+    setSelectedResume(resume);
+    const next = new URLSearchParams(searchParams);
+    next.set('stage', '1');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const closeStage = useCallback((): void => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('stage');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  /** 舞台里打完分回写列表 store，退出后列表分数已是新值 */
+  const handleScored = useCallback((resumeId: number, avg: number, entries: any[]): void => {
+    dispatch(resumeActions.patchResumeScore({
+      resumeId: resumeId as any, resumeScore: avg, scoreEntries: entries,
+    }));
+  }, [dispatch]);
+
   const handleBackToList = (): void => {
     // eslint-disable-next-line no-console
     console.log('返回列表，当前保存的页码:', currentPage);
@@ -141,6 +168,26 @@ const Resume: React.FC = () => {
       });
   };
 
+  // 带 ?stage=1 直接进来（分享链接、刷新）时没有选中项：
+  // 自动落到第一位未打分的，都打完了就落第一份——否则页面会退回列表，
+  // 用户看到的是「链接没生效」
+  if (stageOn && !selectedResume && resumes.length > 0) {
+    const fallback = resumes.find((r: any) => r.resumeScore == null) ?? resumes[0];
+    if (fallback) setTimeout(() => setSelectedResume(fallback), 0);
+  }
+
+  if (stageOn && selectedResume) {
+    return (
+      <ScoringStage
+        resumes={resumes}
+        initialResumeId={Number(selectedResume.resumeId)}
+        myUserId={myUserId}
+        onExit={closeStage}
+        onScored={handleScored}
+      />
+    );
+  }
+
   return (
     <div className="resume-page">
       {selectedResume ? (
@@ -164,9 +211,11 @@ const Resume: React.FC = () => {
               : null
           }
           onNext={nextSequential ? handleNextSequential : undefined}
+          onEnterStage={() => openStage(selectedResume)}
         />
       ) : (
         <ResumeList
+          onEnterStage={(r: ResumeItem) => openStage(r)}
           onShowDetail={handleShowDetail}
           onDownload={handleDownload}
           currentPage={currentPage}

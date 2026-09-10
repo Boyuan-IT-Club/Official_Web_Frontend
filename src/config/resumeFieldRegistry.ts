@@ -149,3 +149,24 @@ export function groupByCategory<T extends { fieldKey?: string; sortOrder?: numbe
       fields: list,
     }));
 }
+
+/**
+ * 这个字段会不会出现在投递表单里。
+ *
+ * 三条规则，一处定义、四处消费（表单渲染、Word 导出、模板预览、模板 PDF）：
+ *   1. 管理员没停用
+ *   2. 不在废弃清单里（方案A 遗留、与别的字段重复的那几个）
+ *   3. 规范表里 inForm !== false（规范表里没有的 key 是自定义字段，保留）
+ *
+ * 之前各处各写一套，于是「个人简介」这种表单不渲染的字段照样印进了导出的
+ * Word——用户看到一个自己从没填过、也填不了的空栏，合理地问「我简历字段里
+ * 明明没有这一项」。
+ */
+export function isFormField(fieldKey: string, isActive: boolean, deprecatedKeys: readonly string[]): boolean {
+  if (!isActive) return false;
+  // 没有 key 的字段查不到规范表，只能当自定义字段留着——它的标签才是给人看的东西
+  if (!fieldKey) return true;
+  if (deprecatedKeys.includes(fieldKey)) return false;
+  const spec = specOf(fieldKey);
+  return spec ? spec.inForm : true;
+}

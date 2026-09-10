@@ -40,15 +40,24 @@ export interface ScorecardDetail {
   created_at?: string;
 }
 
-/** 手动触发单份或批量 AI 初筛。任务异步执行，结果随后写入评分卡队列。 */
-export function runResumeEvaluation(
-  cycleId: number,
-  items: { resume_id: number; user_id: number }[],
-) {
+/** 手动触发单份或批量 AI 初筛。任务异步执行，结果随后写入评分卡队列。
+ *  方案A(评审闸门1):只传 resume_id——user_id/cycle_id 由 Agent 按后端
+ *  by-resume 端点权威派生,前端不再携带归属号码,杜绝错位。 */
+export function runResumeEvaluation(cycleId: number, items: number[]) {
   return request({
     url: '/api/admin/agent/evaluation/run',
     method: 'post',
-    data: { cycle_id: cycleId, items },
+    data: { cycle_id: cycleId, items: items.map((resume_id) => ({ resume_id })) },
+  });
+}
+
+
+/** job 执行面列表(轮询初筛进度,闸门4)。status: pending/running/succeeded/failed */
+export function listEvaluationJobs(cycleId: number, status?: string) {
+  return request({
+    url: '/api/admin/agent/evaluation/jobs',
+    method: 'get',
+    params: { cycleId, status },
   });
 }
 

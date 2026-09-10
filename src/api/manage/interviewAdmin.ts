@@ -175,7 +175,18 @@ export interface ScheduleRosterItem {
   location?: string | null;
   firstDeptName?: string | null;
   secondDeptName?: string | null;
-  /** 1 = 面试安排通知已发出 */
+  /**
+   * 三类面试通知各自发到没发到（后端查通知日志得出）。
+   *
+   * 别再用 notifStatus 判断：那个字段只在发「面试安排通知」时置 1，
+   * 别的通知发出去它一动不动，列名叫「通知」却只代表一类。
+   */
+  notifiedArranged?: boolean;
+  notifiedEve?: boolean;
+  notifiedDay?: boolean;
+  /** 简历状态；5 = 未通过初筛，这类人不该还占着场次 */
+  resumeStatus?: number | null;
+  /** @deprecated 只反映「面试安排通知」，展示一律用 notifiedArranged */
   notifStatus?: number | null;
   syncStatus?: number | null;
   /** 1 = 时间被管理员手动调整过，自动分配/换场不会再覆盖 */
@@ -473,5 +484,14 @@ export function sendScheduleNotices(
     url: '/api/interview/notifications/send',
     method: 'post',
     data: { cycleId, type, scheduleIds },
+  });
+}
+
+/** 取消若干条面试安排：置为已取消、清空时间、归还场次名额 */
+export function cancelSchedules(cycleId: number, scheduleIds: number[]) {
+  return request({
+    url: `/api/interview/admin/cycles/${cycleId}/schedules/cancel`,
+    method: 'post',
+    data: { scheduleIds },
   });
 }

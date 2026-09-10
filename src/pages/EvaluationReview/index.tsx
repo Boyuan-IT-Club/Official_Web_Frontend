@@ -83,13 +83,10 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
 
   const startRescoring = () => {
     if (selectedRows.length === 0 || cycleId === null) return;
-    // 同一简历多版本去重(每 resume 一票)
-    const byResume = new Map<number, ScorecardRow>();
-    for (const r of selectedRows) if (!byResume.has(r.resume_id)) byResume.set(r.resume_id, r);
-    const items = [...byResume.values()].map((r) => ({
-      resume_id: r.resume_id,
-      user_id: Number(r.user_id ?? 0),
-    }));
+    // 同一简历多版本去重(每 resume 一票)。方案A(闸门1):只提交 resume_id,
+    // 归属 user_id 由 Agent 权威派生,前端不再携带(历史行 user_id 可能为空)。
+    const resumeIds = Array.from(new Set(selectedRows.map((r) => r.resume_id)));
+    const items = resumeIds;
     Modal.confirm({
       title: `对选中的 ${items.length} 份简历重新 AI 评分？`,
       content: "将生成新版评分卡与题组(旧版本保留可对比);人工评审记录不受影响。",
