@@ -38,7 +38,7 @@ import { resumeActions } from '@/store/modules/resume';
 import { getAllCycles } from '@/api/manage/cycleApis';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
-import { batchScreening, notifyScreenedOut } from '@/api/manage/resumeEntry';
+import { batchScreening } from '@/api/manage/resumeEntry';
 import ResumePhotoAvatar from '@/components/ResumePhotoAvatar';
 import './index.scss';
 
@@ -125,6 +125,15 @@ const scoreColor = (score: number): string => {
   return 'orange';
 };
 
+/**
+ * 「已提交」= 待初筛 + 通过初筛 + 未通过初筛。
+ *
+ * 默认落在这一档而不是只看「待初筛」：初筛一旦出结论，简历就从 2 变成 4/5，
+ * 在只看 2 的视图里当场消失——管理员刚标完就找不到人了，也没法回头核对
+ * 自己判过什么。草稿不在其中，它还没交上来。
+ */
+const SUBMITTED_STATUSES = '2,4,5';
+
 const ResumeList: React.FC<ResumeListProps> = ({
   onShowDetail,
   onApprove,
@@ -155,7 +164,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     searchText: '',
     searchType: 'name',
     expectedDepartment: '',
-    statusFilter: '2',
+    statusFilter: SUBMITTED_STATUSES,
     cycleId: undefined,
     sortBy: 'submitted_at',
     sortOrder: 'DESC',
@@ -167,14 +176,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [expectedDepartment, setExpectedDepartment] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('submitted_at');
   const [sortOrder, setSortOrder] = useState<string>('DESC');
-  const [statusFilter, setStatusFilter] = useState<string>('2');
+  const [statusFilter, setStatusFilter] = useState<string>(SUBMITTED_STATUSES);
   // 批量初筛：勾选后统一标通过/未通过、给未通过的发通知。
   // 卡片式列表没有 Table 的 rowSelection，用卡片左上角的勾选框自己管一份 id 集合。
   const [picked, setPicked] = useState<number[]>([]);
   const [screening, setScreening] = useState(false);
-  const [notifyOpen, setNotifyOpen] = useState(false);
-  const [notifyMsg, setNotifyMsg] = useState('');
-  const [notifying, setNotifying] = useState(false);
 
   // 本页简历 id，供「全选本页」用
   const pageResumeIds: number[] = (resumes ?? []).map((r: any) => Number(r.resumeId));
@@ -198,23 +204,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
     }
   };
 
-  const doNotify = async () => {
-    setNotifying(true);
-    try {
-      const res: any = await notifyScreenedOut(picked, notifyMsg.trim() || undefined);
-      const queued = res?.data?.queued ?? 0;
-      const skipped = res?.data?.skipped?.length ?? 0;
-      message.success(`已发送 ${queued} 封落选通知`
-        + (skipped > 0 ? `，跳过 ${skipped} 份（状态不是未通过初筛）` : ''));
-      setNotifyOpen(false);
-      setNotifyMsg('');
-      setPicked([]);
-    } catch (e: any) {
-      message.error(e?.message || '发送失败');
-    } finally {
-      setNotifying(false);
-    }
-  };
   // 招募周期筛选：后端 /api/resumes/search 早就支持 cycleId 参数，只是前端一直没传，
   // 于是列表把历届简历混在一起显示
   const [cycleId, setCycleId] = useState<number | undefined>();
@@ -515,11 +504,12 @@ const ResumeList: React.FC<ResumeListProps> = ({
               onChange={setStatusFilter}
               allowClear
             >
-              <Option value="1,2,4,5">全部</Option>
-              <Option value="2">待初筛（已提交）</Option>
+              <Option value={SUBMITTED_STATUSES}>已提交（全部）</Option>
+              <Option value="2">待初筛</Option>
               <Option value="4">通过初筛</Option>
               <Option value="5">未通过初筛</Option>
-              <Option value="1">草稿</Option>
+              <Option value="1">草稿（未提交）</Option>
+              <Option value="1,2,4,5">含草稿的全部</Option>
             </Select>
           </div>
 
@@ -536,11 +526,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
       </div>
 
       {/*
-        批量初筛条：常驻显示。
-        原先做成「勾选后才浮出」，结果没人知道这里能发落选通知——
+        批量初筛条：常驻显示。原先做成「勾选后才浮出」，结果没人知道这里能操作——
         功能藏在一个需要先猜到的前置操作后面等于不存在（用户实测反馈）。
         现在按钮一直在，未勾选时禁用并直接写清该怎么用。
-        初筛决定谁能进面试，与「面试管理 → 结果与通知」的录取决定是两回事。
+
+        这里只管「判」不管「发」：落选通知统一在「面试管理 → 通知」里发。
+        两处都能发的时候，管理员在这边发一批、那边看到的却是另一套统计，
+        没人说得清到底通知过谁。初筛决定谁能进面试，与录取决定也是两回事。
       */}
       <div className="screening-bar">
           <Space wrap>
@@ -577,43 +569,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 标为未通过初筛
               </Button>
             </Popconfirm>
-            <Tooltip title="只发给状态已是「未通过初筛」的简历，其余自动跳过">
-              <Button
-                disabled={picked.length === 0}
-                onClick={() => { setNotifyMsg(''); setNotifyOpen(true); }}
-              >
-                发送落选通知
-              </Button>
-            </Tooltip>
             {picked.length > 0 && (
               <Button type="text" onClick={() => setPicked([])}>取消选择</Button>
             )}
           </Space>
       </div>
-
-      <Modal
-        title={`发送落选通知（已选 ${picked.length} 份）`}
-        open={notifyOpen}
-        onOk={doNotify}
-        okText="确认发送"
-        confirmLoading={notifying}
-        onCancel={() => setNotifyOpen(false)}
-        destroyOnClose
-      >
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 12 }}
-          message="只会发给状态确为「未通过初筛」的简历，其余自动跳过。邮件说明未进入面试环节、本届流程结束，不含任何面试相关措辞。"
-        />
-        <Input.TextArea
-          rows={3}
-          maxLength={500}
-          value={notifyMsg}
-          onChange={(e) => setNotifyMsg(e.target.value)}
-          placeholder="补充说明（可选）——会附在模板正文之后，不会替换原文"
-        />
-      </Modal>
 
       <div className="list-header">
         <Title level={4}>简历管理</Title>
