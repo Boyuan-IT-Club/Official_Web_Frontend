@@ -174,6 +174,18 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
   const [savedScore, setSavedScore] = useState<number | undefined>(initialMyScore);
   const [scoreSaving, setScoreSaving] = useState(false);
 
+  // 「下一位」跳转不重挂载本组件，打分状态必须跟着简历重置——
+  // 否则上一位的分数残留在输入框，一点保存就把别人的分写给了这一位。
+  React.useEffect(() => {
+    const freshEntries: ScoreEntry[] = (resume as any)?.scoreEntries ?? [];
+    const mine = myScoreOf(freshEntries, myUserId);
+    setEntries(freshEntries);
+    setAvgScore((resume as any)?.resumeScore ?? undefined);
+    setScore(mine);
+    setSavedScore(mine);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resume?.resumeId, myUserId]);
+
   // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
   // hook 内部两种都解析成可渲染的 URL。hook 必须在下面的 early return 之前调用
   const photoValue = resume ? getFieldValueFromResume(resume, '个人照片') : '';
