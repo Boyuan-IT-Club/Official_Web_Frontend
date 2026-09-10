@@ -43,6 +43,14 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
           min-width: 140px; // 可以根据需要调整最小宽度
         }
 
+        // 志愿位次：跟在部门下拉后面的附属项，窄一档且不跟着拉伸，
+        // 免得两个等宽下拉并排看着像两个平级条件
+        &.choice-rank-select {
+          flex: 0 0 auto;
+          min-width: 108px;
+          max-width: 120px;
+        }
+
         // "开始审核"按钮不伸缩
         &.start-review-button {
           flex: 0 0 auto;

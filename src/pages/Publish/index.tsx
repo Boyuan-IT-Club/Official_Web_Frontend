@@ -39,7 +39,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { compressImage } from '@/utils/imageCompress';
 import { dataUrlToBlob, resolveResumePhotoDataUrl, uploadResumePhoto } from '@/api/resumePhoto';
 import DataDrivenFields, { RenderableField } from './components/DataDrivenFields';
-import { specOf, RESUME_FIELDS } from '@/config/resumeFieldRegistry';
+import { specOf, RESUME_FIELDS, isFormField } from '@/config/resumeFieldRegistry';
 import { loadResumeBundle } from './loadResumeBundle';
 import {
   CyclePhase, resolveCyclePhase, isCycleWritable, resolveActiveCycleId, resolvePublishEmptyState,
@@ -1260,7 +1260,10 @@ const Publish: React.FC = () => {
       const cf = configFieldMap.get(key);
       const label = cf?.label || def.fieldLabel || def.field_label;
       if (label) labelOf[key] = String(label);
-      enabledOf[key] = isFieldEnabled(key);
+      // 导出必须和表单一致：不光看有没有停用，还要看它在不在表单里渲染。
+      // 只看 isFieldEnabled 的话，「个人简介」这种表单不显示的字段会被印进
+      // 导出的 Word，学生看到一个自己填不了的空栏。
+      enabledOf[key] = isFormField(key, isFieldEnabled(key), DEPRECATED_RESUME_FIELD_KEYS);
     });
     return { labelOf, enabledOf };
   }, [fieldDefinitions, configFieldMap, isFieldEnabled]);
