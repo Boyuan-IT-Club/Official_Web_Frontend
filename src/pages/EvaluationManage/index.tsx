@@ -18,7 +18,7 @@ import {
 import type { TableProps } from 'antd';
 import { SearchOutlined, GithubOutlined, TrophyOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getCandidates, getSubmissions, getSubmissionDetail, claimSubmission } from '@/api/manage/evaluationAdmin';
+import { getCandidates, getSubmissions, claimSubmission } from '@/api/manage/evaluationAdmin';
 import type { CandidateRow, Submission, Page } from '@/api/manage/evaluationAdmin';
 import ReportDetail from '@/components/ReportDetail';
 import { getAllCycles } from '@/api/manage/cycleApis';

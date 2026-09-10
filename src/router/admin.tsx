@@ -19,6 +19,10 @@ const EvaluationBoard = lazy(() => import("@/pages/EvaluationBoard"));
 const EvaluationWorkspace = lazy(() => import("@/pages/EvaluationWorkspace"));
 const ActivityManage = lazy(() => import("@/pages/ActivityManage"));
 const EvaluationManage = lazy(() => import("@/pages/EvaluationManage"));
+// 客服 Agent 管理(M6 #115, agent:monitor; 三块合并为单页内 Tabs)
+const AgentAdmin = lazy(() => import("@/pages/AgentAdmin"));
+// 简历评估评审队列(B 模块 #135, resume:audit; AI 参考分复核)
+const EvaluationReview = lazy(() => import("@/pages/EvaluationReview"));
 
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}><Spin size="large" /></div>}>
@@ -75,6 +79,14 @@ const router = createBrowserRouter([
       {
         path: "evaluations",
         element: <LazyLoad><EvaluationManage /></LazyLoad>,
+      },
+      {
+        path: "agent-admin",
+        element: <LazyLoad><AgentAdmin /></LazyLoad>,
+      },
+      {
+        path: "evaluation-review",
+        element: <LazyLoad><EvaluationReview /></LazyLoad>,
       },
     ],
   },

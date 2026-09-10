@@ -1,13 +1,12 @@
 // src/pages/Management/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PageHint from '@/components/PageHint';
-import { Row, Col, Card, Tabs, Modal, message, Drawer, Descriptions, Tag, Avatar, Alert, Segmented } from 'antd';
+import { Row, Col, Card, Tabs, message, Drawer, Descriptions, Tag, Avatar, Segmented, Typography } from 'antd';
 import {
   TeamOutlined,
   LockOutlined,
   CheckOutlined,
   AppstoreOutlined,
-  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 
 import StatsCard from './components/StatsCard';
@@ -22,15 +21,11 @@ import {
   getAllUsers,
   getUserStats,
   getActiveRoles,
-  batchAdmitAsMember,
   exportUsersExcel,
 } from '@/api/manage/userApis';
 
-import { getToken, hasEffectiveJwtRoles } from '@/utils';
+import { getToken } from '@/utils';
 import { hasPermission, hasAnyPermission } from '@/utils/jwt';
-
-
-const { confirm } = Modal;
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
@@ -230,37 +225,6 @@ const Management: React.FC = () => {
     setPage(newPage);
   };
 
-  // ── 批量录取为社员 ────────────────────────────────────────────────────────
-  const handleBatchAdmit = () => {
-    const targets = selectedRows.filter((u) => !u.isMember);
-    if (targets.length === 0) {
-      message.warning('所选用户均已是社员，无需重复操作');
-      return;
-    }
-    confirm({
-      title: '确认批量录取为社员？',
-      icon: <ExclamationCircleOutlined />,
-      content: (
-        <span>
-          将 <b>{targets.length}</b> 名用户录取为社员，此操作不可撤销，是否继续？
-        </span>
-      ),
-      okText: '确认录取',
-      cancelText: '取消',
-      async onOk() {
-        try {
-          await batchAdmitAsMember(true, targets.map((u) => u.userId));
-          message.success(`成功录取 ${targets.length} 名社员`);
-          setSelectedRows([]);
-          fetchUsers(page, pageSize, debouncedSearch, selectedStatus, selectedRole, debouncedDept, selectedGroup);
-        } catch (e) {
-          console.error(e);
-          message.error('批量录取失败，请稍后重试');
-        }
-      },
-    });
-  };
-
   // ── 查看详情 ──────────────────────────────────────────────────────────────
   const [viewUser, setViewUser] = useState<User | null>(null);
   const handleViewUser = (user: User) => setViewUser(user);
@@ -310,7 +274,7 @@ const Management: React.FC = () => {
           onChange={setActiveTab}
           tabBarExtraContent={{
             right: (
-              <a
+              <Typography.Link
                 onClick={async (e) => {
                   e.preventDefault();
                   try {
@@ -330,7 +294,7 @@ const Management: React.FC = () => {
                 }}
               >
                 导出用户 Excel
-              </a>
+              </Typography.Link>
             ),
           }}
           items={[

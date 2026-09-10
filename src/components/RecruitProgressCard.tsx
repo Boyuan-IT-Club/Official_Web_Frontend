@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Steps, Button, Spin, Typography, Space, Tag } from 'antd';
+import { Card, Steps, Button, Spin, Typography, Space } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getMyPreference, getMySchedule, getMyResult, MySchedule, MyResult } from '@/api/interviewPreference';

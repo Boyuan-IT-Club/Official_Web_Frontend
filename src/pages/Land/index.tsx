@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { LogIn, Users, Rocket, Trophy, Globe } from 'lucide-react';
+import { Users, Rocket, Trophy, Globe } from 'lucide-react';
 import './index.scss';
 import { useNavigate } from 'react-router-dom';
 import singleLogo from '../../assets/SingleLogo.png';
 
 // 离开首页前记住滚动位置，返回首页时恢复到原浏览位置
 const SCROLL_STORAGE_KEY = 'land:scrollY';
+
+const navItems = [
+  { id: 'intro', label: '关于我们' },
+  { id: 'recruit', label: '活动分享' },
+  { id: 'resume', label: '优秀学长' },
+  { id: 'share', label: '技术分享' },
+];
 
 const Land: React.FC = () => {
   const [activeTab, setActiveTab] = useState('intro');
@@ -22,13 +29,6 @@ const Land: React.FC = () => {
       sessionStorage.setItem(SCROLL_STORAGE_KEY, String(window.scrollY));
     };
   }, []);
-
-  const navItems = [
-    { id: 'intro', label: '关于我们' },
-    { id: 'recruit', label: '活动分享' },
-    { id: 'resume', label: '优秀学长' },
-    { id: 'share', label: '技术分享' },
-  ];
 
   const scrollToSection = (id: string) => {
     const section = document.getElementById(id);

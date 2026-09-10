@@ -17,7 +17,7 @@ import {
   ScheduleOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { fetchUserInfo, logout } from "@/store/modules/user";
 import { useSkin } from "@/theme/SkinProvider";
 import { BgColorsOutlined, CheckOutlined } from "@ant-design/icons";
@@ -88,7 +88,7 @@ const MainLayout = () => {
   useEffect(() => {
     if (userInfo?.role) return;
     dispatch(fetchUserInfo());
-  }, [dispatch]);
+  }, [dispatch, userInfo?.role]);
 
   // 新用户首次进来自动弹使用说明；顶栏「使用指引」可随时重看
   const tour = useOnboardingTour({

@@ -1,6 +1,6 @@
 // src/pages/RoleManagePage.tsx
 // NOTE 角色权限管理板块
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   Card,
