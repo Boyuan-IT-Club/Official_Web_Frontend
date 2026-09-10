@@ -8,6 +8,7 @@ import {
   Radio,
   Space,
   Table,
+  Tabs,
   Tag,
   Typography,
   message,
@@ -382,73 +383,150 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
     >
       {(() => {
         if (!qbank) return <Empty description="加载中…" />;
-        const groups: { group: string; mode?: string; questions: any[] }[] =
-          qbank.envelope?.groups ?? [];
-        const all: { group: string; q: any }[] = [];
-        // #153:v2 组题目在 qbank_v2.group 内,API 已给扁平 pickable——优先用
-        for (const p of qbank.pickable ?? []) {
-          all.push({
-            group: p.group_kind,
-            q: {
-              anchor: p.role === "entry" ? p.category : `${p.role}·${p.category}`,
-              question: p.question,
-              evidence: { path: p.evidence_path ?? "" },
-              time_minutes: p.time_minutes ?? 3,
-            },
-          });
-        }
-        if (!all.length) {
-          for (const g of groups) {
-            for (const q of g.questions ?? []) all.push({ group: g.group, q });
-          }
-        }
-        if (!all.length) {
-          const skipped = groups.some((g) => g.mode === "skipped");
-          return (
-            <Empty
-              description={
-                skipped
-                  ? "该候选项目维证据不足,已跳过深挖(其余维度见评分卡)"
-                  : "暂无预置题(或该维被跳过)"
-              }
-            />
-          );
-        }
+        const groups: any[] = qbank.envelope?.groups ?? [];
+        // #153/#用户反馈:按组 Tab 渲染——repo 组(v2 嵌套)每个仓一个 Tab,
+        // 旧形状组(评测/奖项/兜底)各一个 Tab
         const GROUP_LABEL: Record<string, string> = {
-          repo: "仓深挖",
+          repo: "仓库深挖",
           autograding: "评测错因",
           awards: "奖项追问",
           base_and_skills: "基础三维与技能题",
         };
-        return all.map(({ group, q }, i) => (
-          <div
-            key={i}
-            style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: 12, marginBottom: 8 }}
-          >
-            <Space style={{ marginBottom: 4 }}>
-              <Tag color="purple">{GROUP_LABEL[group] ?? group}</Tag>
-              <Tag>{q.anchor}</Tag>
-              {q.evidence?.path ? <Tag>{q.evidence.path}</Tag> : null}
-              <Text type="secondary">{q.time_minutes ?? 3} 分钟</Text>
-            </Space>
-            <Paragraph strong style={{ marginBottom: 4 }}>
-              {q.question}
-            </Paragraph>
-            {q.answer_reference ? (
-              <Paragraph type="secondary" style={{ marginBottom: 4 }}>
-                好答:{q.answer_reference.strong} / 达标:{q.answer_reference.acceptable} / 弱:
-                {q.answer_reference.weak}
-              </Paragraph>
-            ) : null}
-            <Button
-              size="small"
-              icon={<CheckOutlined />}
-              onClick={() => doPick(detailResume ?? 0, q)}
-            >
-              勾选此题
-            </Button>
-          </div>
-        ));
+        const ATTR_COLOR: Record<string, string> = {
+          "trusted-own": "green",
+          "trusted-contribution": "cyan",
+          claimed: "orange",
+          unverified: "red",
+          none: "default",
+        };
+        const tabs = groups.map((g: any, gi: number) => {
+          const kind = String(g.group ?? "");
+          const v2 = g.qbank_v2;
+          const inner = v2?.group ?? null;
+          const qs: any[] = [];
+          if (inner) {
+            if (inner.entry)
+              qs.push({
+                tag: `入口·${(inner.entry.category ?? "").replace(/^C\d+_/, "")}`,
+                question: inner.entry.question,
+                path: inner.entry.evidence?.path ?? "",
+                minutes: inner.entry.time_minutes ?? 3,
+                reference: inner.entry.answer_reference ?? null,
+              });
+            for (const [ci, chain] of (inner.chains ?? []).entries())
+              for (const [li, layer] of (chain.layers ?? []).entries())
+                qs.push({
+                  tag: `链${ci + 1}·L${li + 1}·${(chain.category ?? "").replace(/^C\d+_/, "")}`,
+                  question: layer.question,
+                  path: chain.theme ?? "",
+                  minutes: null,
+                  reference: null,
+                  signal: layer.expected_signal ?? "",
+                });
+            for (const r of inner.reserves ?? [])
+              qs.push({
+                tag: `备选·${(r.category ?? "").replace(/^C\d+_/, "")}`,
+                question: r.question,
+                path: r.evidence?.path ?? "",
+                minutes: r.time_minutes ?? 3,
+                reference: r.answer_reference ?? null,
+              });
+          } else {
+            for (const q of g.questions ?? [])
+              qs.push({
+                tag: q.anchor ?? "",
+                question: q.question,
+                path: q.evidence?.path ?? "",
+                minutes: q.time_minutes ?? 3,
+                reference: q.answer_reference ?? null,
+              });
+          }
+          const attr = inner ? (v2.attribution ?? "none") : null;
+          const labelBits: string[] = [];
+          if (kind === "repo") {
+            labelBits.push(g.repo || g.owner || GROUP_LABEL[kind] || "仓库深挖");
+          } else {
+            labelBits.push(GROUP_LABEL[kind] ?? kind);
+          }
+          if (v2?.degraded) labelBits.push("降级");
+          return {
+            key: String(gi),
+            label: (
+              <span>
+                {labelBits.join(" · ")}
+                {attr ? (
+                  <Tag color={ATTR_COLOR[attr] ?? "default"} style={{ marginLeft: 6, marginRight: 0 }}>
+                    {attr}
+                  </Tag>
+                ) : null}
+              </span>
+            ),
+            questions: qs,
+            repoSummary: inner ? v2.repo_summary ?? "" : g.repo_summary ?? "",
+            theme: inner ? "repo" : kind,
+          };
+        });
+        const totalQs = tabs.reduce((n, t) => n + t.questions.length, 0);
+        if (!totalQs) {
+          const skipped = groups.some((g: any) => g.mode === "skipped");
+          return (
+            <Empty
+              description={skipped ? "该候选项目维证据不足,已跳过深挖(其余维度见评分卡)" : "暂无预置题(或该维被跳过)"}
+            />
+          );
+        }
+        return (
+          <>
+            <Tabs
+              items={tabs.map((t: any) => ({
+                key: t.key,
+                label: t.label,
+                children: (
+                  <>
+                    {t.theme === "repo" && t.repoSummary ? (
+                      <Paragraph type="secondary" style={{ marginTop: 0 }}>
+                        {t.repoSummary}
+                      </Paragraph>
+                    ) : null}
+                    {t.questions.map((q: any, i: number) => (
+                      <div
+                        key={i}
+                        style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: 12, marginBottom: 8 }}
+                      >
+                        <Space style={{ marginBottom: 4 }} wrap>
+                          <Tag color="purple">{q.tag}</Tag>
+                          {q.path ? <Tag>{q.path}</Tag> : null}
+                          {q.minutes ? <Text type="secondary">{q.minutes} 分钟</Text> : null}
+                        </Space>
+                        <Paragraph strong style={{ marginBottom: 4 }}>
+                          {q.question}
+                        </Paragraph>
+                        {q.signal ? (
+                          <Paragraph type="secondary" style={{ marginBottom: 4 }}>
+                            过关信号:{q.signal}
+                          </Paragraph>
+                        ) : null}
+                        {q.reference ? (
+                          <Paragraph type="secondary" style={{ marginBottom: 4 }}>
+                            好答:{q.reference.strong} / 达标:{q.reference.acceptable} / 弱:
+                            {q.reference.weak}
+                          </Paragraph>
+                        ) : null}
+                        <Button
+                          size="small"
+                          icon={<CheckOutlined />}
+                          onClick={() => doPick(detailResume ?? 0, q)}
+                        >
+                          勾选此题
+                        </Button>
+                      </div>
+                    ))}
+                  </>
+                ),
+              }))}
+            />
+          </>
+        );
       })()}
     </Drawer>
   );
