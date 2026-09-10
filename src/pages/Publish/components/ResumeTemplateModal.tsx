@@ -7,8 +7,10 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Button, Empty, Modal, Space, Spin, Tag, message } from 'antd';
 import { FileWordOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { getResumeFields } from '@/api/resume';
+import { request } from '@/utils';
+import { exportResumeAsDOCX } from '@/utils/exportResume';
 import {
-  TemplateField, downloadTemplateWord, fieldTypeHint, normalizeTemplateFields, printTemplateAsPdf,
+  TemplateField, emptyExportData, exportMetaOf, fieldTypeHint, normalizeTemplateFields,
 } from '../resumeTemplate';
 import './resumeTemplateModal.scss';
 
@@ -23,7 +25,10 @@ const ResumeTemplateModal: React.FC<ResumeTemplateModalProps> = ({
   open, onClose, cycleId, cycleName,
 }) => {
   const [fields, setFields] = useState<TemplateField[]>([]);
+  // 原始字段定义：导出 Word 要用它推标签与启停，展示用的 fields 已经丢掉了 fieldKey 以外的东西
+  const [raw, setRaw] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const title = cycleName || '本届招新';
 
   useEffect(() => {
@@ -31,12 +36,51 @@ const ResumeTemplateModal: React.FC<ResumeTemplateModalProps> = ({
     let alive = true;
     setLoading(true);
     getResumeFields(Number(cycleId))
-      .then((res: any) => { if (alive) setFields(normalizeTemplateFields(res?.data)); })
+      .then((res: any) => {
+        if (!alive) return;
+        setRaw(res?.data ?? []);
+        setFields(normalizeTemplateFields(res?.data));
+      })
       .catch((e: any) => { if (alive) message.error(e?.message || '模板加载失败'); })
       .finally(() => { if (alive) setLoading(false); });
     // eslint-disable-next-line consistent-return
     return () => { alive = false; };
   }, [open, cycleId]);
+
+  const exportWord = async () => {
+    setExporting(true);
+    try {
+      await exportResumeAsDOCX(emptyExportData(), [], exportMetaOf(raw));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportPdf = async () => {
+    if (!cycleId) return;
+    setExporting(true);
+    try {
+      const res: any = await request({
+        url: `/api/resumes/fields/${cycleId}/template.pdf`,
+        method: 'get',
+        responseType: 'blob',
+      });
+      const blob: Blob = res?.data instanceof Blob ? res.data : res;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title}报名表模板.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      message.success('模板已导出');
+    } catch (e: any) {
+      message.error(e?.message || 'PDF 导出失败');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <Modal
@@ -47,16 +91,14 @@ const ResumeTemplateModal: React.FC<ResumeTemplateModalProps> = ({
       className="resume-template-modal"
       footer={(
         <Space>
-          <Button icon={<FileWordOutlined />} disabled={fields.length === 0}
-                  onClick={() => downloadTemplateWord(title, fields)}>
+          {/* Word 走简历导出那条路：同一版式，且填完能在投递页导入自动回填 */}
+          <Button icon={<FileWordOutlined />} disabled={fields.length === 0} loading={exporting}
+                  onClick={exportWord}>
             导出 Word
           </Button>
-          <Button icon={<FilePdfOutlined />} disabled={fields.length === 0}
-                  onClick={() => {
-                    if (!printTemplateAsPdf(title, fields)) {
-                      message.warning('浏览器拦截了新窗口，请允许弹窗后重试');
-                    }
-                  }}>
+          {/* PDF 由后端渲染（与简历导出同一套字体与版式） */}
+          <Button icon={<FilePdfOutlined />} disabled={fields.length === 0} loading={exporting}
+                  onClick={exportPdf}>
             导出 PDF
           </Button>
           <Button type="primary" onClick={onClose}>关闭</Button>
@@ -94,10 +136,9 @@ const ResumeTemplateModal: React.FC<ResumeTemplateModalProps> = ({
         </ol>
       )}
 
-      {/* 导出 PDF 走的是浏览器打印，说清楚免得以为按钮坏了 */}
       {fields.length > 0 && (
         <p className="tpl-foot">
-          导出 PDF 会打开打印窗口，在「目标打印机」里选「另存为 PDF」即可保存。
+          导出的 Word 就是投递页那份可回填模板：填好后等招募开放，在投递页点「导入」即可自动回填。
         </p>
       )}
     </Modal>

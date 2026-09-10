@@ -1,5 +1,5 @@
 import {
-  fieldTypeHint, normalizeTemplateFields, templateToHtml,
+  exportMetaOf, fieldTypeHint, normalizeTemplateFields,
 } from '../resumeTemplate';
 
 const RAW = [
@@ -40,13 +40,10 @@ describe('简历模板整理', () => {
     expect(fieldTypeHint('unknown', [])).toBe('单行文本');
   });
 
-  it('导出的 HTML 含标题、必填星号，且转义用户内容', () => {
-    const html = templateToHtml('2026 秋招', normalizeTemplateFields([
-      { fieldLabel: '<script>x</script>', fieldType: 'input', isRequired: true, isActive: true },
-    ]));
-    expect(html).toContain('2026 秋招 报名表');
-    expect(html).toContain('class="req"');
-    expect(html).not.toContain('<script>x</script>');
-    expect(html).toContain('&lt;script&gt;');
+  it('导出用的标签表跟着管理员配置走，停用字段标记为 false', () => {
+    const meta = exportMetaOf(RAW);
+    expect(meta.labelOf.intro).toBe('个人简介');
+    expect(meta.enabledOf.gone).toBe(false);
+    expect(meta.enabledOf.name).toBe(true);
   });
 });
