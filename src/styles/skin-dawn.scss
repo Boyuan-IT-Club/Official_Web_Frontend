@@ -199,3 +199,42 @@ html[data-skin='dawn'] {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.25; }
 }
+
+// ═══ 管理端的「晨霞」段（两端共用本文件；类名互不重叠） ═══════════
+// 管理端是长时间盯表格的工作界面，晨霞在这里收敛为三处：
+// ① 整屋浅蓝画布 + 极淡光斑；② 侧栏/顶栏淡染 L 框；
+// ③ 侧栏「管理后台」四个字的流光——全后台唯一的多彩点。
+html[data-skin='dawn'] .admin-layout {
+  background:
+    radial-gradient(560px 340px at 12% -60px, rgba(143, 108, 232, 0.05), transparent 65%),
+    radial-gradient(520px 320px at 88% -20px, rgba(240, 135, 200, 0.05), transparent 65%),
+    radial-gradient(640px 380px at 55% 240px, rgba(77, 166, 255, 0.08), transparent 60%),
+    linear-gradient(180deg, #ecf3ff 0%, #f4f8ff 420px) #f4f8ff;
+
+  .ant-layout-sider {
+    background: linear-gradient(185deg, #f7f5ff 0%, #f2f7ff 45%, #fbfdff 100%) !important;
+    border-right: 1px solid rgba(120, 140, 190, 0.14);
+  }
+
+  .admin-sider-logo .logo-text {
+    background: linear-gradient(100deg,
+      #4da6ff 0%, #8f6ce8 30%, #f087c8 50%, #8f6ce8 70%, #4da6ff 100%);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: dawn-flow 7s linear infinite;
+
+    @media (prefers-reduced-motion: reduce) { animation: none; }
+  }
+
+  .admin-header {
+    background: linear-gradient(95deg, #f7f5ff 0%, #f2f7ff 55%, #f6fbff 100%);
+    border-bottom: 1px solid rgba(120, 140, 190, 0.14);
+  }
+
+  .ant-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(80, 110, 180, 0.05);
+  }
+}

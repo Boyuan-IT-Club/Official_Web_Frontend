@@ -16,63 +16,78 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
   width: 100%;
   padding: 24px;
 
-  // 筛选控制区域
+  // 筛选控制区域。
+  //
+  // 原来每个控件都是 flex: 1 1 auto，宽度全靠内容撑：下拉框里选了长文案就变宽、
+  // 清空又缩回去，换行位置跟着乱跳，一行三个一行四个参差不齐（截图里那样）。
+  // 现在给每一项定死 flex-basis，按「主次」分配宽度，换行点就稳定了。
   .list-controls {
-    background-color: rgba(255, 255, 255, 0.7);
-    padding: 20px;
-    border-radius: 4px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    // 原来是 0 2px 8px rgba(0,0,0,.09)，在浅灰底上显得脏。
+    // 换成更轻的一层，靠边框而不是阴影划定范围
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 
-    // --- 新增：Flexbox 容器样式 ---
     .controls-flex-container {
       display: flex;
       align-items: center;
-      gap: 16px; // 设置组件间的间距
-      flex-wrap: wrap; // 允许换行
+      gap: 10px 12px;
+      flex-wrap: wrap;
 
       .control-item {
-        min-width: 120px; // 设置最小宽度
-        flex: 1 1 auto; // 可增长可收缩
+        // 默认：可伸缩，但有明确的基准宽度
+        flex: 1 1 160px;
+        min-width: 0;   // 允许收缩到内容以下，否则长选项会把整行顶爆
 
-        // 为搜索框、下拉框等输入组件设置样式
-        &.search-box,
-        &.search-type-select,
-        &.department-filter-select,
-        &.status-filter-select {
-          min-width: 140px; // 可以根据需要调整最小宽度
-        }
+        // 搜索框是主控件，给它两倍权重，换行时也最后被挤走
+        &.search-box { flex: 2 1 240px; }
 
-        // 志愿位次：跟在部门下拉后面的附属项，窄一档且不跟着拉伸，
+        // 搜索类型是搜索框的附属项：固定窄宽，别和主控件抢
+        &.search-type-select { flex: 0 0 120px; }
+
+        // 周期与状态是两个平级的主筛选，等宽
+        &.cycle-filter-select,
+        &.status-filter-select { flex: 0 0 170px; }
+
+        &.department-filter-select { flex: 0 0 150px; }
+
+        // 志愿位次：部门的附属项，窄一档且不伸缩，
         // 免得两个等宽下拉并排看着像两个平级条件
-        &.choice-rank-select {
-          flex: 0 0 auto;
-          min-width: 108px;
-          max-width: 120px;
-        }
+        &.choice-rank-select { flex: 0 0 116px; }
 
-        // "开始审核"按钮不伸缩
-        &.start-review-button {
-          flex: 0 0 auto;
-          min-width: auto;
-        }
+        &.sort-dropdown,
+        &.start-review-button { flex: 0 0 auto; }
 
-        // 结果信息占据剩余空间并允许换行
+        // 结果计数推到行尾。用 margin-left:auto 而不是 flex:1——
+        // 后者在只剩它一个时会被拉成一整行宽，文字孤零零飘在最右
         &.results-info-wrapper {
-          flex: 1 1 auto; // 可增长可收缩
-          min-width: 100px; // 设置一个合理的最小宽度
-          text-align: right; // 文字右对齐
+          flex: 0 0 auto;
+          margin-left: auto;
+          text-align: right;
 
           .results-info {
-            word-break: break-all; // 强制换行
-            white-space: normal; // 允许换行
-            font-size: 14px;
-            color: #666;
+            font-size: 13px;
+            color: rgba(0, 0, 0, 0.45);
+            white-space: nowrap;   // 「共找到 9 份简历」不该断成两行
+            font-variant-numeric: tabular-nums;
           }
         }
       }
+
+      // 控件统一高度：搜索框默认比下拉高一点，并排时基线对不齐
+      .ant-input-affix-wrapper,
+      .ant-select .ant-select-selector,
+      .ant-btn {
+        height: 34px;
+        border-radius: 8px;
+      }
+
+      .ant-select .ant-select-selector { display: flex; align-items: center; }
+      .ant-input-affix-wrapper .ant-input { height: auto; }
     }
-    // --- ---
   }
 
   .list-header {
