@@ -118,3 +118,36 @@ describe('招募周期预告', () => {
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 });
+
+jest.mock('../../../../api/resume', () => ({ getResumeFields: jest.fn() }));
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const resumeApi = require('../../../../api/resume');
+
+describe('未开始时的简历模板入口', () => {
+  it('表单已配好才出现入口，点开列出字段且只读', async () => {
+    resumeApi.getResumeFields.mockResolvedValue({
+      data: [
+        { fieldId: 1, fieldLabel: '姓名', fieldType: 'input', isRequired: true, sortOrder: 0, isActive: true },
+        { fieldId: 2, fieldLabel: '个人简介', fieldType: 'textarea', sortOrder: 1, isActive: true },
+      ],
+    });
+    render(<CycleUpcomingNotice cycleName="2026 春季招新" fieldCount={2} currentCycleId={7} today={TODAY} />);
+
+    const entry = screen.getByText('先看看要填哪些内容');
+    fireEvent.click(entry);
+
+    expect(await screen.findByText('姓名')).toBeInTheDocument();
+    expect(screen.getByText('个人简介')).toBeInTheDocument();
+    expect(screen.getByText('这里只能看，不能填')).toBeInTheDocument();
+    expect(screen.getByText('导出 Word')).toBeInTheDocument();
+    expect(screen.getByText('导出 PDF')).toBeInTheDocument();
+    // 只读：整个弹窗里没有任何可输入控件
+    expect(document.querySelectorAll('.resume-template-modal input, .resume-template-modal textarea').length).toBe(0);
+  });
+
+  it('表单还没配（字段数为 0）时不给入口，只说准备中', () => {
+    render(<CycleUpcomingNotice cycleName="下一届" fieldCount={0} today={TODAY} />);
+    expect(screen.getByText('报名表单还在准备中，开放时即可填写。')).toBeInTheDocument();
+    expect(screen.queryByText('先看看要填哪些内容')).not.toBeInTheDocument();
+  });
+});

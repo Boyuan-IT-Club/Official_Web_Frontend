@@ -6,10 +6,11 @@
 // 这一屏只有一件事要说清楚：还没开始，什么时候开始。
 // 所以倒计时是主角，其余信息都退到它后面。
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from 'antd';
 import { ArrowLeftOutlined, CalendarOutlined } from '@ant-design/icons';
 import { daysUntil } from '../cyclePhase';
+import ResumeTemplateModal from './ResumeTemplateModal';
 import './cycleUpcoming.scss';
 
 export interface CycleUpcomingNoticeProps {
@@ -47,6 +48,7 @@ const CycleUpcomingNotice: React.FC<CycleUpcomingNoticeProps> = ({
 }) => {
   const days = daysUntil(startDate, today ?? new Date());
   const others = siblings ?? [];
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   return (
     <div className="cycle-upcoming">
@@ -82,6 +84,20 @@ const CycleUpcomingNotice: React.FC<CycleUpcomingNoticeProps> = ({
           <p className="cycle-upcoming__hint">报名表单还在准备中，开放时即可填写。</p>
         )}
 
+        {/*
+          表单已经配好了就让人先看看要填什么。个人简介、项目经验这类题
+          现场憋很吃亏，提前知道题目才准备得来；模板只读，导出后线下写草稿。
+        */}
+        {typeof fieldCount === 'number' && fieldCount > 0 && (
+          <p className="cycle-upcoming__hint">
+            报名表单已经配好了，共 {fieldCount} 项。
+            <button type="button" className="cycle-upcoming__link"
+                    onClick={() => setTemplateOpen(true)}>
+              先看看要填哪些内容
+            </button>
+          </p>
+        )}
+
         {others.length > 1 && (
           <div className="cycle-upcoming__tabs" role="tablist">
             {others.map((c) => {
@@ -108,6 +124,13 @@ const CycleUpcomingNotice: React.FC<CycleUpcomingNoticeProps> = ({
           </Button>
         )}
       </div>
+
+      <ResumeTemplateModal
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        cycleId={currentCycleId}
+        cycleName={cycleName}
+      />
     </div>
   );
 };
