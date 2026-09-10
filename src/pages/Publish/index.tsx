@@ -307,8 +307,11 @@ const Publish: React.FC = () => {
     }
   });
 
-  // 首次弹出后立刻记账，不等用户点关闭 —— 他可能直接刷新或返回，
-  // 那时不该再弹一次
+  // 首次弹出后立刻记账，不等用户点关闭 —— 他可能直接刷新或返回，那时不该再弹一次。
+  //
+  // 依赖必须是 tipsOpen：曾经写成空数组（只在挂载时跑一次），而挂载那一刻
+  // 弹窗还没真正呈现，标记就已经落盘 —— 结果是「第一次进来也不弹」，
+  // 提示等于废掉。以 tipsOpen 为依赖，只有真的弹出来了才记账。
   useEffect(() => {
     if (!tipsOpen) return;
     try {
@@ -316,8 +319,7 @@ const Publish: React.FC = () => {
     } catch {
       /* 存不了就只在本次会话内不再自动弹 */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tipsOpen]);
   const [techStackItems, setTechStackItems] = useState<string[]>(['']);
   const [departments, setDepartments] = useState<DepartmentsState>({ first: '', second: '' });
   const [interviewTimes, setInterviewTimes] = useState<InterviewTimesState>({

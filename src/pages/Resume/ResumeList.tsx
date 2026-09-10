@@ -20,7 +20,7 @@ import {
   Popconfirm
 } from 'antd';
 import type { MenuProps } from 'antd';
-import {
+import { ThunderboltOutlined,
   CalendarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -80,6 +80,8 @@ type RootStateLike = {
 
 type ResumeListProps = {
   onShowDetail?: (resume: Resume, currentPage?: number) => void;
+  /** 进入沉浸式打分舞台（从这一份开始批改，队列即当前筛选结果） */
+  onEnterStage?: (resume: Resume) => void;
   onApprove?: (resumeId: string | number) => void;
   onReject?: (resumeId: string | number) => void;
   onDownload?: (resumeId: string | number) => void;
@@ -136,6 +138,7 @@ const SUBMITTED_STATUSES = '2,4,5';
 
 const ResumeList: React.FC<ResumeListProps> = ({
   onShowDetail,
+  onEnterStage,
   onApprove,
   onReject,
   onDownload,
@@ -491,6 +494,24 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 label: `${c.cycleName}${c.isActive === 1 ? '（进行中）' : ''}`,
               }))}
             />
+          </div>
+
+          <div className="control-item">
+            {onEnterStage && (
+              <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                disabled={(resumes ?? []).length === 0}
+                onClick={() => {
+                  // 从第一位未打分的开始；都打完了就从第一份开始复查
+                  const list: any[] = resumes ?? [];
+                  const target = list.find((r) => r.resumeScore == null) ?? list[0];
+                  if (target) onEnterStage(target);
+                }}
+              >
+                打分舞台
+              </Button>
+            )}
           </div>
 
           <div className="control-item department-filter-select">

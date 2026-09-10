@@ -21,7 +21,7 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
-  DownloadOutlined,
+  DownloadOutlined, ThunderboltOutlined,
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 
@@ -157,10 +157,12 @@ type ResumeDetailProps = {
   /** 顺序里的下一位（含已打分），复查时用 */
   nextName?: string | null;
   onNext?: () => void;
+  /** 进入沉浸式打分舞台；不传则不显示该入口（舞台内部复用本组件时即不传） */
+  onEnterStage?: () => void;
 };
 
 // --- 主要组件 ---
-const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext }) => {
+const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext, onEnterStage }) => {
   const dispatch = useDispatch<any>();
 
   // 多人打分：resumeScore 是平均分，输入框编辑的是「我这一票」。
@@ -249,6 +251,11 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, onBack, onApprove, 
           {backText || '返回列表'}
         </Button>
         <Space>
+          {onEnterStage && (
+            <Button type="primary" icon={<ThunderboltOutlined />} onClick={onEnterStage}>
+              打分舞台
+            </Button>
+          )}
           <Button type="default" icon={<DownloadOutlined />} onClick={() => onDownload?.(resume.resumeId)}>
             下载 PDF
           </Button>
