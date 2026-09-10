@@ -240,7 +240,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
   // 初筛失败的简历 → 错误文案(闸门4:失败可观测 + 重新评分入口)
   const [failedScreening, setFailedScreening] = useState<Record<string, string>>({});
-  const [rescoring, setRescoring] = useState(false);
 
   // 使用从父组件传递的 currentPage 作为初始值
   const [localCurrentPage, setLocalCurrentPage] = useState<number>(currentPage || 1);
