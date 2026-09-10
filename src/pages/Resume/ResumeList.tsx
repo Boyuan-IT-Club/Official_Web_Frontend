@@ -238,6 +238,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [aiFilter, setAiFilter] = useState<'all' | 'pending' | 'passed' | 'review'>('all');
   const [scorecards, setScorecards] = useState<Record<string, ScorecardRow>>({});
   const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
+  // 初筛失败的简历 → 错误文案(闸门4:失败可观测 + 重新评分入口)
+  const [failedScreening, setFailedScreening] = useState<Record<string, string>>({});
   const [rescoring, setRescoring] = useState(false);
 
   // 使用从父组件传递的 currentPage 作为初始值
@@ -373,8 +375,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
   }, [cycleId, canUseAiScreening]);
 
   // 闸门4:初筛中简历的轮询——有 screeningIds 时,每 5s 查一次 job 执行面,
-  // 全部终态(succeeded/failed)后清除本地"初筛中"乐观标记并刷新列表,
-  // 避免页面永久显示"AI 初筛中"。
+  // 全部终态后清除本地"初筛中"乐观标记并刷新列表,避免页面永久显示"AI 初筛中"。
+  // 失败 job 记入 failedScreening,卡片展示错误与"重新评分"入口。
   useEffect(() => {
     if (!cycleId || screeningIds.length === 0 || !canUseAiScreening) return;
     let cancelled = false;
@@ -383,13 +385,26 @@ const ResumeList: React.FC<ResumeListProps> = ({
         const res: any = await listEvaluationJobs(cycleId);
         const jobs: any[] = res?.data?.items ?? [];
         const terminal = new Set<string>();
+        const failed: React.Key[] = [];
+        let lastError = '';
         for (const j of jobs) {
           if (j.status === 'succeeded' || j.status === 'failed') {
             terminal.add(String(j.resume_id));
+            if (j.status === 'failed') {
+              failed.push(String(j.resume_id));
+              lastError = j.error || '';
+            }
           }
         }
         if (cancelled) return;
         setScreeningIds((current) => current.filter((id) => !terminal.has(String(id))));
+        if (failed.length) {
+          setFailedScreening((current) => {
+            const next = { ...current };
+            for (const id of failed) next[String(id)] = lastError || '初筛失败';
+            return next;
+          });
+        }
         if (screeningIds.every((id) => terminal.has(String(id)))) {
           loadResumes(localCurrentPage, pagination.pageSize);
         }
@@ -534,8 +549,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
       : current.filter((id) => !visibleIds.includes(String(id))));
   };
 
-  const startAiScreening = () => {
-    const selected = resumes.filter((resume) => selectedIds.includes(String(resume.resumeId)));
+  const startAiScreening = (explicitIds?: number[]) => {
+    const selected = explicitIds
+      ? resumes.filter((resume) => explicitIds.includes(Number(resume.resumeId)))
+      : resumes.filter((resume) => selectedIds.includes(String(resume.resumeId)));
     if (!cycleId || selected.length === 0) {
       message.info('请先选择当前周期内要初筛的简历');
       return;
@@ -552,7 +569,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
         try {
           await runResumeEvaluation(cycleId, selected.map((resume) => Number(resume.resumeId)));
           setScreeningIds((current) => Array.from(new Set([...current, ...selected.map((r) => String(r.resumeId))])));
-          setSelectedIds([]);
+          // 重评时清掉这些简历的失败标记(轮询会重新判定)
+          setFailedScreening((current) => {
+            const next = { ...current };
+            for (const r of selected) delete next[String(r.resumeId)];
+            return next;
+          });
+          if (!explicitIds) setSelectedIds([]);
           message.success(`已提交 ${selected.length} 份简历，AI 正在后台初筛`);
         } catch (e: any) {
           message.error(e?.message || '启动 AI 初筛失败');
@@ -774,7 +797,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
             icon={<ThunderboltOutlined />}
             disabled={selectedIds.length === 0 || !cycleId}
             loading={screening}
-            onClick={startAiScreening}
+            onClick={() => startAiScreening()}
           >
             启动 AI 初筛{selectedIds.length ? `（${selectedIds.length}）` : ''}
           </Button>
@@ -890,6 +913,19 @@ const ResumeList: React.FC<ResumeListProps> = ({
                               <RobotOutlined />
                               {isScreening ? (
                                 <Tag color="processing">AI 初筛中</Tag>
+                              ) : failedScreening[String(resume.resumeId)] ? (
+                                <>
+                                  <Tooltip title={failedScreening[String(resume.resumeId)]}>
+                                    <Tag color="error">AI 初筛失败</Tag>
+                                  </Tooltip>
+                                  <Button
+                                    size="small"
+                                    type="link"
+                                    onClick={() => startAiScreening([Number(resume.resumeId)])}
+                                  >
+                                    重新评分
+                                  </Button>
+                                </>
                               ) : aiCard && aiHint ? (
                                 <>
                                   <Tag color={aiHint.color}>AI {aiCard.total ?? '—'} 分</Tag>
