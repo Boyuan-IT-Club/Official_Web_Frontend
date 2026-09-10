@@ -24,6 +24,7 @@ import {
   CheckOutlined,
   SearchOutlined,
   QuestionCircleOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -47,6 +48,7 @@ const MENU_DEFS: Array<{
   anyOf?: string[];
 }> = [
   { key: "/manage", icon: <TeamOutlined />, label: "用户与角色", anyOf: ["admin:manage", "role:assign", "dept:manage", "resume:audit"] },
+  { key: "/feedback", icon: <MessageOutlined />, label: "问题反馈", anyOf: ["feedback:view"] },
   { key: "/resumes", icon: <FolderOpenOutlined />, label: "简历审核", anyOf: ["resume:view", "resume:audit"] },
   { key: "/cycles", icon: <CalendarOutlined />, label: "招募周期", anyOf: ["cycle:manage"] },
   { key: "/interviews", icon: <ScheduleOutlined />, label: "面试管理", anyOf: ["resume:audit", "resume:view"] },
@@ -75,6 +77,7 @@ const TOUR_INTRO = (
 /** 每个菜单模块的导览词。按当前账号可见的菜单动态取用，不引导去无权限的页面 */
 const MENU_TOUR_COPY: Record<string, { title: string; description: string }> = {
   "/manage": { title: "用户与角色", description: "管理社员账号、分配角色与权限，还有整体数据统计。" },
+  "/feedback": { title: "问题反馈", description: "查看用户提交的问题与建议。" },
   "/resumes": { title: "简历审核", description: "集中查看与审核本周期投递的简历。" },
   "/cycles": { title: "招募周期", description: "开启新一轮招新、设定时间与简历字段——一切从这里开始。" },
   "/interviews": { title: "面试管理", description: "维护面试场次与时间槽、绑定面试官、处理学生的改期申请。" },

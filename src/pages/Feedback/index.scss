@@ -1,0 +1,66 @@
+.feedback-page {
+  max-width: 920px;
+  margin: 0 auto;
+
+  &__heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+
+    .ant-typography {
+      margin-bottom: 4px;
+    }
+  }
+
+  &__heading-icon {
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 26px;
+    color: #1677ff;
+    background: rgba(22, 119, 255, 0.09);
+  }
+
+  &__composer,
+  &__history {
+    margin-bottom: 18px;
+    border-radius: 12px;
+  }
+
+  &__composer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &__record {
+    padding: 14px 4px !important;
+  }
+
+  &__record-content {
+    width: 100%;
+    white-space: pre-wrap;
+  }
+
+  &__record-time {
+    font-size: 12px;
+  }
+
+  &__pagination {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 576px) {
+    &__composer-footer {
+      align-items: flex-start;
+      flex-direction: column;
+
+      .ant-btn {
+        align-self: flex-end;
+      }
+    }
+  }
+}

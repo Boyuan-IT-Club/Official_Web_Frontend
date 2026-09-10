@@ -15,6 +15,7 @@ import {
   LogoutOutlined,
   QuestionCircleOutlined,
   ScheduleOutlined,
+  MessageOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -137,6 +138,11 @@ const MainLayout = () => {
       key: "/main/evaluations",
       icon: <CodeOutlined />,
       label: "autograding",
+    },
+    {
+      key: "/main/feedback",
+      icon: <MessageOutlined />,
+      label: "问题反馈",
     },
     // 管理功能已迁移到独立管理端 admin.boyuan.club（用户端产物不含管理代码）
   ];
