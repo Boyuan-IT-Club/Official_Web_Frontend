@@ -156,6 +156,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     searchText: string;
     searchType: string;
     expectedDepartment: string;
+    choiceRank: string;
     statusFilter: string;
     cycleId?: number;
     sortBy: string;
@@ -164,6 +165,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     searchText: '',
     searchType: 'name',
     expectedDepartment: '',
+    choiceRank: '',
     statusFilter: SUBMITTED_STATUSES,
     cycleId: undefined,
     sortBy: 'submitted_at',
@@ -174,6 +176,12 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [searchText, setSearchText] = useState<string>('');
   const [searchType, setSearchType] = useState<string>('name');
   const [expectedDepartment, setExpectedDepartment] = useState<string>('');
+  /**
+   * 志愿位次：''=不限（一二志愿命中任一）、first、second。
+   * 原来只有一个部门下拉，匹配的是简历字段里 ["第一志愿","第二志愿"] 那个数组，
+   * 只能 LIKE，分不出这人是把该部门填成第一还是第二——而这恰恰是筛人时最想知道的。
+   */
+  const [choiceRank, setChoiceRank] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('submitted_at');
   const [sortOrder, setSortOrder] = useState<string>('DESC');
   const [statusFilter, setStatusFilter] = useState<string>(SUBMITTED_STATUSES);
@@ -218,12 +226,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
   // 检查搜索参数是否真正变化
   const hasSearchParamsChanged = (): boolean => {
-    const currentParams = { searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder };
+    const currentParams = { searchText, searchType, expectedDepartment, choiceRank, statusFilter, cycleId, sortBy, sortOrder };
     const prevParams = searchParamsRef.current;
     return (
       currentParams.searchText !== prevParams.searchText ||
       currentParams.searchType !== prevParams.searchType ||
       currentParams.expectedDepartment !== prevParams.expectedDepartment ||
+      currentParams.choiceRank !== prevParams.choiceRank ||
       currentParams.statusFilter !== prevParams.statusFilter ||
       currentParams.cycleId !== prevParams.cycleId ||
       currentParams.sortBy !== prevParams.sortBy ||
@@ -233,7 +242,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
   // 更新搜索参数引用
   const updateSearchParamsRef = (): void => {
-    searchParamsRef.current = { searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder };
+    searchParamsRef.current = { searchText, searchType, expectedDepartment, choiceRank, statusFilter, cycleId, sortBy, sortOrder };
   };
 
   // 加载简历数据的函数（保持原逻辑不变）
@@ -261,6 +270,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
     // 添加部门筛选
     if (expectedDepartment) {
       params.expectedDepartment = expectedDepartment;
+      // 位次只在选了部门时才有意义，单独传等于没有条件
+      if (choiceRank) params.choiceRank = choiceRank;
     }
 
     // 添加状态筛选
@@ -340,7 +351,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
       loadResumes(1, pagination.pageSize);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchText, searchType, expectedDepartment, statusFilter, cycleId, sortBy, sortOrder, onPageChange]);
+  }, [searchText, searchType, expectedDepartment, choiceRank, statusFilter, cycleId, sortBy, sortOrder, onPageChange]);
 
   // 获取状态信息
   // 简历状态三态：草稿 / 已提交 / 已截止（录取与否见「面试管理 → 结果与通知」）
@@ -483,9 +494,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
           <div className="control-item department-filter-select">
             <Select
               style={{ width: '100%' }}
-              placeholder="部门筛选"
-              value={expectedDepartment}
-              onChange={setExpectedDepartment}
+              placeholder="志愿部门"
+              value={expectedDepartment || undefined}
+              onChange={(v) => {
+                setExpectedDepartment(v ?? '');
+                // 清空部门时位次一并清掉，否则留着一个不起作用的「第一志愿」很费解
+                if (!v) setChoiceRank('');
+              }}
               allowClear
               suffixIcon={<AppstoreOutlined />}
             >
@@ -495,6 +510,23 @@ const ResumeList: React.FC<ResumeListProps> = ({
               <Option value="综合部">综合部</Option>
             </Select>
           </div>
+
+          {/* 位次只在选了部门后出现：没选部门时它没有意义，
+              常驻两个下拉只会把工具条撑满、显得都要填 */}
+          {expectedDepartment && (
+            <div className="control-item choice-rank-select">
+              <Select
+                style={{ width: '100%' }}
+                value={choiceRank}
+                onChange={setChoiceRank}
+                options={[
+                  { value: '', label: '不限志愿' },
+                  { value: 'first', label: '第一志愿' },
+                  { value: 'second', label: '第二志愿' },
+                ]}
+              />
+            </div>
+          )}
 
           <div className="control-item status-filter-select">
             <Select

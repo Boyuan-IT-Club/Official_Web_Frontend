@@ -54,6 +54,10 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const [loading, setLoading] = useState(false);
   const [kw, setKw] = useState('');
   const [deptFilter, setDeptFilter] = useState<string | undefined>();
+  // 志愿部门 + 位次：面试部门筛的是「被排到哪个部门面试」，
+  // 志愿筛的是「他自己想去哪」——调剂时看的正是这两者的差
+  const [choiceDept, setChoiceDept] = useState<string | undefined>();
+  const [choiceRank, setChoiceRank] = useState<'any' | 'first' | 'second'>('any');
   const [sessionFilter, setSessionFilter] = useState<number | undefined>();
   const [timeEditing, setTimeEditing] = useState<ScheduleRosterItem | null>(null);
   const [timeValue, setTimeValue] = useState<any>(null);
@@ -116,6 +120,11 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     new Set(rows.map((r) => r.deptName).filter(Boolean) as string[]),
   ).map((d) => ({ value: d, label: d })), [rows]);
 
+  // 志愿候选从名单里现取，不写死四个部门——部门是可以增删的
+  const choiceOptions = useMemo(() => Array.from(new Set([
+    ...rows.map((r) => r.firstDeptName), ...rows.map((r) => r.secondDeptName),
+  ].filter(Boolean) as string[])).map((d) => ({ value: d, label: d })), [rows]);
+
   const sessionOptions = useMemo(() => sessions.map((s) => ({
     value: s.sessionId,
     label: `#${s.sessionId} ${s.deptName || ''} @${s.location}`,
@@ -126,13 +135,19 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     return rows.filter((r) => {
       if (sessionFilter != null && r.sessionId !== sessionFilter) return false;
       if (deptFilter && r.deptName !== deptFilter) return false;
+      if (choiceDept) {
+        const hit = choiceRank === 'first' ? r.firstDeptName === choiceDept
+          : choiceRank === 'second' ? r.secondDeptName === choiceDept
+            : (r.firstDeptName === choiceDept || r.secondDeptName === choiceDept);
+        if (!hit) return false;
+      }
       if (!k) return true;
       return [r.name, r.username, r.studentId, r.firstDeptName, r.secondDeptName, r.location]
         .some((v) => String(v ?? '').toLowerCase().includes(k));
     });
-  }, [rows, kw, deptFilter, sessionFilter]);
+  }, [rows, kw, deptFilter, sessionFilter, choiceDept, choiceRank]);
 
-  const filtered = kw.trim() || deptFilter || sessionFilter != null;
+  const filtered = !!(kw.trim() || deptFilter || choiceDept || sessionFilter != null);
 
   return (
     <>
@@ -155,6 +170,27 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           onChange={setDeptFilter}
           options={deptOptions}
         />
+        <Select
+          allowClear
+          placeholder="按志愿部门"
+          style={{ width: 150 }}
+          value={choiceDept}
+          onChange={(v) => { setChoiceDept(v); if (!v) setChoiceRank('any'); }}
+          options={choiceOptions}
+        />
+        {/* 位次只在选了志愿部门后出现：没选部门时它没有意义 */}
+        {choiceDept && (
+          <Select
+            style={{ width: 116 }}
+            value={choiceRank}
+            onChange={setChoiceRank}
+            options={[
+              { value: 'any', label: '不限志愿' },
+              { value: 'first', label: '第一志愿' },
+              { value: 'second', label: '第二志愿' },
+            ]}
+          />
+        )}
         <Select
           allowClear
           showSearch

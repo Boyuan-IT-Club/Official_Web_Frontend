@@ -8,7 +8,7 @@
 // 呈现各不一样，塞在 JSX 里没法验。
 
 import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
-import { specOf } from '@/config/resumeFieldRegistry';
+import { isFormField } from '@/config/resumeFieldRegistry';
 
 export interface TemplateField {
   key: string;
@@ -58,15 +58,9 @@ export function fieldTypeHint(type: string, options: string[]): string {
  * 再按 sortOrder 排序——后端不保证顺序，直接渲染会和真实表单对不上。
  */
 export function normalizeTemplateFields(raw: any[] | null | undefined): TemplateField[] {
-  const deprecated = new Set<string>(DEPRECATED_RESUME_FIELD_KEYS);
   return (raw ?? [])
-    .filter((f) => {
-      if (!f || f.isActive === false) return false;
-      const key = String(f.fieldKey ?? f.key ?? '');
-      if (deprecated.has(key)) return false;
-      const spec = specOf(key);
-      return spec ? spec.inForm : true;
-    })
+    .filter((f) => f && isFormField(
+      String(f.fieldKey ?? f.key ?? ''), f.isActive !== false, DEPRECATED_RESUME_FIELD_KEYS))
     .slice()
     .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
     .map((f) => ({
@@ -116,7 +110,8 @@ export function exportMetaOf(raw: any[] | null | undefined) {
     if (!key) return;
     const label = f?.fieldLabel ?? f?.field_label;
     if (label) labelOf[key] = String(label);
-    enabledOf[key] = f?.isActive !== false;
+    // 与表单同一套判定：只看 isActive 的话，Word 模板会多出表单里没有的栏
+    enabledOf[key] = isFormField(key, f?.isActive !== false, DEPRECATED_RESUME_FIELD_KEYS);
   });
   return { labelOf, enabledOf };
 }
