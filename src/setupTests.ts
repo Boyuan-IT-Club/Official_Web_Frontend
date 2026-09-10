@@ -28,3 +28,13 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
     }),
   });
 }
+
+// #178:react-router/dom 需要 Node Web 全局,jest jsdom 环境缺失,提前注入
+import { TextDecoder, TextEncoder } from 'util';
+
+if (typeof globalThis.TextEncoder === 'undefined') {
+  (globalThis as unknown as { TextEncoder: typeof TextEncoder }).TextEncoder = TextEncoder;
+}
+if (typeof globalThis.TextDecoder === 'undefined') {
+  (globalThis as unknown as { TextDecoder: typeof TextDecoder }).TextDecoder = TextDecoder;
+}
