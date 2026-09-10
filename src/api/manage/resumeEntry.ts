@@ -646,6 +646,18 @@ export const saveResumeFields = async (fields: ResumeFieldUI[]): Promise<void> =
   }
 };
 
+/** 简历初筛状态：4=通过初筛 5=未通过初筛（与「面试结果」是两回事） */
+export const RESUME_STATUS_SCREEN_PASSED = 4;
+export const RESUME_STATUS_SCREEN_REJECTED = 5;
+
+/** 批量初筛：标为通过/未通过。草稿会被后端跳过 */
+export const batchScreening = (resumeIds: number[], passed: boolean) =>
+  request({ url: '/api/resumes/screening/batch', method: 'post', data: { resumeIds, passed } });
+
+/** 给初筛未通过的同学批量发通知；仅状态确为未通过的会被发送 */
+export const notifyScreenedOut = (resumeIds: number[], customMessage?: string) =>
+  request({ url: '/api/resumes/screening/notify', method: 'post', data: { resumeIds, customMessage } });
+
 /** 管理员为简历打分（0~100）。resume_score 此前只有飞书导出在读，没有写入口 */
 export const updateResumeScore = (resumeId: number, score: number) => {
   return request({

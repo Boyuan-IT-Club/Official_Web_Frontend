@@ -15,7 +15,9 @@ import {
   Spin,
   Alert,
   Modal,
-  Tooltip
+  Tooltip,
+  Checkbox,
+  Popconfirm
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -36,6 +38,7 @@ import { resumeActions } from '@/store/modules/resume';
 import { getAllCycles } from '@/api/manage/cycleApis';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
+import { batchScreening, notifyScreenedOut } from '@/api/manage/resumeEntry';
 import ResumePhotoAvatar from '@/components/ResumePhotoAvatar';
 import './index.scss';
 
@@ -165,6 +168,50 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [sortBy, setSortBy] = useState<string>('submitted_at');
   const [sortOrder, setSortOrder] = useState<string>('DESC');
   const [statusFilter, setStatusFilter] = useState<string>('2');
+  // 批量初筛：勾选后统一标通过/未通过、给未通过的发通知。
+  // 卡片式列表没有 Table 的 rowSelection，用卡片左上角的勾选框自己管一份 id 集合。
+  const [picked, setPicked] = useState<number[]>([]);
+  const [screening, setScreening] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState('');
+  const [notifying, setNotifying] = useState(false);
+
+  const togglePick = (resumeId: number, checked: boolean) =>
+    setPicked((prev) => (checked ? [...prev, resumeId] : prev.filter((id) => id !== resumeId)));
+
+  const runScreening = async (passed: boolean) => {
+    setScreening(true);
+    try {
+      const res: any = await batchScreening(picked, passed);
+      const updated = res?.data?.updated ?? 0;
+      message.success(`已标记 ${updated} 份为${passed ? '通过' : '未通过'}初筛`
+        + (updated < picked.length ? `（${picked.length - updated} 份是草稿，已跳过）` : ''));
+      setPicked([]);
+      loadResumes(localCurrentPage, pagination.pageSize);
+    } catch (e: any) {
+      message.error(e?.message || '批量初筛失败');
+    } finally {
+      setScreening(false);
+    }
+  };
+
+  const doNotify = async () => {
+    setNotifying(true);
+    try {
+      const res: any = await notifyScreenedOut(picked, notifyMsg.trim() || undefined);
+      const queued = res?.data?.queued ?? 0;
+      const skipped = res?.data?.skipped?.length ?? 0;
+      message.success(`已发送 ${queued} 封落选通知`
+        + (skipped > 0 ? `，跳过 ${skipped} 份（状态不是未通过初筛）` : ''));
+      setNotifyOpen(false);
+      setNotifyMsg('');
+      setPicked([]);
+    } catch (e: any) {
+      message.error(e?.message || '发送失败');
+    } finally {
+      setNotifying(false);
+    }
+  };
   // 招募周期筛选：后端 /api/resumes/search 早就支持 cycleId 参数，只是前端一直没传，
   // 于是列表把历届简历混在一起显示
   const [cycleId, setCycleId] = useState<number | undefined>();
@@ -307,6 +354,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
   // 简历状态三态：草稿 / 已提交 / 已截止（录取与否见「面试管理 → 结果与通知」）
   const getStatusInfo = (status: number) => {
     switch (status) {
+      // 4/5 是初筛结论（与「面试结果」的录取与否是两回事）
+      case 5:
+        return { text: '未通过初筛', color: 'error', icon: <CloseCircleOutlined /> };
+      case 4:
+        return { text: '通过初筛', color: 'success', icon: <CheckCircleOutlined /> };
       case 3:
         return { text: '已截止（未提交）', color: 'default', icon: <CloseCircleOutlined /> };
       case 2:
@@ -460,8 +512,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
               onChange={setStatusFilter}
               allowClear
             >
-              <Option value="1,2">全部</Option>
-              <Option value="2">已提交</Option>
+              <Option value="1,2,4,5">全部</Option>
+              <Option value="2">待初筛（已提交）</Option>
+              <Option value="4">通过初筛</Option>
+              <Option value="5">未通过初筛</Option>
               <Option value="1">草稿</Option>
             </Select>
           </div>
@@ -477,6 +531,61 @@ const ResumeList: React.FC<ResumeListProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 批量初筛条：勾选任意卡片后浮出。
+          初筛决定谁能进面试，与「面试管理 → 结果与通知」的录取决定是两回事。 */}
+      {picked.length > 0 && (
+        <div className="screening-bar">
+          <Space wrap>
+            <Text strong>已选 {picked.length} 份</Text>
+            <Popconfirm
+              title={`标记 ${picked.length} 份为通过初筛？`}
+              description="通过初筛的同学可以填写面试意向、参与面试分配。"
+              okText="确认" cancelText="取消"
+              onConfirm={() => runScreening(true)}
+            >
+              <Button type="primary" loading={screening}>标为通过初筛</Button>
+            </Popconfirm>
+            <Popconfirm
+              title={`标记 ${picked.length} 份为未通过初筛？`}
+              description="未通过的同学本届流程即结束：不再参与面试分配，也不能再提交面试意向。此操作可撤回（重新标为通过）。"
+              okText="确认" cancelText="取消"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => runScreening(false)}
+            >
+              <Button danger loading={screening}>标为未通过初筛</Button>
+            </Popconfirm>
+            <Button onClick={() => { setNotifyMsg(''); setNotifyOpen(true); }}>
+              发送落选通知
+            </Button>
+            <Button type="text" onClick={() => setPicked([])}>取消选择</Button>
+          </Space>
+        </div>
+      )}
+
+      <Modal
+        title={`发送落选通知（已选 ${picked.length} 份）`}
+        open={notifyOpen}
+        onOk={doNotify}
+        okText="确认发送"
+        confirmLoading={notifying}
+        onCancel={() => setNotifyOpen(false)}
+        destroyOnClose
+      >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="只会发给状态确为「未通过初筛」的简历，其余自动跳过。邮件说明未进入面试环节、本届流程结束，不含任何面试相关措辞。"
+        />
+        <Input.TextArea
+          rows={3}
+          maxLength={500}
+          value={notifyMsg}
+          onChange={(e) => setNotifyMsg(e.target.value)}
+          placeholder="补充说明（可选）——会附在模板正文之后，不会替换原文"
+        />
+      </Modal>
 
       <div className="list-header">
         <Title level={4}>简历管理</Title>
@@ -510,7 +619,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
                   <List.Item key={String(resume.resumeId)}>
                     <Card
                       hoverable
-                      className="resume-card"
+                      className={`resume-card${picked.includes(Number(resume.resumeId)) ? ' is-picked' : ''}`}
                       actions={[
                         <Button type="link" icon={<EyeOutlined />} onClick={() => handleViewResume(resume)}>
                           查看
@@ -542,6 +651,14 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         </Dropdown>,
                       ]}
                     >
+                      {/* 批量初筛的勾选框。放卡片内左上角而不是 extra——
+                          extra 已被下载等操作占满，再塞会挤成一团 */}
+                      <Checkbox
+                        className="resume-card-pick"
+                        checked={picked.includes(Number(resume.resumeId))}
+                        onChange={(e) => togglePick(Number(resume.resumeId), e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
                       <Card.Meta
                         avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={

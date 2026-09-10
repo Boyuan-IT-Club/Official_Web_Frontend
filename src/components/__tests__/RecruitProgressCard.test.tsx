@@ -25,6 +25,27 @@ beforeEach(() => {
   api.getMyResult.mockResolvedValue({ data: null });
 });
 
+describe('简历初筛这一步', () => {
+  it('未通过初筛：显示落选说明，流程停在初筛（不再显示等面试的字样）', async () => {
+    render(<RecruitProgressCard cycleId={1} resumeStatus={5} canAttendOffline />);
+    await waitFor(() => expect(screen.getByText('简历初筛')).toBeInTheDocument());
+    expect(screen.getByText('很遗憾，未通过初筛')).toBeInTheDocument();
+    // 未通过的人不会被排面试，出现「管理员安排中」就是在让人白等
+    expect(screen.queryByText('管理员安排中')).not.toBeInTheDocument();
+  });
+
+  it('通过初筛：提示去填面试意向', async () => {
+    render(<RecruitProgressCard cycleId={1} resumeStatus={4} canAttendOffline />);
+    await waitFor(() => expect(screen.getByText('已通过，请填写面试意向')).toBeInTheDocument());
+  });
+
+  it('刚提交还没筛：显示评审中，不预判结论', async () => {
+    render(<RecruitProgressCard cycleId={1} resumeStatus={2} canAttendOffline />);
+    await waitFor(() => expect(screen.getByText('评审中，请耐心等待')).toBeInTheDocument());
+    expect(screen.queryByText('很遗憾，未通过初筛')).not.toBeInTheDocument();
+  });
+});
+
 describe('招新进度卡的线上/线下两条路线', () => {
   it('能参加线下面试：第 4 步是「面试安排」', async () => {
     render(<RecruitProgressCard cycleId={1} resumeStatus={2} canAttendOffline />);

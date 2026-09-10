@@ -28,7 +28,8 @@ import './index.scss';
 const { Title, Text } = Typography;
 
 const RESUME_STATUS_TEXT: Record<number, string> = {
-  1: '草稿（尚未提交）', 2: '已提交', 3: '已提交', 4: '已提交', 5: '已提交',
+  1: '草稿（尚未提交）', 2: '已提交', 3: '已提交',
+  4: '已提交 · 通过初筛', 5: '已提交 · 未通过初筛',
 };
 
 const fmtDT = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
@@ -232,6 +233,9 @@ const InterviewAppointment: React.FC = () => {
   // ---- 时间线节点 ----
   const status: number | null = resume?.status ?? null;
   const submitted = (status ?? 0) >= 2;
+  // 简历状态 4=通过初筛 5=未通过初筛
+  const screenPassed = status === 4;
+  const screenRejected = status === 5;
 
   // 当前阶段（英雄区展示）
   const stage = result
@@ -262,6 +266,31 @@ const InterviewAppointment: React.FC = () => {
             {status == null ? '去填写' : '继续填写并提交'}
           </Button>
         )}
+      </>
+    ),
+  });
+
+  items.push({
+    color: screenRejected ? 'red' : screenPassed ? 'green' : 'gray',
+    dot: <FileTextOutlined />,
+    children: (
+      <>
+        <Text strong>简历初筛</Text>
+        <div>
+          {screenRejected ? (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginTop: 4 }}
+              message="很遗憾，简历未通过初筛"
+              description="感谢你的投递！本届招新流程到此结束，社团的技术分享与公开活动欢迎继续参与，期待下一届再见。"
+            />
+          ) : screenPassed ? (
+            <Text type="secondary">已通过初筛，请填写下方面试意向</Text>
+          ) : (
+            <Text type="secondary">{submitted ? '简历评审中，请耐心等待' : '提交简历后进入评审'}</Text>
+          )}
+        </div>
       </>
     ),
   });
@@ -469,7 +498,9 @@ const InterviewAppointment: React.FC = () => {
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
         ) : (
-          <Timeline className="progress-timeline" items={items} />
+          // 未通过初筛的同学后面几步都不会发生，时间线到初筛为止——
+          // 继续显示「面试意向/安排/结果」只会让人一直等不会来的通知
+          <Timeline className="progress-timeline" items={screenRejected ? items.slice(0, 2) : items} />
         )}
       </Card>
 
