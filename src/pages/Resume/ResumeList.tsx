@@ -477,7 +477,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
             </Select>
           </div>
 
-          <div className="control-item department-filter-select">
+          {/* 周期选择器一直沿用「部门筛选」的类名，宽度也就跟着部门走，
+              而周期名比部门名长得多，选中后把整行顶偏。给它自己的类名 */}
+          <div className="control-item cycle-filter-select">
             <Select
               style={{ width: '100%' }}
               placeholder="招募周期"
