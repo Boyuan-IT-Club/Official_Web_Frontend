@@ -34,6 +34,14 @@ export interface ExtractedFields {
   project_experience: string;
   first_department: string;
   second_department: string;
+  /**
+   * 管理员自定义字段：fieldKey → 值。
+   *
+   * 内置的 LABEL_PATTERNS 是写死的十几条正则，只认标准字段；管理员新加的
+   * 「作品链接」「社团经历」这类导出得出去、导不回来，用户得对着 Word 手抄一遍。
+   * 现在按本周期的字段配置动态生成模式，自定义字段也能原样认回来。
+   */
+  custom: Record<string, string>;
   /** 原始全文，供用户参考 */
   rawText: string;
 }
@@ -112,33 +120,61 @@ function extractByPatterns(text: string): Partial<ExtractedFields> {
  * 「一直吃到下一个小节标题为止」的前瞻，改名后那串前瞻也得跟着变，
  * 拼错了反而会吞掉后面几节 —— 留给内置模式处理更稳妥。
  */
+const STANDARD_SINGLE_LINE: Array<[string, keyof ExtractedFields]> = [
+  ['name', 'name'], ['student_id', 'student_id'], ['gender', 'gender'],
+  ['grade', 'grade'], ['major', 'major'], ['email', 'email'],
+  ['phone', 'phone'], ['github', 'github'],
+  ['first_choice', 'first_department'], ['second_choice', 'second_department'],
+  ['tech_stack', 'tech_stack'],
+];
+
+/** 正则元字符转义：标签是管理员自由填的，直接拼进正则会炸或误匹配 */
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 function patternsFromLabels(
   labelOverrides: Record<string, string>,
 ): Array<{ regex: RegExp; key: keyof ExtractedFields }> {
-  const SINGLE_LINE: Array<[string, keyof ExtractedFields]> = [
-    ['name', 'name'], ['student_id', 'student_id'], ['gender', 'gender'],
-    ['grade', 'grade'], ['major', 'major'], ['email', 'email'],
-    ['phone', 'phone'], ['github', 'github'],
-    ['first_choice', 'first_department'], ['second_choice', 'second_department'],
-    ['tech_stack', 'tech_stack'],
-  ];
   const out: Array<{ regex: RegExp; key: keyof ExtractedFields }> = [];
-  for (const [fieldKey, target] of SINGLE_LINE) {
+  for (const [fieldKey, target] of STANDARD_SINGLE_LINE) {
     const label = (labelOverrides[fieldKey] || '').trim();
     if (!label) continue;
-    // 标签是管理员自由填的，必须转义后再拼进正则
-    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // 单行字段一律用 [ \t]* 而不是 \s*：\s 能匹配换行，
     // 标签为空时会把下一行整行吞进来（内置模式里已踩过这个坑）
-    out.push({ regex: new RegExp(`${escaped}[：:][ \\t]*(.+)`), key: target });
+    out.push({ regex: new RegExp(`${escapeRe(label)}[：:][ \\t]*(.+)`), key: target });
   }
   return out;
+}
+
+/**
+ * 自定义字段的解析模式。
+ *
+ * 与单行字段不同，这里用「一直吃到下一个标签为止」的前瞻：自定义字段可能是
+ * 多行文本（管理员加的「社团经历」之类），只截第一行会把内容切掉一半。
+ * 前瞻里列出本周期**所有**标签，遇到任何一个就停——导出的 Word 里
+ * 「其他信息」一节是逐行的「标签：值」，这样切最贴合它的实际排版。
+ */
+function customFieldPatterns(
+  customLabels: Array<{ fieldKey: string; label: string }>,
+  allLabels: string[],
+): Array<{ regex: RegExp; fieldKey: string }> {
+  if (customLabels.length === 0) return [];
+  const stop = allLabels.filter(Boolean).map(escapeRe).join('|');
+  return customLabels
+    .filter((c) => c.fieldKey && c.label.trim())
+    .map((c) => ({
+      fieldKey: c.fieldKey,
+      regex: new RegExp(
+        `${escapeRe(c.label.trim())}[：:]\\s*([\\s\\S]+?)(?=\\n\\s*(?:${stop})[：:]|$)`,
+      ),
+    }));
 }
 
 export function extractFieldsFromText(
   text: string,
   /** 本周期的 fieldKey → 标签；管理员改过名时必须传，否则导入认不出自家模板 */
   labelOverrides: Record<string, string> = {},
+  /** 本周期的自定义字段（标准字段之外的）；不传则只认标准字段 */
+  customFields: Array<{ fieldKey: string; label: string }> = [],
 ): ExtractedFields {
   const result: ExtractedFields = {
     name: '',
@@ -155,6 +191,7 @@ export function extractFieldsFromText(
     project_experience: '',
     first_department: '',
     second_department: '',
+    custom: {},
     rawText: text,
   };
 
@@ -172,7 +209,23 @@ export function extractFieldsFromText(
     }
   }
 
-  // 第二遍：独立模式匹配（补充标签没匹配到的）
+  // 第二遍：自定义字段。放在标准字段之后——万一管理员把自定义字段的标签
+  // 起成了「姓名」，先到先得的规则会让标准字段先认走，不至于串位
+  const allLabels = [
+    ...Object.values(labelOverrides),
+    ...customFields.map((c) => c.label),
+    '姓名', '学号', '性别', '年级', '专业', '邮箱', '电话', '手机', 'GitHub',
+    '第一志愿', '第二志愿', '自我介绍', '加入理由', '技术栈', '项目经验', '其他信息',
+  ].map((l) => String(l || '').trim()).filter(Boolean);
+  for (const { regex, fieldKey } of customFieldPatterns(customFields, allLabels)) {
+    const match = cleaned.match(regex);
+    const value = (match?.[1] || '').trim();
+    if (value) {
+      result.custom[fieldKey] = value;
+    }
+  }
+
+  // 第三遍：独立模式匹配（补充标签没匹配到的）
   const patternResult = extractByPatterns(cleaned);
   for (const key of Object.keys(patternResult) as Array<keyof ExtractedFields>) {
     if (!(result as any)[key] && (patternResult as any)[key]) {
@@ -273,6 +326,8 @@ export async function importResumeFile(
   file: File,
   /** 本周期的 fieldKey → 标签。管理员改过标签时必须传，否则导入认不出自家导出的模板 */
   labelOverrides: Record<string, string> = {},
+  /** 本周期的自定义字段；传了才认得回管理员新加的那几栏 */
+  customFields: Array<{ fieldKey: string; label: string }> = [],
 ): Promise<ExtractedFields | null> {
   const ext = file.name.split('.').pop()?.toLowerCase();
 
@@ -302,7 +357,7 @@ export async function importResumeFile(
     return null;
   }
 
-  const extracted = extractFieldsFromText(text, labelOverrides);
+  const extracted = extractFieldsFromText(text, labelOverrides, customFields);
   return extracted;
 }
 
@@ -315,8 +370,13 @@ export function hasAnyExtractedField(fields: ExtractedFields): boolean {
     'email', 'phone', 'github', 'self_introduction',
     'reason', 'tech_stack', 'project_experience',
   ];
-  return keys.some((k) => {
+  if (keys.some((k) => {
     const v = fields[k];
     return v && String(v).trim().length > 0;
-  });
+  })) {
+    return true;
+  }
+  // 只认出自定义字段也算「有内容」——否则一份全是自定义字段的简历会被
+  // 判成「什么都没提取到」，弹窗直接劝人手填
+  return Object.values(fields.custom || {}).some((v) => String(v || '').trim().length > 0);
 }
