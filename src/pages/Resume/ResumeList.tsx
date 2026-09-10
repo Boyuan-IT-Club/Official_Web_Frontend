@@ -87,7 +87,7 @@ type RootStateLike = {
 };
 
 type ResumeListProps = {
-  onShowDetail?: (resume: Resume, currentPage?: number) => void;
+  onShowDetail?: (resume: Resume, currentPage?: number, cycleId?: number) => void;
   /** 进入沉浸式打分舞台（从这一份开始批改，队列即当前筛选结果） */
   onEnterStage?: (resume: Resume) => void;
   onApprove?: (resumeId: string | number) => void;
@@ -455,7 +455,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     // eslint-disable-next-line no-console
     console.log('Viewing resume:', resumeObject);
     if (onShowDetail) {
-    onShowDetail(resumeObject, localCurrentPage);
+      onShowDetail(resumeObject, localCurrentPage, cycleId);
     }
   };
 
