@@ -138,7 +138,7 @@ describe('未开始时的简历模板入口', () => {
 
     expect(await screen.findByText('姓名')).toBeInTheDocument();
     expect(screen.getByText('个人简介')).toBeInTheDocument();
-    expect(screen.getByText('这里只能看，不能填')).toBeInTheDocument();
+    expect(screen.getByText(/只能看、不能填/)).toBeInTheDocument();
     expect(screen.getByText('导出 Word')).toBeInTheDocument();
     expect(screen.getByText('导出 PDF')).toBeInTheDocument();
     // 只读：整个弹窗里没有任何可输入控件
