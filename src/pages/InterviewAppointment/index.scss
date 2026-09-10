@@ -176,3 +176,26 @@
     color: var(--ant-color-text-secondary, rgba(0, 0, 0, .65));
   }
 }
+
+// 初筛未通过的结果段。
+//
+// 原先是一块蓝色 Alert：图标 + 加粗标题 + 大段描述，在时间线里又重又吵，
+// 蓝色的「信息提示」语气也不对——这是个结果，不是提示。
+// 现在只用一条浅色左边线圈出范围，字重与颜色都压住。
+.screen-result {
+  margin-top: 6px;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--ant-color-border, rgba(0, 0, 0, 0.12));
+
+  &__title {
+    font-weight: 600;
+    color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+  }
+
+  &__desc {
+    margin: 4px 0 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+  }
+}

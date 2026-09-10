@@ -431,6 +431,23 @@ export interface ScreenedOutItem {
   notifiedAt?: string | null;
 }
 
+/** 面试安排名单里的一行，附三类通知各自发没发 */
+export interface ScheduleNoticeItem {
+  scheduleId: number;
+  userId?: number | null;
+  name?: string | null;
+  studentId?: string | null;
+  interviewTime?: string | null;
+  deptName?: string | null;
+  location?: string | null;
+  /** 面试安排通知已发 */
+  arranged: boolean;
+  /** 前一天提醒已发 */
+  eve: boolean;
+  /** 当天提醒已发 */
+  day: boolean;
+}
+
 export interface NotificationOverview {
   resumeRejected: NotificationBucket;
   interviewArranged: NotificationBucket;
@@ -438,6 +455,7 @@ export interface NotificationOverview {
   dayReminder: NotificationBucket;
   result: NotificationBucket;
   screenedOut: ScreenedOutItem[];
+  schedules: ScheduleNoticeItem[];
 }
 
 /** 通知中心总览：四类对外邮件各发了多少、还差谁 */

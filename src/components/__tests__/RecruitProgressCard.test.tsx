@@ -29,7 +29,7 @@ describe('简历初筛这一步', () => {
   it('未通过初筛：显示落选说明，流程停在初筛（不再显示等面试的字样）', async () => {
     render(<RecruitProgressCard cycleId={1} resumeStatus={5} canAttendOffline />);
     await waitFor(() => expect(screen.getByText('简历初筛')).toBeInTheDocument());
-    expect(screen.getByText('很遗憾，未通过初筛')).toBeInTheDocument();
+    expect(screen.getByText('本届未进入面试')).toBeInTheDocument();
     // 未通过的人不会被排面试，出现「管理员安排中」就是在让人白等
     expect(screen.queryByText('管理员安排中')).not.toBeInTheDocument();
   });
@@ -86,5 +86,15 @@ describe('已停止投递的周期', () => {
     render(<RecruitProgressCard cycleId={1} resumeStatus={1} intakeOpen={false} />);
     await waitFor(() => expect(screen.getByText('查看我的简历')).toBeInTheDocument());
     expect(screen.queryByText('继续填写简历')).not.toBeInTheDocument();
+  });
+});
+
+describe('未通过初筛不再显示面试安排', () => {
+  it('初筛没过时不显示「请准时到场」，即使排期数据还在', async () => {
+    // 线上撞到的：安排是初筛之前排的，被刷掉后排期还在，
+    // 于是进度条写着「未通过初筛」，下面又挂着面试时间
+    render(<RecruitProgressCard cycleId={1} resumeStatus={5} canAttendOffline />);
+    await waitFor(() => expect(screen.getByText('简历初筛')).toBeInTheDocument());
+    expect(screen.queryByText('请准时到场：')).not.toBeInTheDocument();
   });
 });

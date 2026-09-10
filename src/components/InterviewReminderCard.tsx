@@ -52,13 +52,26 @@ function downloadIcs(schedule: MySchedule) {
  */
 const InterviewReminderCard: React.FC<{
   cycleId: number;
+  /** 简历状态；5=未通过初筛，这类同学不该再看到面试倒计时 */
+  resumeStatus?: number | null;
   onVisibleChange?: (visible: boolean) => void;
-}> = ({ cycleId, onVisibleChange }) => {
+}> = ({ cycleId, resumeStatus, onVisibleChange }) => {
   const navigate = useNavigate();
   const [schedule, setSchedule] = useState<MySchedule | null>(null);
   const [result, setResult] = useState<MyResult | null>(null);
 
+  /*
+   * 初筛没过就不再拉、也不再显示面试提醒。安排是初筛之前排的，排期数据还在，
+   * 于是首页会同时出现「未通过初筛」和「还有 19 小时」——线上截图就是这样，
+   * 两句话直接打架。
+   */
+  const screenRejected = resumeStatus === 5;
+
   useEffect(() => {
+    if (screenRejected) {
+      onVisibleChange?.(false);
+      return undefined;
+    }
     let cancelled = false;
     Promise.all([
       getMySchedule(cycleId).then((res: any) => res?.data ?? null).catch(() => null),
@@ -71,7 +84,9 @@ const InterviewReminderCard: React.FC<{
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cycleId]);
+  }, [cycleId, screenRejected]);
+
+  if (screenRejected) return null;
 
   // 结果先于安排判断：出结果后即使 schedule 缺失也该展示
   if (result) {

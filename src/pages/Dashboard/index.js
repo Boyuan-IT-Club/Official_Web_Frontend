@@ -250,7 +250,7 @@ const Dashboard = () => {
         <Row gutter={[12, 12]}>
           {hasInterview && selectedCycleId != null && (
             <Col xs={24} md={12}>
-              <InterviewReminderCard cycleId={selectedCycleId} onVisibleChange={setHasInterview} />
+              <InterviewReminderCard cycleId={selectedCycleId} resumeStatus={resumeState?.resume?.status ?? null} onVisibleChange={setHasInterview} />
             </Col>
           )}
           <Col xs={24} md={hasInterview ? 12 : 24}>
@@ -258,7 +258,7 @@ const Dashboard = () => {
           </Col>
           {!hasInterview && selectedCycleId != null && (
             <Col span={0} style={{ display: 'none' }}>
-              <InterviewReminderCard cycleId={selectedCycleId} onVisibleChange={setHasInterview} />
+              <InterviewReminderCard cycleId={selectedCycleId} resumeStatus={resumeState?.resume?.status ?? null} onVisibleChange={setHasInterview} />
             </Col>
           )}
         </Row>

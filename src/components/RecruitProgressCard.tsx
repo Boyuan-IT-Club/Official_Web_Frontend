@@ -116,10 +116,14 @@ const RecruitProgressCard: React.FC<Props> = ({
     },
     {
       title: '简历初筛',
-      // 未通过时整条进度以红色收尾，不再让人等一个不会来的面试通知
-      status: screenRejected ? ('error' as const) : undefined,
+      /*
+       * 未通过初筛不用 error 红。红色是「出错了、要你处理」的语气，
+       * 而这只是一个结果，且是别人做的决定——一整条红叉挂在人家首页上太重了。
+       * 用 finish + 中性文案收尾：进度到此为止的信息照样传达到，语气收住。
+       */
+      status: screenRejected ? ('finish' as const) : undefined,
       description: screenRejected
-        ? '很遗憾，未通过初筛'
+        ? '本届未进入面试'
         : screenPassed
           ? '已通过，等待面试安排'
           : (submitted ? '评审中，请耐心等待' : '提交后进入评审'),
@@ -169,7 +173,12 @@ const RecruitProgressCard: React.FC<Props> = ({
       {/* 未通过初筛的同学后面几步都不会发生，进度条到初筛为止——
           继续显示「管理员安排中」只会让人一直等不会来的面试通知 */}
       <Steps size="small" current={current} items={screenRejected ? steps.slice(0, 4) : steps} responsive />
-      {scheduled && (
+      {/*
+        初筛没过就不再显示面试时间。线上撞到过：进度条已经写着「未通过初筛」，
+        下面却还挂着「请准时到场 09-11 09:05」和倒计时——安排是初筛之前排的，
+        排期数据还在，两句话直接打架，学生不知道该信哪个。
+      */}
+      {scheduled && !screenRejected && (
         <Space style={{ marginTop: 12 }}>
           <Text type="secondary">请准时到场：</Text>
           <Text strong>
