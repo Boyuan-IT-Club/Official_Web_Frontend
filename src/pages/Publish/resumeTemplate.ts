@@ -67,76 +67,38 @@ export function normalizeTemplateFields(raw: any[] | null | undefined): Template
     .filter((f) => f.label);
 }
 
-const escapeHtml = (s: string) => s
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
 /**
- * 生成一份可打印/可用 Word 打开的空白模板。
+ * 空白的导出数据：Word 模板复用简历导出那条路（exportResume.ts）。
  *
- * 用整页 HTML 而不是拼 docx：Word 能直接打开 HTML 并保留表格与样式，
- * 浏览器打印这同一份 HTML 就得到 PDF。一份产物两用，也不用为了导出
- * 引一个几百 KB 的文档库进来。
+ * 一开始这里自己拼了一份 HTML 当 .doc 下载，等于把已经存在的模板又做了一遍，
+ * 而且丢掉了它最有用的性质——那份 .docx 的标签是 importResume.ts 认得的，
+ * 填完回到投递页导入就能自动回填。自造的 HTML 导不回来。
  */
-export function templateToHtml(cycleName: string, fields: TemplateField[]): string {
-  const rows = fields.map((f) => `
-    <tr>
-      <td class="label">${escapeHtml(f.label)}${f.required ? '<span class="req">*</span>' : ''}</td>
-      <td class="value">
-        <div class="hint">${escapeHtml(fieldTypeHint(f.type, f.options))}${
-  f.placeholder ? `｜${escapeHtml(f.placeholder)}` : ''}</div>
-        <div class="blank"></div>
-      </td>
-    </tr>`).join('');
-
-  return `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8">
-<title>${escapeHtml(cycleName)} 报名表（空白模板）</title>
-<style>
-  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: #222; margin: 32px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: #777; font-size: 12px; margin: 0 0 18px; }
-  table { border-collapse: collapse; width: 100%; }
-  td { border: 1px solid #bbb; padding: 8px 10px; vertical-align: top; }
-  td.label { width: 150px; font-weight: 600; background: #f6f6f6; }
-  .req { color: #c00; margin-left: 3px; }
-  .hint { color: #888; font-size: 12px; }
-  .blank { min-height: 34px; }
-</style></head>
-<body>
-  <h1>${escapeHtml(cycleName)} 报名表</h1>
-  <p class="sub">空白模板，仅供提前准备内容之用；正式报名请在招募开放后到官网在线填写提交。带 * 为必填项。</p>
-  <table>${rows}
-  </table>
-</body></html>`;
-}
-
-/** 下载成 .doc（Word 能直接打开这份 HTML） */
-export function downloadTemplateWord(cycleName: string, fields: TemplateField[]): void {
-  const html = templateToHtml(cycleName, fields);
-  const url = URL.createObjectURL(new Blob([`﻿${html}`], { type: 'application/msword' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${cycleName}报名表模板.doc`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+export function emptyExportData() {
+  return {
+    name: '', studentId: '', gender: '', grade: '',
+    major: '', email: '', phone: '', github: '',
+    firstDepartment: '', secondDepartment: '',
+    selfIntroduction: '', reason: '', introduction: '',
+    techStack: [] as string[], projectExperience: '',
+  };
 }
 
 /**
- * 走浏览器打印导出 PDF。
+ * 从本周期的字段定义推出导出用的标签与启停表。
  *
- * 不用 jsPDF 一类的前端库：它们默认字体不含中文，导出来是一片方框，
- * 要正常显示得再打包一份中文字体（好几 MB）。打印对话框里选「另存为 PDF」
- * 效果更好，也不增加包体积。
+ * 不传这个，导出的 Word 用的是内置中文标签：管理员改过字段名时，
+ * 模板上的题目和真实表单对不上，导入也认不回来。
  */
-export function printTemplateAsPdf(cycleName: string, fields: TemplateField[]): boolean {
-  const w = window.open('', '_blank');
-  if (!w) return false;   // 被拦截了，调用方给提示
-  w.document.write(templateToHtml(cycleName, fields));
-  w.document.close();
-  w.focus();
-  // 等一帧让样式生效，否则部分浏览器打印出来是无样式的裸表格
-  setTimeout(() => w.print(), 300);
-  return true;
+export function exportMetaOf(raw: any[] | null | undefined) {
+  const labelOf: Record<string, string> = {};
+  const enabledOf: Record<string, boolean> = {};
+  (raw ?? []).forEach((f) => {
+    const key = f?.fieldKey ?? f?.field_key;
+    if (!key) return;
+    const label = f?.fieldLabel ?? f?.field_label;
+    if (label) labelOf[key] = String(label);
+    enabledOf[key] = f?.isActive !== false;
+  });
+  return { labelOf, enabledOf };
 }
