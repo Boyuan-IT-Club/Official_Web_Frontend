@@ -1,0 +1,12 @@
+// 通知中心的进度卡：整块可点，选中的那张要一眼看得出来。
+.notify-card {
+  min-width: 190px;
+  cursor: pointer;
+  border-color: var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &.is-active {
+    border-color: var(--ant-color-primary, #1677ff);
+    box-shadow: 0 0 0 1px var(--ant-color-primary, #1677ff) inset;
+  }
+}

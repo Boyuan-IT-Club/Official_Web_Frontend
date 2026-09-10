@@ -238,10 +238,16 @@ const InterviewAppointment: React.FC = () => {
   const screenRejected = status === 5;
 
   // 当前阶段（英雄区展示）
+  //
+  // screenRejected 要排在 schedule 之前判断：面试安排是初筛之前排的，
+  // 被刷掉之后那条排期数据还在，先看 schedule 就会顶出「面试已安排，请准时到场」，
+  // 而下面的时间线同时写着「未通过初筛」——线上截图里就是这两句在打架。
   const stage = result
     ? (result.decision === 1
         ? { emoji: '🎉', title: `已被${result.assignedDeptName || '社团'}录取`, sub: '欢迎加入博远！后续安排请留意邮件与群通知' }
         : { emoji: '🌱', title: '本次未能录取', sub: '感谢参与，欢迎常来社团活动，期待下次相遇' })
+    : screenRejected
+      ? { emoji: '🌱', title: '本届招新到这里结束', sub: '感谢投递！社团的技术分享与公开活动欢迎继续参与' }
     : schedule?.interviewTime
       ? { emoji: '📅', title: '面试已安排', sub: `${fmtDT(schedule.interviewTime)}${schedule.deptName ? ` · ${schedule.deptName}` : ''}${schedule.location ? ` · ${schedule.location}` : ''}，请准时到场` }
       : preference
@@ -299,20 +305,29 @@ const InterviewAppointment: React.FC = () => {
   });
 
   items.push({
-    color: screenRejected ? 'red' : screenPassed ? 'green' : 'gray',
+    /*
+     * 未通过不用红点。红是「出错/危险」的语气，用在别人给你的结果上太重；
+     * 这里用中性灰收尾——「到此为止」的信息由文案说清楚，颜色不必再喊一遍。
+     */
+    color: screenRejected ? 'gray' : screenPassed ? 'green' : 'gray',
     dot: <FileTextOutlined />,
     children: (
       <>
         <Text strong>简历初筛</Text>
         <div>
           {screenRejected ? (
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginTop: 4 }}
-              message="很遗憾，简历未通过初筛"
-              description="感谢你的投递！本届招新流程到此结束，社团的技术分享与公开活动欢迎继续参与，期待下一届再见。"
-            />
+            /*
+             * 原先是一整块蓝色 Alert：图标 + 加粗标题 + 大段描述，在这条
+             * 时间线里显得又重又吵，而且蓝色的「信息提示」和内容语气也不搭。
+             * 改成一段克制的正文——坏消息不需要被框起来强调。
+             */
+            <div className="screen-result">
+              <div className="screen-result__title">本届招新到这里结束</div>
+              <p className="screen-result__desc">
+                很感谢你花时间准备并投递简历。这次没能继续往下走，
+                但社团的技术分享和公开活动一直欢迎你来，下一届也期待再看到你。
+              </p>
+            </div>
           ) : screenPassed ? (
             <Text type="secondary">已通过初筛，等待面试安排</Text>
           ) : (
