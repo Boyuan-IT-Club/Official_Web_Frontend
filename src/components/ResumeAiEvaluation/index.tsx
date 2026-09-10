@@ -122,15 +122,22 @@ export const EvaluationQbankDrawer: React.FC<QbankDrawerProps> = ({
   const pick = async (question: any) => {
     if (!resumeId || !cycleId) return;
     try {
+      // 闸门5(评审):优先用 Agent qbank.pickable 的权威题引用(含链问题
+      // chain_index/layer_index 定位);缺失时回退本地规范化字段。
+      const ref =
+        (qbank?.pickable ?? []).find((p: any) => p.question === question.question) ??
+        null;
       await pickQuestions({
         resume_id: resumeId,
         cycle_id: cycleId,
         schedule_id: scheduleId,
-        questions: [{
-          anchor: question.anchor,
-          question: question.question,
-          evidence_path: question.evidence?.path,
-        }],
+        questions: [
+          ref ?? {
+            category: question.anchor,
+            question: question.question,
+            evidence_path: question.evidence?.path,
+          },
+        ],
       });
       message.success('已加入本次面试的选题记录');
     } catch (e: any) {

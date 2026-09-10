@@ -204,12 +204,22 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
 
   const doPick = async (resumeId: number, q: any) => {
     try {
+      // 闸门5(评审):直接消费 Agent 的 qbank.pickable 扁平视图——
+      // 它是权威题引用(group_index/role/category/chain_index/layer_index/
+      // evidence_path/theme),record_pick 原样落库。之前从规范化 UI 对象
+      // 读 q.anchor/q.evidence.path(不存在)→ pick log 丢定位信息,
+      // 链问题还把 chain.theme 当 evidence_path。按题干文匹配回 pickable。
+      const ref =
+        (qbank?.pickable ?? []).find((p: any) => p.question === q.question) ?? null;
+      const questionRef = ref ?? {
+        category: q.tag ?? "",
+        question: q.question,
+        evidence_path: q.path ?? "",
+      };
       await pickQuestions({
         resume_id: resumeId,
         cycle_id: cycleId,
-        questions: [
-          { anchor: q.anchor, question: q.question, evidence_path: q.evidence?.path },
-        ],
+        questions: [questionRef],
       });
       message.success("已勾选(记入 pick log)");
     } catch (e: any) {

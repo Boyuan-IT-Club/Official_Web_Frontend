@@ -111,6 +111,25 @@ export interface QbankQuestion {
   time_minutes?: number;
 }
 
+/**
+ * Agent 的 qbank.pickable 扁平题引用(#153,闸门5)——勾选题的唯一权威形状。
+ * record_pick 原样落 qbank_pick_log;UI 不再自行解析 envelope 推字段。
+ */
+export interface PickableQuestion {
+  group_index: number;
+  group_kind: string;
+  role: 'entry' | 'chain' | 'reserve' | 'question';
+  category?: string;
+  chain_index?: number;
+  layer_index?: number;
+  question_index?: number;
+  question: string;
+  evidence_path?: string;
+  theme?: string;
+  expected_signal?: string;
+  time_minutes?: number;
+}
+
 /** 预置题库(最新信封) */
 export function getEvaluationQbank(resumeId: number, cycleId: number) {
   return request({
@@ -120,12 +139,12 @@ export function getEvaluationQbank(resumeId: number, cycleId: number) {
   });
 }
 
-/** 勾选记录(pick log) */
+/** 勾选记录(pick log)。questions 传 pickable 题引用(原样落库)。 */
 export function pickQuestions(payload: {
   resume_id: number;
   cycle_id: number;
   schedule_id?: number;
-  questions: { anchor: string; question: string; evidence_path?: string }[];
+  questions: Partial<PickableQuestion>[];
 }) {
   return request({
     url: '/api/admin/agent/evaluation/qbank/pick',
