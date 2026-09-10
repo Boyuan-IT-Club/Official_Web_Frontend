@@ -61,7 +61,8 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
   const [detailOpen, setDetailOpen] = useState(false);
   const [qbankOpen, setQbankOpen] = useState(false);
   const [qbank, setQbank] = useState<any>(null);
-  const [selectedResumeIds, setSelectedResumeIds] = useState<number[]>([]);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [selectedRows, setSelectedRows] = useState<ScorecardRow[]>([]);
   const [rescoring, setRescoring] = useState(false);
 
   const load = useCallback(
@@ -81,21 +82,25 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
   );
 
   const startRescoring = () => {
-    if (selectedResumeIds.length === 0 || cycleId === null) return;
+    if (selectedRows.length === 0 || cycleId === null) return;
+    // 同一简历多版本去重(每 resume 一票)
+    const byResume = new Map<number, ScorecardRow>();
+    for (const r of selectedRows) if (!byResume.has(r.resume_id)) byResume.set(r.resume_id, r);
+    const items = [...byResume.values()].map((r) => ({
+      resume_id: r.resume_id,
+      user_id: Number(r.user_id ?? 0),
+    }));
     Modal.confirm({
-      title: `对选中的 ${selectedResumeIds.length} 份简历重新 AI 评分？`,
+      title: `对选中的 ${items.length} 份简历重新 AI 评分？`,
       content: "将生成新版评分卡与题组(旧版本保留可对比);人工评审记录不受影响。",
       okText: "重新评分",
       cancelText: "取消",
       onOk: async () => {
         setRescoring(true);
         try {
-          const items = selectedResumeIds.map((rid) => {
-            const row = rows.find((r: any) => r.resume_id === rid);
-            return { resume_id: rid, user_id: Number(row?.user_id ?? 0) };
-          });
           await runResumeEvaluation(cycleId, items);
-          setSelectedResumeIds([]);
+          setSelectedKeys([]);
+          setSelectedRows([]);
           await load();
           message.success(`已提交 ${items.length} 份简历重新评分`);
         } catch (e: any) {
@@ -300,18 +305,21 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
           icon={<RobotOutlined />}
           type="primary"
           ghost
-          disabled={selectedResumeIds.length === 0 || rescoring}
+          disabled={selectedRows.length === 0 || rescoring}
           loading={rescoring}
           onClick={startRescoring}
         >
-          AI 重新评分{selectedResumeIds.length ? `（已选 ${selectedResumeIds.length}）` : ""}
+          AI 重新评分{selectedRows.length ? `（已选 ${selectedRows.length}）` : ""}
         </Button>
       </Space>
       <Table
         rowKey={(r) => `${r.resume_id}-${r.card_version}`}
         rowSelection={{
-          selectedRowKeys: selectedResumeIds,
-          onChange: (keys) => setSelectedResumeIds(keys.map(Number)),
+          selectedRowKeys: selectedKeys,
+          onChange: (keys, rows) => {
+            setSelectedKeys(keys.map(String));
+            setSelectedRows(rows);
+          },
         }}
         size="small"
         loading={loading}
