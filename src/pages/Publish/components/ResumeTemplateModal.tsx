@@ -4,7 +4,7 @@
 // 这类题现场憋出来很吃亏。这里把已配好的字段原样列出来，只看不填，
 // 并且能导出成 Word 或 PDF 拿去线下打草稿。
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Empty, Modal, Space, Spin, Tag, message } from 'antd';
+import { Button, Empty, Modal, Space, Spin, message } from 'antd';
 import { FileWordOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { getResumeFields } from '@/api/resume';
 import { request } from '@/utils';
@@ -105,13 +105,15 @@ const ResumeTemplateModal: React.FC<ResumeTemplateModalProps> = ({
         </Space>
       )}
     >
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message="这里只能看，不能填"
-        description="招募开放后回到本页在线填写提交。可以先导出一份，把要想一会儿的内容提前写好。"
-      />
+      {/*
+        原来这里是一整块蓝色 Alert（大图标 + 加粗标题 + 大段描述），
+        在一屏字段清单前面又重又吵。改成一行说明：信息一个字没少，
+        分量退回它该有的位置。
+      */}
+      <p className="tpl-note">
+        这里只能看、不能填。招募开放后回到本页在线填写提交；可以先导出一份，
+        把个人简介、项目经验这类要想一会儿的内容提前写好。
+      </p>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
@@ -123,9 +125,14 @@ const ResumeTemplateModal: React.FC<ResumeTemplateModalProps> = ({
             <li className="tpl-item" key={f.key || f.label}>
               <div className="tpl-item__head">
                 <span className="tpl-item__label">{f.label}</span>
-                {f.required
-                  ? <Tag color="red">必填</Tag>
-                  : <Tag>选填</Tag>}
+                {/*
+                  必填不用红色 Tag。这一屏十几个字段，十几块红色堆在一起
+                  像满页报错；而「必填」只是个属性，不是警告。
+                  改成一枚低饱和的小字标记，选填的更淡一档。
+                */}
+                <span className={`tpl-item__flag${f.required ? ' is-required' : ''}`}>
+                  {f.required ? '必填' : '选填'}
+                </span>
                 <span className="tpl-item__type">{fieldTypeHint(f.type, f.options)}</span>
               </div>
               {f.placeholder && <div className="tpl-item__hint">{f.placeholder}</div>}
@@ -137,9 +144,21 @@ const ResumeTemplateModal: React.FC<ResumeTemplateModalProps> = ({
       )}
 
       {fields.length > 0 && (
-        <p className="tpl-foot">
-          导出的 Word 就是投递页那份可回填模板：填好后等招募开放，在投递页点「导入」即可自动回填。
-        </p>
+        <div className="tpl-foot">
+          <p>
+            <b>Word</b> 就是投递页那份可回填模板：它按「标签：内容」排版，填好后等招募开放，
+            在投递页点「导入」能把姓名、学号、性别、年级、专业、邮箱、手机、GitHub、
+            第一/第二志愿、自我介绍、加入理由、技术栈、项目经验自动填回表单。
+            照片与管理员新加的自定义字段要在网页上手动补。
+          </p>
+          <p>
+            <b>PDF</b> 是拿去打印或照着准备用的，版式是「标签 + 空白框」，
+            导回来匹配不上，别指望它自动回填。
+          </p>
+          <p>
+            面试的可参加时间段在投递页的「面试意向」里勾选，是多选，不在这张表里。
+          </p>
+        </div>
       )}
     </Modal>
   );

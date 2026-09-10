@@ -7,6 +7,9 @@
 // 抽成纯函数是为了能直接测：字段类型有六七种，选项、必填、占位提示的
 // 呈现各不一样，塞在 JSX 里没法验。
 
+import { DEPRECATED_RESUME_FIELD_KEYS } from '@/api/manage/resumeEntry';
+import { specOf } from '@/config/resumeFieldRegistry';
+
 export interface TemplateField {
   key: string;
   label: string;
@@ -42,13 +45,28 @@ export function fieldTypeHint(type: string, options: string[]): string {
 /**
  * 把后端的字段定义整理成模板行。
  *
- * 只保留启用中的字段（isActive=false 是管理员关掉的，学生根本看不到），
- * 按 sortOrder 排序——后端不保证顺序，直接渲染会和真实表单对不上，
- * 那样这份模板反而误导人。
+ * 过滤规则必须和投递表单**逐条一致**，否则这份「模板」会列出学生根本
+ * 填不到的东西。第一版只按 isActive 过滤，结果「期望部门」（由第一/第二
+ * 志愿合成，表单里不单独出现）和「第一/第二面试时间」（方案A 遗留，
+ * 时间窗现在由面试意向卡管）都跑了出来，看着像要填三遍志愿。
+ *
+ * 三条规则，与 Publish 页的 renderableFields 同源：
+ *   1. isActive —— 管理员关掉的字段学生看不到
+ *   2. 不在 DEPRECATED_RESUME_FIELD_KEYS 里
+ *   3. 规范表里 inForm !== false（规范表里没有的 key 是自定义字段，保留）
+ *
+ * 再按 sortOrder 排序——后端不保证顺序，直接渲染会和真实表单对不上。
  */
 export function normalizeTemplateFields(raw: any[] | null | undefined): TemplateField[] {
+  const deprecated = new Set<string>(DEPRECATED_RESUME_FIELD_KEYS);
   return (raw ?? [])
-    .filter((f) => f && f.isActive !== false)
+    .filter((f) => {
+      if (!f || f.isActive === false) return false;
+      const key = String(f.fieldKey ?? f.key ?? '');
+      if (deprecated.has(key)) return false;
+      const spec = specOf(key);
+      return spec ? spec.inForm : true;
+    })
     .slice()
     .sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0))
     .map((f) => ({
