@@ -34,9 +34,16 @@ describe('简历初筛这一步', () => {
     expect(screen.queryByText('管理员安排中')).not.toBeInTheDocument();
   });
 
-  it('通过初筛：提示去填面试意向', async () => {
+  it('通过初筛：提示等待面试安排（意向在初筛之前就填了）', async () => {
     render(<RecruitProgressCard cycleId={1} resumeStatus={4} canAttendOffline />);
-    await waitFor(() => expect(screen.getByText('已通过，请填写面试意向')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('已通过，等待面试安排')).toBeInTheDocument());
+  });
+
+  it('步骤顺序：面试意向在简历初筛之前——填简历时就顺手填了意向', async () => {
+    const { container } = render(<RecruitProgressCard cycleId={1} resumeStatus={4} canAttendOffline />);
+    await waitFor(() => expect(screen.getByText('简历初筛')).toBeInTheDocument());
+    const titles = Array.from(container.querySelectorAll('.ant-steps-item-title')).map((n) => n.textContent);
+    expect(titles.indexOf('面试意向')).toBeLessThan(titles.indexOf('简历初筛'));
   });
 
   it('刚提交还没筛：显示评审中，不预判结论', async () => {

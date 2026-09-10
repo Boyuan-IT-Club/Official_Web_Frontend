@@ -271,31 +271,6 @@ const InterviewAppointment: React.FC = () => {
   });
 
   items.push({
-    color: screenRejected ? 'red' : screenPassed ? 'green' : 'gray',
-    dot: <FileTextOutlined />,
-    children: (
-      <>
-        <Text strong>简历初筛</Text>
-        <div>
-          {screenRejected ? (
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginTop: 4 }}
-              message="很遗憾，简历未通过初筛"
-              description="感谢你的投递！本届招新流程到此结束，社团的技术分享与公开活动欢迎继续参与，期待下一届再见。"
-            />
-          ) : screenPassed ? (
-            <Text type="secondary">已通过初筛，请填写下方面试意向</Text>
-          ) : (
-            <Text type="secondary">{submitted ? '简历评审中，请耐心等待' : '提交简历后进入评审'}</Text>
-          )}
-        </div>
-      </>
-    ),
-  });
-
-  items.push({
     color: preference ? 'green' : 'gray',
     dot: <FormOutlined />,
     children: (
@@ -317,6 +292,31 @@ const InterviewAppointment: React.FC = () => {
                 {preference ? '修改面试意向' : '填写面试意向'}
               </Button>
             </div>
+          )}
+        </div>
+      </>
+    ),
+  });
+
+  items.push({
+    color: screenRejected ? 'red' : screenPassed ? 'green' : 'gray',
+    dot: <FileTextOutlined />,
+    children: (
+      <>
+        <Text strong>简历初筛</Text>
+        <div>
+          {screenRejected ? (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginTop: 4 }}
+              message="很遗憾，简历未通过初筛"
+              description="感谢你的投递！本届招新流程到此结束，社团的技术分享与公开活动欢迎继续参与，期待下一届再见。"
+            />
+          ) : screenPassed ? (
+            <Text type="secondary">已通过初筛，等待面试安排</Text>
+          ) : (
+            <Text type="secondary">{submitted ? '简历评审中，请耐心等待' : '提交简历后进入评审'}</Text>
           )}
         </div>
       </>
@@ -500,7 +500,7 @@ const InterviewAppointment: React.FC = () => {
         ) : (
           // 未通过初筛的同学后面几步都不会发生，时间线到初筛为止——
           // 继续显示「面试意向/安排/结果」只会让人一直等不会来的通知
-          <Timeline className="progress-timeline" items={screenRejected ? items.slice(0, 2) : items} />
+          <Timeline className="progress-timeline" items={screenRejected ? items.slice(0, 3) : items} />
         )}
       </Card>
 
