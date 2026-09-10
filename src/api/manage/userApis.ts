@@ -187,14 +187,7 @@ export const globalSearch = (params?: globalUsersParams)=>{
     params,
   });
 }
-// GET: 导出全部用户 Excel（管理员）
-export const exportUsersExcel = () => {
-  return request({
-    url: '/api/user/export/excel',
-    method: 'get',
-    responseType: 'blob',
-  });
-};
+
 
 // POST: 替换用户的全部角色（先删旧再插新；roleIds 不可为空）
 export const replaceUserRoles = (userId: number, roleIds: number[]) => {
