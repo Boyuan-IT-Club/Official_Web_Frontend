@@ -42,14 +42,16 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
         flex: 1 1 160px;
         min-width: 0;   // 允许收缩到内容以下，否则长选项会把整行顶爆
 
-        // 搜索框是主控件，给它两倍权重，换行时也最后被挤走
-        &.search-box { flex: 2 1 240px; }
+        // 搜索框与周期是两个会被内容撑的控件，都允许伸缩。
+        // 基准宽度是在管理端实测出来的：周期名「2026学年测试招新（进行中）」
+        // 连同下拉箭头要 250px 才不被截成「2026学年测试招…」，
+        // 剩下的宽度留给搜索框。
+        &.search-box { flex: 1 1 200px; }
+        &.cycle-filter-select { flex: 1 1 250px; }
 
         // 搜索类型是搜索框的附属项：固定窄宽，别和主控件抢
         &.search-type-select { flex: 0 0 120px; }
 
-        // 周期与状态是两个平级的主筛选，等宽
-        &.cycle-filter-select,
         &.status-filter-select { flex: 0 0 170px; }
 
         &.department-filter-select { flex: 0 0 150px; }
