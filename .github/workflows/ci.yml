@@ -1,0 +1,24 @@
+name: CI
+
+# #178 上线门:前端 PR 的最小测试门(tsc + jest + 生产构建)。
+# deploy.yml(主千 rsync 部署)语义本票不动——部署前测试门是否强制,
+# 待与 deploy 流水线一起拍板(见 issue #178 验收记录)。
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: CI=true npx craco test --watchAll=false
+      - name: Production build (user + admin)
+        run: npm run build
