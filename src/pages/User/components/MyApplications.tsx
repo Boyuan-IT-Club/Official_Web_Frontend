@@ -17,6 +17,7 @@ interface MyResumeItem {
 
 // 学生视角只需三态：草稿 / 已提交 / 已截止未提交（评审细节由结果通知承载）
 const statusTag = (status: number, cycleEnded: boolean): { color: string; text: string } => {
+  if (status === 6) return { color: 'purple', text: 'AI初筛中' };
   if (status >= 2) return { color: 'processing', text: '已提交' };
   return cycleEnded
     ? { color: 'default', text: '已截止（未提交）' }

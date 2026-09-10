@@ -13,7 +13,10 @@ import {
   Menu,
   Spin,
   Alert,
-  Tooltip
+  Tooltip,
+  Checkbox,
+  Modal,
+  message,
 } from 'antd';
 import {
   CalendarOutlined,
@@ -26,7 +29,10 @@ import {
   SortAscendingOutlined,
   SortDescendingOutlined,
   CloseCircleOutlined,
+  LoadingOutlined,
   AppstoreOutlined, // 用于部门筛选图标
+  RobotOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
@@ -34,6 +40,12 @@ import { getAllCycles } from '@/api/manage/cycleApis';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
 import ResumePhotoAvatar from '@/components/ResumePhotoAvatar';
+import {
+  ScorecardRow, listEvaluationQueue, runResumeEvaluation,
+} from '@/api/manage/evaluationApis';
+import { aiRecommendation } from '@/components/ResumeAiEvaluation';
+import { getToken } from '@/utils';
+import { hasPermission } from '@/utils/jwt';
 import './index.scss';
 
 const { Text, Title } = Typography;
@@ -73,7 +85,7 @@ type RootStateLike = {
 };
 
 type ResumeListProps = {
-  onShowDetail?: (resume: Resume, currentPage?: number) => void;
+  onShowDetail?: (resume: Resume, currentPage?: number, cycleId?: number) => void;
   onApprove?: (resumeId: string | number) => void;
   onReject?: (resumeId: string | number) => void;
   onDownload?: (resumeId: string | number) => void;
@@ -128,6 +140,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
   onPageChange,
 }) => {
   const dispatch = useDispatch<any>();
+  const canUseAiScreening = hasPermission(getToken(), 'resume:audit');
 
   // 从 Redux 获取分页相关状态
   const { resumes, adminLoading, adminError, pagination } = useSelector(
@@ -168,6 +181,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [cycles, setCycles] = useState<any[]>([]);
   // 用于高亮显示当前排序方式
   const [currentSortKey, setCurrentSortKey] = useState<string>('time_desc');
+  const [selectedIds, setSelectedIds] = useState<React.Key[]>([]);
+  const [aiFilter, setAiFilter] = useState<'all' | 'pending' | 'passed' | 'review'>('all');
+  const [scorecards, setScorecards] = useState<Record<string, ScorecardRow>>({});
+  const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
+  const [screening, setScreening] = useState(false);
 
   // 使用从父组件传递的 currentPage 作为初始值
   const [localCurrentPage, setLocalCurrentPage] = useState<number>(currentPage || 1);
@@ -280,6 +298,24 @@ const ResumeList: React.FC<ResumeListProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
+  // 与当前周期的 AI 评分卡合并展示。接口失败只隐藏 AI 信息，不影响人工审核。
+  useEffect(() => {
+    if (!cycleId || !canUseAiScreening) {
+      setScorecards({});
+      return;
+    }
+    let cancelled = false;
+    listEvaluationQueue(cycleId, 'all')
+      .then((res: any) => {
+        if (cancelled) return;
+        const next: Record<string, ScorecardRow> = {};
+        (res?.data?.items ?? []).forEach((row: ScorecardRow) => { next[String(row.resume_id)] = row; });
+        setScorecards(next);
+      })
+      .catch(() => { if (!cancelled) setScorecards({}); });
+    return () => { cancelled = true; };
+  }, [cycleId, canUseAiScreening]);
+
   // 搜索、筛选、排序变化时重新加载数据（重置到第一页）
   useEffect(() => {
     if (isReturningFromDetail.current) {
@@ -302,6 +338,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
   // 简历状态三态：草稿 / 已提交 / 已截止（录取与否见「面试管理 → 结果与通知」）
   const getStatusInfo = (status: number) => {
     switch (status) {
+      case 6:
+        // AI 初筛中（瞬态，agent 初筛 job 运行期间）
+        return { text: 'AI初筛中', color: 'purple', icon: <LoadingOutlined /> };
       case 3:
         return { text: '已截止（未提交）', color: 'default', icon: <CloseCircleOutlined /> };
       case 2:
@@ -324,7 +363,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
     // eslint-disable-next-line no-console
     console.log('Viewing resume:', resumeObject);
     if (onShowDetail) {
-      onShowDetail(resumeObject, localCurrentPage);
+      onShowDetail(resumeObject, localCurrentPage, cycleId);
     }
   };
 
@@ -385,6 +424,58 @@ const ResumeList: React.FC<ResumeListProps> = ({
       </Menu.Item>
     </Menu>
   );
+
+  const visibleResumes = resumes.filter((resume) => {
+    const card = scorecards[String(resume.resumeId)];
+    if (aiFilter === 'pending') return !card;
+    if (aiFilter === 'passed') return Boolean(card && !card.hard_zero && (card.total ?? 0) >= 60);
+    if (aiFilter === 'review') return Boolean(card && (card.hard_zero || (card.total ?? 0) < 60));
+    return true;
+  });
+  const visibleIds = visibleResumes.map((resume) => String(resume.resumeId));
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.includes(id));
+
+  const toggleAllVisible = (checked: boolean) => {
+    setSelectedIds((current) => checked
+      ? Array.from(new Set([...current.map(String), ...visibleIds]))
+      : current.filter((id) => !visibleIds.includes(String(id))));
+  };
+
+  const startAiScreening = () => {
+    const selected = resumes.filter((resume) => selectedIds.includes(String(resume.resumeId)));
+    if (!cycleId || selected.length === 0) {
+      message.info('请先选择当前周期内要初筛的简历');
+      return;
+    }
+    const missingUser = selected.find((resume) => !(resume.userId ?? resume.user_id));
+    if (missingUser) {
+      message.error(`简历 #${missingUser.resumeId} 缺少候选人信息，无法启动初筛`);
+      return;
+    }
+    Modal.confirm({
+      title: `启动 ${selected.length} 份简历的 AI 初筛？`,
+      content: '任务将在后台运行。已有结果的简历会生成新版本，人工评分不会被改动。',
+      okText: '启动初筛',
+      cancelText: '取消',
+      onOk: async () => {
+        setScreening(true);
+        try {
+          await runResumeEvaluation(cycleId, selected.map((resume) => ({
+            resume_id: Number(resume.resumeId),
+            user_id: Number(resume.userId ?? resume.user_id),
+          })));
+          setScreeningIds((current) => Array.from(new Set([...current, ...selected.map((r) => String(r.resumeId))])));
+          setSelectedIds([]);
+          message.success(`已提交 ${selected.length} 份简历，AI 正在后台初筛`);
+        } catch (e: any) {
+          message.error(e?.message || '启动 AI 初筛失败');
+        } finally {
+          setScreening(false);
+        }
+      },
+    });
+  };
 
   return (
     <div className="resume-list-container">
@@ -455,8 +546,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
               onChange={setStatusFilter}
               allowClear
             >
-              <Option value="1,2">全部</Option>
+              <Option value="1,2,6">全部</Option>
               <Option value="2">已提交</Option>
+              <Option value="6">AI初筛中</Option>
               <Option value="1">草稿</Option>
             </Select>
           </div>
@@ -474,8 +566,39 @@ const ResumeList: React.FC<ResumeListProps> = ({
       </div>
 
       <div className="list-header">
-        <Title level={4}>简历管理</Title>
-        <Text type="secondary">共 {pagination.total} 份简历</Text>
+        <div>
+          <Title level={4} style={{ marginBottom: 4 }}>简历审核</Title>
+          <Text type="secondary">选择候选人后可批量启动 AI 初筛，结果直接显示在简历旁。</Text>
+        </div>
+        {canUseAiScreening && <Space wrap>
+          <Checkbox
+            checked={allVisibleSelected}
+            indeterminate={!allVisibleSelected && someVisibleSelected}
+            onChange={(event) => toggleAllVisible(event.target.checked)}
+          >
+            全选当前筛选结果
+          </Checkbox>
+          <Select
+            value={aiFilter}
+            style={{ width: 150 }}
+            onChange={setAiFilter}
+            options={[
+              { value: 'all', label: '全部 AI 状态' },
+              { value: 'pending', label: '待 AI 初筛' },
+              { value: 'passed', label: 'AI 建议通过' },
+              { value: 'review', label: 'AI 建议重点复核' },
+            ]}
+          />
+          <Button
+            type="primary"
+            icon={<ThunderboltOutlined />}
+            disabled={selectedIds.length === 0 || !cycleId}
+            loading={screening}
+            onClick={startAiScreening}
+          >
+            启动 AI 初筛{selectedIds.length ? `（${selectedIds.length}）` : ''}
+          </Button>
+        </Space>}
       </div>
 
       <Spin spinning={adminLoading}>
@@ -486,7 +609,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
         ) : (
           <>
             <List
-              dataSource={resumes}
+              dataSource={visibleResumes}
               grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 3 }}
               renderItem={(resume) => {
                 const statusInfo = getStatusInfo(resume.status);
@@ -500,6 +623,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
                 // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
                 const photo = getFieldValueFromResume(resume, '个人照片');
+                const aiCard = scorecards[String(resume.resumeId)];
+                const aiHint = aiCard ? aiRecommendation(aiCard) : null;
+                const isScreening = screeningIds.includes(String(resume.resumeId));
 
                 return (
                   <List.Item key={String(resume.resumeId)}>
@@ -537,6 +663,14 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         </Dropdown>,
                       ]}
                     >
+                      <Checkbox
+                        className="resume-card-select"
+                        aria-label={`选择简历 ${name || resume.resumeId}`}
+                        checked={selectedIds.includes(String(resume.resumeId))}
+                        onChange={(event) => setSelectedIds((current) => event.target.checked
+                          ? [...current, String(resume.resumeId)]
+                          : current.filter((id) => String(id) !== String(resume.resumeId)))}
+                      />
                       <Card.Meta
                         avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={
@@ -565,6 +699,19 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         }
                         description={
                           <div className="resume-card-description">
+                            <div className="resume-card-ai">
+                              <RobotOutlined />
+                              {isScreening ? (
+                                <Tag color="processing">AI 初筛中</Tag>
+                              ) : aiCard && aiHint ? (
+                                <>
+                                  <Tag color={aiHint.color}>AI {aiCard.total ?? '—'} 分</Tag>
+                                  <Text type="secondary">{aiHint.text}</Text>
+                                </>
+                              ) : (
+                                <Tag>待 AI 初筛</Tag>
+                              )}
+                            </div>
                             <div>
                               <Text type="secondary">专业:</Text> {major || '未提供'}
                             </div>
