@@ -72,6 +72,8 @@ export interface DataDrivenFieldsProps {
   firstDeptOptions: OptionItem[];
   secondDeptOptions: OptionItem[];
   disabledSecondDepts: string[];
+  /** 第一志愿里要禁掉的项（第二志愿已选的那个） */
+  disabledFirstDepts?: string[];
   /** 面试已安排后志愿锁定 */
   intentLocked?: boolean;
 }
@@ -114,7 +116,7 @@ const DataDrivenFields: React.FC<DataDrivenFieldsProps> = ({
   photoBase64, onPhotoUpload, isPhotoCompressing,
   techStackItems, onTechStackChange, onTechStackAdd, onTechStackRemove,
   departments, onDepartmentChange,
-  firstDeptOptions, secondDeptOptions, disabledSecondDepts, intentLocked,
+  firstDeptOptions, secondDeptOptions, disabledSecondDepts, disabledFirstDepts, intentLocked,
 }) => {
   const renderOne = (field: RenderableField): React.ReactNode => {
     const key = field.fieldKey;
@@ -175,7 +177,7 @@ const DataDrivenFields: React.FC<DataDrivenFieldsProps> = ({
             onChange={(value: string) => onDepartmentChange(which, value)}
             options={which === 'first' ? firstDeptOptions : secondDeptOptions}
             disabled={!canEdit || !!intentLocked}
-            disabledOptions={which === 'second' ? disabledSecondDepts : undefined}
+            disabledOptions={which === 'second' ? disabledSecondDepts : disabledFirstDepts}
             required={which === 'first' ? true : required && false}
             className="compact-input"
           />

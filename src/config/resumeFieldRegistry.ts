@@ -87,9 +87,17 @@ export const RESUME_FIELDS: FieldSpec[] = [
   { key: 'second_choice',     label: '第二志愿',  category: FieldCategory.Preference, order: 14, widget: 'department', inForm: true, inView: true },
   { key: 'expected_departments', label: '期望部门', category: FieldCategory.Preference, order: 15, widget: 'select', inForm: false, inView: true },
 
-  { key: 'can_attend_offline_interview', label: '能否参加线下面试', category: FieldCategory.Interview, order: 16, widget: 'radio', inForm: true, inView: true },
+  /*
+   * 这三条是「存储位」而不是给人看的内容：面试意向、能否线下都塞在
+   * expected_interview_time 的 JSON 里，另两条只被写入、从不作为字段渲染。
+   * 一律 inView: false —— 按原样打出来是
+   * 「第一面试时间：{"first":"","second":"","canAttend":"yes","customTime":""}」，
+   * 用户看到的就是一段乱码（简历速览里实际发生过）。
+   * 人能读的版本由各视图自己解析后单独渲染。
+   */
+  { key: 'can_attend_offline_interview', label: '能否参加线下面试', category: FieldCategory.Interview, order: 16, widget: 'radio', inForm: true, inView: false },
   { key: 'expected_interview_time',      label: '第一面试时间',     category: FieldCategory.Interview, order: 17, widget: 'interviewTime', inForm: false, inView: false },
-  { key: 'second_interview_time',        label: '第二面试时间',     category: FieldCategory.Interview, order: 18, widget: 'select', inForm: false, inView: true },
+  { key: 'second_interview_time',        label: '第二面试时间',     category: FieldCategory.Interview, order: 18, widget: 'select', inForm: false, inView: false },
 
   { key: 'tech_stack',        label: '技术栈',    category: FieldCategory.Skill, order: 19, widget: 'techStack', inForm: true, inView: true },
   { key: 'project_experience', label: '项目经验', category: FieldCategory.Skill, order: 20, widget: 'textarea',  inForm: true, inView: true, longText: true },
