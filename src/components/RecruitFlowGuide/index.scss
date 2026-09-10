@@ -1,0 +1,98 @@
+// 流程指引条：常驻在页面顶部，属于「说明」而非「操作」，
+// 所以整体压低对比度，只有当前该做的那一步允许上主色。
+// 颜色一律走 antd token 的 CSS 变量，跟着皮肤（含石墨深色）走。
+.flow-guide {
+  margin-bottom: 14px;
+
+  &__track {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__step {
+    display: flex;
+    align-items: center;
+
+    // 步骤之间的连接线：用伪元素而不是额外的分隔节点，
+    // 换行时不会在行首留下一根孤立的线
+    & + &::before {
+      content: "";
+      width: 14px;
+      height: 1px;
+      margin: 0 2px;
+      background: var(--ant-color-split, rgba(0, 0, 0, 0.1));
+    }
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 6px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+
+    &:hover { background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04)); }
+    &:focus-visible { outline: 2px solid var(--ant-color-primary, #1677ff); outline-offset: 1px; }
+  }
+
+  &__no {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
+    background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+    border-radius: 50%;
+  }
+
+  // 已完成：数字换成对勾，用成功色，但不填底 —— 六个绿块会比当前步还抢眼
+  .is-done &__btn { color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65)); }
+  .is-done &__no {
+    color: var(--ant-color-success, #52c41a);
+    background: var(--ant-color-success-bg, rgba(82, 196, 26, 0.1));
+  }
+
+  // 当前步（或页面内正处的那一步）：唯一允许上主色的地方
+  .is-here &__btn {
+    color: var(--ant-color-primary, #1677ff);
+    font-weight: 600;
+    background: var(--ant-color-primary-bg, rgba(22, 119, 255, 0.08));
+    border-color: var(--ant-color-primary-border, rgba(22, 119, 255, 0.25));
+  }
+  .is-here &__no {
+    color: #fff;
+    background: var(--ant-color-primary, #1677ff);
+  }
+  .is-done.is-here &__no {
+    color: #fff;
+    background: var(--ant-color-primary, #1677ff);
+  }
+
+  &__now {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+
+    b {
+      font-weight: 600;
+      color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+    }
+  }
+}

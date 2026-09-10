@@ -106,3 +106,22 @@ describe('终审工作台', () => {
     await waitFor(() => expect(api.finalizePreAdmission).toHaveBeenCalledWith({ cycleId: 6 }));
   });
 });
+
+describe('全屏与视图模式互不绑定', () => {
+  it('在终审舞台里切到总览矩阵/名单仍是全屏，退出键才回到普通页面', async () => {
+    render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
+    await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('进入终审舞台'));
+    await waitFor(() => expect(document.querySelector('.stage-shell')).toBeInTheDocument());
+
+    // 用户实际撞到的：切到矩阵就被踢出全屏
+    fireEvent.click(screen.getByText('总览矩阵'));
+    expect(document.querySelector('.stage-shell')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('名单'));
+    expect(document.querySelector('.stage-shell')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(/退出/));
+    await waitFor(() => expect(document.querySelector('.stage-shell')).not.toBeInTheDocument());
+  });
+});

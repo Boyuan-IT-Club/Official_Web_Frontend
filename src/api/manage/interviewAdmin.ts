@@ -169,6 +169,15 @@ export interface ScheduleRosterItem {
   name?: string;
   username?: string;
   deptName?: string;
+  /** 简历里填的学号；本届没有学号字段时为空。别拿 username 顶替 */
+  studentId?: string | null;
+  /** 场次地点 */
+  location?: string | null;
+  firstDeptName?: string | null;
+  secondDeptName?: string | null;
+  /** 1 = 面试安排通知已发出 */
+  notifStatus?: number | null;
+  syncStatus?: number | null;
   /** 1 = 时间被管理员手动调整过，自动分配/换场不会再覆盖 */
   timeOverridden?: number;
 }
@@ -334,6 +343,8 @@ export interface InterviewResultItem {
    */
   userName?: string;
   departmentName?: string;
+  /** 生效面试安排的时间；后端按简历+周期实时回退取得，先生成名单后排面试也有值 */
+  interviewTime?: string | null;
   /** 简历平均分；null = 没打过分（列默认 0 不代表打过 0 分） */
   resumeScore?: number | null;
   /** 面试评价加权总分；null = 无评价（如未面试/未定稿） */
@@ -383,4 +394,53 @@ export function batchDecision(data: {
 /** 批量发送结果通知邮件 */
 export function sendResultNotifications(data: { resultIds: number[]; notificationType: string; customMessage?: string }) {
   return request({ url: '/api/interview/result/send-notifications', method: 'post', data });
+}
+
+/** 招新流程各环节的产出量，管理端「流程指引」据此判断当前该做哪一步 */
+export interface RecruitFlowProgress {
+  fieldCount: number;
+  submittedResumes: number;
+  screenedResumes: number;
+  schedules: number;
+  finalizedEvaluations: number;
+  preAdmitted: number;
+  decided: number;
+  notified: number;
+}
+
+export function getFlowProgress(cycleId: number) {
+  return request({ url: '/api/interview/flow/progress', method: 'get', params: { cycleId } });
+}
+
+/** 通知中心：某类通知的进度 */
+export interface NotificationBucket {
+  total: number;
+  sent: number;
+  pending: number;
+}
+
+export interface ScreenedOutItem {
+  resumeId: number;
+  userId?: number | null;
+  name?: string | null;
+  studentId?: string | null;
+  email?: string | null;
+  /** 简历平均分；null = 没打过分（与打 0 分区分） */
+  resumeScore?: number | null;
+  /** 最近一次初筛未通过通知的发送时间；null = 还没通知 */
+  notifiedAt?: string | null;
+}
+
+export interface NotificationOverview {
+  resumeRejected: NotificationBucket;
+  interviewArranged: NotificationBucket;
+  eveReminder: NotificationBucket;
+  dayReminder: NotificationBucket;
+  result: NotificationBucket;
+  screenedOut: ScreenedOutItem[];
+}
+
+/** 通知中心总览：四类对外邮件各发了多少、还差谁 */
+export function getNotificationOverview(cycleId: number) {
+  return request({ url: '/api/interview/notifications/overview', method: 'get', params: { cycleId } });
 }

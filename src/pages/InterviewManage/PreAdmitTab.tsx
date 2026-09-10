@@ -1,7 +1,12 @@
 // 预录取 · 终审：三段一体。
 //   矩阵  全场总览（默认）——候选人 × 维度的着色矩阵，悬浮看评语
-//   舞台  全屏沉浸逐人审——Hero 面板 + 部门胶囊 + 键盘流
+//   舞台  逐人审——Hero 面板 + 部门胶囊 + 键盘流
 //   名单  草稿名单管理与「按名单最终录取」
+//
+// 「全屏」是独立于视图模式的一层状态，不再和「舞台」绑死：
+// 原先点「进入终审舞台」全屏，一切到矩阵或名单就被踢回普通页面，
+// 而终审恰恰要在矩阵和舞台之间来回跳。现在三种视图都能在全屏里看，
+// 退出全屏只由顶栏的退出键（或 Esc）决定。
 // 数据一次拉齐四个现有接口，前端关联（finalReview.ts），后端零改动。
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -34,6 +39,8 @@ const PreAdmitTab: React.FC<{
   refreshToken?: number;
 }> = ({ cycleId, depts = [], refreshToken }) => {
   const [mode, setMode] = useState<Mode>('matrix');
+  // 全屏沉浸：与 mode 正交，三种视图都能全屏看
+  const [immersive, setImmersive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [candidates, setCandidates] = useState<FinalCandidate[]>([]);
   const [dimensions, setDimensions] = useState<EvaluationDimension[]>([]);
@@ -147,7 +154,7 @@ const PreAdmitTab: React.FC<{
     setFinalizing(true);
     try {
       const res: any = await finalizePreAdmission({ cycleId });
-      message.success(`已正式录取 ${res?.data?.published ?? 0} 人，去「结果与通知」发送录取邮件`);
+      message.success(`已正式录取 ${res?.data?.published ?? 0} 人，去「通知」页发送录取邮件`);
       setFinalizeOpen(false);
       load();
     } catch (e: any) {
@@ -188,34 +195,26 @@ const PreAdmitTab: React.FC<{
 
   const current = candidates[clampIndex(stageIndex, Math.max(1, candidates.length))];
 
-  return (
+  /** 三种视图的正文；全屏与否都渲染同一份，避免两套分支各写一遍 */
+  const body = (
     <>
-      <Space wrap style={{ marginBottom: 12 }} align="center">
-        {modeSeg}
-        {deptPills}
-        <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>刷新</Button>
-        <Button type="primary" icon={<FullscreenOutlined />} disabled={candidates.length === 0}
-                onClick={() => setMode('stage')}>
-          进入终审舞台
-        </Button>
-        <Button icon={<RocketOutlined />} disabled={!draftTotal} loading={finalizing}
-                onClick={() => setFinalizeOpen(true)}>
-          按名单最终录取（{draftTotal} 人）
-        </Button>
-      </Space>
-
       {mode === 'matrix' && (
-        loading && candidates.length === 0 ? <Spin style={{ display: 'block', margin: '48px auto' }} /> : (
-        <FinalMatrix
-          candidates={candidates}
-          dimensions={dimensions}
-          onOpenStage={(resultId) => {
-            const i = candidates.findIndex((c) => c.resultId === resultId);
-            if (i >= 0) setStageIndex(i);
-            setMode('stage');
-          }}
-        />
-      ))}
+        loading && candidates.length === 0
+          ? <Spin style={{ display: 'block', margin: '48px auto' }} />
+          : (
+            <FinalMatrix
+              candidates={candidates}
+              dimensions={dimensions}
+              onOpenStage={(resultId) => {
+                const i = candidates.findIndex((c) => c.resultId === resultId);
+                if (i >= 0) setStageIndex(i);
+                setMode('stage');
+                // 从矩阵点进某个人就是要逐人细看，顺势进全屏
+                setImmersive(true);
+              }}
+            />
+          )
+      )}
 
       {mode === 'list' && (
         <ListSection
@@ -224,17 +223,8 @@ const PreAdmitTab: React.FC<{
         />
       )}
 
-      {mode === 'stage' && current && (
-        <StageShell
-          title={`终审舞台 · 周期 #${cycleId}`}
-          meta={`${candidates.length} 位候选人`}
-          topExtra={<Space>{deptPills}{modeSeg}</Space>}
-          onExit={() => setMode('matrix')}
-          film={<FilmStrip items={filmItems} onSelect={(key) => {
-            const i = candidates.findIndex((c) => c.resultId === Number(key));
-            if (i >= 0) setStageIndex(i);
-          }} />}
-        >
+      {mode === 'stage' && (current
+        ? (
           <FinalStage
             candidate={current}
             rank={stageIndex + 1}
@@ -245,7 +235,59 @@ const PreAdmitTab: React.FC<{
             onRemove={() => remove(current)}
             onViewResume={() => openPeek(current)}
           />
+        )
+        : <Empty description="本周期还没有候选人" style={{ padding: 48 }} />)}
+    </>
+  );
+
+  const toolbar = (
+    <Space wrap style={{ marginBottom: 12 }} align="center">
+      {modeSeg}
+      {deptPills}
+      <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>刷新</Button>
+      <Button type="primary" icon={<FullscreenOutlined />} disabled={candidates.length === 0}
+              onClick={() => { setMode('stage'); setImmersive(true); }}>
+        进入终审舞台
+      </Button>
+      <Button icon={<RocketOutlined />} disabled={!draftTotal} loading={finalizing}
+              onClick={() => setFinalizeOpen(true)}>
+        按名单最终录取（{draftTotal} 人）
+      </Button>
+    </Space>
+  );
+
+  return (
+    <>
+      {immersive ? (
+        <StageShell
+          title={`终审舞台 · 周期 #${cycleId}`}
+          meta={mode === 'stage' ? `${candidates.length} 位候选人` : undefined}
+          topExtra={(
+            <Space>
+              {deptPills}
+              {modeSeg}
+              <Button size="small" icon={<RocketOutlined />} disabled={!draftTotal} loading={finalizing}
+                      onClick={() => setFinalizeOpen(true)}>
+                最终录取（{draftTotal}）
+              </Button>
+            </Space>
+          )}
+          onExit={() => setImmersive(false)}
+          /* 胶片条是逐人翻看用的，矩阵/名单视图下没有「当前这一位」，不渲染 */
+          film={mode === 'stage'
+            ? <FilmStrip items={filmItems} onSelect={(key) => {
+                const i = candidates.findIndex((c) => c.resultId === Number(key));
+                if (i >= 0) setStageIndex(i);
+              }} />
+            : undefined}
+        >
+          {body}
         </StageShell>
+      ) : (
+        <>
+          {toolbar}
+          {body}
+        </>
       )}
 
       <Modal
@@ -259,7 +301,7 @@ const PreAdmitTab: React.FC<{
         <p style={{ marginBottom: 8 }}>将把名单里的 {draftTotal} 人正式录取到各自部门（写入结果，不发邮件）：</p>
         {stats.map((s) => <div key={s.deptId}>{s.departmentName} · {s.candidateCount} 人</div>)}
         <p style={{ marginTop: 8, color: '#999' }}>
-          录取邮件仍需到「结果与通知」勾选发送。若名单中有人已被别处定稿，本次会整批失败，刷新后重试。
+          录取邮件仍需到「通知」页勾选发送。若名单中有人已被别处定稿，本次会整批失败，刷新后重试。
         </p>
       </Modal>
 
