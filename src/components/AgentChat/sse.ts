@@ -59,6 +59,12 @@ export async function sseFetch(
   const reader = resp.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
+  let sawTerminal = false; // done/error 任一到达即认为回合终结
+
+  const wrapped = (evt: AgentEvent) => {
+    if (evt.type === "done" || evt.type === "error") sawTerminal = true;
+    onEvent(evt);
+  };
 
   // 增量解析:累积 buffer 直到遇到 \n\n,取完整帧处理
   const flushFrames = (buf: string, emit: (evt: AgentEvent) => void): string => {
@@ -81,8 +87,13 @@ export async function sseFetch(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    buffer = flushFrames(buffer, onEvent);
+    buffer = flushFrames(buffer, wrapped);
   }
   // 尾部残余帧
-  if (buffer.trim()) flushFrames(buffer, onEvent);
+  if (buffer.trim()) flushFrames(buffer, wrapped);
+  // #167:流自然关闭(HTTP EOF)但未收到 done/error → 兜底补发 done,
+  // 否则前端 streaming 永不复位、输入框卡死(无 EOF 兜底是根因)。
+  if (!sawTerminal) {
+    wrapped({ type: "done", session_id: "" });
+  }
 }
