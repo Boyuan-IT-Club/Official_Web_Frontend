@@ -16,6 +16,48 @@ import { buildTheme, type Palette } from './buildTheme';
  */
 const PALETTES: Palette[] = [
   {
+    key: 'graphite',
+    name: '石墨深色',
+    shell: 'dark',
+    // 深底上强调色改用浅化版：深蓝/靛蓝在深色里辨识度不足
+    accent: '#8ab4f8',
+    accentHover: '#a3c5fa',
+    accentBg: '#2b303b',
+    accentText: '#e8f0fe',
+    pageBg: '#f1f3f6',
+    subtleBg: '#f6f8fa',
+    border: '#e1e5ea',
+    borderStrong: '#dfe3e8',
+    textPrimary: '#1a1a1a',
+    textSecondary: '#5f6368',
+    textMuted: '#80868b',
+    // 中性石墨灰而非深蓝：antd 默认 #001529 显旧的原因是高饱和的"发蓝深色"
+    siderBg: '#1c1f26',
+    siderElevated: '#2b303b',
+    siderBorder: '#2a2e37',
+    siderText: '#f1f3f4',
+    siderTextMuted: '#9aa0a6',
+  },
+  {
+    // 与用户端「晨霞 · 粉蓝流光」同源的管理端版本：浅蓝画布、蓝调细线、
+    // 交互蓝 #2b7fe0。光斑/淡染/流光点缀等变量够不到的部分
+    // 在 styles/skin-dawn.scss 的 html[data-skin='dawn'] 段（两端共用该文件）。
+    key: 'dawn',
+    name: '晨霞 · 粉蓝流光',
+    shell: 'light',
+    accent: '#2b7fe0',
+    accentHover: '#4d94f0',
+    accentBg: '#e4f0ff',
+    accentText: '#1d5fb8',
+    pageBg: '#f4f8ff',
+    subtleBg: '#eaf2fe',
+    border: '#dfeafa',
+    borderStrong: '#c9dcf5',
+    textPrimary: '#22344c',
+    textSecondary: '#51637f',
+    textMuted: '#8296b0',
+  },
+  {
     key: 'indigo',
     name: '靛蓝（默认）',
     shell: 'light',
@@ -79,29 +121,6 @@ const PALETTES: Palette[] = [
     textPrimary: '#26215c',
     textSecondary: '#5b5573',
     textMuted: '#8f8aa3',
-  },
-  {
-    key: 'graphite',
-    name: '石墨深色',
-    shell: 'dark',
-    // 深底上强调色改用浅化版：深蓝/靛蓝在深色里辨识度不足
-    accent: '#8ab4f8',
-    accentHover: '#a3c5fa',
-    accentBg: '#2b303b',
-    accentText: '#e8f0fe',
-    pageBg: '#f1f3f6',
-    subtleBg: '#f6f8fa',
-    border: '#e1e5ea',
-    borderStrong: '#dfe3e8',
-    textPrimary: '#1a1a1a',
-    textSecondary: '#5f6368',
-    textMuted: '#80868b',
-    // 中性石墨灰而非深蓝：antd 默认 #001529 显旧的原因是高饱和的"发蓝深色"
-    siderBg: '#1c1f26',
-    siderElevated: '#2b303b',
-    siderBorder: '#2a2e37',
-    siderText: '#f1f3f4',
-    siderTextMuted: '#9aa0a6',
   },
 ];
 
