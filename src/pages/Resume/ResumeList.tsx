@@ -176,6 +176,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [notifyMsg, setNotifyMsg] = useState('');
   const [notifying, setNotifying] = useState(false);
 
+  // 本页简历 id，供「全选本页」用
+  const pageResumeIds: number[] = (resumes ?? []).map((r: any) => Number(r.resumeId));
+
   const togglePick = (resumeId: number, checked: boolean) =>
     setPicked((prev) => (checked ? [...prev, resumeId] : prev.filter((id) => id !== resumeId)));
 
@@ -532,36 +535,61 @@ const ResumeList: React.FC<ResumeListProps> = ({
         </div>
       </div>
 
-      {/* 批量初筛条：勾选任意卡片后浮出。
-          初筛决定谁能进面试，与「面试管理 → 结果与通知」的录取决定是两回事。 */}
-      {picked.length > 0 && (
-        <div className="screening-bar">
+      {/*
+        批量初筛条：常驻显示。
+        原先做成「勾选后才浮出」，结果没人知道这里能发落选通知——
+        功能藏在一个需要先猜到的前置操作后面等于不存在（用户实测反馈）。
+        现在按钮一直在，未勾选时禁用并直接写清该怎么用。
+        初筛决定谁能进面试，与「面试管理 → 结果与通知」的录取决定是两回事。
+      */}
+      <div className="screening-bar">
           <Space wrap>
-            <Text strong>已选 {picked.length} 份</Text>
+            <Checkbox
+              checked={pageResumeIds.length > 0 && picked.length === pageResumeIds.length}
+              indeterminate={picked.length > 0 && picked.length < pageResumeIds.length}
+              onChange={(e) => setPicked(e.target.checked ? pageResumeIds : [])}
+            >
+              全选本页
+            </Checkbox>
+            <Text strong>
+              {picked.length > 0 ? `已选 ${picked.length} 份` : '勾选简历后可批量初筛'}
+            </Text>
             <Popconfirm
               title={`标记 ${picked.length} 份为通过初筛？`}
               description="通过初筛的同学可以填写面试意向、参与面试分配。"
               okText="确认" cancelText="取消"
+              disabled={picked.length === 0}
               onConfirm={() => runScreening(true)}
             >
-              <Button type="primary" loading={screening}>标为通过初筛</Button>
+              <Button type="primary" loading={screening} disabled={picked.length === 0}>
+                标为通过初筛
+              </Button>
             </Popconfirm>
             <Popconfirm
               title={`标记 ${picked.length} 份为未通过初筛？`}
               description="未通过的同学本届流程即结束：不再参与面试分配，也不能再提交面试意向。此操作可撤回（重新标为通过）。"
               okText="确认" cancelText="取消"
               okButtonProps={{ danger: true }}
+              disabled={picked.length === 0}
               onConfirm={() => runScreening(false)}
             >
-              <Button danger loading={screening}>标为未通过初筛</Button>
+              <Button danger loading={screening} disabled={picked.length === 0}>
+                标为未通过初筛
+              </Button>
             </Popconfirm>
-            <Button onClick={() => { setNotifyMsg(''); setNotifyOpen(true); }}>
-              发送落选通知
-            </Button>
-            <Button type="text" onClick={() => setPicked([])}>取消选择</Button>
+            <Tooltip title="只发给状态已是「未通过初筛」的简历，其余自动跳过">
+              <Button
+                disabled={picked.length === 0}
+                onClick={() => { setNotifyMsg(''); setNotifyOpen(true); }}
+              >
+                发送落选通知
+              </Button>
+            </Tooltip>
+            {picked.length > 0 && (
+              <Button type="text" onClick={() => setPicked([])}>取消选择</Button>
+            )}
           </Space>
-        </div>
-      )}
+      </div>
 
       <Modal
         title={`发送落选通知（已选 ${picked.length} 份）`}
@@ -651,18 +679,17 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         </Dropdown>,
                       ]}
                     >
-                      {/* 批量初筛的勾选框。放卡片内左上角而不是 extra——
-                          extra 已被下载等操作占满，再塞会挤成一团 */}
-                      <Checkbox
-                        className="resume-card-pick"
-                        checked={picked.includes(Number(resume.resumeId))}
-                        onChange={(e) => togglePick(Number(resume.resumeId), e.target.checked)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
                       <Card.Meta
                         avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={
                           <Space>
+                            {/* 勾选框与姓名同排：原先绝对定位在卡片左上角，
+                                正好压在照片头像上，看不出这里能勾 */}
+                            <Checkbox
+                              checked={picked.includes(Number(resume.resumeId))}
+                              onChange={(e) => togglePick(Number(resume.resumeId), e.target.checked)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
                             <Text strong>{name || '未提供姓名'}</Text>
                             <Tag icon={statusInfo.icon} color={statusInfo.color}>
                               {statusInfo.text}
