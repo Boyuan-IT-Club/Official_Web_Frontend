@@ -81,10 +81,20 @@ const ResumeQuickView: React.FC<ResumeQuickViewProps> = ({ resume, emptyText }) 
   // 头部与技术栈单独呈现，正文里不再重复
   const headerKeys = new Set(['name', 'personal_photo', 'expected_departments', 'tech_stack']);
 
-  // 按规范顺序排一遍，再分成「并排的键值对」与「独占一块的长文本」
-  const ordered = sortByCanonicalOrder(filled).filter(
-    (f) => !headerKeys.has(f.fieldKey ?? '') && !isImg(f.fieldValue),
-  );
+  /*
+   * 按规范顺序排一遍，再分成「并排的键值对」与「独占一块的长文本」。
+   *
+   * inView: false 的字段要滤掉——它们是别的功能的存储位，存的是机器读的 JSON。
+   * 不滤的话，面试安排页点「查看简历」会看到
+   * 「第一面试时间：{"first":"","second":"","canAttend":"yes","customTime":""}」，
+   * 用户报的「第一面试时间是乱码」就是这个。
+   * 自定义字段没有 spec，照常显示。
+   */
+  const ordered = sortByCanonicalOrder(filled).filter((f) => {
+    if (headerKeys.has(f.fieldKey ?? '') || isImg(f.fieldValue)) return false;
+    const spec = specOf(f.fieldKey ?? '');
+    return spec ? spec.inView : true;
+  });
   const basics = ordered.filter((f) => !specOf(f.fieldKey ?? '')?.longText);
   const longs = ordered.filter((f) => specOf(f.fieldKey ?? '')?.longText);
 

@@ -263,6 +263,15 @@ const parseObjectField = <T extends object>(raw: unknown, fallback: T): T => {
   }
 };
 
+/**
+ * 技术栈至少留一个空行。
+ *
+ * 存进库的是过滤掉空行后的数组，全空时就是 []；读回来直接当 items 用，
+ * 输入框一行都不渲染，而「加一行」的按钮挂在最后一行上——没有行就没有按钮，
+ * 这一栏就再也编辑不了了（用户报的 bug）。
+ */
+const atLeastOneRow = (arr: string[]): string[] => (arr.length > 0 ? arr : ['']);
+
 const parseStringArray = (raw: unknown, fallback: string[]): string[] => {
   try {
     const parsed = JSON.parse(String(raw));
@@ -498,14 +507,64 @@ const Publish: React.FC = () => {
 
   const handleDepartmentChange = useCallback((type: keyof DepartmentsState, value: string): void => {
     setDepartments(prev => {
-      const next = { ...prev, [type]: value };
+      const next = { ...prev, [type]: value } as DepartmentsState;
+
+      /*
+       * 两个志愿不能相同。
+       *
+       * 原来只把「第一志愿已选的那项」在第二志愿的下拉里禁掉，是单向的：
+       * 先选第二志愿、再把第一志愿改成同一个部门，就绕过去了——用户报的正是
+       * 这条路径，改完两个志愿一模一样，等于白填一个。
+       *
+       * 这里改成：谁后改就以谁为准，把另一个撞车的志愿清掉并说明原因。
+       * 比直接拦下不让选友好——用户的意图很明确，是想把这个部门放到这一栏。
+       */
+      const other: keyof DepartmentsState = type === 'first' ? 'second' : 'first';
+      if (value && value !== '无' && next[other] === value) {
+        next[other] = type === 'first' ? '无' : '';
+        message.info(
+          type === 'first'
+            ? '第二志愿与新的第一志愿相同，已清空第二志愿'
+            : '第一志愿与新的第二志愿相同，已清空第一志愿',
+        );
+      }
+
       const deptArray: string[] = [];
       if (next.first && next.first !== '无') deptArray.push(next.first);
-      if (next.second && next.second !== '无') deptArray.push(next.second);
+      // 去重是最后一道保险：上面已经不让撞车了，但导入简历、历史数据这些
+      // 不走这个回调的路径也会写进来
+      if (next.second && next.second !== '无' && next.second !== next.first) {
+        deptArray.push(next.second);
+      }
       handleFieldChange('expected_departments', JSON.stringify(deptArray));
       return next;
     });
   }, [handleFieldChange]);
+
+  /**
+   * 从两个下拉合成 expected_departments。
+   *
+   * 保存草稿、提交、修改三处原本各拼一遍，去重规则要改就得改三处；
+   * 两个志愿相同的问题也正是从这里漏出去的——回调里拦住了，
+   * 但导入简历、历史数据不走回调，落到这里照样拼成 ["技术部","技术部"]。
+   */
+  const buildDeptArray = useCallback((): string[] => {
+    const out: string[] = [];
+    if (departments.first && departments.first !== '无') out.push(departments.first);
+    if (departments.second && departments.second !== '无' && departments.second !== departments.first) {
+      out.push(departments.second);
+    }
+    return out;
+  }, [departments]);
+
+  /** 两个志愿撞车时挡下保存，并说清怎么办 */
+  const blockedBySameDept = useCallback((): boolean => {
+    if (departments.first && departments.first !== '无' && departments.first === departments.second) {
+      message.error('第一志愿与第二志愿不能相同，请改掉其中一个再保存');
+      return true;
+    }
+    return false;
+  }, [departments]);
 
   const handleInterviewTimeChange = useCallback((type: keyof InterviewTimesState, value: string): void => {
     setInterviewTimes(prev => {
@@ -599,6 +658,12 @@ const Publish: React.FC = () => {
     if (!departments.first || departments.first === '无') return [];
     return [departments.first];
   }, [departments.first]);
+
+  /** 第一志愿里也要把第二志愿已选的那项禁掉——只禁一边等于没禁 */
+  const disabledFirstDepts = useMemo<string[]>(() => {
+    if (!departments.second || departments.second === '无') return [];
+    return [departments.second];
+  }, [departments.second]);
 
   const disabledSecondInterviewTimes = useMemo<string[]>(() => {
     if (!interviewTimes.first || interviewTimes.first === '无') return [];
@@ -729,7 +794,7 @@ const Publish: React.FC = () => {
 
           const techField = sf.find(f => f.fieldId === techFid);
           if (techField?.fieldValue) {
-            setTechStackItems(parseStringArray(techField.fieldValue, ['']));
+            setTechStackItems(atLeastOneRow(parseStringArray(techField.fieldValue, [''])));
           } else { setTechStackItems(['']); }
 
           const deptField = sf.find(f => f.fieldId === deptFid);
@@ -938,9 +1003,8 @@ const Publish: React.FC = () => {
   const handleSaveDraft = useCallback(async (): Promise<void> => {
     const currentResumeId = resume?.resume_id || resume?.id;
     if (!currentResumeId) { message.error('简历ID不存在，请刷新页面重试'); return; }
-    const deptArray: string[] = [];
-    if (departments.first && departments.first !== '无') deptArray.push(departments.first);
-    if (departments.second && departments.second !== '无') deptArray.push(departments.second);
+    if (blockedBySameDept()) return;
+    const deptArray = buildDeptArray();
     const filteredTech = techStackItems.filter(item => item && item.trim());
     if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
     if (filteredTech.length > 0) handleFieldChange('tech_stack', JSON.stringify(filteredTech));
@@ -959,14 +1023,14 @@ const Publish: React.FC = () => {
     } finally {
       setSavingDraft(false);
     }
-  }, [resume, departments, techStackItems, buildFieldValuesForSubmit, cycleId, dispatch]);
+  }, [resume, departments, techStackItems, buildFieldValuesForSubmit, cycleId, dispatch,
+      buildDeptArray, blockedBySameDept]);
 
   const handleSubmit = useCallback(async (): Promise<void> => {
     try {
       await form.validateFields();
-      const deptArray: string[] = [];
-      if (departments.first && departments.first !== '无') deptArray.push(departments.first);
-      if (departments.second && departments.second !== '无') deptArray.push(departments.second);
+      if (blockedBySameDept()) return;
+      const deptArray = buildDeptArray();
       const filteredTech = techStackItems.filter(item => item && item.trim());
       if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
       if (filteredTech.length > 0) handleFieldChange('tech_stack', JSON.stringify(filteredTech));
@@ -1003,15 +1067,14 @@ const Publish: React.FC = () => {
         ? String((err as any).message) : String(err);
       message.error(`操作失败: ${msg}`);
     }
-  }, [form, departments, techStackItems, resume, cycleId, dispatch,
+  }, [form, departments, techStackItems, resume, cycleId, dispatch, buildDeptArray, blockedBySameDept,
       handleFieldChange, buildFieldValuesForSubmit, savePreferenceBestEffort]);
 
   const handleUpdateResume = useCallback(async (): Promise<void> => {
     try {
       await form.validateFields();
-      const deptArray: string[] = [];
-      if (departments.first && departments.first !== '无') deptArray.push(departments.first);
-      if (departments.second && departments.second !== '无') deptArray.push(departments.second);
+      if (blockedBySameDept()) return;
+      const deptArray = buildDeptArray();
       const filteredTech = techStackItems.filter(item => item && item.trim());
       if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
       if (filteredTech.length > 0) handleFieldChange('tech_stack', JSON.stringify(filteredTech));
@@ -1042,7 +1105,7 @@ const Publish: React.FC = () => {
         message.error(`更新失败: ${msg}`);
       }
     }
-  }, [form, departments, techStackItems, resume, cycleId, dispatch,
+  }, [form, departments, techStackItems, resume, cycleId, dispatch, buildDeptArray, blockedBySameDept,
       handleFieldChange, buildFieldValuesForSubmit, savePreferenceBestEffort]);
 
   const handleEdit = useCallback(async (): Promise<void> => {
@@ -1071,7 +1134,7 @@ const Publish: React.FC = () => {
           const techFid = fieldIdMapping['tech_stack'];
           const deptFid = fieldIdMapping['expected_departments'];
           const techField = sf.find(f => f.fieldId === techFid);
-          setTechStackItems(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']);
+          setTechStackItems(atLeastOneRow(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']));
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
             const arr = parseStringArray(deptField.fieldValue, []);
@@ -1101,7 +1164,7 @@ const Publish: React.FC = () => {
           const deptFid = fieldIdMapping['expected_departments'];
           const photoFid = fieldIdMapping['personal_photo'];
           const techField = sf.find(f => f.fieldId === techFid);
-          setTechStackItems(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']);
+          setTechStackItems(atLeastOneRow(techField?.fieldValue ? parseStringArray(techField.fieldValue, ['']) : ['']));
           const deptField = sf.find(f => f.fieldId === deptFid);
           if (deptField?.fieldValue) {
             const arr = parseStringArray(deptField.fieldValue, []);
@@ -1651,6 +1714,7 @@ const Publish: React.FC = () => {
                       firstDeptOptions={firstDeptOptions}
                       secondDeptOptions={secondDeptOptions}
                       disabledSecondDepts={disabledSecondDepts}
+                      disabledFirstDepts={disabledFirstDepts}
                       intentLocked={intentLocked}
                     />
 
