@@ -75,10 +75,11 @@ const Resume: React.FC = () => {
   // 舞台态放 URL（与评价舞台同一约定）：链接可分享、刷新不丢位置
   const stageOn = searchParams.get('stage') === '1';
   const [selectedResume, setSelectedResume] = useState<ResumeItem | null>(null);
+  const [selectedCycleId, setSelectedCycleId] = useState<number | undefined>();
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   // 查看简历详情
-  const handleShowDetail = (resumeObject: ResumeItem, page?: number): void => {
+  const handleShowDetail = (resumeObject: ResumeItem, page?: number, cycleId?: number): void => {
     // eslint-disable-next-line no-console
     console.log('显示简历详情，传递的页码:', page, '简历ID:', resumeObject?.resumeId);
 
@@ -87,6 +88,7 @@ const Resume: React.FC = () => {
       setCurrentPage(page);
     }
     setSelectedResume(resumeObject);
+    setSelectedCycleId(cycleId);
   };
 
   // 当前列表（ResumeList 已经把它放进 store，这里直接复用，
@@ -193,6 +195,7 @@ const Resume: React.FC = () => {
       {selectedResume ? (
         <ResumeDetail
           resume={selectedResume}
+          cycleId={selectedCycleId}
           onBack={handleBackToList}
           onDownload={handleDownload}
           nextUngradedName={
