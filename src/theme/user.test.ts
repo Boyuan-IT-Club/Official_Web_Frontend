@@ -28,9 +28,12 @@ describe('用户端皮肤表', () => {
     });
   });
 
-  it('深色皮肤声明了 antd 暗色算法，否则组件仍是白底黑字', () => {
-    const dark = SKINS.find((s) => s.key === 'bento-obsidian')!;
-    expect(dark.theme.algorithm).toBeDefined();
+  // 深色皮肤（曜石深空）随四款一并撤下，这条断言跟着删。
+  // 若以后再加深色皮肤，记得连同「声明 antd 暗色算法」这条一起加回来——
+  // 不声明的话组件仍是白底黑字，只有背景变黑。
+
+  it('只保留默认与晨霞两款：皮肤越多越没人挑，每款还要在三个页面各验一遍版式', () => {
+    expect(SKINS.map((s) => s.key)).toEqual([DEFAULT_SKIN_KEY, 'dawn']);
   });
 });
 
