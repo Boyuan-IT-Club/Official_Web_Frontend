@@ -1,6 +1,9 @@
 // 冻结类请求必须带 status：后端按该值校验，缺了就是 400。
 // 而且批量冻结与批量解冻走同一条路由，全靠 status 区分——
 // 曾经两个函数发的请求一模一样，既分不出动作也过不了校验。
+export {};   // 本文件只用 require 取 mock，没有顶层 import/export 会被
+             // --isolatedModules 判成全局脚本（CI 的 Type check 步骤报 TS1208）
+
 jest.mock('@/utils/request', () => ({ request: jest.fn(() => Promise.resolve({})) }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
