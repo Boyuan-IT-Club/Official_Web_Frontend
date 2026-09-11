@@ -157,3 +157,29 @@
     .ant-image { width: 80px; height: 80px; }
   }
 }
+
+// 本届负责人联系方式：填写阶段想找人问时的出口。
+// 放在答疑群二维码之后、按钮之前——先群后个人，符合求助的自然顺序。
+.tips-modal__contact {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--skin-subtle-bg, #f4f9ff);
+  border: 1px solid var(--skin-line, #e8eef7);
+  font-size: 13px;
+
+  &-label {
+    flex: none;
+    color: var(--skin-muted, #8296b0);
+    font-size: 12px;
+  }
+
+  &-value {
+    color: var(--skin-text, #33415a);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+}
