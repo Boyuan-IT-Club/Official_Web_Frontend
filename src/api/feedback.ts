@@ -24,6 +24,10 @@ export interface FeedbackAdminView extends Omit<Feedback, 'imageKeys'> {
   userName?: string | null;
   /** 截图张数；管理端列表不回 objectKey，按序号取图 */
   imageCount?: number;
+  /** 0 未处理 / 1 已处理 */
+  handled?: number;
+  handledByName?: string | null;
+  handledAt?: string | null;
 }
 
 export interface Page<T> {
@@ -80,10 +84,34 @@ export function fetchMyFeedback(page = 0, size = 10) {
 }
 
 /** 管理员/超管获取全部反馈记录。 */
-export function fetchAllFeedback(page = 0, size = 10, category?: FeedbackCategory) {
+export function fetchAllFeedback(
+  page = 0,
+  size = 10,
+  category?: FeedbackCategory,
+  handled?: 0 | 1,
+) {
   return request({
     url: '/api/admin/feedback',
     method: 'get',
-    params: category ? { page, size, category } : { page, size },
+    params: {
+      page,
+      size,
+      ...(category ? { category } : {}),
+      ...(handled == null ? {} : { handled }),
+    },
+  });
+}
+
+/** 未处理条数，管理端顶栏角标用 */
+export function fetchUnhandledCount() {
+  return request({ url: '/api/admin/feedback/unhandled-count', method: 'get' });
+}
+
+/** 标记处理状态。只标不回——回复提交人是另一回事 */
+export function markFeedbackHandled(feedbackId: number, handled: boolean) {
+  return request({
+    url: `/api/admin/feedback/${feedbackId}/handled`,
+    method: 'post',
+    params: { handled },
   });
 }

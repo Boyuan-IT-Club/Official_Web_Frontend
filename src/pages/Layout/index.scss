@@ -251,3 +251,38 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     }
   }
 }
+
+// 侧栏底部的「问题反馈」。
+//
+// 刻意不做成菜单项：它和「简历投递」「申请进度」不是一个量级——后者是招新
+// 流程里必经的步骤，前者一个学期可能只点一次。做成压到最底下的一条小字，
+// 需要的人找得到，平时不跟主菜单抢注意力。
+.tech-sider .sider-foot-link {
+  position: absolute;
+  left: 0;
+  right: 0;
+  // 让开 antd Sider 自带的折叠触发条
+  bottom: 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+
+  &:hover,
+  &.is-active {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  &:focus-visible {
+    outline: 1px solid rgba(255, 255, 255, 0.5);
+    outline-offset: -2px;
+  }
+}
