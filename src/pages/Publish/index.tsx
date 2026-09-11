@@ -408,6 +408,12 @@ const Publish: React.FC = () => {
     return [...openList, ...past];
   }, [openCycles, myResumes]);
 
+  /** 当前周期的完整配置（描述、负责人联系方式等），从开放列表里取 */
+  const activeCycleMeta = useMemo(
+    () => (openCycles ?? []).find((c: any) => Number(c.cycleId) === Number(cycleId)),
+    [openCycles, cycleId],
+  );
+
   /** 我在该周期投过没有（切换器上标「已投递」用） */
   const submittedCycleIds = useMemo(
     () => new Set(myResumes.map((r) => Number(r.cycleId))),
@@ -1662,6 +1668,7 @@ const Publish: React.FC = () => {
             tips={TIPS_CONTENT}
             qaImageUrl={isMember ? null : qaQr?.imageUrl}
             qaRemark={qaQr?.remark}
+            contactInfo={activeCycleMeta?.contactInfo}
           />
 
           {/* 离线填写面板：导出模板 → Word 里填写 → 导入自动回填 */}
