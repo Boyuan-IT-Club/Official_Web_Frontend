@@ -1,0 +1,42 @@
+/* 运营页会话原文回看(G3):轻量气泡,区别于用户端浮窗样式 */
+
+.agent-ops-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 4px 2px;
+
+  &__msg {
+    display: flex;
+
+    &--user {
+      justify-content: flex-end;
+
+      .agent-ops-transcript__bubble {
+        background: #e6f4ff;
+        border: 1px solid #91caff;
+      }
+    }
+
+    &--assistant {
+      justify-content: flex-start;
+
+      .agent-ops-transcript__bubble {
+        background: #f6f8fa;
+        border: 1px solid #e6e8eb;
+      }
+    }
+  }
+
+  &__bubble {
+    max-width: 82%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}

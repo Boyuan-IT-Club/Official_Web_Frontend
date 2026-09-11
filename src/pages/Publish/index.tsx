@@ -15,8 +15,6 @@ import {
   Col,
   Modal,
   Table,
-  Upload,
-  Select,
   Radio,
   Input,
 } from 'antd';
@@ -30,7 +28,6 @@ import {
   ImportOutlined,
   FileWordOutlined,
   FilePdfOutlined,
-  UploadOutlined,
   LockOutlined,
   CheckCircleFilled,
 } from '@ant-design/icons';
@@ -92,13 +89,12 @@ import {
 } from '@/utils/exportResume';
 import {
   importResumeFile,
-  extractFieldsFromText,
   hasAnyExtractedField,
 } from '@/utils/importResume';
 import type { ExtractedFields } from '@/utils/importResume';
 import './index.scss';
 
-const { Title, Text } = Typography;
+const { Title, Text, Link } = Typography;
 
 /** 类型约束 */
 type OptionItem = { value: string; label: string };
@@ -238,20 +234,6 @@ const TIPS_CONTENT: Array<{ title: string; content: string }> = [
   { title: '提交之后', content: '简历先经过初筛，通过的同学会收到面试安排邮件；每一步进展都可以在「我的申请」页里看到。有疑问随时联系我们。' },
 ];
 
-const parseJsonField = <T,>(raw: any, fallback: T): T => {
-  try { return JSON.parse(String(raw)) as T; } catch { return fallback; }
-};
-
-/**
- * 解析存成 JSON 的字段值，并**保证**结果是字符串数组。
- *
- * parseJsonField 的 <T> 只是类型断言 —— JSON.parse 运行时可能返回数字、对象、null，
- * 而 TypeScript 挡不住脏数据。线上就因此整页崩过：某字段存的值是 123，
- * JSON.parse 得到数字 123，塞进 techStackItems 后 exportResume 里的
- * techStackItems.filter(Boolean) 直接 TypeError（TypeError: s.filter is not a function）。
- *
- * 凡是要喂给「按数组用」的 state，都必须走这里，不能只标个 <string[]> 就当数组。
- */
 /** 同上，但保证结果是普通对象（非数组、非 null）。拿到数字虽然不崩，但字段会全变 undefined */
 const parseObjectField = <T extends object>(raw: unknown, fallback: T): T => {
   try {
@@ -307,8 +289,11 @@ const Publish: React.FC = () => {
     }
   });
 
-  // 首次弹出后立刻记账，不等用户点关闭 —— 他可能直接刷新或返回，
-  // 那时不该再弹一次
+  // 首次弹出后立刻记账，不等用户点关闭 —— 他可能直接刷新或返回，那时不该再弹一次。
+  //
+  // 依赖必须是 tipsOpen：曾经写成空数组（只在挂载时跑一次），而挂载那一刻
+  // 弹窗还没真正呈现，标记就已经落盘 —— 结果是「第一次进来也不弹」，
+  // 提示等于废掉。以 tipsOpen 为依赖，只有真的弹出来了才记账。
   useEffect(() => {
     if (!tipsOpen) return;
     try {
@@ -316,8 +301,7 @@ const Publish: React.FC = () => {
     } catch {
       /* 存不了就只在本次会话内不再自动弹 */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tipsOpen]);
   const [techStackItems, setTechStackItems] = useState<string[]>(['']);
   const [departments, setDepartments] = useState<DepartmentsState>({ first: '', second: '' });
   const [interviewTimes, setInterviewTimes] = useState<InterviewTimesState>({
@@ -423,6 +407,12 @@ const Publish: React.FC = () => {
       .sort((a, b) => b.cycleId - a.cycleId);
     return [...openList, ...past];
   }, [openCycles, myResumes]);
+
+  /** 当前周期的完整配置（描述、负责人联系方式等），从开放列表里取 */
+  const activeCycleMeta = useMemo(
+    () => (openCycles ?? []).find((c: any) => Number(c.cycleId) === Number(cycleId)),
+    [openCycles, cycleId],
+  );
 
   /** 我在该周期投过没有（切换器上标「已投递」用） */
   const submittedCycleIds = useMemo(
@@ -736,7 +726,7 @@ const Publish: React.FC = () => {
 
       // 取数顺序（尤其「字段值必须等简历存在」这条依赖）见 loadResumeBundle，
       // 那里有假后端复现首次进入新周期的时序并做了回归测试
-      const { config: configResult, fields: fieldsResult,
+      const { fields: fieldsResult,
               resume: resumeResult, fieldValues: fieldValuesResult } =
         await loadResumeBundle({
           loadConfig: () => dispatch(fetchResumeFieldsConfig(cid)).unwrap()
@@ -1678,6 +1668,7 @@ const Publish: React.FC = () => {
             tips={TIPS_CONTENT}
             qaImageUrl={isMember ? null : qaQr?.imageUrl}
             qaRemark={qaQr?.remark}
+            contactInfo={activeCycleMeta?.contactInfo}
           />
 
           {/* 离线填写面板：导出模板 → Word 里填写 → 导入自动回填 */}
@@ -1781,7 +1772,7 @@ const Publish: React.FC = () => {
                             <div className="intent-locked-note__title">面试已安排，志愿与时间以当前安排为准</div>
                             <div className="intent-locked-note__desc">
                               面试官将按安排等你。需要调整时间或部门，请到
-                              <a onClick={() => navigate('/main/interview-appointment')}>申请中心</a>
+                              <Link onClick={() => navigate('/main/interview-appointment')}>申请中心</Link>
                               提交改期申请。
                             </div>
                           </div>

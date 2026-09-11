@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHint from '@/components/PageHint';
-import { Card, Progress, Tag, Space, Table, Button, Empty, Typography, message } from 'antd';
+import { Card, Progress, Tag, Table, Button, Empty, Typography, message } from 'antd';
 import { GithubOutlined, LinkOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import ScoreTrendChart from '@/components/ScoreTrendChart';

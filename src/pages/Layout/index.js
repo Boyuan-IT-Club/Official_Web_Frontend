@@ -5,6 +5,7 @@ import {
   Avatar,
   Typography,
   Dropdown,
+  Modal,
   message,
 } from "antd";
 import {
@@ -15,11 +16,13 @@ import {
   LogoutOutlined,
   QuestionCircleOutlined,
   ScheduleOutlined,
+  MessageOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { fetchUserInfo, logout } from "@/store/modules/user";
 import { useSkin } from "@/theme/SkinProvider";
+import FeedbackPanel from "@/components/FeedbackPanel";
 import { BgColorsOutlined, CheckOutlined } from "@ant-design/icons";
 import { useOnboardingTour, IntroList } from "@/components/OnboardingTour";
 import logo from "../../assets/SingleLogo.png";
@@ -80,6 +83,7 @@ const TOUR_STEPS = [
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const dispatch = useAppDispatch();
   const { userInfo, loading } = useSelector((state) => state.user);
   const location = useLocation();
@@ -88,7 +92,7 @@ const MainLayout = () => {
   useEffect(() => {
     if (userInfo?.role) return;
     dispatch(fetchUserInfo());
-  }, [dispatch]);
+  }, [dispatch, userInfo?.role]);
 
   // 新用户首次进来自动弹使用说明；顶栏「使用指引」可随时重看
   const tour = useOnboardingTour({
@@ -174,6 +178,21 @@ const MainLayout = () => {
           })),
         }]
       : []),
+    {
+      type: "divider",
+    },
+    /*
+      问题反馈放进头像菜单：它是「关于这个站本身」的事，和个人资料、主题皮肤、
+      退出登录同属一类，不该混在招新流程的主菜单里。点开是弹窗而不是跳页——
+      多数人是在某个页面上遇到问题才想反馈，跳走会丢掉当前上下文，
+      写完还得自己找回来。
+    */
+    {
+      key: "feedback",
+      icon: <MessageOutlined />,
+      label: "问题反馈",
+      onClick: () => setFeedbackOpen(true),
+    },
     {
       type: "divider",
     },
@@ -291,6 +310,19 @@ const MainLayout = () => {
         {tour.node}
         <AgentChatWidget />
       </AntdLayout>
+
+      {/* 反馈弹窗。destroyOnClose：关掉就把草稿和已选截图一并丢弃，
+          免得下次打开还留着上回没提交的半截内容 */}
+      <Modal
+        open={feedbackOpen}
+        onCancel={() => setFeedbackOpen(false)}
+        title="问题反馈"
+        footer={null}
+        width={640}
+        destroyOnClose
+      >
+        <FeedbackPanel compact />
+      </Modal>
     </AntdLayout>
   );
 };

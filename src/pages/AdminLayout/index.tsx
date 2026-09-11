@@ -6,6 +6,7 @@ import {
   Avatar,
   Typography,
   Dropdown,
+  Badge,
   message,
 } from "antd";
 import {
@@ -17,16 +18,19 @@ import {
   FormOutlined,
   FlagOutlined,
   CodeOutlined,
+  ControlOutlined,
   LogoutOutlined,
   ExportOutlined,
   BgColorsOutlined,
   CheckOutlined,
   SearchOutlined,
   QuestionCircleOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { fetchUserInfo, logout } from "@/store/modules/user";
+import { fetchUnhandledCount } from "@/api/feedback";
 import { useAppDispatch } from "@/store/hooks";
 import { getToken } from "@/utils";
 import { getJwtPermissionCodes } from "@/utils/jwt";
@@ -52,6 +56,7 @@ const MENU_DEFS: Array<{
   { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
   { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
+  { key: "/agent-admin", icon: <ControlOutlined />, label: "Agent 管理", anyOf: ["agent:monitor", "kb:manage"] }, // RAG #134:kb:manage 单独授权也能见知识库 Tab
 ];
 
 // 首次进管理端的欢迎说明：按一轮招新的先后顺序讲每个模块干什么。
@@ -98,6 +103,20 @@ const AdminLayout: React.FC = () => {
     dispatch(fetchUserInfo());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
+
+  // 问题反馈：顶栏入口 + 未处理角标。
+  // 只在有 feedback:view 时出现，没权限的人不该看到一个点了会 403 的按钮
+  const canViewFeedback = permCodes.includes("feedback:view");
+  const [unhandled, setUnhandled] = useState(0);
+
+  useEffect(() => {
+    if (!canViewFeedback) return;
+    // 角标拉不到就当没有待办：它是提示，不该因为一次请求失败弹错打断人
+    fetchUnhandledCount()
+      .then((res: any) => setUnhandled(Number(res?.data?.count ?? 0)))
+      .catch(() => setUnhandled(0));
+    // 切页面时重拉一次，标完「已处理」回到别的页角标就更新了
+  }, [canViewFeedback, location.pathname]);
 
   const menuItems = useMemo(
     () =>
@@ -263,6 +282,24 @@ const AdminLayout: React.FC = () => {
             <QuestionCircleOutlined />
             <span className="admin-search-trigger__text">指引</span>
           </button>
+          {/*
+            问题反馈不进左侧主菜单：那一列是招新流程的骨架（周期、简历、面试），
+            反馈是旁路工具，混进去会让主线看着多一环。放顶栏和搜索、指引一起，
+            角标只在有未处理时出现——没有待办时它就该是安静的。
+          */}
+          {canViewFeedback && (
+            <button
+              type="button"
+              className="admin-search-trigger"
+              onClick={() => navigate("/feedback")}
+              title="问题反馈"
+            >
+              <Badge count={unhandled} size="small" offset={[2, -2]}>
+                <MessageOutlined />
+              </Badge>
+              <span className="admin-search-trigger__text">反馈</span>
+            </button>
+          )}
           <Dropdown menu={{ items: userMenuItems as any }} placement="bottomRight">
             <div className="admin-user" data-tour="admin-user">
               <Avatar size="small" icon={<UserOutlined />} src={userInfo?.avatar || undefined} />

@@ -13,7 +13,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Popconfirm,
   Select,
   Space,
   Spin,
@@ -1029,7 +1028,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
     // 已挂载的面板，不加这个依赖切回来看到的是切走时的旧数据
   }, [load, refreshToken]);
 
-  const deptName = (id?: number) => depts.find((d: any) => d.deptId === id)?.deptName || (id ? `#${id}` : "-");
+  const deptName = useCallback((id?: number) => depts.find((d: any) => d.deptId === id)?.deptName || (id ? `#${id}` : "-"), [depts]);
 
   /** 志愿或拟录取部门命中筛选即保留：调剂场景里两者都可能是决策依据 */
   const visibleList = useMemo(() => list.filter((r) => {
@@ -1040,7 +1039,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
     const rec = r.evalRecommendation ?? evalMap[r.scheduleId]?.recommendation;
     if (recFilter != null && rec !== recFilter) return false;
     return true;
-  }), [list, deptFilter, recFilter, evalMap]);
+  }), [list, deptFilter, recFilter, evalMap, deptName]);
 
   const openEditResult = (r: InterviewResultItem) => {
     setEditing(r);

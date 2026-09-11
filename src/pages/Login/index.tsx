@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import type { FC } from 'react';
 import { Card, Form, Input, Button, Checkbox, message } from 'antd';
-import type { FormInstance } from 'antd';
 import {
   MailOutlined,
   LockOutlined,
