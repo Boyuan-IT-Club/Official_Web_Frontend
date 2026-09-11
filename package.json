@@ -65,7 +65,8 @@
       "^@/(.*)$": "<rootDir>/src/$1",
       "^@routes$": "<rootDir>/src/router/user.tsx",
       "^@theme$": "<rootDir>/src/theme/user.ts",
-      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js"
+      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js",
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
     }
   },
   "browserslist": {

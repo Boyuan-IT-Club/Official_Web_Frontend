@@ -15,6 +15,7 @@ import {
   LogoutOutlined,
   QuestionCircleOutlined,
   ScheduleOutlined,
+  MessageOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -225,6 +226,20 @@ const MainLayout = () => {
           className="tech-menu"
           onClick={handleMenuClick}
         />
+        {/*
+          问题反馈不进主菜单：它和「简历投递」「申请进度」不是一个量级的东西——
+          后者是招新流程里必经的步骤，前者一个学期可能只点一次。
+          放在侧栏最底下做一条小字链接：需要的人找得到，平时不占注意力。
+        */}
+        <button
+          type="button"
+          className={`sider-foot-link${selectedKeys.includes("/main/feedback") ? " is-active" : ""}`}
+          onClick={() => navigate("/main/feedback")}
+          title="问题反馈"
+        >
+          <MessageOutlined />
+          {!collapsed && <span>问题反馈</span>}
+        </button>
       </Sider>
       <AntdLayout
         className="site-layout"
