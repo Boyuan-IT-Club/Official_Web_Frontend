@@ -251,39 +251,3 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     }
   }
 }
-
-// 侧栏底部的「问题反馈」。
-//
-// 刻意不做成菜单项：它和「简历投递」「申请进度」不是一个量级——后者是招新
-// 流程里必经的步骤，前者一个学期可能只点一次。做成压到最底下的一条小字，
-// 需要的人找得到，平时不跟主菜单抢注意力。
-.tech-sider .sider-foot-link {
-  // 跟在菜单后面，而不是钉在侧栏底部。
-  //
-  // 第一版用了 position:absolute; bottom:48px，结果它落在最后一个菜单项下方
-  // 近 500px 的空白里、贴着视口底边，45% 灰——「不显眼」做成了「看不见」，
-  // 用户直接问「入口上线了吗」。分寸是「小一号且隔开」，不是「推到天边」。
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 8px 12px 0;
-  padding: 14px 12px 8px;
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.58);
-  background: none;
-  // 顺序要紧：border 简写放在 border-top 之后会把分隔线抹掉
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  transition: color 0.15s;
-
-  &:hover,
-  &.is-active {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  &:focus-visible {
-    outline: 1px solid rgba(255, 255, 255, 0.5);
-    outline-offset: -2px;
-  }
-}

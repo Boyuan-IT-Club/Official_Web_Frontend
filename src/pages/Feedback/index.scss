@@ -64,3 +64,26 @@
     }
   }
 }
+
+// 弹窗里的紧凑版：Modal 自带标题栏与内边距，面板不必再撑出页面级的留白。
+.feedback-page.is-compact {
+  .feedback-page__composer {
+    margin-bottom: 12px;
+    box-shadow: none;
+  }
+
+  .feedback-page__history {
+    box-shadow: none;
+
+    // 历史记录在弹窗里限高自滚，免得反馈提多了把弹窗顶穿
+    .ant-card-body {
+      max-height: 260px;
+      overflow-y: auto;
+    }
+  }
+
+  // 卡片在弹窗里不再需要各自的外框，靠标题与间距分段就够
+  .ant-card { background: transparent; }
+  .ant-card-head { padding-inline: 0; }
+  .ant-card-body { padding-inline: 0; }
+}

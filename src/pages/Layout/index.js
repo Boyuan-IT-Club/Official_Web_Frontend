@@ -5,6 +5,7 @@ import {
   Avatar,
   Typography,
   Dropdown,
+  Modal,
   message,
 } from "antd";
 import {
@@ -21,6 +22,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { fetchUserInfo, logout } from "@/store/modules/user";
 import { useSkin } from "@/theme/SkinProvider";
+import FeedbackPanel from "@/components/FeedbackPanel";
 import { BgColorsOutlined, CheckOutlined } from "@ant-design/icons";
 import { useOnboardingTour, IntroList } from "@/components/OnboardingTour";
 import logo from "../../assets/SingleLogo.png";
@@ -81,6 +83,7 @@ const TOUR_STEPS = [
 
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const dispatch = useAppDispatch();
   const { userInfo, loading } = useSelector((state) => state.user);
   const location = useLocation();
@@ -178,6 +181,21 @@ const MainLayout = () => {
     {
       type: "divider",
     },
+    /*
+      问题反馈放进头像菜单：它是「关于这个站本身」的事，和个人资料、主题皮肤、
+      退出登录同属一类，不该混在招新流程的主菜单里。点开是弹窗而不是跳页——
+      多数人是在某个页面上遇到问题才想反馈，跳走会丢掉当前上下文，
+      写完还得自己找回来。
+    */
+    {
+      key: "feedback",
+      icon: <MessageOutlined />,
+      label: "问题反馈",
+      onClick: () => setFeedbackOpen(true),
+    },
+    {
+      type: "divider",
+    },
     {
       key: "logout",
       icon: <LogoutOutlined />,
@@ -226,20 +244,6 @@ const MainLayout = () => {
           className="tech-menu"
           onClick={handleMenuClick}
         />
-        {/*
-          问题反馈不进主菜单：它和「简历投递」「申请进度」不是一个量级的东西——
-          后者是招新流程里必经的步骤，前者一个学期可能只点一次。
-          放在侧栏最底下做一条小字链接：需要的人找得到，平时不占注意力。
-        */}
-        <button
-          type="button"
-          className={`sider-foot-link${selectedKeys.includes("/main/feedback") ? " is-active" : ""}`}
-          onClick={() => navigate("/main/feedback")}
-          title="问题反馈"
-        >
-          <MessageOutlined />
-          {!collapsed && <span>问题反馈</span>}
-        </button>
       </Sider>
       <AntdLayout
         className="site-layout"
@@ -306,6 +310,19 @@ const MainLayout = () => {
         {tour.node}
         <AgentChatWidget />
       </AntdLayout>
+
+      {/* 反馈弹窗。destroyOnClose：关掉就把草稿和已选截图一并丢弃，
+          免得下次打开还留着上回没提交的半截内容 */}
+      <Modal
+        open={feedbackOpen}
+        onCancel={() => setFeedbackOpen(false)}
+        title="问题反馈"
+        footer={null}
+        width={640}
+        destroyOnClose
+      >
+        <FeedbackPanel compact />
+      </Modal>
     </AntdLayout>
   );
 };
