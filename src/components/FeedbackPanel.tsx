@@ -15,7 +15,7 @@ import {
 } from '@/api/feedback';
 import type { FeedbackCategory, Feedback as FeedbackItem, Page } from '@/api/feedback';
 import FeedbackImages from '@/components/FeedbackImages';
-import './index.scss';
+import './feedbackPanel.scss';
 
 const { TextArea } = Input;
 const { Paragraph, Text, Title } = Typography;
