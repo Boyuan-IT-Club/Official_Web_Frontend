@@ -104,19 +104,29 @@ const AdminLayout: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
-  // 问题反馈：顶栏入口 + 未处理角标。
-  // 只在有 feedback:view 时出现，没权限的人不该看到一个点了会 403 的按钮
-  const canViewFeedback = permCodes.includes("feedback:view");
+  /*
+   * 问题反馈：顶栏入口 + 未处理角标。
+   *
+   * 能不能看，以接口的实际回应为准，不看 JWT 里的权限码——权限码是登录那一刻
+   * 快照进令牌的，而 feedback:view 是后来随迁移新增的，老令牌里没有。
+   * 按令牌判断的话，所有在线管理员都得退出重登才看得见这个按钮
+   * （线上真发生了，用户连问两次「怎么没有」）。
+   * 改成探一次接口：通了就显示，403 就不显示。以后任何新授予的权限都能自愈。
+   */
+  const [canViewFeedback, setCanViewFeedback] = useState(false);
   const [unhandled, setUnhandled] = useState(0);
 
   useEffect(() => {
-    if (!canViewFeedback) return;
-    // 角标拉不到就当没有待办：它是提示，不该因为一次请求失败弹错打断人
     fetchUnhandledCount()
-      .then((res: any) => setUnhandled(Number(res?.data?.count ?? 0)))
-      .catch(() => setUnhandled(0));
+      .then((res: any) => {
+        setCanViewFeedback(true);
+        setUnhandled(Number(res?.data?.count ?? 0));
+      })
+      // 403（无权限）与网络故障都走这里：拿不准就不显示，
+      // 总好过摆一个点了报错的按钮
+      .catch(() => setCanViewFeedback(false));
     // 切页面时重拉一次，标完「已处理」回到别的页角标就更新了
-  }, [canViewFeedback, location.pathname]);
+  }, [location.pathname]);
 
   const menuItems = useMemo(
     () =>
