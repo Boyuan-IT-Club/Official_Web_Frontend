@@ -29,7 +29,6 @@ import {
   FileWordOutlined,
   FilePdfOutlined,
   LockOutlined,
-  CheckCircleFilled,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -44,6 +43,7 @@ import {
 } from './cyclePhase';
 import CycleUpcomingNotice from './components/CycleUpcomingNotice';
 import NoOpenCycleNotice from './components/NoOpenCycleNotice';
+import MemberNoApplyNotice from './components/MemberNoApplyNotice';
 import TipsModal from './components/TipsModal';
 import StatusNotice from './components/StatusNotice';
 import { resolveResumeNotice } from './resumeNotice';
@@ -1436,6 +1436,29 @@ const Publish: React.FC = () => {
     );
   }
 
+  /*
+    社员态：整页只说一件事。
+
+    以前这里是一张薄提示条 + 底下照常渲染一整份简历，而那份「简历」往往
+    是刚被自动建出来的空草稿（userInfo 异步到达，首轮 initData 时 isMember
+    还是 false）。服务端现在直接拒绝建草稿，这一屏把入口也一并收掉。
+    历史投递挪到个人主页的「我的申请」，那里按周期列全部记录。
+  */
+  if (isMember) {
+    // 只认真正投出去过的（status >= 2）：空草稿不值得引一个入口过去
+    const submittedCount = myResumes.filter((r) => Number(r.status) >= 2).length;
+    return (
+      <div className="publish-page">
+        <MemberNoApplyNotice
+          name={(userInfo as any)?.name}
+          historyCount={submittedCount}
+          onViewHistory={() => navigate('/main/person')}
+          onBack={() => navigate('/main/dashboard')}
+        />
+      </div>
+    );
+  }
+
   // 顶部状态条说什么、什么语气，统一由 resolveResumeNotice 判定。
   // 这些组合有十来种（周期三态 × 简历五状态），塞在 JSX 的三元里
   // 既没法测也看不出漏了哪种，所以抽成纯函数放在 resumeNotice.ts。
@@ -1539,34 +1562,21 @@ const Publish: React.FC = () => {
             <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
               博远信息技术社招新申请表
             </Title>
-            {isMember ? (
-              /* 不用 antd Alert：它的 message 会继承外层的居中，
-                 description 却是左对齐，两行错位很难看（用户反馈过）。
-                 这里自己排一张卡片，图标与文字统一左对齐。 */
-              <div className="member-notice">
-                <span className="member-notice__badge"><CheckCircleFilled /></span>
-                <div className="member-notice__body">
-                  <div className="member-notice__title">您已是社员，无需投递简历</div>
-                  <div className="member-notice__desc">
-                    本页仅供查看历届投递内容。想帮忙看简历或参与面试，联系管理员开通权限即可。
-                  </div>
-                </div>
-              </div>
-            ) : !isMember && (
-              /*
-                只此一条。原先这里三条、页面下方按简历状态还有三条，
-                同一份简历会同时冒出两三个框反复说「不可修改」——
-                顶部刚说完「评审中（不可修改）」，往下翻还有个黄框
-                再说一遍「已进入审核阶段，暂时无法修改」。
-                说什么、什么语气由 resolveResumeNotice 判定（有测试）。
-              */
-              <StatusNotice
-                tone={resumeNotice.tone}
-                title={resumeNotice.title}
-                badge={resumeNotice.badge}
-                description={resumeNotice.description}
-              />
-            )}
+            {/*
+              只此一条。原先这里三条、页面下方按简历状态还有三条，
+              同一份简历会同时冒出两三个框反复说「不可修改」——
+              顶部刚说完「评审中（不可修改）」，往下翻还有个黄框
+              再说一遍「已进入审核阶段，暂时无法修改」。
+              说什么、什么语气由 resolveResumeNotice 判定（有测试）。
+
+              社员不会走到这里：上面已整页返回 MemberNoApplyNotice。
+            */}
+            <StatusNotice
+              tone={resumeNotice.tone}
+              title={resumeNotice.title}
+              badge={resumeNotice.badge}
+              description={resumeNotice.description}
+            />
           </div>
           <ResumeDisplay
             fieldValues={fieldValues}
@@ -1589,16 +1599,6 @@ const Publish: React.FC = () => {
                 </Button>
               )}
             </Space>
-            {/*
-              「修改简历」按钮消失的原地说明。顶部虽有社员提示卡，但按钮区
-              是用户找编辑入口的地方——只在这里静默少一个按钮，会被当成坏了。
-              周期关闭等其它只读原因已由顶部 StatusNotice 说明，不重复。
-            */}
-            {!canEdit && isMember && (
-              <div style={{ marginTop: 12 }}>
-                <Text type="secondary">您已是社员，简历仅供查看，不能修改或重新提交</Text>
-              </div>
-            )}
           </div>
 
           {/* 面试安排状态（志愿/分配结果，真实接口） */}
