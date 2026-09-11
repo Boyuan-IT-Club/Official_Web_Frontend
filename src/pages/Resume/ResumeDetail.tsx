@@ -8,9 +8,6 @@ import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exp
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
 import { useResumePhoto } from '@/hooks/useResumePhoto';
 import ResumeAttachments from '@/components/ResumeAttachments';
-import { ResumeAiSummary } from '@/components/ResumeAiEvaluation';
-import { getToken } from '@/utils';
-import { hasPermission } from '@/utils/jwt';
 import {
   UserOutlined,
   IdcardOutlined,
@@ -168,7 +165,6 @@ type ResumeDetailProps = {
 // --- 主要组件 ---
 const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext, onEnterStage }) => {
   const dispatch = useDispatch<any>();
-  const canUseAiScreening = hasPermission(getToken(), 'resume:audit');
 
   // 多人打分：resumeScore 是平均分，输入框编辑的是「我这一票」。
   // savedScore 存我已保存的分，用于禁用未变更时的保存键。
@@ -283,10 +279,6 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
           </Button>
         </Space>
       </div>
-
-      {canUseAiScreening && (
-        <ResumeAiSummary resumeId={Number(resume.resumeId)} cycleId={cycleId} />
-      )}
 
       {/* 简历打分面板：审核动线的主操作。
           吸顶跟随滚动——看完整份简历不用再滑回顶部才能打分。
