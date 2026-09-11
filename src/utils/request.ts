@@ -21,6 +21,22 @@ const redirectToLogin = (): void => {
   }
 };
 
+/**
+ * 取出 Retry-After（秒）。HTTP 允许这个头是秒数或 HTTP 日期，后端目前只发秒数，
+ * 这里两种都认，解析不出来就返回 undefined 交给调用方兜底。
+ */
+const parseRetryAfter = (headers: unknown): number | undefined => {
+  const raw = (headers as Record<string, unknown> | undefined)?.["retry-after"];
+  if (raw === undefined || raw === null) return undefined;
+
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds);
+
+  const timestamp = Date.parse(String(raw));
+  if (Number.isNaN(timestamp)) return undefined;
+  return Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
+};
+
 // 是否已设置拦截器
 let isInterceptorSet = false;
 
@@ -85,6 +101,9 @@ const setupRequestInterceptor = (): void => {
           String(resData?.message || (resData?.data as any)?.message) ||
           error.message,
         code: bizCode,
+        // 限流时后端会带 Retry-After（秒）。不透出来的话调用方只知道「失败了」，
+        // 只能靠用户自己停手——线上出现过按住回车 11 分钟重试 211 次的情况。
+        retryAfter: parseRetryAfter(error.response?.headers),
         data: error.response?.data,
       });
     },
