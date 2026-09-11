@@ -97,15 +97,22 @@ export const getActiveRoles = () => {
     });
 }
 
-//  put: 冻结用户
+/**
+ * 冻结用户。
+ *
+ * 必须带 { status: 'frozen' } —— 后端按状态值做校验，
+ * 空请求体会被判「状态值必须为 frozen 或 active」直接 400。
+ * 这正是「点冻结没反应」的原因（前端只提示了「操作失败」，看不出为什么）。
+ */
 export const freezeUser = (userId: number) => {
   return request({
     url: `/api/admin/users/${userId}/freeze`,
     method: 'put',
+    data: { status: 'frozen' },
   });
 }
 
-// put: 解冻用户
+/** 解冻用户。后端 /unfreeze 单独一条路由，内部复用同一状态机 */
 export const unfreezeUser = (userId: number) => {
   return request({
     url: `/api/admin/users/${userId}/unfreeze`,
@@ -121,21 +128,22 @@ export const deleteUser = (userId: number) => {
   });
 }
 
-// put: 批量冻结用户
+// 批量冻结 / 解冻走同一条路由，靠 status 区分——
+// 此前两个函数发的请求一模一样（都不带 status），
+// 既无法区分冻结与解冻，也会被后端校验挡成 400。
 export const batchFreezeUsers = (userIds: number[]) => {
   return request({
     url: `/api/admin/users/batch-status`,
     method: 'put',
-    data: { userIds },
+    data: { userIds, status: 'frozen' },
   });
 }
 
-// put: 批量解冻用户
 export const batchUnfreezeUsers = (userIds: number[]) => {
   return request({
     url: `/api/admin/users/batch-status`,
     method: 'put',
-    data: { userIds },
+    data: { userIds, status: 'active' },
   });
 }
 
