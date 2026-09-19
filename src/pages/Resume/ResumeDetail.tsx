@@ -8,6 +8,9 @@ import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exp
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
 import { useResumePhoto } from '@/hooks/useResumePhoto';
 import ResumeAttachments from '@/components/ResumeAttachments';
+import { ResumeAiSummary } from '@/components/ResumeAiEvaluation';
+import { getToken } from '@/utils';
+import { hasPermission } from '@/utils/jwt';
 import {
   UserOutlined,
   IdcardOutlined,
@@ -281,6 +284,10 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
           </Button>
         </Space>
       </div>
+
+      {canUseAiScreening && (
+        <ResumeAiSummary resumeId={Number(resume.resumeId)} cycleId={cycleId} />
+      )}
 
       {/* 简历打分面板：审核动线的主操作。
           吸顶跟随滚动——看完整份简历不用再滑回顶部才能打分。

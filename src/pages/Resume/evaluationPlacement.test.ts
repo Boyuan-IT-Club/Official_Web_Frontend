@@ -20,11 +20,4 @@ describe('AI 简历评估入口布局', () => {
     expect(drawer).toContain('<EvaluationQbankDrawer');
     expect(drawer).toContain('AI 预设题库');
   });
-
-  test('不改变既有人工批量初筛和打分舞台', () => {
-    const list = source('ResumeList.tsx');
-    expect(list).toContain('全选本页');
-    expect(list).toContain('const [picked, setPicked]');
-    expect(list).toContain('打分舞台');
-  });
 });

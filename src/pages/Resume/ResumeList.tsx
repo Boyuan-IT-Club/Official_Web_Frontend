@@ -17,6 +17,7 @@ import {
   Checkbox,
   message,
   Popconfirm,
+  Modal,
 } from 'antd';
 import {
   CalendarOutlined,
@@ -31,6 +32,7 @@ import {
   CloseCircleOutlined,
   AppstoreOutlined, // 用于部门筛选图标
   ThunderboltOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
@@ -821,6 +823,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
                 // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
                 const photo = getFieldValueFromResume(resume, '个人照片');
+                const aiCard = scorecards[String(resume.resumeId)];
+                const aiHint = aiCard ? aiRecommendation(aiCard) : null;
+                const isScreening = screeningIds.includes(String(resume.resumeId));
                 return (
                   <List.Item key={String(resume.resumeId)}>
                     <Card
