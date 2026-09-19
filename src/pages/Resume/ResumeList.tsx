@@ -15,7 +15,6 @@ import {
   Alert,
   Tooltip,
   Checkbox,
-  Modal,
   message,
   Popconfirm,
 } from 'antd';
@@ -30,9 +29,7 @@ import {
   SortAscendingOutlined,
   SortDescendingOutlined,
   CloseCircleOutlined,
-  LoadingOutlined,
   AppstoreOutlined, // 用于部门筛选图标
-  RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
@@ -137,15 +134,13 @@ const scoreColor = (score: number): string => {
 };
 
 /**
- * 「已提交」= 待初筛 + 通过初筛 + 未通过初筛 + AI 初筛中。
+ * 「已提交」= 待初筛 + 通过初筛 + 未通过初筛 + 处理中。
  *
  * 默认落在这一档而不是只看「待初筛」：初筛一旦出结论，简历就从 2 变成 4/5，
  * 在只看 2 的视图里当场消失——管理员刚标完就找不到人了，也没法回头核对
  * 自己判过什么。草稿不在其中，它还没交上来。
  *
- * AI 初筛中（6）也必须在内：它是提交后的瞬态，agent 任务跑完就落成 4/5。
- * 不放在默认档里的话，管理员刚点完「启动 AI 初筛」，这批简历就当场从列表消失，
- * 界面看上去像是操作没生效。
+ * 状态 6 是历史任务可能留下的处理中状态，保留在默认结果中，避免简历消失。
  */
 const SUBMITTED_STATUSES = '2,4,5,6';
 
@@ -421,7 +416,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
     return () => { cancelled = true; clearInterval(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cycleId, screeningIds.length, canUseAiScreening, pagination.pageSize]);
-
   // 搜索、筛选、排序变化时重新加载数据（重置到第一页）
   useEffect(() => {
     if (isReturningFromDetail.current) {
@@ -450,8 +444,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
       case 4:
         return { text: '通过初筛', color: 'success', icon: <CheckCircleOutlined /> };
       case 6:
-        // AI 初筛中（瞬态，agent 初筛 job 运行期间,#用户反馈）
-        return { text: 'AI初筛中', color: 'purple', icon: <LoadingOutlined /> };
+        return { text: '处理中', color: 'purple', icon: <ClockCircleOutlined /> };
       case 3:
         return { text: '已截止（未提交）', color: 'default', icon: <CloseCircleOutlined /> };
       case 2:
@@ -595,7 +588,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
       },
     });
   };
-
   return (
     <div className="resume-list-container">
       {adminError && (
@@ -710,7 +702,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
               <Option value="2">待初筛</Option>
               <Option value="4">通过初筛</Option>
               <Option value="5">未通过初筛</Option>
-              <Option value="6">AI初筛中</Option>
+              <Option value="6">处理中</Option>
               <Option value="1">草稿（未提交）</Option>
               <Option value="1,2,4,5,6">含草稿的全部</Option>
             </Select>
@@ -774,7 +766,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
       <div className="list-header">
         <div>
           <Title level={4} style={{ marginBottom: 4 }}>简历审核</Title>
-          <Text type="secondary">选择候选人后可批量启动 AI 初筛，结果直接显示在简历旁。</Text>
+          <Text type="secondary">查看候选人简历，并进行人工初筛与评分。</Text>
         </div>
         {canUseAiScreening && <Space wrap>
           <Checkbox
@@ -815,7 +807,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
         ) : (
           <>
             <List
-              dataSource={visibleResumes}
+              dataSource={resumes}
               grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 3 }}
               renderItem={(resume) => {
                 const statusInfo = getStatusInfo(resume.status);
@@ -829,10 +821,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
                 // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
                 const photo = getFieldValueFromResume(resume, '个人照片');
-                const aiCard = scorecards[String(resume.resumeId)];
-                const aiHint = aiCard ? aiRecommendation(aiCard) : null;
-                const isScreening = screeningIds.includes(String(resume.resumeId));
-
                 return (
                   <List.Item key={String(resume.resumeId)}>
                     <Card
@@ -869,14 +857,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         </Dropdown>,
                       ]}
                     >
-                      <Checkbox
-                        className="resume-card-select"
-                        aria-label={`选择简历 ${name || resume.resumeId}`}
-                        checked={selectedIds.includes(String(resume.resumeId))}
-                        onChange={(event) => setSelectedIds((current) => event.target.checked
-                          ? [...current, String(resume.resumeId)]
-                          : current.filter((id) => String(id) !== String(resume.resumeId)))}
-                      />
                       <Card.Meta
                         avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={

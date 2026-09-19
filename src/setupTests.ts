@@ -8,6 +8,14 @@ if (typeof globalThis.crypto === 'undefined') {
 
 export {};
 
+// jsdom 没有 TextEncoder/TextDecoder，而 react-router v7 会用到。
+// 引了 react-router-dom 的模块一进测试就 ReferenceError，和业务无关。
+import { TextDecoder, TextEncoder } from 'util';
+
+if (typeof globalThis.TextEncoder === 'undefined') {
+  Object.assign(globalThis, { TextEncoder, TextDecoder });
+}
+
 // jest-dom 的自定义匹配器（toBeInTheDocument 等）。渲染型测试需要它。
 import '@testing-library/jest-dom';
 

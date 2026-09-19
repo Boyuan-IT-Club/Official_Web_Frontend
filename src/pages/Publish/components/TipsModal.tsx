@@ -22,9 +22,12 @@ export interface TipsModalProps {
   /** 招新答疑群二维码；没配则整节不出现 */
   qaImageUrl?: string | null;
   qaRemark?: string | null;
+  /** 本届负责人联系方式（周期配置）。此前只有未录取邮件在用，
+   *  投递阶段想找人问反而没处看，故一并放进提示里；没配则不渲染 */
+  contactInfo?: string | null;
 }
 
-const TipsModal: React.FC<TipsModalProps> = ({ open, onClose, tips, qaImageUrl, qaRemark }) => (
+const TipsModal: React.FC<TipsModalProps> = ({ open, onClose, tips, qaImageUrl, qaRemark, contactInfo }) => (
   <Modal
     open={open}
     onCancel={onClose}
@@ -59,6 +62,13 @@ const TipsModal: React.FC<TipsModalProps> = ({ open, onClose, tips, qaImageUrl, 
 
     {/* 答疑群放在注意事项之后：看完还有疑问的人，下一步正是要问人 */}
     <QaGroupHint imageUrl={qaImageUrl} remark={qaRemark} />
+
+    {contactInfo && contactInfo.trim() && (
+      <div className="tips-modal__contact">
+        <span className="tips-modal__contact-label">本届负责人</span>
+        <span className="tips-modal__contact-value">{contactInfo.trim()}</span>
+      </div>
+    )}
 
     <div className="tips-modal__foot">
       <Button type="primary" onClick={onClose}>知道了，开始填写</Button>

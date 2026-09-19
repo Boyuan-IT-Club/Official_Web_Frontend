@@ -21,6 +21,7 @@ const ActivityManage = lazy(() => import("@/pages/ActivityManage"));
 const EvaluationManage = lazy(() => import("@/pages/EvaluationManage"));
 // 客服 Agent 管理(M6 #115, agent:monitor; 三块合并为单页内 Tabs)
 const AgentAdmin = lazy(() => import("@/pages/AgentAdmin"));
+const FeedbackManage = lazy(() => import("@/pages/FeedbackManage"));
 
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}><Spin size="large" /></div>}>
@@ -81,6 +82,10 @@ const router = createBrowserRouter([
       {
         path: "agent-admin",
         element: <LazyLoad><AgentAdmin /></LazyLoad>,
+      },
+      {
+        path: "feedback",
+        element: <LazyLoad><FeedbackManage /></LazyLoad>,
       },
     ],
   },

@@ -226,7 +226,9 @@ const Land: React.FC = () => {
             <div>
               <h3>联系我们</h3>
               <ul>
-                <li>邮箱：10255101547@stu.ecnu.edu.cn</li>
+                {/* 用社团公共邮箱而不是某位同学的学生邮箱：门面页会留很多年，
+                    人会毕业、学生邮箱会停用，留私人邮箱等于给自己埋一个失联点 */}
+                <li>邮箱：<a href="mailto:contact@boyuan.club">contact@boyuan.club</a></li>
                 <li>地址: 上海市中山北路3663号</li>
               </ul>
             </div>

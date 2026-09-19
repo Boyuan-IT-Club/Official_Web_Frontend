@@ -6,6 +6,7 @@ import {
   Avatar,
   Typography,
   Dropdown,
+  Badge,
   message,
 } from "antd";
 import {
@@ -24,10 +25,12 @@ import {
   CheckOutlined,
   SearchOutlined,
   QuestionCircleOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { fetchUserInfo, logout } from "@/store/modules/user";
+import { fetchUnhandledCount } from "@/api/feedback";
 import { useAppDispatch } from "@/store/hooks";
 import { getToken } from "@/utils";
 import { getJwtPermissionCodes } from "@/utils/jwt";
@@ -100,6 +103,30 @@ const AdminLayout: React.FC = () => {
     dispatch(fetchUserInfo());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
+
+  /*
+   * 问题反馈：顶栏入口 + 未处理角标。
+   *
+   * 能不能看，以接口的实际回应为准，不看 JWT 里的权限码——权限码是登录那一刻
+   * 快照进令牌的，而 feedback:view 是后来随迁移新增的，老令牌里没有。
+   * 按令牌判断的话，所有在线管理员都得退出重登才看得见这个按钮
+   * （线上真发生了，用户连问两次「怎么没有」）。
+   * 改成探一次接口：通了就显示，403 就不显示。以后任何新授予的权限都能自愈。
+   */
+  const [canViewFeedback, setCanViewFeedback] = useState(false);
+  const [unhandled, setUnhandled] = useState(0);
+
+  useEffect(() => {
+    fetchUnhandledCount()
+      .then((res: any) => {
+        setCanViewFeedback(true);
+        setUnhandled(Number(res?.data?.count ?? 0));
+      })
+      // 403（无权限）与网络故障都走这里：拿不准就不显示，
+      // 总好过摆一个点了报错的按钮
+      .catch(() => setCanViewFeedback(false));
+    // 切页面时重拉一次，标完「已处理」回到别的页角标就更新了
+  }, [location.pathname]);
 
   const menuItems = useMemo(
     () =>
@@ -265,6 +292,24 @@ const AdminLayout: React.FC = () => {
             <QuestionCircleOutlined />
             <span className="admin-search-trigger__text">指引</span>
           </button>
+          {/*
+            问题反馈不进左侧主菜单：那一列是招新流程的骨架（周期、简历、面试），
+            反馈是旁路工具，混进去会让主线看着多一环。放顶栏和搜索、指引一起，
+            角标只在有未处理时出现——没有待办时它就该是安静的。
+          */}
+          {canViewFeedback && (
+            <button
+              type="button"
+              className="admin-search-trigger"
+              onClick={() => navigate("/feedback")}
+              title="问题反馈"
+            >
+              <Badge count={unhandled} size="small" offset={[2, -2]}>
+                <MessageOutlined />
+              </Badge>
+              <span className="admin-search-trigger__text">反馈</span>
+            </button>
+          )}
           <Dropdown menu={{ items: userMenuItems as any }} placement="bottomRight">
             <div className="admin-user" data-tour="admin-user">
               <Avatar size="small" icon={<UserOutlined />} src={userInfo?.avatar || undefined} />
