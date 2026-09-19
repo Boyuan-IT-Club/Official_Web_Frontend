@@ -203,28 +203,25 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [sortBy, setSortBy] = useState<string>('submitted_at');
   const [sortOrder, setSortOrder] = useState<string>('DESC');
   const [statusFilter, setStatusFilter] = useState<string>(SUBMITTED_STATUSES);
-  // 批量初筛：勾选后统一标通过/未通过、给未通过的发通知。
-  // 卡片式列表没有 Table 的 rowSelection，用卡片左上角的勾选框自己管一份 id 集合。
-  const [picked, setPicked] = useState<number[]>([]);
+  // 卡片勾选只有一份(selectedIds,卡片左上角那个),批量初筛与 AI 初筛共用它——
+  // 两套勾选并存时,勾了其中一个另一个按钮不认,用户看到的是「同一个框,不同按钮
+  // 反应不一样」。screening 也共用:两个操作都是「提交一批、后台跑」,不该各显示
+  // 自己的 loading。
   const [screening, setScreening] = useState(false);
 
-  // 本页简历 id，供「全选本页」用
-  const pageResumeIds: number[] = (resumes ?? []).map((r: any) => Number(r.resumeId));
-
-  const togglePick = (resumeId: number, checked: boolean) =>
-    setPicked((prev) => (checked ? [...prev, resumeId] : prev.filter((id) => id !== resumeId)));
-
   const runScreening = async (passed: boolean) => {
+    // 与「启动 AI 初筛」共用 selectedIds:同一份勾选驱动两件事,不再各管一套。
+    const picked = selectedIds.map((id) => Number(id));
     setScreening(true);
     try {
-      const res: any = await batchScreening(picked, passed);
+      const res: { data?: { updated?: number } } | undefined = await batchScreening(picked, passed);
       const updated = res?.data?.updated ?? 0;
       message.success(`已标记 ${updated} 份为${passed ? '通过' : '未通过'}初筛`
         + (updated < picked.length ? `（${picked.length - updated} 份是草稿，已跳过）` : ''));
-      setPicked([]);
+      setSelectedIds([]);
       loadResumes(localCurrentPage, pagination.pageSize);
-    } catch (e: any) {
-      message.error(e?.message || '批量初筛失败');
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : '批量初筛失败');
     } finally {
       setScreening(false);
     }
@@ -742,41 +739,34 @@ const ResumeList: React.FC<ResumeListProps> = ({
       */}
       <div className="screening-bar">
           <Space wrap>
-            <Checkbox
-              checked={pageResumeIds.length > 0 && picked.length === pageResumeIds.length}
-              indeterminate={picked.length > 0 && picked.length < pageResumeIds.length}
-              onChange={(e) => setPicked(e.target.checked ? pageResumeIds : [])}
-            >
-              全选本页
-            </Checkbox>
             <Text strong>
-              {picked.length > 0 ? `已选 ${picked.length} 份` : '勾选简历后可批量初筛'}
+              {selectedIds.length > 0 ? `已选 ${selectedIds.length} 份` : '勾选简历后可批量初筛'}
             </Text>
             <Popconfirm
-              title={`标记 ${picked.length} 份为通过初筛？`}
+              title={`标记 ${selectedIds.length} 份为通过初筛？`}
               description="通过初筛的同学可以填写面试意向、参与面试分配。"
               okText="确认" cancelText="取消"
-              disabled={picked.length === 0}
+              disabled={selectedIds.length === 0}
               onConfirm={() => runScreening(true)}
             >
-              <Button type="primary" loading={screening} disabled={picked.length === 0}>
+              <Button type="primary" loading={screening} disabled={selectedIds.length === 0}>
                 标为通过初筛
               </Button>
             </Popconfirm>
             <Popconfirm
-              title={`标记 ${picked.length} 份为未通过初筛？`}
+              title={`标记 ${selectedIds.length} 份为未通过初筛？`}
               description="未通过的同学本届流程即结束：不再参与面试分配，也不能再提交面试意向。此操作可撤回（重新标为通过）。"
               okText="确认" cancelText="取消"
               okButtonProps={{ danger: true }}
-              disabled={picked.length === 0}
+              disabled={selectedIds.length === 0}
               onConfirm={() => runScreening(false)}
             >
-              <Button danger loading={screening} disabled={picked.length === 0}>
+              <Button danger loading={screening} disabled={selectedIds.length === 0}>
                 标为未通过初筛
               </Button>
             </Popconfirm>
-            {picked.length > 0 && (
-              <Button type="text" onClick={() => setPicked([])}>取消选择</Button>
+            {selectedIds.length > 0 && (
+              <Button type="text" onClick={() => setSelectedIds([])}>取消选择</Button>
             )}
           </Space>
       </div>
@@ -847,7 +837,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
                   <List.Item key={String(resume.resumeId)}>
                     <Card
                       hoverable
-                      className={`resume-card${picked.includes(Number(resume.resumeId)) ? ' is-picked' : ''}`}
+                      className={`resume-card${selectedIds.includes(String(resume.resumeId)) ? ' is-picked' : ''}`}
                       actions={[
                         <Button type="link" icon={<EyeOutlined />} onClick={() => handleViewResume(resume)}>
                           查看
@@ -891,13 +881,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={
                           <Space>
-                            {/* 勾选框与姓名同排：原先绝对定位在卡片左上角，
-                                正好压在照片头像上，看不出这里能勾 */}
-                            <Checkbox
-                              checked={picked.includes(Number(resume.resumeId))}
-                              onChange={(e) => togglePick(Number(resume.resumeId), e.target.checked)}
-                              onClick={(e) => e.stopPropagation()}
-                            />
                             <Text strong>{name || '未提供姓名'}</Text>
                             <Tag icon={statusInfo.icon} color={statusInfo.color}>
                               {statusInfo.text}
