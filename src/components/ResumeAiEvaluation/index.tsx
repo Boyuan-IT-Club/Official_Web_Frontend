@@ -232,6 +232,7 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
   }
 
   const recommendation = aiRecommendation(detail);
+  const metTraits = (detail.card?.traits ?? []).filter((t) => t.met);
   return (
     <>
       <Card
@@ -248,14 +249,20 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
           ghost
           items={[{
             key: 'reasoning',
-            label: `查看 AI 理由与 ${detail.card?.dimensions?.length ?? 0} 项维度评分`,
+            label: `查看 AI 理由与 ${metTraits.length} 项特质判定`,
             children: (
               <div className="resume-ai-summary__dimensions">
-                {(detail.card?.dimensions ?? []).map((dimension) => (
-                  <div key={dimension.field_key} className="resume-ai-summary__dimension">
-                    <Space><Text strong>{dimension.field_key}</Text><Tag color="blue">{dimension.score} 分</Tag></Space>
-                    <Paragraph>{dimension.rationale}</Paragraph>
-                    <Text type="secondary">简历依据：{dimension.evidence || '未提供'}</Text>
+                {detail.card?.summary && <Paragraph>{detail.card.summary}</Paragraph>}
+                {(detail.card?.traits ?? []).map((trait) => (
+                  <div key={trait.trait} className="resume-ai-summary__dimension">
+                    <Space>
+                      <Text strong>{trait.trait}</Text>
+                      <Tag color={trait.met ? 'green' : 'default'}>{trait.met ? '达成' : '未达成'}</Tag>
+                    </Space>
+                    <Paragraph style={{ marginBottom: 4 }}>{trait.reason}</Paragraph>
+                    {trait.quote ? (
+                      <Text type="secondary" italic>依据:「{trait.quote}」</Text>
+                    ) : null}
                   </div>
                 ))}
                 {detail.card?.attitude && (

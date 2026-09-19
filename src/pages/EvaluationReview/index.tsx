@@ -362,9 +362,12 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
             {detail.hard_zero ? <Tag color="red">初筛不过</Tag> : null}
             <Text strong>AI 参考总分:{detail.total ?? "-"}</Text>
           </Space>
-          {(detail.card?.dimensions ?? []).map((d) => (
+          {detail.card?.summary ? (
+            <Paragraph style={{ marginBottom: 12 }}>{detail.card.summary}</Paragraph>
+          ) : null}
+          {(detail.card?.traits ?? []).map((tr) => (
             <div
-              key={d.field_key}
+              key={tr.trait}
               style={{
                 border: "1px solid #f0f0f0",
                 borderRadius: 8,
@@ -373,13 +376,15 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
               }}
             >
               <Space>
-                <Text strong>{d.field_key}</Text>
-                <Tag color="blue">{d.score} 分</Tag>
+                <Text strong>{tr.trait}</Text>
+                <Tag color={tr.met ? "green" : "default"}>{tr.met ? "达成" : "未达成"}</Tag>
               </Space>
-              <Paragraph style={{ marginBottom: 4 }}>{d.rationale}</Paragraph>
-              <Paragraph type="secondary" style={{ marginBottom: 0 }} italic>
-                依据:「{d.evidence}」
-              </Paragraph>
+              <Paragraph style={{ marginBottom: tr.quote ? 4 : 0 }}>{tr.reason}</Paragraph>
+              {tr.quote ? (
+                <Paragraph type="secondary" style={{ marginBottom: 0 }} italic>
+                  依据:「{tr.quote}」
+                </Paragraph>
+              ) : null}
             </div>
           ))}
           <Paragraph type="secondary">

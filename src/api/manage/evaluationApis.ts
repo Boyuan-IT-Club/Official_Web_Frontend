@@ -19,11 +19,14 @@ export interface ScorecardRow {
   user_id?: number;
 }
 
-export interface DimensionScore {
-  field_key: string;
-  score: number;
-  rationale: string;
-  evidence: string;
+/** 一项特质的判定结果。met=false 时 reason 写「缺什么」。 */
+export interface TraitVerdict {
+  trait: string;
+  met: boolean;
+  /** 判定依据的原文逐字片段(判 true 时必填) */
+  quote: string;
+  /** 自然语言依据;未达成时写缺什么 */
+  reason: string;
 }
 
 /** 评分卡详情 */
@@ -33,8 +36,12 @@ export interface ScorecardDetail {
   hard_zero: boolean;
   total: number | null;
   card: {
-    dimensions: DimensionScore[];
+    traits: TraitVerdict[];
+    /** 整体理由(2-4 句):强在哪、弱在哪、建议怎么面 */
+    summary: string;
     attitude: { verdict: string; reason: string };
+    /** 达成项数(总分即由它派生) */
+    met_count?: number;
     hard_zero_reasons?: Record<string, string>;
   };
   created_at?: string;
