@@ -16,6 +16,7 @@ import { userActions } from '@/store/modules/user';
 import { useAppDispatch } from '@/store/hooks';
 import { request } from '@/utils/request';
 import { formatWait, isRateLimited, rateLimitHint, retryAfterSeconds } from '@/utils/rateLimit';
+import { ecnuSuffixError, studentEmailError } from '@/utils/studentEmail';
 
 const { Item } = Form;
 
@@ -74,6 +75,8 @@ const AuthCard: FC = () => {
   const [showRegister, setShowRegister] = useState<boolean>(false);
   const [showForgot, setShowForgot] = useState<boolean>(false);
   const [localLoading, setLocalLoading] = useState<boolean>(false);
+  /** 管理端与用户端的邮箱规则不同：前者有历史非学号账号，只能按后缀放行 */
+  const isAdminMode = process.env.REACT_APP_MODE === 'admin';
   // 被后端限流后的冷却秒数：>0 时禁掉提交，并在按钮上显示还要等多久
   const [cooldown, setCooldown] = useState<number>(0);
   // localLoading 是 state，同一轮事件循环里连着提交读到的还是旧值；
@@ -120,8 +123,15 @@ const AuthCard: FC = () => {
         ? form.getFieldValue('email')
         : form.getFieldValue('auth_id');
 
-    if (!email || typeof email !== 'string' || !email.endsWith('@stu.ecnu.edu.cn')) {
-      message.error('必须使用华东师范大学学生邮箱');
+    // 和表单校验器用同一套规则。此前这里只查后缀，于是前缀不是 11 位学号的
+    // 地址（如 cr@stu.ecnu.edu.cn）也能把验证码发出去，白白发一封信，
+    // 用户要到提交那一刻才发现邮箱根本不合法。
+    //
+    // 管理端仍只查后缀：那边有 admin、dinghuaye 这类历史非学号账号，
+    // 收紧会把他们挡在验证码登录和找回密码之外。
+    const emailProblem = isAdminMode ? ecnuSuffixError(email) : studentEmailError(email);
+    if (emailProblem) {
+      message.error(emailProblem);
       return;
     }
 
@@ -301,10 +311,11 @@ const AuthCard: FC = () => {
           }
         }
       } else if (showRegister) {
-        // 注册逻辑（保持不变）
-        const email = String(values.email || '');
+        // 用户名不再由这里算。以前是 email.split('@')[0] 传过去，后端再对它
+        // 独立做 4-20 的长度校验——同一个值前端算、后端校验，邮箱前缀一不合规
+        // 就报「用户名长度必须在4-20个字符之间」，指向一个本页根本没有的输入框。
+        // 现在由后端从邮箱推导（= 11 位学号），请求体不用带。
         const res = await request.post('/api/auth/register', {
-          username: email.split('@')[0],
           password: values.password,
           confirmPassword: values.confirmPassword,
           name: values.name,
@@ -376,22 +387,12 @@ const AuthCard: FC = () => {
     }
 
     // 管理端存在非学号账号（如 admin），不做数字/长度校验
-    if (process.env.REACT_APP_MODE === 'admin') {
+    if (isAdminMode) {
       return Promise.resolve();
     }
 
-    const str = String(value);
-
-    const numberPart = str.split('@')[0];
-    if (!/^\d+$/.test(numberPart)) {
-      return Promise.reject(new Error('学号必须是数字'));
-    }
-
-    if (numberPart.length !== 11) {
-      return Promise.reject(new Error('请输入11位学号'));
-    }
-
-    return Promise.resolve();
+    const problem = studentEmailError(value);
+    return problem ? Promise.reject(new Error(problem)) : Promise.resolve();
   };
 
   // 处理邮箱输入框的 blur 事件（保持原逻辑不变）

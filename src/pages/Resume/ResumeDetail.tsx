@@ -5,6 +5,7 @@ import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, InputNu
 import { updateResumeScore } from '@/api/manage/resumeEntry';
 import { ScoreEntry, myScoreOf, scorerLabel } from './scorePanel';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
+import { extractGithubRepos, githubFieldLink } from '@/utils/githubRepo';
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
 import { useResumePhoto } from '@/hooks/useResumePhoto';
 import ResumeAttachments from '@/components/ResumeAttachments';
@@ -106,6 +107,28 @@ const renderDepartment = (label: string, value: string): React.ReactNode => {
   );
 };
 
+// GitHub 字段里的地址直接可点，评审不用再复制粘贴；
+// 识别不出（空值、「暂无」、乱写的地址）按纯文本兜底，不空出一块
+const renderGithubField = (value: string): React.ReactNode => {
+  if (!value) return null;
+  const link = githubFieldLink(value);
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <Text strong>
+        <GithubOutlined style={{ marginRight: 8 }} />
+        GitHub:
+      </Text>
+      {link ? (
+        <Text style={{ marginLeft: 8 }}>
+          <a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a>
+        </Text>
+      ) : (
+        <Text style={{ marginLeft: 8 }}>{value}</Text>
+      )}
+    </div>
+  );
+};
+
 const renderInterviewTime = (label: string, value: string): React.ReactNode => {
   if (!value || value === '无') return null;
   return (
@@ -161,12 +184,14 @@ type ResumeDetailProps = {
   /** 顺序里的下一位（含已打分），复查时用 */
   nextName?: string | null;
   onNext?: () => void;
+  /** 跨页取下一位时要发请求，按钮转圈，否则会被当成点了没反应 */
+  nextLoading?: boolean;
   /** 进入沉浸式打分舞台；不传则不显示该入口（舞台内部复用本组件时即不传） */
   onEnterStage?: () => void;
 };
 
 // --- 主要组件 ---
-const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext, onEnterStage }) => {
+const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext, nextLoading, onEnterStage }) => {
   const dispatch = useDispatch<any>();
   // #177:发起 AI 初筛是执行权 evaluation:run(查看结果仍是 resume:audit)
   const canUseAiScreening = hasPermission(getToken(), 'evaluation:run');
@@ -249,6 +274,12 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
   // 解析期望部门（保持原逻辑不变）
   const rawExpectedDeptValue = getFieldValueFromResume(resume, '期望部门');
   const expectedDepartments = parseExpectedDepartments(rawExpectedDeptValue);
+
+  // 项目经验/自我介绍里提到的仓库：识别成可点链接，同一仓只展示一次
+  const codeRepos = extractGithubRepos([
+    getFieldValueFromResume(resume, '项目经验'),
+    getFieldValueFromResume(resume, '自我介绍'),
+  ].join('\n'));
 
   return (
     <div className="resume-detail-container">
@@ -369,14 +400,14 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
           </Button>
           {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位未打分的 */}
           {onNextUngraded && (
-            <Button onClick={() => onNextUngraded()}>
+            <Button onClick={() => onNextUngraded()} loading={nextLoading}>
               {`下一位未打分${nextUngradedName ? `：${nextUngradedName}` : ''}`}
             </Button>
           )}
           {/* 顺序浏览：已打过分的也能一路翻下去复查，不被「未打分」过滤挡住。
               全部打完时它就是唯一的前进键。 */}
           {onNext ? (
-            <Button onClick={() => onNext()}>
+            <Button onClick={() => onNext()} loading={nextLoading}>
               {`下一位${nextName ? `：${nextName}` : ''}`}
             </Button>
           ) : (
@@ -443,7 +474,7 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
               <Title level={4}>联系方式</Title>
               {renderField(MailOutlined, '邮箱', getFieldValueFromResume(resume, '邮箱'), true)}
               {renderField(PhoneOutlined, '手机号', getFieldValueFromResume(resume, '手机号'), true)}
-              {renderField(GithubOutlined, 'GitHub', getFieldValueFromResume(resume, 'GitHub地址'))}
+              {renderGithubField(getFieldValueFromResume(resume, 'GitHub地址'))}
             </Col>
 
             <Col xs={24} md={12}>
@@ -505,6 +536,23 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
                   <Paragraph style={{ marginTop: 8, marginBottom: 0, whiteSpace: 'pre-wrap' }}>
                     {getFieldValueFromResume(resume, '项目经验')}
                   </Paragraph>
+                </div>
+              )}
+
+              {codeRepos.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <Text strong>
+                    <GithubOutlined style={{ marginRight: 8 }} />
+                    代码仓库:
+                  </Text>
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {codeRepos.map((repo) => (
+                      <a key={repo.key} href={repo.url} target="_blank" rel="noopener noreferrer">
+                        <GithubOutlined style={{ marginRight: 6 }} />
+                        {repo.label}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
             </Col>

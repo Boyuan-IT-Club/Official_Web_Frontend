@@ -13,7 +13,8 @@ type Props = {
   isCompressing?: boolean;
   disabled?: boolean;
   label?: string;
-  required?: boolean;  // 添加 required 属性
+  /** 本届把个人照片配成必填时为 true —— 真正参与校验，见下方 rules */
+  required?: boolean;
 };
 
 const PhotoUpload: React.FC<Props> = React.memo(({
@@ -22,6 +23,7 @@ const PhotoUpload: React.FC<Props> = React.memo(({
   isCompressing = false,
   disabled = false,
   label = '个人照片',
+  required = false,
 }) => {
   const beforeUpload: UploadProps['beforeUpload'] = async (file) => {
     // antd Upload 返回的是 RcFile（继承 File），这里直接当 File 用即可
@@ -30,7 +32,25 @@ const PhotoUpload: React.FC<Props> = React.memo(({
   };
 
   return (
-    <Form.Item label={label} name="personal_photo" className="photo-label">
+    /*
+      required 以前只是声明了一个 prop、从头到尾没用过：红星没画、规则也没加，
+      于是「个人照片」配成必填也拦不住任何人（线上真的有人没传照片就投出来了）。
+
+      照片的值走 redux（handleFieldChange），不进 antd Form，所以不能用
+      rules:[{required:true}] —— 那样传了照片也永远通不过。改成读 photoBase64
+      的校验器：它才是「到底有没有照片」的唯一事实来源。
+    */
+    <Form.Item
+      label={label}
+      name="personal_photo"
+      className="photo-label"
+      required={required}
+      rules={required ? [{
+        validator: () => (photoBase64
+          ? Promise.resolve()
+          : Promise.reject(new Error('请上传个人照片'))),
+      }] : undefined}
+    >
       {/*
         尺寸样式挂在这个类上，不再依赖外层的 .photo-container ——
         那个包裹层在投递表单改成数据驱动之后就没了，原来那条 120×160 的规则

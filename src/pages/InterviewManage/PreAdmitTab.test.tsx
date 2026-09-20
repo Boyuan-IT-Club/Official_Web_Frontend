@@ -13,7 +13,11 @@ jest.mock('../../api/manage/interviewAdmin', () => ({
 jest.mock('../../api/manage/interviewEvaluation', () => ({
   getEvaluationSummary: jest.fn(),
 }));
-jest.mock('../../utils', () => ({ request: jest.fn() }));
+jest.mock('../../utils', () => ({
+  // 组件树用到的工具（displayName 等）保留真实实现，只拦掉发请求的 request
+  ...jest.requireActual('../../utils'),
+  request: jest.fn(),
+}));
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const api = require('../../api/manage/interviewAdmin');
 // eslint-disable-next-line @typescript-eslint/no-var-requires

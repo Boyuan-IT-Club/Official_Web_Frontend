@@ -350,7 +350,7 @@ export interface InterviewResultItem {
   notifiedAt?: string;
   /**
    * 联表查出来的展示字段。优先用它，别再去「面试安排名册」里凑名字——
-   * 没有面试安排的同学不在那份名册里，会退化成「用户#14」。
+   * 没有面试安排的同学不在那份名册里，姓名会退化成「未填姓名(#14)」。
    */
   userName?: string;
   departmentName?: string;

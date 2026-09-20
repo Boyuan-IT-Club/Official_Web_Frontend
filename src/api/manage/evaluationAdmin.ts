@@ -26,7 +26,8 @@ export interface CandidateRow {
   githubUsername: string;
   userId?: number | null;
   userName?: string | null;
-  deptName?: string | null;
+  /** 是否正式社员;未认领时后端返回 null,身份未知 */
+  member?: boolean | null;
   latestTotalScore?: number | null;
   maxTotalScore?: number | null;
   submissionCount?: number | null;

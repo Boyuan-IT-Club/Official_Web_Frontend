@@ -13,6 +13,8 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import MemberNoApplyNotice from '../Publish/components/MemberNoApplyNotice';
+import { shouldShowMemberNotice } from './memberGate';
 import { fetchOpenCycles, fetchMyResumeReadonly } from '@/store/modules/resume';
 import InterviewIntentEditor from '@/components/InterviewIntentEditor';
 import ResumeQuickView from '@/components/ResumeQuickView';
@@ -42,6 +44,8 @@ const InterviewAppointment: React.FC = () => {
   const paramCycleId = searchParams.get('cycleId');
   const resumeState = useSelector((state: any) => state.resume);
   const resume = resumeState?.resume;
+  const userInfo = useSelector((state: any) => state.user?.userInfo);
+  const isMember = Boolean(userInfo?.isMember);
   // 本页可以自己切周期：投过多届的同学要能回看往届进度，
   // 此前只能从个人主页带 ?cycleId= 进来，页面内没有任何切换手段。
   const [pickedCycleId, setPickedCycleId] = useState<number | null>(
@@ -442,6 +446,27 @@ const InterviewAppointment: React.FC = () => {
       </>
     ),
   });
+
+  // 社员且本届没有投递记录：整页换成「你已经是社员」。
+  //
+  // 此前这一屏对社员显示的是「开始你的申请 / 投递简历·还未开始填写 / 去填写」，
+  // 而点进投递页又会被 MemberNoApplyNotice 挡回来——两屏自相矛盾。上一次修复
+  // 只堵了投递页那个入口，漏了这里。
+  //
+  // 四个条件各自的理由见 memberGate.ts，那里有对应的断言。
+  if (shouldShowMemberNotice({ isMember, isHistory, resumeStatus: status, loading })) {
+    return (
+      <div className="app-progress-page">
+        <MemberNoApplyNotice
+          name={userInfo?.name}
+          lead="你已经在社里了，不需要再走一遍申请流程。"
+          historyCount={myCycles.length}
+          onViewHistory={() => navigate('/main/person')}
+          onBack={() => navigate('/main/dashboard')}
+        />
+      </div>
+    );
+  }
 
   // 周期全被删除且没有任何历史申请：给明确空态，而不是拿写死的老周期数据冒充现状
   if (noCycle && cycleId == null) {

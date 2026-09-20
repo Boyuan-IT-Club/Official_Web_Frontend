@@ -19,12 +19,19 @@ export interface MemberNoApplyNoticeProps {
   name?: string | null;
   /** 本人有过投递记录的周期数，为 0 时不提「我的申请」 */
   historyCount?: number;
+  /**
+   * 正文。默认那句是写给投递页的（「这一页没有需要你填的内容」），
+   * 申请进度页要说的不是「不用填」而是「不用再走一遍流程」，所以留个口子。
+   */
+  lead?: string;
   onViewHistory?: () => void;
   onBack?: () => void;
 }
 
+const DEFAULT_LEAD = '简历投递是给还没加入的同学准备的，这一页没有需要你填的内容。';
+
 const MemberNoApplyNotice: React.FC<MemberNoApplyNoticeProps> = ({
-  name, historyCount = 0, onViewHistory, onBack,
+  name, historyCount = 0, lead, onViewHistory, onBack,
 }) => (
   <div className="member-no-apply">
     <div className="member-no-apply__card">
@@ -38,9 +45,7 @@ const MemberNoApplyNotice: React.FC<MemberNoApplyNoticeProps> = ({
       {/* 一行写完：JSX 里换行会在中文之间留下一个空格，断在逗号后很难看。
           别把「草稿」写进来——那是内部概念，用户不认识；「没有需要你填的内容」
           已经把这一屏要说的话说完了，再补一句反而像在解释系统实现。 */}
-      <p className="member-no-apply__lead">
-        简历投递是给还没加入的同学准备的，这一页没有需要你填的内容。
-      </p>
+      <p className="member-no-apply__lead">{lead || DEFAULT_LEAD}</p>
 
       <div className="member-no-apply__divider" />
 
