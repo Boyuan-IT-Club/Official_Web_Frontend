@@ -18,7 +18,7 @@ import {
 } from '@/api/manage/interviewAdmin';
 import { getCandidateResume } from '@/api/manage/interviewEvaluation';
 import ResumeDetail from '@/pages/Resume/ResumeDetail';
-import { request } from '@/utils';
+import { displayName, request } from '@/utils';
 
 const fmt = (v?: string | null, len = 16) => (v ? String(v).replace('T', ' ').slice(0, len) : '');
 
@@ -27,7 +27,7 @@ const exportCsv = (rows: ScheduleRosterItem[], cycleId: number) => {
   const head = ['面试时间', '姓名', '学号', '面试部门', '第一志愿', '第二志愿', '地点', '备注'];
   const body = rows.map((r) => [
     fmt(r.interviewTime),
-    r.name || r.username || `用户#${r.userId}`,
+    displayName(r.name, r.username, r.userId),
     r.studentId || r.username || '',
     r.deptName || '',
     r.firstDeptName || '',
@@ -282,7 +282,7 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
             title: '姓名', dataIndex: 'name', width: 150,
             render: (v: string, r: ScheduleRosterItem) => (
               <Space size={4}>
-                <span>{v || r.username || `用户#${r.userId}`}</span>
+                <span>{displayName(v, r.username, r.userId)}</span>
                 {/* 初筛之后才被刷掉的人，安排是初筛之前排的，不会自动回收——
                     面试官会白等，场次名额也一直占着 */}
                 {r.resumeStatus === 5 && (
@@ -350,7 +350,7 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
 
       <Modal
         title={timeEditing
-          ? `调整面试时间：${timeEditing.name || timeEditing.username || `用户#${timeEditing.userId}`}`
+          ? `调整面试时间：${displayName(timeEditing.name, timeEditing.username, timeEditing.userId)}`
           : ''}
         open={!!timeEditing}
         confirmLoading={timeSaving}

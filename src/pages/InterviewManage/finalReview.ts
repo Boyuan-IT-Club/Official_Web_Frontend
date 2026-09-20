@@ -2,6 +2,7 @@
 // 抽出来是为了可测——舞台组件只做渲染。
 import type { CandidateSummary, EvaluationDimension } from '@/api/manage/interviewEvaluation';
 import type { InterviewResultItem, PreAdmissionDraftItem } from '@/api/manage/interviewAdmin';
+import { displayName } from '@/utils';
 
 export interface FinalCandidate {
   resultId: number;
@@ -48,7 +49,7 @@ export function assembleCandidates(
       resultId: r.resultId,
       scheduleId: r.scheduleId,
       userId: r.userId,
-      name: r.userName || `用户#${r.userId}`,
+      name: displayName(r.userName, usernameOf[r.userId], r.userId),
       username: usernameOf[r.userId],
       firstDeptName: r.firstDeptName,
       secondDeptName: r.secondDeptName,
