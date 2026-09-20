@@ -888,6 +888,17 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         </Dropdown>,
                       ]}
                     >
+                      {/* 勾选框只此一份，批量初筛与启动 AI 初筛共用 selectedIds。
+                          曾在勾选合一重构时随旧勾选框一起丢失，这里恢复：
+                          没有它，单份简历无从勾选，批量操作整排按钮全是灰的。 */}
+                      <Checkbox
+                        className="resume-card-select"
+                        aria-label={`选择简历 ${name || resume.resumeId}`}
+                        checked={selectedIds.includes(String(resume.resumeId))}
+                        onChange={(event) => setSelectedIds((current) => event.target.checked
+                          ? [...current, String(resume.resumeId)]
+                          : current.filter((id) => String(id) !== String(resume.resumeId)))}
+                      />
                       <Card.Meta
                         avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={
