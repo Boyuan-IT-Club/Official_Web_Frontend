@@ -311,10 +311,11 @@ const AuthCard: FC = () => {
           }
         }
       } else if (showRegister) {
-        // 注册逻辑（保持不变）
-        const email = String(values.email || '');
+        // 用户名不再由这里算。以前是 email.split('@')[0] 传过去，后端再对它
+        // 独立做 4-20 的长度校验——同一个值前端算、后端校验，邮箱前缀一不合规
+        // 就报「用户名长度必须在4-20个字符之间」，指向一个本页根本没有的输入框。
+        // 现在由后端从邮箱推导（= 11 位学号），请求体不用带。
         const res = await request.post('/api/auth/register', {
-          username: email.split('@')[0],
           password: values.password,
           confirmPassword: values.confirmPassword,
           name: values.name,
