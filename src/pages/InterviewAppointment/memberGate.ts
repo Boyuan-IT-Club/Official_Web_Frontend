@@ -23,7 +23,15 @@ export const shouldShowMemberNotice = ({
   if (!isMember) return false;
   // 往届照常渲染进度：社员多半就是从某一届进来的，回看当年的记录是合理需求
   if (isHistory) return false;
-  // 本届真投了就显示真实进度（比如社员换部门重新投递）
-  if (resumeStatus != null) return false;
+  // 只有「真的提交过」才让位给真实进度——典型是本届投递后被录取、
+  // 想回来看面试结果的人。判据和本页的 submitted 保持一致：status >= 2。
+  //
+  // 草稿（status 0/1）不算。社员在投递页根本提交不了，本届出现的草稿只会是
+  // 早年自动建出来的空壳；拿它当「有申请记录」，这一屏就会对社员显示
+  // 「草稿（尚未提交）/ 继续填写并提交」——正是要藏掉的东西。
+  // 上一版写成 resumeStatus != null，线上 cycle 14 挂着 4 个 status=1 的
+  // 社员空草稿，四个人全都没被拦住。
+  const submitted = (resumeStatus ?? 0) >= 2;
+  if (submitted) return false;
   return true;
 };
