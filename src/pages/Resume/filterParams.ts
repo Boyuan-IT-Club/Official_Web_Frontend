@@ -19,7 +19,6 @@ export type ResumeFilters = {
   sortBy: string;
   sortOrder: string;
   sortKey: string;
-  aiFilter: 'all' | 'pending' | 'passed' | 'review';
   cycleId?: number;
 };
 
@@ -32,7 +31,6 @@ export const FILTER_DEFAULTS: ResumeFilters = {
   sortBy: 'submitted_at',
   sortOrder: 'DESC',
   sortKey: 'time_desc',
-  aiFilter: 'all',
   cycleId: undefined,
 };
 
@@ -46,7 +44,6 @@ const KEYS: Record<keyof Omit<ResumeFilters, 'cycleId'>, string> = {
   sortBy: 'sortBy',
   sortOrder: 'sortOrder',
   sortKey: 'sort',
-  aiFilter: 'ai',
 };
 
 /** 从 URL 读出筛选条件；缺的键用默认值补齐 */
@@ -62,7 +59,6 @@ export function readFilters(params: URLSearchParams): ResumeFilters {
     sortBy: get(KEYS.sortBy, FILTER_DEFAULTS.sortBy),
     sortOrder: get(KEYS.sortOrder, FILTER_DEFAULTS.sortOrder),
     sortKey: get(KEYS.sortKey, FILTER_DEFAULTS.sortKey),
-    aiFilter: get(KEYS.aiFilter, FILTER_DEFAULTS.aiFilter) as ResumeFilters['aiFilter'],
     // 空串要落成 undefined 而不是 NaN：undefined 才是「不限周期」
     cycleId: cycle ? Number(cycle) : undefined,
   };

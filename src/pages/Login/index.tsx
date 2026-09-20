@@ -1,5 +1,5 @@
 // src/pages/Login/index.tsx (or AuthCard.tsx)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import { Card, Form, Input, Button, Checkbox, message } from 'antd';
 import {
@@ -15,6 +15,7 @@ import { useSelector } from 'react-redux';
 import { userActions } from '@/store/modules/user';
 import { useAppDispatch } from '@/store/hooks';
 import { request } from '@/utils/request';
+import { formatWait, isRateLimited, rateLimitHint, retryAfterSeconds } from '@/utils/rateLimit';
 
 const { Item } = Form;
 
@@ -73,10 +74,45 @@ const AuthCard: FC = () => {
   const [showRegister, setShowRegister] = useState<boolean>(false);
   const [showForgot, setShowForgot] = useState<boolean>(false);
   const [localLoading, setLocalLoading] = useState<boolean>(false);
+  // 被后端限流后的冷却秒数：>0 时禁掉提交，并在按钮上显示还要等多久
+  const [cooldown, setCooldown] = useState<number>(0);
+  // localLoading 是 state，同一轮事件循环里连着提交读到的还是旧值；
+  // 而 antd 的 Button loading 只拦鼠标点击，拦不住表单的回车提交。
+  // 用 ref 做重入锁才挡得住「按住回车」——线上被这样打出过 6 次/秒。
+  const submittingRef = useRef<boolean>(false);
+  const sendingCodeRef = useRef<boolean>(false);
+
+  // 冷却倒计时
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldown > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * 切换登录/注册/找回密码时清掉冷却。
+   * 三个表单共用一个 cooldown，但后端的额度是按接口分开算的——
+   * 注册被限流不代表登录也不能用，不清掉就会把用户挡在门外。
+   */
+  const switchForm = (toRegister: boolean, toForgot: boolean): void => {
+    setCooldown(0);
+    setShowRegister(toRegister);
+    setShowForgot(toForgot);
+  };
+
+  /** 命中限流：提示用户要等多久，并把提交入口锁到那时候 */
+  const handleRateLimited = (err: unknown, fallbackSeconds: number): void => {
+    message.error(rateLimitHint(err, fallbackSeconds));
+    setCooldown(retryAfterSeconds(err, fallbackSeconds));
+  };
 
   // 发送验证码
   const sendVerificationCode = async (): Promise<void> => {
-    if (countdown > 0) return;
+    if (countdown > 0 || cooldown > 0) return;
+    // 失败路径不会启动 countdown，只靠 Button 的 loading 挡连点不够稳
+    if (sendingCodeRef.current) return;
 
     const email = showRegister
       ? form.getFieldValue('email')
@@ -90,6 +126,7 @@ const AuthCard: FC = () => {
     }
 
     try {
+      sendingCodeRef.current = true;
       setLocalLoading(true);
       await request.post('/api/auth/send-email-code', { email });
 
@@ -103,6 +140,11 @@ const AuthCard: FC = () => {
 
       message.success('验证码已发送');
     } catch (err: unknown) {
+      if (isRateLimited(err)) {
+        // 同一邮箱 300 秒内最多 3 封，兜底也按这个窗口
+        handleRateLimited(err, 300);
+        return;
+      }
       const errorObj = err as RequestErrorLike;
       const errorMessage =
         errorObj?.response?.data?.message ||
@@ -112,6 +154,7 @@ const AuthCard: FC = () => {
       // eslint-disable-next-line no-console
       console.error('验证码发送错误:', err);
     } finally {
+      sendingCodeRef.current = false;
       setLocalLoading(false);
     }
   };
@@ -175,6 +218,13 @@ const AuthCard: FC = () => {
 
   // 提交表单
   const onFinish = async (values: AnyAuthFormValues): Promise<void> => {
+    // 回车提交绕过 Button 的 loading 态，必须在这里自己挡住重入
+    if (submittingRef.current) return;
+    if (cooldown > 0) {
+      message.warning(`操作过于频繁，请 ${formatWait(cooldown)}后再试`);
+      return;
+    }
+    submittingRef.current = true;
     try {
       setLocalLoading(true);
 
@@ -265,7 +315,7 @@ const AuthCard: FC = () => {
 
         if ((res as any).code === 201) {
           message.success('注册成功，请登录');
-          setShowRegister(false);
+          switchForm(false, false);
           form.resetFields();
         } else {
           throw new Error((res as any).message || '注册失败');
@@ -278,12 +328,18 @@ const AuthCard: FC = () => {
           newPassword: values.newPassword,
         });
         message.success('密码重置成功，请重新登录');
-        setShowForgot(false);
+        switchForm(false, false);
         form.resetFields();
       }
     } catch (err: unknown) {
       // eslint-disable-next-line no-console
       console.error('操作失败详情:', err);
+
+      if (isRateLimited(err)) {
+        // 注册是同一邮箱 5 次/小时、同一 IP 10 次/小时，兜底取一小时
+        handleRateLimited(err, 3600);
+        return;
+      }
 
       if (showRegister || showForgot) {
         let errorMessage = '操作失败，请检查输入';
@@ -308,6 +364,7 @@ const AuthCard: FC = () => {
         message.error(String(errorMessage));
       }
     } finally {
+      submittingRef.current = false;
       setLocalLoading(false);
     }
   };
@@ -406,10 +463,14 @@ const AuthCard: FC = () => {
                     <Button
                       type="link"
                       onClick={sendVerificationCode}
-                      disabled={countdown > 0 || loading}
+                      disabled={countdown > 0 || cooldown > 0 || loading}
                       loading={localLoading}
                     >
-                      {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
+                      {cooldown > 0
+                      ? `${formatWait(cooldown)}后重试`
+                      : countdown > 0
+                        ? `${countdown}秒后重试`
+                        : '获取验证码'}
                     </Button>
                   }
                 />
@@ -427,17 +488,17 @@ const AuthCard: FC = () => {
                 type="primary"
                 htmlType="submit"
                 block
+                disabled={cooldown > 0}
                 loading={localLoading || loading}
               >
-                登录
+                {cooldown > 0 ? `请 ${formatWait(cooldown)}后再试` : '登录'}
               </Button>
             </Item>
 
             <div className="auth-links">
               <span
                 onClick={() => {
-                  setShowRegister(true);
-                  setShowForgot(false);
+                  switchForm(true, false);
                   form.resetFields();
                 }}
               >
@@ -446,8 +507,7 @@ const AuthCard: FC = () => {
               <span className="divider">|</span>
               <span
                 onClick={() => {
-                  setShowForgot(true);
-                  setShowRegister(false);
+                  switchForm(false, true);
                   form.resetFields();
                 }}
               >
@@ -494,10 +554,14 @@ const AuthCard: FC = () => {
                   <Button
                     type="link"
                     onClick={sendVerificationCode}
-                    disabled={countdown > 0 || loading}
+                    disabled={countdown > 0 || cooldown > 0 || loading}
                     loading={localLoading}
                   >
-                    {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
+                    {cooldown > 0
+                      ? `${formatWait(cooldown)}后重试`
+                      : countdown > 0
+                        ? `${countdown}秒后重试`
+                        : '获取验证码'}
                   </Button>
                 }
               />
@@ -543,15 +607,21 @@ const AuthCard: FC = () => {
             </Item>
 
             <Item>
-              <Button type="primary" htmlType="submit" block loading={localLoading || loading}>
-                注册
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
+                disabled={cooldown > 0}
+                loading={localLoading || loading}
+              >
+                {cooldown > 0 ? `请 ${formatWait(cooldown)}后再试` : '注册'}
               </Button>
             </Item>
 
             <div className="auth-links">
               <span
                 onClick={() => {
-                  setShowRegister(false);
+                  switchForm(false, false);
                   form.resetFields();
                 }}
               >
@@ -580,10 +650,14 @@ const AuthCard: FC = () => {
                   <Button
                     type="link"
                     onClick={sendVerificationCode}
-                    disabled={countdown > 0 || loading}
+                    disabled={countdown > 0 || cooldown > 0 || loading}
                     loading={localLoading}
                   >
-                    {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
+                    {cooldown > 0
+                      ? `${formatWait(cooldown)}后重试`
+                      : countdown > 0
+                        ? `${countdown}秒后重试`
+                        : '获取验证码'}
                   </Button>
                 }
               />
@@ -618,16 +692,21 @@ const AuthCard: FC = () => {
             </Item>
 
             <Item>
-              <Button type="primary" htmlType="submit" block loading={localLoading || loading}>
-                重置密码
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
+                disabled={cooldown > 0}
+                loading={localLoading || loading}
+              >
+                {cooldown > 0 ? `请 ${formatWait(cooldown)}后再试` : '重置密码'}
               </Button>
             </Item>
 
             <div className="auth-links">
               <span
                 onClick={() => {
-                  setShowRegister(false);
-                  setShowForgot(false);
+                  switchForm(false, false);
                   form.resetFields();
                 }}
               >

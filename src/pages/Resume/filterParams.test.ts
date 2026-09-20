@@ -59,7 +59,7 @@ describe('从 URL 读回筛选条件', () => {
     const original = filters({
       searchText: '王', searchType: 'major', expectedDepartment: '项目部',
       choiceRank: 'second', statusFilter: '4', sortBy: 'resume_score',
-      sortOrder: 'ASC', sortKey: 'score_asc', aiFilter: 'passed', cycleId: 14,
+      sortOrder: 'ASC', sortKey: 'score_asc', cycleId: 14,
     });
     expect(readFilters(writeFilters(new URLSearchParams(), original))).toEqual(original);
   });

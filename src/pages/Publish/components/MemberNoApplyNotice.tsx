@@ -35,9 +35,11 @@ const MemberNoApplyNotice: React.FC<MemberNoApplyNoticeProps> = ({
       <h2 className="member-no-apply__title">
         {name ? `${name}，你已经是博远的社员` : '你已经是博远的社员'}
       </h2>
-      {/* 一行写完：JSX 里换行会在中文之间留下一个空格，断在逗号后很难看 */}
+      {/* 一行写完：JSX 里换行会在中文之间留下一个空格，断在逗号后很难看。
+          别把「草稿」写进来——那是内部概念，用户不认识；「没有需要你填的内容」
+          已经把这一屏要说的话说完了，再补一句反而像在解释系统实现。 */}
       <p className="member-no-apply__lead">
-        简历投递是给还没加入的同学准备的，这一页没有需要你填的内容，也不会再为你建草稿。
+        简历投递是给还没加入的同学准备的，这一页没有需要你填的内容。
       </p>
 
       <div className="member-no-apply__divider" />
