@@ -188,7 +188,18 @@ const EvaluationManage: React.FC = () => {
             </Space>
           ),
       },
-      { title: '部门', dataIndex: 'deptName', key: 'deptName', render: (v: string) => v || '—' },
+      {
+        // 身份而非部门：此前这列展示「当前部门，兜底第一志愿部门」，
+        // 候选人会顶着志愿部门名，看着像已录取。这里只回答「这人是谁」。
+        title: '身份',
+        key: 'member',
+        width: 100,
+        render: (_: unknown, row: CandidateRow) => {
+          // null/undefined（未认领，或后端尚未带出该字段）一律显示 —，不猜身份
+          if (row.member == null) return <span style={{ color: '#bbb' }}>—</span>;
+          return row.member ? <Tag color="green">正式社员</Tag> : <Tag color="blue">候选人</Tag>;
+        },
+      },
       {
         title: 'GitHub',
         key: 'github',
