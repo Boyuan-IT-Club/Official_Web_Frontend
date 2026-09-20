@@ -303,8 +303,14 @@ const AuthCard: FC = () => {
       } else if (showRegister) {
         // 注册逻辑（保持不变）
         const email = String(values.email || '');
+        // 用户名取邮箱前缀。前缀不足 4 位（如 cr@stu.ecnu.edu.cn 的 "cr"）会被后端
+        // 「用户名 4-20 字符」校验拒绝，而表单上没有用户名输入框，这个报错让人无从修改——
+        // 改用手机号兜底：11 位必过校验，且与本人一一对应。
+        const emailPrefix = email.split('@')[0];
+        const username =
+          emailPrefix.length >= 4 && emailPrefix.length <= 20 ? emailPrefix : values.phone;
         const res = await request.post('/api/auth/register', {
-          username: email.split('@')[0],
+          username,
           password: values.password,
           confirmPassword: values.confirmPassword,
           name: values.name,
