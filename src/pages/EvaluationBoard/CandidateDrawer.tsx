@@ -7,6 +7,8 @@ import {
   Radio, Space, Spin, Statistic, Tabs, Tag, Tooltip, Typography, message,
 } from 'antd';
 import ResumeQuickView from '@/components/ResumeQuickView';
+import { EvaluationQbankDrawer } from '@/components/ResumeAiEvaluation';
+import { BookOutlined } from '@ant-design/icons';
 import {
   CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS,
 } from '@/api/manage/interviewEvaluation';
@@ -40,6 +42,7 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
   const [resume, setResume] = useState<CandidateResume | null>(null);
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [qbankOpen, setQbankOpen] = useState(false);
 
   const scheduleId = row?.scheduleId;
   const editable = row ? board.canEdit(row) : false;
@@ -282,6 +285,13 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
           <span>{row.candidateName || `候选人 #${row.scheduleId}`}</span>
           {row.deptName && <Tag color="blue">{row.deptName}</Tag>}
           {row.removed && <Tag color="red">已移出名单</Tag>}
+          <Button
+            size="small"
+            icon={<BookOutlined />}
+            onClick={() => setQbankOpen(true)}
+          >
+            AI 预设题库
+          </Button>
         </Space>
       }
     >
@@ -304,6 +314,13 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
           { key: 'evaluation', label: '评价', children: evaluationTab },
           { key: 'resume', label: '简历', children: resumeTab },
         ]}
+      />
+      <EvaluationQbankDrawer
+        open={qbankOpen}
+        onClose={() => setQbankOpen(false)}
+        resumeId={row.resumeId}
+        cycleId={cycleId}
+        scheduleId={row.scheduleId}
       />
     </Drawer>
   );

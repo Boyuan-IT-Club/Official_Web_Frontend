@@ -19,6 +19,7 @@ import {
   Checkbox,
   message,
   Popconfirm,
+  Modal,
 } from 'antd';
 import {
   CalendarOutlined,
@@ -33,6 +34,7 @@ import {
   CloseCircleOutlined,
   AppstoreOutlined, // 用于部门筛选图标
   ThunderboltOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
@@ -41,6 +43,13 @@ import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exp
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
 import { batchScreening } from '@/api/manage/resumeEntry';
 import ResumePhotoAvatar from '@/components/ResumePhotoAvatar';
+import {
+  ScorecardRow, listEvaluationJobs, listEvaluationQueue, runResumeEvaluation,
+} from '@/api/manage/evaluationApis';
+import { aiRecommendation } from '@/components/ResumeAiEvaluation';
+import { getToken } from '@/utils';
+import { applyBatchPoll } from './evaluationPolling';
+import { hasPermission } from '@/utils/jwt';
 import './index.scss';
 
 const { Text, Title } = Typography;
@@ -149,6 +158,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
   onPageChange,
 }) => {
   const dispatch = useDispatch<any>();
+  // #177:发起 AI 初筛是执行权 evaluation:run(查看结果仍是 resume:audit)
+  const canUseAiScreening = hasPermission(getToken(), 'evaluation:run');
 
   // 从 Redux 获取分页相关状态
   const { resumes, adminLoading, adminError, pagination } = useSelector(
@@ -195,28 +206,25 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [sortBy, setSortBy] = useState<string>(initial.sortBy);
   const [sortOrder, setSortOrder] = useState<string>(initial.sortOrder);
   const [statusFilter, setStatusFilter] = useState<string>(initial.statusFilter);
-  // 批量初筛：勾选后统一标通过/未通过、给未通过的发通知。
-  // 卡片式列表没有 Table 的 rowSelection，用卡片左上角的勾选框自己管一份 id 集合。
-  const [picked, setPicked] = useState<number[]>([]);
+  // 卡片勾选只有一份(selectedIds,卡片左上角那个),批量初筛与 AI 初筛共用它——
+  // 两套勾选并存时,勾了其中一个另一个按钮不认,用户看到的是「同一个框,不同按钮
+  // 反应不一样」。screening 也共用:两个操作都是「提交一批、后台跑」,不该各显示
+  // 自己的 loading。main 侧原先的 picked state 即由它取代。
   const [screening, setScreening] = useState(false);
 
-  // 本页简历 id，供「全选本页」用
-  const pageResumeIds: number[] = (resumes ?? []).map((r: any) => Number(r.resumeId));
-
-  const togglePick = (resumeId: number, checked: boolean) =>
-    setPicked((prev) => (checked ? [...prev, resumeId] : prev.filter((id) => id !== resumeId)));
-
   const runScreening = async (passed: boolean) => {
+    // 与「启动 AI 初筛」共用 selectedIds:同一份勾选驱动两件事,不再各管一套。
+    const picked = selectedIds.map((id) => Number(id));
     setScreening(true);
     try {
-      const res: any = await batchScreening(picked, passed);
+      const res: { data?: { updated?: number } } | undefined = await batchScreening(picked, passed);
       const updated = res?.data?.updated ?? 0;
       message.success(`已标记 ${updated} 份为${passed ? '通过' : '未通过'}初筛`
         + (updated < picked.length ? `（${picked.length - updated} 份是草稿，已跳过）` : ''));
-      setPicked([]);
+      setSelectedIds([]);
       loadResumes(localCurrentPage, pagination.pageSize);
-    } catch (e: any) {
-      message.error(e?.message || '批量初筛失败');
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : '批量初筛失败');
     } finally {
       setScreening(false);
     }
@@ -228,6 +236,15 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [cycles, setCycles] = useState<any[]>([]);
   // 用于高亮显示当前排序方式
   const [currentSortKey, setCurrentSortKey] = useState<string>(initial.sortKey);
+  const [selectedIds, setSelectedIds] = useState<React.Key[]>([]);
+  const [aiFilter, setAiFilter] = useState<'all' | 'pending' | 'passed' | 'review'>('all');
+  const [scorecards, setScorecards] = useState<Record<string, ScorecardRow>>({});
+  const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
+  // 初筛失败的简历 → 错误文案(闸门4:失败可观测 + 重新评分入口)
+  const [failedScreening, setFailedScreening] = useState<Record<string, string>>({});
+  // #192:本次会话提交的 job_id → resume_id 映射(用 ref 避免触发 effect 重跑),
+  // 轮询只观察这批 job,与历史完成任务隔离
+  const activeJobResumeRef = useRef<Record<string, string>>({});
 
   // 使用从父组件传递的 currentPage 作为初始值
   const [localCurrentPage, setLocalCurrentPage] = useState<number>(currentPage || 1);
@@ -363,6 +380,70 @@ const ResumeList: React.FC<ResumeListProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
+  // 与当前周期的 AI 评分卡合并展示。接口失败只隐藏 AI 信息，不影响人工审核。
+  useEffect(() => {
+    if (!cycleId || !canUseAiScreening) {
+      setScorecards({});
+      return;
+    }
+    let cancelled = false;
+    listEvaluationQueue(cycleId, 'all')
+      .then((res: any) => {
+        if (cancelled) return;
+        const next: Record<string, ScorecardRow> = {};
+        (res?.data?.items ?? []).forEach((row: ScorecardRow) => { next[String(row.resume_id)] = row; });
+        setScorecards(next);
+      })
+      .catch(() => { if (!cancelled) setScorecards({}); });
+    return () => { cancelled = true; };
+  }, [cycleId, canUseAiScreening]);
+
+  // 闸门4:初筛中简历的轮询——有 screeningIds 时,每 5s 查一次 job 执行面,
+  // 全部终态后清除本地"初筛中"乐观标记并刷新列表,避免页面永久显示"AI 初筛中"。
+  // 失败 job 记入 failedScreening,卡片展示错误与"重新评分"入口。
+  // #192:只观察本次会话提交产生的 job(activeJobResumeRef,提交时由返回的
+  // job_ids 建立)——历史完成任务不再把新批次判定提前终结;错误信息按 job
+  // 归属到具体简历,不再用"最后一条失败"覆盖全部失败项。
+  useEffect(() => {
+    if (!cycleId || screeningIds.length === 0 || !canUseAiScreening) return;
+    let cancelled = false;
+    let polls = 0;
+    const poll = async () => {
+      polls += 1;
+      try {
+        const res: any = await listEvaluationJobs(cycleId);
+        const jobs: any[] = res?.data?.items ?? [];
+        // #192:批次隔离核心在 evaluationPolling.applyBatchPoll(纯函数,有单测)
+        const outcome = applyBatchPoll(activeJobResumeRef.current, jobs);
+        if (cancelled) return;
+        activeJobResumeRef.current = outcome.remaining;
+        if (outcome.terminalResumeIds.length) {
+          const terminal = new Set(outcome.terminalResumeIds);
+          setScreeningIds((current) => current.filter((id) => !terminal.has(String(id))));
+        }
+        if (outcome.failures.length) {
+          setFailedScreening((current) => {
+            const next = { ...current };
+            for (const { resumeId, error } of outcome.failures) next[resumeId] = error;
+            return next;
+          });
+        }
+        const exhausted = Object.keys(activeJobResumeRef.current).length === 0;
+        // 兜底:job 长时间不出现(异常丢失)按 120 轮(≈10 分钟)封顶,防止永久"初筛中"
+        if (exhausted || polls >= 120) {
+          activeJobResumeRef.current = {};
+          setScreeningIds([]);
+          loadResumes(localCurrentPage, pagination.pageSize);
+        }
+      } catch {
+        /* 轮询失败静默,下次再试 */
+      }
+    };
+    const timer = setInterval(poll, 5000);
+    poll();
+    return () => { cancelled = true; clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleId, screeningIds.length, canUseAiScreening, pagination.pageSize]);
   // 搜索、筛选、排序变化时重新加载数据（重置到第一页）
   useEffect(() => {
     if (isReturningFromDetail.current) {
@@ -476,6 +557,65 @@ const ResumeList: React.FC<ResumeListProps> = ({
     </Menu>
   );
 
+  const visibleResumes = resumes.filter((resume) => {
+    const card = scorecards[String(resume.resumeId)];
+    if (aiFilter === 'pending') return !card;
+    if (aiFilter === 'passed') return Boolean(card && !card.hard_zero && (card.total ?? 0) >= 60);
+    if (aiFilter === 'review') return Boolean(card && (card.hard_zero || (card.total ?? 0) < 60));
+    return true;
+  });
+  const visibleIds = visibleResumes.map((resume) => String(resume.resumeId));
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.includes(id));
+
+  const toggleAllVisible = (checked: boolean) => {
+    setSelectedIds((current) => checked
+      ? Array.from(new Set([...current.map(String), ...visibleIds]))
+      : current.filter((id) => !visibleIds.includes(String(id))));
+  };
+
+  const startAiScreening = (explicitIds?: number[]) => {
+    const selected = explicitIds
+      ? resumes.filter((resume) => explicitIds.includes(Number(resume.resumeId)))
+      : resumes.filter((resume) => selectedIds.includes(String(resume.resumeId)));
+    if (!cycleId || selected.length === 0) {
+      message.info('请先选择当前周期内要初筛的简历');
+      return;
+    }
+    // 方案A(闸门1):只传 resume_id,user_id 由 Agent 权威派生——
+    // 不再需要候选人字段守卫,前端也不携带归属号码。
+    Modal.confirm({
+      title: `启动 ${selected.length} 份简历的 AI 初筛？`,
+      content: '任务将在后台运行。已有结果的简历会生成新版本，人工评分不会被改动。',
+      okText: '启动初筛',
+      cancelText: '取消',
+      onOk: async () => {
+        setScreening(true);
+        try {
+          const res: any = await runResumeEvaluation(cycleId, selected.map((resume) => Number(resume.resumeId)));
+          // #192:记录本次批次的 job_id → resume_id(Agent 按提交顺序返回 job_ids),
+          // 轮询只观察这批 job
+          const jobIds: any[] = res?.data?.job_ids ?? [];
+          jobIds.forEach((jid: any, i: number) => {
+            activeJobResumeRef.current[String(jid)] = String(selected[i]?.resumeId ?? '');
+          });
+          setScreeningIds((current) => Array.from(new Set([...current, ...selected.map((r) => String(r.resumeId))])));
+          // 重评时清掉这些简历的失败标记(轮询会重新判定)
+          setFailedScreening((current) => {
+            const next = { ...current };
+            for (const r of selected) delete next[String(r.resumeId)];
+            return next;
+          });
+          if (!explicitIds) setSelectedIds([]);
+          message.success(`已提交 ${selected.length} 份简历，AI 正在后台初筛`);
+        } catch (e: any) {
+          message.error(e?.message || '启动 AI 初筛失败');
+        } finally {
+          setScreening(false);
+        }
+      },
+    });
+  };
   return (
     <div className="resume-list-container">
       {adminError && (
@@ -619,41 +759,34 @@ const ResumeList: React.FC<ResumeListProps> = ({
       */}
       <div className="screening-bar">
           <Space wrap>
-            <Checkbox
-              checked={pageResumeIds.length > 0 && picked.length === pageResumeIds.length}
-              indeterminate={picked.length > 0 && picked.length < pageResumeIds.length}
-              onChange={(e) => setPicked(e.target.checked ? pageResumeIds : [])}
-            >
-              全选本页
-            </Checkbox>
             <Text strong>
-              {picked.length > 0 ? `已选 ${picked.length} 份` : '勾选简历后可批量初筛'}
+              {selectedIds.length > 0 ? `已选 ${selectedIds.length} 份` : '勾选简历后可批量初筛'}
             </Text>
             <Popconfirm
-              title={`标记 ${picked.length} 份为通过初筛？`}
+              title={`标记 ${selectedIds.length} 份为通过初筛？`}
               description="通过初筛的同学可以填写面试意向、参与面试分配。"
               okText="确认" cancelText="取消"
-              disabled={picked.length === 0}
+              disabled={selectedIds.length === 0}
               onConfirm={() => runScreening(true)}
             >
-              <Button type="primary" loading={screening} disabled={picked.length === 0}>
+              <Button type="primary" loading={screening} disabled={selectedIds.length === 0}>
                 标为通过初筛
               </Button>
             </Popconfirm>
             <Popconfirm
-              title={`标记 ${picked.length} 份为未通过初筛？`}
+              title={`标记 ${selectedIds.length} 份为未通过初筛？`}
               description="未通过的同学本届流程即结束：不再参与面试分配，也不能再提交面试意向。此操作可撤回（重新标为通过）。"
               okText="确认" cancelText="取消"
               okButtonProps={{ danger: true }}
-              disabled={picked.length === 0}
+              disabled={selectedIds.length === 0}
               onConfirm={() => runScreening(false)}
             >
-              <Button danger loading={screening} disabled={picked.length === 0}>
+              <Button danger loading={screening} disabled={selectedIds.length === 0}>
                 标为未通过初筛
               </Button>
             </Popconfirm>
-            {picked.length > 0 && (
-              <Button type="text" onClick={() => setPicked([])}>取消选择</Button>
+            {selectedIds.length > 0 && (
+              <Button type="text" onClick={() => setSelectedIds([])}>取消选择</Button>
             )}
           </Space>
       </div>
@@ -663,6 +796,35 @@ const ResumeList: React.FC<ResumeListProps> = ({
           <Title level={4} style={{ marginBottom: 4 }}>简历审核</Title>
           <Text type="secondary">查看候选人简历，并进行人工初筛与评分。</Text>
         </div>
+        {canUseAiScreening && <Space wrap>
+          <Checkbox
+            checked={allVisibleSelected}
+            indeterminate={!allVisibleSelected && someVisibleSelected}
+            onChange={(event) => toggleAllVisible(event.target.checked)}
+          >
+            全选当前筛选结果
+          </Checkbox>
+          <Select
+            value={aiFilter}
+            style={{ width: 150 }}
+            onChange={setAiFilter}
+            options={[
+              { value: 'all', label: '全部 AI 状态' },
+              { value: 'pending', label: '待 AI 初筛' },
+              { value: 'passed', label: 'AI 建议通过' },
+              { value: 'review', label: 'AI 建议重点复核' },
+            ]}
+          />
+          <Button
+            type="primary"
+            icon={<ThunderboltOutlined />}
+            disabled={selectedIds.length === 0 || !cycleId}
+            loading={screening}
+            onClick={() => startAiScreening()}
+          >
+            启动 AI 初筛{selectedIds.length ? `（${selectedIds.length}）` : ''}
+          </Button>
+        </Space>}
       </div>
 
       <Spin spinning={adminLoading}>
@@ -687,11 +849,14 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
                 // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
                 const photo = getFieldValueFromResume(resume, '个人照片');
+                const aiCard = scorecards[String(resume.resumeId)];
+                const aiHint = aiCard ? aiRecommendation(aiCard) : null;
+                const isScreening = screeningIds.includes(String(resume.resumeId));
                 return (
                   <List.Item key={String(resume.resumeId)}>
                     <Card
                       hoverable
-                      className={`resume-card${picked.includes(Number(resume.resumeId)) ? ' is-picked' : ''}`}
+                      className={`resume-card${selectedIds.includes(String(resume.resumeId)) ? ' is-picked' : ''}`}
                       actions={[
                         <Button type="link" icon={<EyeOutlined />} onClick={() => handleViewResume(resume)}>
                           查看
@@ -727,13 +892,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={
                           <Space>
-                            {/* 勾选框与姓名同排：原先绝对定位在卡片左上角，
-                                正好压在照片头像上，看不出这里能勾 */}
-                            <Checkbox
-                              checked={picked.includes(Number(resume.resumeId))}
-                              onChange={(e) => togglePick(Number(resume.resumeId), e.target.checked)}
-                              onClick={(e) => e.stopPropagation()}
-                            />
                             <Text strong>{name || '未提供姓名'}</Text>
                             <Tag icon={statusInfo.icon} color={statusInfo.color}>
                               {statusInfo.text}
@@ -758,6 +916,32 @@ const ResumeList: React.FC<ResumeListProps> = ({
                         }
                         description={
                           <div className="resume-card-description">
+                            <div className="resume-card-ai">
+                              <RobotOutlined />
+                              {isScreening ? (
+                                <Tag color="processing">AI 初筛中</Tag>
+                              ) : failedScreening[String(resume.resumeId)] ? (
+                                <>
+                                  <Tooltip title={failedScreening[String(resume.resumeId)]}>
+                                    <Tag color="error">AI 初筛失败</Tag>
+                                  </Tooltip>
+                                  <Button
+                                    size="small"
+                                    type="link"
+                                    onClick={() => startAiScreening([Number(resume.resumeId)])}
+                                  >
+                                    重新评分
+                                  </Button>
+                                </>
+                              ) : aiCard && aiHint ? (
+                                <>
+                                  <Tag color={aiHint.color}>AI {aiCard.total ?? '—'} 分</Tag>
+                                  <Text type="secondary">{aiHint.text}</Text>
+                                </>
+                              ) : (
+                                <Tag>待 AI 初筛</Tag>
+                              )}
+                            </div>
                             <div>
                               <Text type="secondary">专业:</Text> {major || '未提供'}
                             </div>
