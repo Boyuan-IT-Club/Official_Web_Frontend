@@ -4,3 +4,4 @@ import { getToken, setToken, removeToken } from "./token";
 
 export { request, getToken, setToken, removeToken };
 export { getJwtRoles, hasEffectiveJwtRoles, parseJwtPayload } from "./jwt";
+export { displayName } from "./displayName";

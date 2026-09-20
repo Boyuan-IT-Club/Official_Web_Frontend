@@ -69,7 +69,7 @@ import {
 import { getCandidateResume } from "@/api/manage/interviewEvaluation";
 import { getAllCycles, RecruitmentCycle } from "@/api/manage/cycleApis";
 import { getValidDept } from "@/api/manage/deptManage";
-import { request } from "@/utils";
+import { displayName, request } from "@/utils";
 import ResumeDetail from "@/pages/Resume/ResumeDetail";
 import "@/pages/Resume/index.scss";
 import EvaluationSummaryTab from "./EvaluationSummaryTab";
@@ -519,7 +519,7 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
                   )}
                 </span>
               ) },
-            { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: ScheduleRosterItem) => v || r.username || `用户#${r.userId}` },
+            { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: ScheduleRosterItem) => displayName(v, r.username, r.userId) },
             {
               /* 这里的数据源就是 user.username，不是简历里填的学号。
                  两者多数时候相同，但早期账号是名字拼音——表头写「学号」会骗人。
@@ -552,7 +552,7 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
 
       <Modal
         title={timeEditing
-          ? `调整面试时间：${timeEditing.name || timeEditing.username || `用户#${timeEditing.userId}`}`
+          ? `调整面试时间：${displayName(timeEditing.name, timeEditing.username, timeEditing.userId)}`
           : ""}
         open={!!timeEditing}
         confirmLoading={timeSaving}
@@ -668,7 +668,7 @@ const OfflineUnavailableSection: React.FC<{ cycleId: number; refreshToken?: numb
         pagination={false}
         locale={{ emptyText: "没有需要单独约线上面试的同学 🎉" }}
         columns={[
-          { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: OfflineUnavailableItem) => v || r.username || `用户#${r.userId}` },
+          { title: "姓名", dataIndex: "name", width: 100, render: (v: string, r: OfflineUnavailableItem) => displayName(v, r.username, r.userId) },
           {
             /*
               学号取简历里填的那个，不是 user.username。
@@ -1187,7 +1187,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
               尽管库里明明存着他的名字。名册只作兜底。
             */
             render: (uid: number, r: InterviewResultItem) =>
-              r.userName || nameMap[uid]?.name || nameMap[uid]?.username || `用户#${uid}` },
+              displayName(r.userName || nameMap[uid]?.name, nameMap[uid]?.username, uid) },
           {
             /* 同上：来源是 user.username 而非简历里填的学号 */
             title: "学号 / 登录名", dataIndex: "userId", width: 130,
@@ -1318,7 +1318,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
         open={!!viewingEval}
         onClose={() => setViewingEval(null)}
         candidateName={viewingEval
-          ? (viewingEval.userName || nameMap[viewingEval.userId]?.name || `用户#${viewingEval.userId}`)
+          ? displayName(viewingEval.userName || nameMap[viewingEval.userId]?.name, nameMap[viewingEval.userId]?.username, viewingEval.userId)
           : undefined}
         summary={viewingEval ? evalMap[viewingEval.scheduleId] ?? null : null}
         dimensions={dimensions}
@@ -1326,7 +1326,7 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
 
       <Modal
         title={editing
-          ? `录入结果：${editing.userName || nameMap[editing.userId]?.name || `用户#${editing.userId}`}`
+          ? `录入结果：${displayName(editing.userName || nameMap[editing.userId]?.name, nameMap[editing.userId]?.username, editing.userId)}`
           : ""}
         open={!!editing}
         onOk={saveResult}

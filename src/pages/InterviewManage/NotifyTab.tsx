@@ -23,6 +23,7 @@ import {
   sendScheduleNotices,
 } from '@/api/manage/interviewAdmin';
 import { notifyScreenedOut } from '@/api/manage/resumeEntry';
+import { displayName } from '@/utils';
 import './notifyTab.scss';
 
 const fmt = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
@@ -240,7 +241,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     if (openKind === 'rejected') {
       return [
         { title: '姓名', dataIndex: ['raw', 'name'], width: 110,
-          render: (_: unknown, r: any) => r.raw.name || `用户#${r.raw.userId}` },
+          render: (_: unknown, r: any) => displayName(r.raw.name, undefined, r.raw.userId) },
         { title: '学号', dataIndex: ['raw', 'studentId'], width: 140,
           render: (_: unknown, r: any) => r.raw.studentId || '-' },
         { title: '邮箱', dataIndex: ['raw', 'email'], ellipsis: true,
@@ -256,7 +257,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     if (openKind === 'result') {
       return [
         { title: '姓名', width: 110,
-          render: (_: unknown, r: any) => r.raw.userName || `用户#${r.raw.userId}` },
+          render: (_: unknown, r: any) => displayName(r.raw.userName, undefined, r.raw.userId) },
         { title: '结果', width: 100,
           render: (_: unknown, r: any) => (
             <Tag color={DECISION_TAG[r.raw.decision]?.color}>
@@ -276,7 +277,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
       { title: '面试时间', width: 140,
         render: (_: unknown, r: any) => (r.raw.interviewTime ? fmt(r.raw.interviewTime).slice(5) : '-') },
       { title: '姓名', width: 110,
-        render: (_: unknown, r: any) => r.raw.name || `用户#${r.raw.userId}` },
+        render: (_: unknown, r: any) => displayName(r.raw.name, undefined, r.raw.userId) },
       { title: '学号', width: 140, render: (_: unknown, r: any) => r.raw.studentId || '-' },
       { title: '部门', width: 100, render: (_: unknown, r: any) => r.raw.deptName || '-' },
       { title: '地点', ellipsis: true, render: (_: unknown, r: any) => r.raw.location || '-' },
