@@ -158,12 +158,14 @@ type ResumeDetailProps = {
   /** 顺序里的下一位（含已打分），复查时用 */
   nextName?: string | null;
   onNext?: () => void;
+  /** 跨页取下一位时要发请求，按钮转圈，否则会被当成点了没反应 */
+  nextLoading?: boolean;
   /** 进入沉浸式打分舞台；不传则不显示该入口（舞台内部复用本组件时即不传） */
   onEnterStage?: () => void;
 };
 
 // --- 主要组件 ---
-const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext, onEnterStage }) => {
+const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, onApprove, onReject, onDownload, backText, nextUngradedName, onNextUngraded, nextName, onNext, nextLoading, onEnterStage }) => {
   const dispatch = useDispatch<any>();
 
   // 多人打分：resumeScore 是平均分，输入框编辑的是「我这一票」。
@@ -360,14 +362,14 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
           </Button>
           {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位未打分的 */}
           {onNextUngraded && (
-            <Button onClick={() => onNextUngraded()}>
+            <Button onClick={() => onNextUngraded()} loading={nextLoading}>
               {`下一位未打分${nextUngradedName ? `：${nextUngradedName}` : ''}`}
             </Button>
           )}
           {/* 顺序浏览：已打过分的也能一路翻下去复查，不被「未打分」过滤挡住。
               全部打完时它就是唯一的前进键。 */}
           {onNext ? (
-            <Button onClick={() => onNext()}>
+            <Button onClick={() => onNext()} loading={nextLoading}>
               {`下一位${nextName ? `：${nextName}` : ''}`}
             </Button>
           ) : (

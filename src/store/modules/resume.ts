@@ -96,6 +96,8 @@ export interface ResumeState {
 
   // 管理员相关
   pagination: PaginationState;
+  /** 最近一次列表查询的原始参数，供「下一位」跨页复用（见 initialState 上的说明） */
+  lastQuery: Record<string, any>;
   resumes: any[];
   currentResume: any | null;
   adminLoading: boolean;
@@ -514,6 +516,14 @@ const initialState: ResumeState = {
   error: null,
 
   pagination: { current: 1, pageSize: 9, total: 0 },
+  /**
+   * 最近一次管理员列表查询的原始参数（含 cycleId / choiceRank 等）。
+   *
+   * searchParams 是给工具栏回显用的，字段有损：丢了 cycleId、choiceRank。
+   * 「下一位」要跨页取下一页，必须用一模一样的筛选条件重发请求，
+   * 否则翻出来的是另一批人 —— 所以原样留一份。
+   */
+  lastQuery: {},
   resumes: [],
   currentResume: null,
   adminLoading: false,
@@ -808,6 +818,8 @@ const resumeSlice = createSlice({
         const { data, total, page, size, params } = action.payload;
 
         state.resumes = data || [];
+        // 原样留存，供「下一位」跨页复用同一套筛选条件
+        state.lastQuery = { ...(params ?? {}) };
 
         let requestedPage = 1;
         let requestedSize = 9;
