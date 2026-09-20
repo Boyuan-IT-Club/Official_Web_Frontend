@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { readFilters, writeFilters, SUBMITTED_STATUSES } from './filterParams';
 import {
   Card,
   List,
@@ -146,7 +148,7 @@ const scoreColor = (score: number): string => {
  * 不放在默认档里的话，管理员刚点完「启动 AI 初筛」，这批简历就当场从列表消失，
  * 界面看上去像是操作没生效。
  */
-const SUBMITTED_STATUSES = '2,4,5,6';
+
 
 const ResumeList: React.FC<ResumeListProps> = ({
   onShowDetail,
@@ -188,19 +190,23 @@ const ResumeList: React.FC<ResumeListProps> = ({
     sortOrder: 'DESC',
   });
 
+  // 筛选条件放 URL —— 原因与键名约定见 filterParams.ts
+  const [urlParams, setUrlParams] = useSearchParams();
+  const initial = React.useRef(readFilters(urlParams)).current;
+
   // 搜索、筛选、排序状态
-  const [searchText, setSearchText] = useState<string>('');
-  const [searchType, setSearchType] = useState<string>('name');
-  const [expectedDepartment, setExpectedDepartment] = useState<string>('');
+  const [searchText, setSearchText] = useState<string>(initial.searchText);
+  const [searchType, setSearchType] = useState<string>(initial.searchType);
+  const [expectedDepartment, setExpectedDepartment] = useState<string>(initial.expectedDepartment);
   /**
    * 志愿位次：''=不限（一二志愿命中任一）、first、second。
    * 原来只有一个部门下拉，匹配的是简历字段里 ["第一志愿","第二志愿"] 那个数组，
    * 只能 LIKE，分不出这人是把该部门填成第一还是第二——而这恰恰是筛人时最想知道的。
    */
-  const [choiceRank, setChoiceRank] = useState<string>('');
-  const [sortBy, setSortBy] = useState<string>('submitted_at');
-  const [sortOrder, setSortOrder] = useState<string>('DESC');
-  const [statusFilter, setStatusFilter] = useState<string>(SUBMITTED_STATUSES);
+  const [choiceRank, setChoiceRank] = useState<string>(initial.choiceRank);
+  const [sortBy, setSortBy] = useState<string>(initial.sortBy);
+  const [sortOrder, setSortOrder] = useState<string>(initial.sortOrder);
+  const [statusFilter, setStatusFilter] = useState<string>(initial.statusFilter);
   // 批量初筛：勾选后统一标通过/未通过、给未通过的发通知。
   // 卡片式列表没有 Table 的 rowSelection，用卡片左上角的勾选框自己管一份 id 集合。
   const [picked, setPicked] = useState<number[]>([]);
@@ -230,18 +236,35 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
   // 招募周期筛选：后端 /api/resumes/search 早就支持 cycleId 参数，只是前端一直没传，
   // 于是列表把历届简历混在一起显示
-  const [cycleId, setCycleId] = useState<number | undefined>();
+  const [cycleId, setCycleId] = useState<number | undefined>(initial.cycleId);
   const [cycles, setCycles] = useState<any[]>([]);
   // 用于高亮显示当前排序方式
-  const [currentSortKey, setCurrentSortKey] = useState<string>('time_desc');
+  const [currentSortKey, setCurrentSortKey] = useState<string>(initial.sortKey);
   const [selectedIds, setSelectedIds] = useState<React.Key[]>([]);
-  const [aiFilter, setAiFilter] = useState<'all' | 'pending' | 'passed' | 'review'>('all');
+  const [aiFilter, setAiFilter] = useState<'all' | 'pending' | 'passed' | 'review'>(initial.aiFilter);
   const [scorecards, setScorecards] = useState<Record<string, ScorecardRow>>({});
   const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
   const [rescoring, setRescoring] = useState(false);
 
   // 使用从父组件传递的 currentPage 作为初始值
   const [localCurrentPage, setLocalCurrentPage] = useState<number>(currentPage || 1);
+
+  /*
+    筛选条件变化就写回 URL（replace，不往历史里堆一堆中间态）。
+    writeFilters 会原样保留 stage 等不属于筛选的键。
+
+    必须先比字符串再写：每次导航都会产生新的 urlParams / setUrlParams，
+    无条件 set 就是「写 URL → 新 location → effect 再跑 → 再写」的死循环。
+  */
+  useEffect(() => {
+    const next = writeFilters(urlParams, {
+      searchText, searchType, expectedDepartment, choiceRank, statusFilter,
+      sortBy, sortOrder, sortKey: currentSortKey, aiFilter, cycleId,
+    });
+    if (next.toString() === urlParams.toString()) return;
+    setUrlParams(next, { replace: true });
+  }, [searchText, searchType, expectedDepartment, choiceRank, statusFilter,
+    sortBy, sortOrder, currentSortKey, aiFilter, cycleId, urlParams, setUrlParams]);
 
   // 检查搜索参数是否真正变化
   const hasSearchParamsChanged = (): boolean => {
@@ -330,6 +353,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
         if (cancelled) return;
         const list = res?.data ?? [];
         setCycles(list);
+        // URL 里已经指定了周期就别覆盖：那是用户上次筛好的条件，
+        // 从详情页返回时会带着它重新挂载
+        if (initial.cycleId != null) return;
         const active = list.find((c: any) => c.isActive === 1) ?? list[0];
         if (active) setCycleId(active.cycleId);
       })
