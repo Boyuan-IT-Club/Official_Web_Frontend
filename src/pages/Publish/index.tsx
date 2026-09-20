@@ -547,6 +547,21 @@ const Publish: React.FC = () => {
     return out;
   }, [departments]);
 
+  /**
+   * 一个志愿都没选时挡下提交。
+   *
+   * 意向部门是 inForm:false 的自定义控件，不在 antd Form 里，
+   * form.validateFields() 管不到它；而提交时又是「选了才写、没选就静默跳过」：
+   *   if (deptArray.length > 0) handleFieldChange('expected_departments', ...)
+   * 于是一个志愿不选也能提交成功，管理端卡片显示「部门:未提供」
+   * —— 线上两位同学就是这么投出来的。
+   */
+  const blockedByNoDept = useCallback((): boolean => {
+    if (buildDeptArray().length > 0) return false;
+    message.error('请至少选择一个意向部门');
+    return true;
+  }, [buildDeptArray]);
+
   /** 两个志愿撞车时挡下保存，并说清怎么办 */
   const blockedBySameDept = useCallback((): boolean => {
     if (departments.first && departments.first !== '无' && departments.first === departments.second) {
@@ -1020,6 +1035,7 @@ const Publish: React.FC = () => {
     try {
       await form.validateFields();
       if (blockedBySameDept()) return;
+      if (blockedByNoDept()) return;
       const deptArray = buildDeptArray();
       const filteredTech = techStackItems.filter(item => item && item.trim());
       if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
@@ -1057,13 +1073,14 @@ const Publish: React.FC = () => {
         ? String((err as any).message) : String(err);
       message.error(`操作失败: ${msg}`);
     }
-  }, [form, departments, techStackItems, resume, cycleId, dispatch, buildDeptArray, blockedBySameDept,
+  }, [form, departments, techStackItems, resume, cycleId, dispatch, buildDeptArray, blockedBySameDept, blockedByNoDept,
       handleFieldChange, buildFieldValuesForSubmit, savePreferenceBestEffort]);
 
   const handleUpdateResume = useCallback(async (): Promise<void> => {
     try {
       await form.validateFields();
       if (blockedBySameDept()) return;
+      if (blockedByNoDept()) return;
       const deptArray = buildDeptArray();
       const filteredTech = techStackItems.filter(item => item && item.trim());
       if (deptArray.length > 0) handleFieldChange('expected_departments', JSON.stringify(deptArray));
@@ -1095,7 +1112,7 @@ const Publish: React.FC = () => {
         message.error(`更新失败: ${msg}`);
       }
     }
-  }, [form, departments, techStackItems, resume, cycleId, dispatch, buildDeptArray, blockedBySameDept,
+  }, [form, departments, techStackItems, resume, cycleId, dispatch, buildDeptArray, blockedBySameDept, blockedByNoDept,
       handleFieldChange, buildFieldValuesForSubmit, savePreferenceBestEffort]);
 
   const handleEdit = useCallback(async (): Promise<void> => {
