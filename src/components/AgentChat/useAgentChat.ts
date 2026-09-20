@@ -131,6 +131,8 @@ export function useAgentChat(targetUrl: string) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [input, setInput] = useState("");
   const abortRef = useRef<AbortController | null>(null);
+  // #167:本轮是否已被 done/error/stopped 事件终结(避免 finally 重复收尾)
+  const settledRef = useRef(false);
 
   const handleEvent = useCallback((evt: AgentEvent) => {
     switch (evt.type) {
@@ -144,9 +146,11 @@ export function useAgentChat(targetUrl: string) {
         dispatch({ type: "tool", name: evt.name });
         break;
       case "done":
+        settledRef.current = true;
         dispatch({ type: "done" });
         break;
       case "error": {
+        settledRef.current = true;
         dispatch({ type: "error", code: evt.code, message: evt.message });
         if (evt.code === "auth_expired") {
           // 契约 #94:官网 JWT 过期 → 清 token,由外部跳登录;session 保留可续传
@@ -182,6 +186,7 @@ export function useAgentChat(targetUrl: string) {
 
       dispatch({ type: "append_user", content });
       dispatch({ type: "assistant_start" });
+      settledRef.current = false; // #167:每轮重新计数终态
       const controller = new AbortController();
       abortRef.current = controller;
       setInput("");
@@ -197,7 +202,7 @@ export function useAgentChat(targetUrl: string) {
           handleEvent,
         );
       } catch (err: unknown) {
-        if ((err as Error).name === "AbortError") return; // 用户主动停止
+        if ((err as Error).name === "AbortError") return; // 用户主动停止(stop 已复位)
         const e = err as { code?: string; message?: string };
         if (e.code === "http_401") {
           // 连接期 401:占位先标记错误收敛 streaming,再清 token 跳登录——
@@ -216,6 +221,15 @@ export function useAgentChat(targetUrl: string) {
           code: "backend_unavailable",
           message: e.message || "网络异常,请稍后重试",
         });
+      } finally {
+        // #167 兜底:无论 sseFetch 如何退出(含异常/流异常关闭),都确保
+        // streaming 复位。正常路径由 done/error 事件经 settledRef 置位;
+        // 异常/静默 EOF 路径由这里补一个 done,输入框不再卡死。
+        abortRef.current = null;
+        if (!settledRef.current) {
+          settledRef.current = true;
+          dispatch({ type: "done" });
+        }
       }
     },
     [state.streaming, state.sessionId, targetUrl, handleEvent],
@@ -223,6 +237,7 @@ export function useAgentChat(targetUrl: string) {
 
   /** 停止当前生成(中断 fetch)。 */
   const stop = useCallback(() => {
+    settledRef.current = true; // 主动停止即本轮终结,finally 不再补 done
     abortRef.current?.abort();
     // 中断 fetch;截断的部分内容保留但标记 stopped(与 complete 可辨,review P3)
     dispatch({ type: "stopped" });
