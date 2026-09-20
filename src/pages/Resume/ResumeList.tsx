@@ -726,7 +726,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
                       <Card.Meta
                         avatar={<ResumePhotoAvatar resumeId={resume.resumeId} value={photo} size="large" />}
                         title={
-                          <Space>
+                          // wrap：窄卡片上「已提交」「未评分」要能换到下一行，
+                          // 否则被 meta-title 的 overflow:hidden 裁掉
+                          <Space wrap size={[8, 4]}>
                             {/* 勾选框与姓名同排：原先绝对定位在卡片左上角，
                                 正好压在照片头像上，看不出这里能勾 */}
                             <Checkbox
@@ -757,19 +759,31 @@ const ResumeList: React.FC<ResumeListProps> = ({
                           </Space>
                         }
                         description={
+                          /*
+                            标签与值各自成元素：值原来是裸文本节点，作为匿名 flex item
+                            选不中，既给不了 min-width:0 也给不了断行规则，于是长邮箱
+                            直接溢出被卡片裁掉；而标签作为可收缩的 flex item 会被压成
+                            「专/业:」两行。窄卡片（侧栏 200px + 三列 ≈ 320px）必现。
+                          */
                           <div className="resume-card-description">
                             <div>
-                              <Text type="secondary">专业:</Text> {major || '未提供'}
+                              <Text type="secondary" className="resume-card-description__label">专业</Text>
+                              <span className="resume-card-description__value">{major || '未提供'}</span>
                             </div>
                             <div>
-                              <Text type="secondary">部门:</Text> {parsedDept || '未提供'}
+                              <Text type="secondary" className="resume-card-description__label">部门</Text>
+                              <span className="resume-card-description__value">{parsedDept || '未提供'}</span>
                             </div>
                             <div>
-                              <Text type="secondary">邮箱:</Text> {email || '未提供'}
+                              <Text type="secondary" className="resume-card-description__label">邮箱</Text>
+                              <span className="resume-card-description__value">{email || '未提供'}</span>
                             </div>
                             <div>
-                              <Text type="secondary">提交时间:</Text> <CalendarOutlined />{' '}
-                              {resume.submittedAt ? new Date(resume.submittedAt).toLocaleString() : '未提交'}
+                              <Text type="secondary" className="resume-card-description__label">提交</Text>
+                              <span className="resume-card-description__value">
+                                <CalendarOutlined />{' '}
+                                {resume.submittedAt ? new Date(resume.submittedAt).toLocaleString() : '未提交'}
+                              </span>
                             </div>
                           </div>
                         }

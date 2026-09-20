@@ -103,3 +103,72 @@
     &__text, kbd { display: none; }
   }
 }
+
+/*
+  窄屏（< 768px）把侧边栏从「固定占位」改成「浮层抽屉」。
+  原来它 position:fixed 占 220px、正文 marginLeft:220，手机 390px 的屏
+  被吃掉一大半，正文只剩 170px。现在收起时宽度归零，展开时盖在内容上。
+*/
+.admin-sider-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 99;               // 压在 Sider(100) 之下、其余内容之上
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.admin-sider-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 12px;
+  padding: 0;
+  font-size: 16px;
+  color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  }
+}
+
+@media (max-width: 767px) {
+  .admin-layout {
+    .admin-header {
+      padding: 0 12px;
+    }
+
+    // 页面标题在窄屏上让位给菜单按钮与右侧图标，太长就省略
+    .admin-page-title {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
+
+  // 正文内边距收一收：手机上 24px 的左右留白很浪费
+  .admin-content,
+  .admin-layout .ant-layout-content {
+    padding: 12px !important;
+  }
+
+  /*
+    没设 scroll 的表格在窄屏上会把列压成一团（一个字一行）。
+    逐个去改二十多个页面既啰嗦又没法逐一验证，这里统一兜底：
+    让表格保持自然宽度、由容器横向滚动。
+
+    只挑 .ant-table-content —— 它是「没有固定表头/scroll」时才有的结构；
+    已经设了 scroll 的表格走的是 .ant-table-body，不会被这条规则波及。
+  */
+  .admin-layout .ant-table-content {
+    overflow-x: auto;
+
+    > table {
+      min-width: max-content;
+    }
+  }
+}
