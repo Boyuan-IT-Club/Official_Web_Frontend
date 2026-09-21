@@ -36,16 +36,23 @@ export const EvaluationQbankDrawer: React.FC<QbankDrawerProps> = ({
   open, onClose, resumeId, cycleId, scheduleId,
 }) => {
   const [qbank, setQbank] = useState<any>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open || !resumeId || !cycleId) return;
     let cancelled = false;
     setQbank(null);
+    setLoadError(null);
     setLoading(true);
     getEvaluationQbank(resumeId, cycleId)
       .then((res: any) => { if (!cancelled) setQbank(res?.data ?? null); })
-      .catch((e: any) => { if (!cancelled) message.error(e?.message || '该候选人暂无 AI 预设题库'); })
+      .catch((e: any) => {
+        // 后端 404 detail 区分"尚未跑过初筛 / 进行中 / 生成失败(+真实原因)"——
+        // 渲染进抽屉而非只弹 toast:失败要可见、可行动,不能伪装成没数据
+        const msg = e?.message || '该候选人暂无 AI 预设题库';
+        if (!cancelled) { setLoadError(msg); message.error(msg); }
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [open, resumeId, cycleId]);
@@ -153,7 +160,14 @@ export const EvaluationQbankDrawer: React.FC<QbankDrawerProps> = ({
       width={560}
       destroyOnClose
     >
-      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : groupTabs.reduce((n: number, t: any) => n + t.questions.length, 0) === 0 ? (
+      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : loadError ? (
+        <Alert
+          type="warning"
+          showIcon
+          message="预置题库未生成"
+          description={loadError}
+        />
+      ) : groupTabs.reduce((n: number, t: any) => n + t.questions.length, 0) === 0 ? (
         <Empty description={qbank ? '暂无预设题，可能因候选人证据不足而跳过生成' : '暂无题库'} />
       ) : (
         <Tabs
