@@ -37,25 +37,34 @@ export const EvaluationQbankDrawer: React.FC<QbankDrawerProps> = ({
 }) => {
   const [qbank, setQbank] = useState<any>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     if (!open || !resumeId || !cycleId) return;
     let cancelled = false;
     setQbank(null);
     setLoadError(null);
+    setGenerating(false);
     setLoading(true);
     getEvaluationQbank(resumeId, cycleId)
-      .then((res: any) => { if (!cancelled) setQbank(res?.data ?? null); })
+      .then((res: any) => {
+        if (cancelled) return;
+        // 后端对进行中的初筛返回 200 + generating:出题不是错,给等待态
+        if (res?.data?.generating) { setGenerating(true); return; }
+        setQbank(res?.data ?? null);
+      })
       .catch((e: any) => {
-        // 后端 404 detail 区分"尚未跑过初筛 / 进行中 / 生成失败(+真实原因)"——
+        // 后端 404 detail 区分"尚未跑过初筛 / 生成失败(+真实原因)"——
         // 渲染进抽屉而非只弹 toast:失败要可见、可行动,不能伪装成没数据
         const msg = e?.message || '该候选人暂无 AI 预设题库';
-        if (!cancelled) { setLoadError(msg); message.error(msg); }
+        setLoadError(msg);
+        message.error(msg);
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [open, resumeId, cycleId]);
+  }, [open, resumeId, cycleId, refreshTick]);
 
   const groups: { group: string; mode?: string; questions?: any[] }[] = qbank?.envelope?.groups ?? [];
   const groupLabels: Record<string, string> = {
@@ -160,7 +169,13 @@ export const EvaluationQbankDrawer: React.FC<QbankDrawerProps> = ({
       width={560}
       destroyOnClose
     >
-      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : loadError ? (
+      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : generating ? (
+        <Empty description="AI 正在为该候选人生成预置题库,通常需要一到两分钟">
+          <Button type="primary" size="small" onClick={() => setRefreshTick((t) => t + 1)}>
+            刷新查看
+          </Button>
+        </Empty>
+      ) : loadError ? (
         <Alert
           type="warning"
           showIcon
