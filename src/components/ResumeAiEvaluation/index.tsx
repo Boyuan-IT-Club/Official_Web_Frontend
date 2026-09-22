@@ -270,9 +270,8 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
         extra={<Button icon={<BookOutlined />} onClick={() => setQbankOpen(true)}>预设题库</Button>}
       >
         <Space wrap className="resume-ai-summary__headline">
-          <span className="resume-ai-summary__score">{detail.total ?? '—'}<small>/ 100</small></span>
           {detail.hard_zero && <Tag color="red">命中重点复核项</Tag>}
-          <Text type="secondary">AI 结果仅作为人工判断参考</Text>
+          <Text type="secondary">AI 标注,仅供参考</Text>
         </Space>
         <Collapse
           ghost

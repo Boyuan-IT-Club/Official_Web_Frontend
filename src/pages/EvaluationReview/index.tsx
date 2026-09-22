@@ -158,14 +158,15 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
   };
 
   const doAdopt = (row: ScorecardRow) => {
-    let score = Math.round(row.total ?? 0);
+    // AI 评分对前端不展示:采纳一律由评审本人输入人工分数
+    let score = NaN;
     Modal.confirm({
-      title: `采纳 AI 参考分并投本人一票`,
+      title: `采纳该候选并投本人一票`,
       content: (
         <div>
           <Paragraph type="secondary">
             将以你的身份向简历 #{row.resume_id} 投一票
-            （终分 = 全部评审票平均）。可在下方改为人工分数。
+            （终分 = 全部评审票平均）。请输入你的人工分数。
           </Paragraph>
           <Input
             defaultValue={String(score)}
@@ -179,6 +180,10 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
         </div>
       ),
       onOk: async () => {
+        if (!(score >= 0 && score <= 100)) {
+          message.error("请先输入 0-100 的人工分数");
+          return Promise.reject();
+        }
         try {
           await adoptEvaluation(row.resume_id, cycleId, score, row.card_version);
           message.success("已采纳并投一票");
@@ -360,7 +365,7 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
               {STATUS_TAG[detail.status]?.text ?? detail.status}
             </Tag>
             {detail.hard_zero ? <Tag color="red">初筛不过</Tag> : null}
-            <Text strong>AI 参考总分:{detail.total ?? "-"}</Text>
+            <Text type="secondary">AI 标注,仅供参考</Text>
           </Space>
           {detail.card?.summary ? (
             <Paragraph style={{ marginBottom: 12 }}>{detail.card.summary}</Paragraph>

@@ -946,7 +946,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
                                 </>
                               ) : aiCard && aiHint ? (
                                 <>
-                                  <Tag color={aiHint.color}>AI {aiCard.total ?? '—'} 分</Tag>
+                                  <Tag color={aiHint.color}>AI 已初筛</Tag>
                                   <Text type="secondary">{aiHint.text}</Text>
                                 </>
                               ) : (
