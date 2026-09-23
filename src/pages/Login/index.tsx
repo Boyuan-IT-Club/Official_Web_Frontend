@@ -16,7 +16,7 @@ import { userActions } from '@/store/modules/user';
 import { useAppDispatch } from '@/store/hooks';
 import { request } from '@/utils/request';
 import { formatWait, isRateLimited, rateLimitHint, retryAfterSeconds } from '@/utils/rateLimit';
-import { ecnuSuffixError, studentEmailError } from '@/utils/studentEmail';
+import { ecnuSuffixError, normalizeStudentAuthId, studentEmailError } from '@/utils/studentEmail';
 
 const { Item } = Form;
 
@@ -83,6 +83,15 @@ const AuthCard: FC = () => {
   // 而 antd 的 Button loading 只拦鼠标点击，拦不住表单的回车提交。
   // 用 ref 做重入锁才挡得住「按住回车」——线上被这样打出过 6 次/秒。
   const submittingRef = useRef<boolean>(false);
+  /*
+    账号输入框的 DOM 引用，用来兜底读值。
+
+    这个 input 是裸原生 input，表单里的 auth_id 靠事件同步。浏览器在页面载入
+    时自动填充有时不派发任何事件（要等用户交互才补发），那一刻表单值还是空的，
+    但框里已经有账号了 —— 用户看到「请输入学号」会一脸问号。
+    所以读账号一律走 readAuthId()：表单值为空就回退到框里的真实值。
+  */
+  const authInputRef = useRef<HTMLInputElement>(null);
   const sendingCodeRef = useRef<boolean>(false);
 
   // 冷却倒计时
@@ -121,7 +130,7 @@ const AuthCard: FC = () => {
       ? form.getFieldValue('email')
       : showForgot
         ? form.getFieldValue('email')
-        : form.getFieldValue('auth_id');
+        : readAuthId();
 
     // 和表单校验器用同一套规则。此前这里只查后缀，于是前缀不是 11 位学号的
     // 地址（如 cr@stu.ecnu.edu.cn）也能把验证码发出去，白白发一封信，
@@ -129,7 +138,9 @@ const AuthCard: FC = () => {
     //
     // 管理端仍只查后缀：那边有 admin、dinghuaye 这类历史非学号账号，
     // 收紧会把他们挡在验证码登录和找回密码之外。
-    const emailProblem = isAdminMode ? ecnuSuffixError(email) : studentEmailError(email);
+    // 登录框里的账号可能是裸学号（手输没失焦、或浏览器自动填充），统一补齐再判
+    const normalized = showRegister || showForgot ? email : normalizeStudentAuthId(email);
+    const emailProblem = isAdminMode ? ecnuSuffixError(normalized) : studentEmailError(normalized);
     if (emailProblem) {
       message.error(emailProblem);
       return;
@@ -138,7 +149,8 @@ const AuthCard: FC = () => {
     try {
       sendingCodeRef.current = true;
       setLocalLoading(true);
-      await request.post('/api/auth/send-email-code', { email });
+      // 发的必须是补齐后的地址，否则裸学号会被后端判成非法邮箱
+      await request.post('/api/auth/send-email-code', { email: normalized });
 
       setCountdown(60);
       const timer = window.setInterval(() => {
@@ -245,7 +257,10 @@ const AuthCard: FC = () => {
 
         const loginData: LoginForm = {
           auth_type: authType,
-          auth_id: String(values.auth_id ?? ''),
+          // 后端认的是完整邮箱；这里兜底补齐，不再依赖 blur 有没有发生
+          auth_id: isAdminMode
+            ? String(values.auth_id ?? '').trim()
+            : normalizeStudentAuthId(readAuthId(values.auth_id)),
           verify: verifyValue,
           password: authType === 'email-password' ? verifyValue : '',
           code: authType === 'email-code' ? verifyValue : undefined,
@@ -380,9 +395,17 @@ const AuthCard: FC = () => {
     }
   };
 
+  /** 取账号：优先表单值，空了就退回输入框里的真实值（应对无事件的自动填充） */
+  const readAuthId = (formValue?: unknown): string => {
+    const fromForm = String(formValue ?? form.getFieldValue('auth_id') ?? '').trim();
+    if (fromForm) return fromForm;
+    return (authInputRef.current?.value ?? '').trim();
+  };
+
   // 邮箱验证规则
   const emailValidator = (_: unknown, value: unknown): Promise<void> => {
-    if (!value) {
+    const raw = readAuthId(value);
+    if (!raw) {
       return Promise.reject(new Error('请输入学号'));
     }
 
@@ -391,7 +414,9 @@ const AuthCard: FC = () => {
       return Promise.resolve();
     }
 
-    const problem = studentEmailError(value);
+    // 先补后缀再判：浏览器自动填充进来的是裸学号，而它不经过 blur，
+    // 以前那条「blur 时补后缀」的路走不到，于是必然报「必须使用…学生邮箱」
+    const problem = studentEmailError(normalizeStudentAuthId(raw));
     return problem ? Promise.reject(new Error(problem)) : Promise.resolve();
   };
 
@@ -434,9 +459,17 @@ const AuthCard: FC = () => {
               <div className="email-field">
                 <MailOutlined className="email-icon" />
 
-                {/* 保持原写法：依旧用原生 input，不改结构 */}
+                {/*
+                  保持原写法：依旧用原生 input，不改结构。
+                  name/autoComplete 是新加的：原来三个属性全空，浏览器只能靠
+                  启发式猜这是不是账号框，存取都不稳。标成标准的 username /
+                  current-password 之后，Chrome 的保存与填充才有确定行为。
+                */}
                 <input
+                  ref={authInputRef}
                   className="email-input"
+                  name="username"
+                  autoComplete="username"
                   placeholder="请输入学号"
                   onBlur={handleEmailBlur}
                 />
@@ -453,7 +486,11 @@ const AuthCard: FC = () => {
                   { min: 8, message: '密码至少8位' },
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+                <Input.Password
+                  prefix={<LockOutlined />}
+                  placeholder="密码"
+                  autoComplete="current-password"
+                />
               </Item>
             ) : (
               <Item name="code" rules={[{ required: true, message: '请输入验证码' }]}>
@@ -586,7 +623,7 @@ const AuthCard: FC = () => {
               ]}
               extra="至少8位，且包含大写字母、小写字母、数字、特殊字符中的至少三种"
             >
-              <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+              <Input.Password prefix={<LockOutlined />} placeholder="密码" autoComplete="new-password" />
             </Item>
 
             <Item
@@ -604,7 +641,7 @@ const AuthCard: FC = () => {
                 }),
               ]}
             >
-              <Input.Password prefix={<LockOutlined />} placeholder="确认密码" />
+              <Input.Password prefix={<LockOutlined />} placeholder="确认密码" autoComplete="new-password" />
             </Item>
 
             <Item>
@@ -671,7 +708,7 @@ const AuthCard: FC = () => {
                 { min: 8, message: '密码至少8位' },
               ]}
             >
-              <Input.Password prefix={<LockOutlined />} placeholder="新密码" />
+              <Input.Password prefix={<LockOutlined />} placeholder="新密码" autoComplete="new-password" />
             </Item>
 
             <Item
@@ -689,7 +726,7 @@ const AuthCard: FC = () => {
                 }),
               ]}
             >
-              <Input.Password prefix={<LockOutlined />} placeholder="确认密码" />
+              <Input.Password prefix={<LockOutlined />} placeholder="确认密码" autoComplete="new-password" />
             </Item>
 
             <Item>
