@@ -73,7 +73,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ prompts, onSave }) => {
           }
         >
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} span={12}>
               <Form.Item
                 name={['prompts', index, 'title']}
                 label="提示标题"
@@ -82,7 +82,7 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ prompts, onSave }) => {
                 <Input placeholder="提示标题" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} span={12}>
               <Form.Item
                 name={['prompts', index, 'order']}
                 label="显示顺序"

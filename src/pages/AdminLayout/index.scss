@@ -156,19 +156,6 @@
     padding: 12px !important;
   }
 
-  /*
-    没设 scroll 的表格在窄屏上会把列压成一团（一个字一行）。
-    逐个去改二十多个页面既啰嗦又没法逐一验证，这里统一兜底：
-    让表格保持自然宽度、由容器横向滚动。
-
-    只挑 .ant-table-content —— 它是「没有固定表头/scroll」时才有的结构；
-    已经设了 scroll 的表格走的是 .ant-table-body，不会被这条规则波及。
-  */
-  .admin-layout .ant-table-content {
-    overflow-x: auto;
-
-    > table {
-      min-width: max-content;
-    }
-  }
+  // 表格横向滚动已上移到全站基线 src/styles/_responsive.scss —— 
+  // 用户端同样需要，没理由只在管理端生效
 }

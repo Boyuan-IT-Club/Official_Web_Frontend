@@ -294,7 +294,7 @@ const SortableItem: React.FC<{
         {editing ? (
           <>
             <Row gutter={16} align="middle">
-              <Col span={8}>
+              <Col xs={24} sm={12} span={8}>
                 <Form.Item name={[name, 'sortOrder']} label="排列序号">
                   <InputNumber
                     min={1}
@@ -304,7 +304,7 @@ const SortableItem: React.FC<{
                   />
                 </Form.Item>
               </Col>
-              <Col span={8}>
+              <Col xs={24} sm={12} span={8}>
                 <Form.Item
                   name={[name, 'fieldType']}
                   label="字段类型"
@@ -317,7 +317,7 @@ const SortableItem: React.FC<{
                   />
                 </Form.Item>
               </Col>
-              <Col span={8}>
+              <Col xs={24} sm={12} span={8}>
                 <Form.Item name={[name, 'placeholder']} label="占位提示">
                   <Input placeholder="如：请提供个人简介" />
                 </Form.Item>
@@ -325,7 +325,7 @@ const SortableItem: React.FC<{
             </Row>
 
             <Row gutter={16} align="middle">
-              <Col span={12}>
+              <Col xs={24} span={12}>
                 <Form.Item
                   name={[name, 'fieldLabel']}
                   label="字段名称"
@@ -334,7 +334,7 @@ const SortableItem: React.FC<{
                   <Input placeholder="如：个人简介" />
                 </Form.Item>
               </Col>
-              <Col span={12}>
+              <Col xs={24} span={12}>
                 <Form.Item
                   name={[name, 'fieldKey']}
                   label="字段标识"

@@ -1,4 +1,6 @@
 @use './styles/skin-dawn';
+// 全站移动端基线（用户端与管理端共用），见该文件开头的说明
+@use './styles/responsive';
 
 // 极简浅色主题
 $popup-light: (
