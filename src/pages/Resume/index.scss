@@ -128,7 +128,9 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
     }
 
     .resume-card-description {
-      > div {
+      // 排除 AI 初筛那一行：它是同级的另一种块（自带背景与内外边距），
+      // 不是「标签 + 值」的信息行，套上这套 flex 规则会把它的排版改掉
+      > div:not(.resume-card-ai) {
         margin-bottom: 8px;
         display: flex;
         align-items: flex-start;   // 值换行后与标签顶部对齐，不再居中错位
@@ -472,13 +474,21 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
   box-shadow: 0 2px 10px rgba(30, 50, 100, 0.06);
 }
 
-// 卡片左上角的勾选框；选中的卡片描边加深，扫一眼就知道选了谁
+// 卡片勾选框：固定在右上角（左上角是头像），批量初筛与启动 AI 初筛共用它；
+// 选中的卡片描边加深，扫一眼就知道选了谁
 .resume-card {
   position: relative;
 
   &.is-picked {
     border-color: #2563b8;
     box-shadow: 0 0 0 1px #2563b8;
+  }
+
+  .resume-card-select {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 2;
   }
 
   .resume-card-ai {
