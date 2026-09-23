@@ -115,15 +115,43 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
       font-weight: 500;
     }
 
+    /*
+      窄卡片（侧栏 200px + 三列 ≈ 320px）上原来会同时坏三样：
+      标签被压成「专/业:」、长邮箱溢出被裁、标题里的标签被 meta-title 的
+      overflow:hidden 切掉。三条规则分别对付这三件事。
+    */
+    .ant-card-meta-title {
+      // antd 默认给了 white-space:nowrap + overflow:hidden，窄卡片上会把
+      // 姓名后面的状态标签整个裁掉。这里放开，配合 <Space wrap> 换行显示。
+      white-space: normal;
+      overflow: visible;
+    }
+
     .resume-card-description {
-      > div {
+      // 排除 AI 初筛那一行：它是同级的另一种块（自带背景与内外边距），
+      // 不是「标签 + 值」的信息行，套上这套 flex 规则会把它的排版改掉
+      > div:not(.resume-card-ai) {
         margin-bottom: 8px;
         display: flex;
-        align-items: center;
+        align-items: flex-start;   // 值换行后与标签顶部对齐，不再居中错位
+        gap: 6px;
+      }
 
-        .ant-typography {
-          margin-left: 8px;
+      // 标签绝不参与收缩，否则两个字会被拆成两行
+      &__label {
+        flex: none;
+        white-space: nowrap;
+
+        &::after {
+          content: ':';
         }
+      }
+
+      // 值可收缩并按字符断行：邮箱是一长串没有空格的字符，
+      // 不给 anywhere 就只能整体溢出
+      &__value {
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
     }
 

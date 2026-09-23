@@ -26,6 +26,7 @@ import {
   SearchOutlined,
   QuestionCircleOutlined,
   MessageOutlined,
+  MenuOutlined,
 } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -88,12 +89,43 @@ const MENU_TOUR_COPY: Record<string, { title: string; description: string }> = {
 
 const menuStepSelector = (key: string) => `li.ant-menu-item[data-menu-id$="-${key}"]`;
 
+/** 侧边栏从「固定占位」切成「浮层抽屉」的分界。与 SCSS 里的断点保持一致 */
+const MOBILE_BREAKPOINT = 768;
+
 const AdminLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
+  /*
+    窄屏把侧边栏改成浮层抽屉。
+
+    原来侧边栏是 position:fixed 固定 220px、内容 marginLeft:220 —— 手机上
+    390px 的屏被它吃掉 220，正文只剩 170px，等于不能用。
+    窄屏下改成：默认收起（宽度 0）、内容占满，点顶栏按钮浮出来盖在上面。
+  */
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const apply = (matches: boolean) => {
+      setIsMobile(matches);
+      // 进窄屏先收起，免得一上来就被盖住；回宽屏再展开
+      setCollapsed(matches);
+    };
+    apply(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => apply(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   const dispatch = useAppDispatch();
   const { userInfo } = useSelector((state: any) => state.user);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // 窄屏下换页自动收起抽屉，否则点完菜单它会一直盖着内容
+  useEffect(() => {
+    if (isMobile) setCollapsed(true);
+  }, [location.pathname, isMobile]);
 
   const permCodes = useMemo(() => getJwtPermissionCodes(getToken()), []);
   const { skin, skins, setSkinKey } = useSkin();
@@ -242,11 +274,17 @@ const AdminLayout: React.FC = () => {
 
   return (
     <AntdLayout className="admin-layout" style={{ minHeight: "100vh" }}>
+      {/* 窄屏抽屉展开时的背景遮罩：点一下收起，也挡住误触下面的内容 */}
+      {isMobile && !collapsed && (
+        <div className="admin-sider-mask" onClick={() => setCollapsed(true)} />
+      )}
       <Sider
-        collapsible
+        collapsible={!isMobile}
         collapsed={collapsed}
         onCollapse={setCollapsed}
         width={220}
+        // 窄屏收起时宽度归零（整个移出视野），宽屏仍保留 80px 的图标条
+        collapsedWidth={isMobile ? 0 : 80}
         theme="light"
         style={{
           position: "fixed",
@@ -270,8 +308,26 @@ const AdminLayout: React.FC = () => {
           onClick={({ key }) => navigate(key)}
         />
       </Sider>
-      <AntdLayout style={{ marginLeft: collapsed ? 80 : 220, transition: "margin-left 0.2s" }}>
+      {/* 窄屏侧边栏是浮层，不占位，所以内容不留左边距 */}
+      <AntdLayout
+        style={{
+          marginLeft: isMobile ? 0 : (collapsed ? 80 : 220),
+          transition: "margin-left 0.2s",
+          minWidth: 0,   // 否则内部超宽的表格会把整个布局撑开
+        }}
+      >
         <Header className="admin-header">
+          {/* 窄屏唯一的菜单入口：侧边栏自带的折叠条在宽度归零后也跟着没了 */}
+          {isMobile && (
+            <button
+              type="button"
+              className="admin-sider-toggle"
+              aria-label="菜单"
+              onClick={() => setCollapsed((v) => !v)}
+            >
+              <MenuOutlined />
+            </button>
+          )}
           <span className="admin-page-title">{currentTitle}</span>
           <button
             type="button"
