@@ -199,7 +199,8 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     }
 
     .site-layout {
-      margin-left: 80px;
+      // 左边距由 JSX 按 isMobile 决定（行内样式优先级更高，这里写了也不生效）。
+      // 原先这里写着 margin-left:80px，从来没生效过 —— 侧栏在手机上照样占 220px。
 
       .tech-header {
         padding: 0 t.$gap-sm;
@@ -249,5 +250,33 @@ $menu-bg: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
         background-color: #fff2f0;
       }
     }
+  }
+}
+
+// 窄屏侧边栏浮层化的配套样式（开合逻辑在 index.js，断点同为 768）
+.sider-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 99;              // 压在 Sider(100) 之下、其余内容之上
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.sider-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 8px;
+  padding: 0;
+  font-size: 16px;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.06);
   }
 }

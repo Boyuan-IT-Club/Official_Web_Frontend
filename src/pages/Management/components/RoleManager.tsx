@@ -437,7 +437,7 @@ const RoleManagePage: React.FC = () => {
           >
             <Row gutter={[0, 12]} style={{ marginTop: 16 }}>
               {ALL_PERMISSIONS.map((p) => (
-                <Col span={12} key={p.value}>
+                <Col xs={24} span={12} key={p.value}>
                   <Checkbox value={p.value}>{p.label}</Checkbox>
                 </Col>
               ))}
@@ -465,7 +465,7 @@ const RoleManagePage: React.FC = () => {
           >
             <Row gutter={[0, 8]}>
               {roles.map((r) => (
-                <Col span={12} key={r.roleId}>
+                <Col xs={24} span={12} key={r.roleId}>
                   <Checkbox value={r.roleId}>{r.roleName}</Checkbox>
                 </Col>
               ))}
@@ -484,7 +484,7 @@ const RoleManagePage: React.FC = () => {
           >
             <Row gutter={[0, 8]}>
               {ALL_PERMISSIONS.map((p) => (
-                <Col span={12} key={p.value}>
+                <Col xs={24} span={12} key={p.value}>
                   <Checkbox value={p.value}>{p.label}</Checkbox>
                 </Col>
               ))}

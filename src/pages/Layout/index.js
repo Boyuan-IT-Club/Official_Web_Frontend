@@ -17,6 +17,7 @@ import {
   QuestionCircleOutlined,
   ScheduleOutlined,
   MessageOutlined,
+  MenuOutlined,
 } from "@ant-design/icons"; // 导入新图标
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -81,13 +82,42 @@ const TOUR_STEPS = [
   },
 ];
 
+/** 侧边栏从「固定占位」切成「浮层抽屉」的分界，与管理端、_responsive.scss 同一条线 */
+const MOBILE_BREAKPOINT = 768;
+
 const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  /*
+    窄屏把侧边栏改成浮层抽屉。
+
+    原来这里的 SCSS 写了 `@media (max-width: 768px) { .site-layout { margin-left: 80px } }`，
+    但下面 JSX 上是行内的 `marginLeft: collapsed ? 80 : 220` —— 行内样式优先级更高，
+    那条媒体查询从来没生效过。手机 390px 的屏被 220px 的侧栏吃掉一大半。
+  */
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const apply = (matches) => {
+      setIsMobile(matches);
+      setCollapsed(matches);   // 进窄屏先收起，回宽屏再展开
+    };
+    apply(mq.matches);
+    const onChange = (e) => apply(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const dispatch = useAppDispatch();
   const { userInfo, loading } = useSelector((state) => state.user);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // 窄屏下换页自动收起抽屉，否则点完菜单它会一直盖着内容
+  useEffect(() => {
+    if (isMobile) setCollapsed(true);
+  }, [location.pathname, isMobile]);
   const { skin, skins, setSkinKey } = useSkin();
   useEffect(() => {
     if (userInfo?.role) return;
@@ -211,11 +241,17 @@ const MainLayout = () => {
     menuItems.find((m) => m.key === location.pathname)?.label ?? "博远信息技术社";
   return (
     <AntdLayout className="main-layout" style={{ minHeight: "100vh" }}>
+      {/* 窄屏抽屉展开时的遮罩：点一下收起，也挡住误触下面的内容 */}
+      {isMobile && !collapsed && (
+        <div className="sider-mask" onClick={() => setCollapsed(true)} />
+      )}
       <Sider
-        collapsible
+        collapsible={!isMobile}
         collapsed={collapsed}
         onCollapse={setCollapsed}
         width={220}
+        // 窄屏收起时宽度归零（整个移出视野），宽屏仍保留 80px 的图标条
+        collapsedWidth={isMobile ? 0 : 80}
         className="tech-sider"
         style={{
           position: "fixed",
@@ -248,12 +284,25 @@ const MainLayout = () => {
       <AntdLayout
         className="site-layout"
         style={{
-          marginLeft: collapsed ? 80 : 220,
+          // 窄屏侧边栏是浮层，不占位，所以不留左边距
+          marginLeft: isMobile ? 0 : collapsed ? 80 : 220,
           transition: "margin-left 0.15s ease",
           minHeight: "100vh",
+          minWidth: 0,   // 否则内部超宽内容会把整个布局撑开
         }}
       >
         <Header className="tech-header">
+          {/* 窄屏唯一的菜单入口：侧边栏自带的折叠条在宽度归零后也跟着没了 */}
+          {isMobile && (
+            <button
+              type="button"
+              className="sider-toggle"
+              aria-label="菜单"
+              onClick={() => setCollapsed((v) => !v)}
+            >
+              <MenuOutlined />
+            </button>
+          )}
           <span className="header-page-title">{currentPageTitle}</span>
           <div className="header-right">
             <span

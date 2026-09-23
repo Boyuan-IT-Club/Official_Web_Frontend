@@ -1,0 +1,113 @@
+// 全站移动端基线。用户端与管理端共用（两份构建都走 src/index.scss）。
+//
+// 为什么用一份全局兜底，而不是挨个页面改：
+// 弹层 46 个 Modal、42 个 Descriptions、16 个 Drawer，它们的 DOM 结构由 antd
+// 统一产出，一条规则覆盖全部；挨个去改既是几十个文件的churn，也没法逐一验证。
+// 页面自己的断点仍然优先——这里只兜「没人管过」的那部分。
+//
+// 断点取 768px，与 AdminLayout / Layout 的侧边栏抽屉化保持同一条线。
+
+@media (max-width: 767px) {
+  /*
+    弹窗宽度不用管：antd 自己就带了
+      @media (max-width: 767px) { .ant-modal { max-width: calc(100vw - 16px); margin: 8px auto } }
+    （我核对过导出的 antd 运行时样式，6 个 media block 全是给 modal 的）。
+    这里只补它没做的两件事：正文过长时自己滚、底部按钮能换行。
+    top 一并收掉——antd 留着 top:100px，小屏上白白吃掉一屏的六分之一。
+  */
+  .ant-modal {
+    top: 8px;
+    padding-bottom: 8px;
+  }
+
+  // 手机上弹窗容易顶到屏幕外，正文自己滚，头尾留在视野里
+  .ant-modal-body {
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+  }
+
+  // 底部按钮一行排不下就换行，而不是被挤出去
+  .ant-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+
+    // antd 默认给按钮加左边距，换行后会错位；这里交给 gap
+    > .ant-btn + .ant-btn {
+      margin-inline-start: 0;
+    }
+  }
+
+  // 抽屉同理：宽度也是行内的，用 max-width 收
+  .ant-drawer-content-wrapper {
+    max-width: 100vw;
+  }
+
+  /*
+    描述列表：多列在手机上会被压成一个字一行。
+    antd 用 table 排版，这里让标签与内容各占一行，改为纵向堆叠。
+  */
+  .ant-descriptions-view table,
+  .ant-descriptions-view tbody,
+  .ant-descriptions-row {
+    display: block;
+    width: 100%;
+  }
+
+  .ant-descriptions-row > th,
+  .ant-descriptions-row > td {
+    display: block;
+    width: auto;
+  }
+
+  .ant-descriptions-item-label {
+    // 标签单独一行，与下面的内容拉开层次
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  .ant-descriptions-item-content {
+    padding-bottom: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+    表格：没设 scroll 的表在窄屏会把列压成一团。
+    只挑 .ant-table-content —— 那是「没有固定表头/scroll」时才有的结构，
+    已经设了 scroll 的表走 .ant-table-body，不会被这条波及。
+  */
+  .ant-table-content {
+    overflow-x: auto;
+
+    > table {
+      min-width: max-content;
+    }
+  }
+
+  // 工具栏、按钮组：排不下就换行，别溢出到屏幕外
+  .ant-space-horizontal {
+    flex-wrap: wrap;
+  }
+
+  // 分页器同理，页码多的时候一行放不下
+  .ant-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  /*
+    长串不断行的内容（邮箱、objectKey、URL）在窄屏会把容器撑破。
+    只对「摆事实」的几类容器开按字符断行，不动正文排版。
+  */
+  .ant-table-cell,
+  .ant-list-item-meta-description,
+  .ant-card-meta-description {
+    overflow-wrap: anywhere;
+  }
+
+  // Tabs 标签多时横向滚动（antd 自带，这里只保证不被外层裁掉）
+  .ant-tabs-nav {
+    max-width: 100%;
+  }
+}
