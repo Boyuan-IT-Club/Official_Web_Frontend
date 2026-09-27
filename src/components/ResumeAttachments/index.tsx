@@ -10,7 +10,7 @@ import {
   DeleteOutlined, DownloadOutlined, EyeOutlined, FileOutlined, UploadOutlined,
 } from '@ant-design/icons';
 import {
-  ResumeAttachment, deleteAttachment, fetchAttachmentBlob, formatSize,
+  MAX_ATTACHMENT_BYTES, ResumeAttachment, deleteAttachment, fetchAttachmentBlob, formatSize,
   listAttachments, uploadAttachment,
 } from '@/api/resumeAttachment';
 import './index.scss';
@@ -52,6 +52,11 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
 
   const handleUpload = async (file: File): Promise<boolean> => {
     if (!resumeId) { message.warning('简历还没创建，请先保存一次草稿'); return false; }
+    // 先在本地挡一道：上传 20MB 才被拒，用户等的是整个上传过程，还只拿到一句「失败」
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      message.error(`「${file.name}」${formatSize(file.size)}，超过单个附件 ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB 的上限`);
+      return false;
+    }
     setBusy(true);
     try {
       await uploadAttachment(resumeId, file);
@@ -109,7 +114,7 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
         <span className="resume-attachments__title"><FileOutlined /> 其它附件</span>
         <Text type="secondary" className="resume-attachments__hint">
           {hint ?? (canEdit
-            ? '作品集、成绩单、获奖证明等，任意格式，单个不超过 20MB、最多 10 个'
+            ? `作品集、成绩单、获奖证明等，任意格式，单个不超过 ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB、最多 10 个`
             : '候选人上传的补充材料')}
         </Text>
       </div>
