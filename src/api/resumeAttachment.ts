@@ -60,3 +60,9 @@ export function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
+
+/**
+ * 单个附件上限，必须与后端 `ResumeAttachmentServiceImpl.MAX_BYTES` 一致。
+ * 不一致时超限文件会被服务端拒掉，而界面上看不出是「太大」还是「接口坏了」。
+ */
+export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;

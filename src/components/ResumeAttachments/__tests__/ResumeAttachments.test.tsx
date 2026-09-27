@@ -1,8 +1,11 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { message } from 'antd';
 import ResumeAttachments from '../index';
 
 jest.mock('@/api/resumeAttachment', () => ({
+  // 上限取真实常量：在 mock 里再写一个数字，常量改了测试照样通过
+  MAX_ATTACHMENT_BYTES: jest.requireActual('@/api/resumeAttachment').MAX_ATTACHMENT_BYTES,
   listAttachments: jest.fn(),
   uploadAttachment: jest.fn(),
   deleteAttachment: jest.fn(),
@@ -15,6 +18,22 @@ const api = require('@/api/resumeAttachment');
 
 const PDF = { id: 1, resumeId: 9, fileName: '作品集.pdf', contentType: 'application/pdf', sizeBytes: 100, previewable: true };
 const DOC = { id: 2, resumeId: 9, fileName: '成绩单.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', sizeBytes: 200, previewable: false };
+
+const MAX = api.MAX_ATTACHMENT_BYTES;
+
+/** 只声明体积，不真塞 20MB 进内存。 */
+function makeFile(name: string, size: number): File {
+  const file = new File(['x'], name, { type: 'application/pdf' });
+  Object.defineProperty(file, 'size', { value: size });
+  return file;
+}
+
+/** 走 antd Upload 内部那个隐藏 input，等价于用户选文件。 */
+function pickFile(file: File): void {
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  Object.defineProperty(input, 'files', { value: [file] });
+  fireEvent.change(input);
+}
 
 // CRA 的 jest 配置带 resetMocks: true，实现必须放在 beforeEach
 beforeEach(() => {
@@ -97,5 +116,27 @@ describe('简历附件', () => {
     render(<ResumeAttachments resumeId={9} />);
     // 只读视角下空态仍给一行说明，让面试官知道是「没传」而不是「没加载出来」
     await waitFor(() => expect(screen.getByText(/候选人没有上传附件/)).toBeInTheDocument());
+  });
+
+  it('超过上限的文件本地就拦下，不发请求，并说明上限', async () => {
+    // 放出去的话，用户要等整个上传跑完才被告知失败，20MB 的请求体也白占一次带宽
+    const error = jest.spyOn(message, 'error').mockImplementation(() => undefined as never);
+    render(<ResumeAttachments resumeId={9} canEdit />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    pickFile(makeFile('作品集.pdf', MAX + 1));
+
+    await waitFor(() => expect(error).toHaveBeenCalled());
+    expect(String(error.mock.calls[0][0])).toContain('20MB');
+    expect(api.uploadAttachment).not.toHaveBeenCalled();
+  });
+
+  it('上限以内的文件照常上传', async () => {
+    render(<ResumeAttachments resumeId={9} canEdit />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    pickFile(makeFile('作品集.pdf', MAX));
+
+    await waitFor(() => expect(api.uploadAttachment).toHaveBeenCalledWith(9, expect.anything()));
   });
 });
