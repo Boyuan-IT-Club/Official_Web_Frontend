@@ -77,8 +77,40 @@
     border-radius: t.$radius-sm;
   }
 
+  /*
+    PDF 单独给高一点：它没有图片那种固有比例，读的是整页版面，
+    多给一截纵向空间就少翻一屏。
+  */
+  &__preview-pdf {
+    display: block;
+    width: 100%;
+    height: 76vh;
+    border: t.$border-hairline;
+    border-radius: t.$radius-sm;
+    background: #fff;
+  }
+
+  // 浏览器内嵌不了 PDF 时才会露出来（手机上多半如此）
+  &__preview-fallback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: t.$gap-xs;
+    height: 100%;
+    padding: t.$gap-lg;
+    text-align: center;
+    font-size: t.$text-sm;
+    color: #6b7280;
+
+    p {
+      margin: 0;
+    }
+  }
+
   @media (max-width: 480px) {
     &__name { max-width: 16ch; }
     &__preview-frame { height: 56vh; }
+    &__preview-pdf { height: 62vh; }
   }
 }

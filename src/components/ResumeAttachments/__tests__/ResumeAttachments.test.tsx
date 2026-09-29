@@ -82,6 +82,40 @@ describe('简历附件', () => {
     expect(URL.createObjectURL).toHaveBeenCalled();
   });
 
+  it('PDF 用 object 渲染，绝不能塞进 sandbox iframe —— 那样是一片空白', async () => {
+    /*
+      sandbox 空串是「打开全部限制」，其中包含禁用插件，而浏览器内置的
+      PDF 阅读器正是这样一个组件：被关掉后它不报错，就是画一片空白。
+      线上就是这么坏的，用户反馈「没法看 pdf」。
+      同一个 blob、同一页实测过四种容器：只有 sandbox iframe 空白。
+    */
+    const { container } = render(<ResumeAttachments resumeId={9} />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /预览/ })[0]);
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
+
+    const obj = document.querySelector('object[type="application/pdf"]');
+    expect(obj).toBeInTheDocument();
+    expect(obj).toHaveAttribute('data', 'blob:fake');
+    // 关键回归点：PDF 这条路上不能出现沙箱 iframe
+    expect(container.querySelector('iframe[sandbox]')).toBeNull();
+    expect(document.querySelector('iframe[sandbox]')).toBeNull();
+  });
+
+  it('浏览器内嵌不了 PDF 时，object 里备着「新标签打开」', async () => {
+    // object 的子元素只在渲染失败时显示，所以它必须存在于 DOM 里
+    render(<ResumeAttachments resumeId={9} />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /预览/ })[0]);
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
+
+    const link = screen.getByRole('link', { name: /新标签页打开/ });
+    expect(link).toHaveAttribute('href', 'blob:fake');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
   it('关闭预览时释放 blob URL，不漏内存', async () => {
     render(<ResumeAttachments resumeId={9} />);
     await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
