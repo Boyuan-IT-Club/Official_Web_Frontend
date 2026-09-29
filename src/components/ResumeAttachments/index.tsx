@@ -204,9 +204,19 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
 
 /**
  * 预览主体。按类型选渲染方式：图片用 img、音视频用对应标签、
- * 其余（PDF、纯文本）交给 iframe —— 浏览器自带的查看器比自己实现的强。
+ * PDF 用 object、纯文本交给沙箱 iframe。
  *
- * iframe 加 sandbox：服务端已经只对安全类型放行内联，这里再加一道，
+ * 为什么 PDF 不能跟纯文本一样用 `iframe sandbox=""`：
+ * sandbox 空串是「打开全部限制」，其中包含禁用插件，而浏览器内置的 PDF
+ * 阅读器正是这样一个组件 —— 被关掉之后它不报错，就是画一片空白。
+ * 实测过四种容器（同一个 blob、同一页）：sandbox iframe 空白，
+ * 裸 iframe / embed / object 都能渲染。
+ *
+ * 选 object 而不是 embed：它在浏览器渲染不了时会自动显示子元素，
+ * 手机浏览器多半不支持内嵌 PDF，那时正好把「新标签打开 / 下载」递上去。
+ * 渲染成功时子元素不显示（实测量过 getBoundingClientRect，不是肉眼判断）。
+ *
+ * 纯文本仍然留在沙箱里：服务端已经只对安全类型放行内联，这是第二道闸，
  * 万一将来白名单被放宽也不至于直接变成 XSS。
  */
 const PreviewBody: React.FC<{ att: ResumeAttachment; url: string }> = ({ att, url }) => {
@@ -220,6 +230,23 @@ const PreviewBody: React.FC<{ att: ResumeAttachment; url: string }> = ({ att, ur
   }
   if (type.startsWith('audio/')) {
     return <audio className="resume-attachments__preview-audio" src={url} controls />;
+  }
+  if (type === 'application/pdf') {
+    return (
+      <object
+        className="resume-attachments__preview-pdf"
+        data={url}
+        type="application/pdf"
+        aria-label={att.fileName}
+      >
+        {/* 渲染不了才会显示到这里 —— 手机浏览器基本都走这一支 */}
+        <div className="resume-attachments__preview-fallback">
+          <p>这个浏览器不支持在页面里直接看 PDF。</p>
+          <a href={url} target="_blank" rel="noreferrer">在新标签页打开</a>
+          <span> 或用下方的「下载」按钮。</span>
+        </div>
+      </object>
+    );
   }
   return (
     <iframe
