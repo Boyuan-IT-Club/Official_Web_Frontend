@@ -35,11 +35,23 @@
   }
 }
 
+// 胶片条 + 游动标尺的外壳
+.film {
+  // 高度账：卡片上下 10+4 + 标尺 22 + 这里 4 = 40px，原来是 10+14=24px，
+  // 整条正好高 16px —— EvaluationWorkspace 的 calc(100vh - 191px) 按这个数算的
+  padding-bottom: 4px;
+}
+
 .film-strip {
   display: flex;
   gap: 8px;
-  padding: 10px 16px 14px;
+  // 底边距让给下方标尺（高度账见上面 .film）
+  padding: 10px 16px 4px;
   overflow-x: auto;
+  // 原生滚动条交给下方标尺：它既显示看得到哪一段，也能拖。
+  // 触控板横滑 / Shift+滚轮照常可用
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 
   &__chip {
     flex: none;
@@ -68,4 +80,77 @@
     &.tone-warn { color: #b45309; }
   }
   &__extra { font-size: 10.5px; color: #7c5cd6; display: block; }
+}
+
+/*
+  游动标尺。每人一根刻度、颜色即状态（与胶片卡上的 tone 同一套）；
+  超过 150 人时相邻的人合并成一格（is-bucket），颜色按「最需要关注的」取。
+  蓝框 = 胶片条当前看得到的那一段。
+*/
+.film-ruler {
+  position: relative;
+  height: 22px;
+  margin: 0 16px;
+  cursor: pointer;
+  touch-action: none;     // 触屏上拖标尺时，别让整页跟着横滑
+  user-select: none;
+
+  &__window {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    border: 1px solid rgba(37, 99, 184, 0.45);
+    border-radius: 5px;
+    background: rgba(37, 99, 184, 0.07);
+    pointer-events: none;
+  }
+
+  &__tick {
+    position: absolute;
+    bottom: 6px;
+    height: 10px;
+    pointer-events: none;
+
+    // 单人一根细线居中；合并格铺满整格、两侧各留 1px 缝，看得出是一段
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      margin-left: -1px;
+      border-radius: 1px;
+      background: var(--tick-color, #c3cad8);
+    }
+    &.is-bucket::after { left: 1px; right: 1px; width: auto; margin-left: 0; }
+
+    &.tone-good  { --tick-color: #2e7d4f; }
+    &.tone-now   { --tick-color: #2563b8; }
+    &.tone-warn  { --tick-color: #b45309; }
+    &.tone-muted { --tick-color: #c3cad8; }
+
+    // 当前这位：更高、更深，和「进行中」的蓝色刻度区分开
+    &.is-selected {
+      bottom: 3px;
+      height: 16px;
+      &::after { width: 3px; margin-left: -1.5px; background: #1c2742; }
+      &.is-bucket::after { width: auto; margin-left: 0; }
+    }
+  }
+
+  &__bubble {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    transform: translateX(-50%);
+    z-index: 2;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: #1c2742;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: nowrap;
+    pointer-events: none;
+  }
 }
