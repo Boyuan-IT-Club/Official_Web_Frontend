@@ -46,7 +46,7 @@ import ResumePhotoAvatar from '@/components/ResumePhotoAvatar';
 import {
   ScorecardRow, listEvaluationJobs, listEvaluationQueue, runResumeEvaluation,
 } from '@/api/manage/evaluationApis';
-import { aiRecommendation } from '@/components/ResumeAiEvaluation';
+import { AiGradeTags } from '@/components/ResumeAiEvaluation';
 import { getToken } from '@/utils';
 import { applyBatchPoll } from './evaluationPolling';
 import { hasPermission } from '@/utils/jwt';
@@ -237,7 +237,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
   // 用于高亮显示当前排序方式
   const [currentSortKey, setCurrentSortKey] = useState<string>(initial.sortKey);
   const [selectedIds, setSelectedIds] = useState<React.Key[]>([]);
-  const [aiFilter, setAiFilter] = useState<'all' | 'pending' | 'passed' | 'review'>('all');
+  const [aiFilter, setAiFilter] = useState<
+    'all' | 'pending' | 'match_top' | 'effort_low' | 'transfer' | 'review' | 'rerun'
+  >('all');
   const [scorecards, setScorecards] = useState<Record<string, ScorecardRow>>({});
   const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
   // 初筛失败的简历 → 错误文案(闸门4:失败可观测 + 重新评分入口)
@@ -560,8 +562,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const visibleResumes = resumes.filter((resume) => {
     const card = scorecards[String(resume.resumeId)];
     if (aiFilter === 'pending') return !card;
-    if (aiFilter === 'passed') return Boolean(card && !card.hard_zero && (card.total ?? 0) >= 60);
-    if (aiFilter === 'review') return Boolean(card && (card.hard_zero || (card.total ?? 0) < 60));
+    if (aiFilter === 'match_top') return card?.match_level === '优秀';
+    if (aiFilter === 'effort_low') return card?.effort_level === '一般';
+    if (aiFilter === 'transfer') return Boolean(card?.transfer_hint);
+    if (aiFilter === 'review') return Boolean(card?.hard_zero);
+    if (aiFilter === 'rerun') return Boolean(card?.needs_rerun);
     return true;
   });
   const visibleIds = visibleResumes.map((resume) => String(resume.resumeId));
@@ -806,13 +811,16 @@ const ResumeList: React.FC<ResumeListProps> = ({
           </Checkbox>
           <Select
             value={aiFilter}
-            style={{ width: 150 }}
+            style={{ width: 160 }}
             onChange={setAiFilter}
             options={[
               { value: 'all', label: '全部 AI 状态' },
               { value: 'pending', label: '待 AI 初筛' },
-              { value: 'passed', label: 'AI 建议通过' },
-              { value: 'review', label: 'AI 建议重点复核' },
+              { value: 'match_top', label: '部门匹配优秀' },
+              { value: 'effort_low', label: '认真程度一般' },
+              { value: 'transfer', label: '有调剂建议' },
+              { value: 'review', label: '需重点复核' },
+              { value: 'rerun', label: '旧版结果待重评' },
             ]}
           />
           <Button
@@ -850,7 +858,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
                 const photo = getFieldValueFromResume(resume, '个人照片');
                 const aiCard = scorecards[String(resume.resumeId)];
-                const aiHint = aiCard ? aiRecommendation(aiCard) : null;
                 const isScreening = screeningIds.includes(String(resume.resumeId));
                 return (
                   <List.Item key={String(resume.resumeId)}>
@@ -953,11 +960,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
                                     重新评分
                                   </Button>
                                 </>
-                              ) : aiCard && aiHint ? (
-                                <>
-                                  <Tag color={aiHint.color}>AI 已初筛</Tag>
-                                  <Text type="secondary">{aiHint.text}</Text>
-                                </>
+                              ) : aiCard ? (
+                                <AiGradeTags grades={aiCard} />
                               ) : (
                                 <Tag>待 AI 初筛</Tag>
                               )}

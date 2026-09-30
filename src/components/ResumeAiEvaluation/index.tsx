@@ -4,7 +4,8 @@ import {
 } from 'antd';
 import { BookOutlined, CheckOutlined, RobotOutlined } from '@ant-design/icons';
 import {
-  ScorecardDetail, getEvaluationQbank, getEvaluationScorecard, pickQuestions,
+  AiGrade, AiGrades, DeptMatch, ItemVerdict, ScorecardDetail, ScorecardRow, TransferHint,
+  getEvaluationQbank, getEvaluationScorecard, pickQuestions,
 } from '@/api/manage/evaluationApis';
 import './index.scss';
 
@@ -16,12 +17,135 @@ const ATTITUDE_TEXT: Record<string, string> = {
   bad_faith: '态度存在明显问题',
 };
 
-export const aiRecommendation = (detail: Pick<ScorecardDetail, 'hard_zero' | 'total'>) => {
-  if (detail.hard_zero) return { color: 'error', text: '建议重点复核' };
-  if (detail.total == null) return { color: 'default', text: '暂无建议' };
-  if (detail.total >= 85) return { color: 'success', text: '建议优先进入面试' };
-  if (detail.total >= 60) return { color: 'processing', text: '建议进入人工复核' };
-  return { color: 'warning', text: '建议谨慎复核' };
+const GRADE_COLOR: Record<AiGrade, string> = {
+  优秀: 'success',
+  良好: 'processing',
+  一般: 'default',
+};
+
+const transferText = (hint: TransferHint) =>
+  `建议调剂:${hint.dept}${hint.is_second_choice ? '(第二志愿)' : ''}`;
+
+type GradeTagsProps = {
+  grades: AiGrades & Pick<ScorecardRow, 'hard_zero'> & { transfer_hint?: TransferHint | null };
+};
+
+/** 两维等级标签:部门匹配度 + 认真程度;另标重点复核/调剂建议/旧版结果。 */
+export const AiGradeTags: React.FC<GradeTagsProps> = ({ grades }) => {
+  if (grades.needs_rerun) {
+    return <Tag color="warning">旧版初筛结果,请重新初筛</Tag>;
+  }
+  return (
+    <Space size={4} wrap>
+      {grades.hard_zero && <Tag color="error">需重点复核</Tag>}
+      {grades.match_level ? (
+        <Tag color={GRADE_COLOR[grades.match_level]}>部门匹配 {grades.match_level}</Tag>
+      ) : (
+        <Tag>部门匹配 未填志愿</Tag>
+      )}
+      {grades.effort_level && (
+        <Tag color={GRADE_COLOR[grades.effort_level]}>认真程度 {grades.effort_level}</Tag>
+      )}
+      {grades.transfer_hint && <Tag color="purple">{transferText(grades.transfer_hint)}</Tag>}
+    </Space>
+  );
+};
+
+const gradeBasisText = (grades: AiGrades): string | null => {
+  if (grades.grade_basis === 'pool') {
+    return `等级为与同报「${grades.pool}」的 ${grades.pool_size} 名候选人相比的相对位置`;
+  }
+  if (grades.grade_basis === 'anchor') {
+    return `同报「${grades.pool}」的候选人不足 15 名,等级按绝对标准给出`;
+  }
+  return null;
+};
+
+const ItemList: React.FC<{ items: ItemVerdict[] }> = ({ items }) => (
+  <div className="resume-ai-summary__dimensions">
+    {items.map((it) => (
+      <div key={it.item} className="resume-ai-summary__dimension">
+        <Space>
+          <Text strong>{it.item}</Text>
+          <Tag color={it.met ? 'green' : 'default'}>{it.met ? '达成' : '未达成'}</Tag>
+        </Space>
+        <Paragraph style={{ marginBottom: 4 }}>{it.reason}</Paragraph>
+        {it.quote ? <Text type="secondary" italic>依据:「{it.quote}」</Text> : null}
+      </div>
+    ))}
+  </div>
+);
+
+/** 维卡正文:整体理由、面试提示、两张清单(志愿部门在前,其余部门折叠)。 */
+export const AiScorecardBody: React.FC<{ detail: ScorecardDetail }> = ({ detail }) => {
+  const card = detail.card ?? ({} as ScorecardDetail['card']);
+  const first = card.intended?.first ?? null;
+  const match: DeptMatch[] = card.match ?? [];
+  const firstMatch = match.find((m) => m.dept === first);
+  const otherMatch = match.filter((m) => m.dept !== first);
+  const basis = gradeBasisText(detail);
+  const hints = card.interview_hints ?? [];
+
+  const sections = [
+    firstMatch && {
+      key: 'match',
+      label: `志愿部门(${firstMatch.dept})匹配清单:达成 ${firstMatch.items.filter((i) => i.met).length}/${firstMatch.items.length} 项`,
+      children: <ItemList items={firstMatch.items} />,
+    },
+    card.effort && {
+      key: 'effort',
+      label: `认真程度清单:达成 ${card.effort.items.filter((i) => i.met).length}/${card.effort.items.length} 项`,
+      children: <ItemList items={card.effort.items} />,
+    },
+    otherMatch.length > 0 && {
+      key: 'others',
+      label: '其他部门匹配情况(调剂参考)',
+      children: (
+        <Collapse
+          ghost
+          size="small"
+          items={otherMatch.map((m) => ({
+            key: m.dept,
+            label: `${m.dept}:达成 ${m.items.filter((i) => i.met).length}/${m.items.length} 项`,
+            children: <ItemList items={m.items} />,
+          }))}
+        />
+      ),
+    },
+    card.traits && card.traits.length > 0 && {
+      key: 'legacy',
+      label: '旧版特质判定',
+      children: (
+        <ItemList
+          items={card.traits.map((t) => ({ item: t.trait, met: t.met, quote: t.quote, reason: t.reason }))}
+        />
+      ),
+    },
+  ].filter(Boolean) as { key: string; label: string; children: React.ReactNode }[];
+
+  return (
+    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <AiGradeTags grades={{ ...detail, transfer_hint: card.transfer_hint }} />
+      {basis && <Text type="secondary">{basis}</Text>}
+      {card.summary && <Paragraph style={{ marginBottom: 0 }}>{card.summary}</Paragraph>}
+      {hints.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          message="面试提示"
+          description={<ul style={{ margin: 0, paddingLeft: 18 }}>{hints.map((h) => <li key={h}>{h}</li>)}</ul>}
+        />
+      )}
+      {sections.length > 0 && <Collapse ghost items={sections} />}
+      {card.attitude && (
+        <Alert
+          type="info"
+          message={`表达态度：${ATTITUDE_TEXT[card.attitude.verdict] ?? card.attitude.verdict ?? '未判断'}`}
+          description={card.attitude.reason}
+        />
+      )}
+    </Space>
+  );
 };
 
 type QbankDrawerProps = {
@@ -260,50 +384,15 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
     return <Alert className="resume-ai-summary" type="info" showIcon message="这份简历还没有 AI 初筛结果" />;
   }
 
-  const recommendation = aiRecommendation(detail);
-  const metTraits = (detail.card?.traits ?? []).filter((t) => t.met);
   return (
     <>
       <Card
         className="resume-ai-summary"
-        title={<Space><RobotOutlined />AI 初筛参考<Tag color={recommendation.color}>{recommendation.text}</Tag></Space>}
+        title={<Space><RobotOutlined />AI 初筛参考</Space>}
         extra={<Button icon={<BookOutlined />} onClick={() => setQbankOpen(true)}>预设题库</Button>}
       >
-        <Space wrap className="resume-ai-summary__headline">
-          {detail.hard_zero && <Tag color="red">命中重点复核项</Tag>}
-          <Text type="secondary">AI 标注,仅供参考</Text>
-        </Space>
-        <Collapse
-          ghost
-          items={[{
-            key: 'reasoning',
-            label: `查看 AI 理由与 ${metTraits.length} 项特质判定`,
-            children: (
-              <div className="resume-ai-summary__dimensions">
-                {detail.card?.summary && <Paragraph>{detail.card.summary}</Paragraph>}
-                {(detail.card?.traits ?? []).map((trait) => (
-                  <div key={trait.trait} className="resume-ai-summary__dimension">
-                    <Space>
-                      <Text strong>{trait.trait}</Text>
-                      <Tag color={trait.met ? 'green' : 'default'}>{trait.met ? '达成' : '未达成'}</Tag>
-                    </Space>
-                    <Paragraph style={{ marginBottom: 4 }}>{trait.reason}</Paragraph>
-                    {trait.quote ? (
-                      <Text type="secondary" italic>依据:「{trait.quote}」</Text>
-                    ) : null}
-                  </div>
-                ))}
-                {detail.card?.attitude && (
-                  <Alert
-                    type="info"
-                    message={`表达态度：${ATTITUDE_TEXT[detail.card.attitude.verdict] ?? detail.card.attitude.verdict ?? '未判断'}`}
-                    description={detail.card.attitude.reason}
-                  />
-                )}
-              </div>
-            ),
-          }]}
-        />
+        <AiScorecardBody detail={detail} />
+        <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>AI 标注,仅供参考,终审以人工为准</Text>
       </Card>
       <EvaluationQbankDrawer
         open={qbankOpen}
