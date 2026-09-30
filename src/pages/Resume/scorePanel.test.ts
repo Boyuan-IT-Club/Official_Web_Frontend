@@ -23,3 +23,12 @@ describe('多人打分面板逻辑', () => {
     expect(scorerLabel(entries[1])).toBe('已注销');
   });
 });
+
+describe('othersHidden（盲评）', () => {
+  const { othersHidden } = require('./scorePanel');
+  const entries = [{ scorerId: 9, score: 70 }];
+  it('能打分且我没打过 → 藏', () => expect(othersHidden(entries, 7, true)).toBe(true));
+  it('我打过 → 不藏', () => expect(othersHidden([...entries, { scorerId: 7, score: 0 }], 7, true)).toBe(false));
+  it('只读账号 → 不藏', () => expect(othersHidden(entries, 7, false)).toBe(false));
+  it('还拿不到我的 userId → 先藏着', () => expect(othersHidden(entries, undefined, true)).toBe(true));
+});

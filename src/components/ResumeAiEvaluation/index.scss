@@ -36,6 +36,16 @@
   }
 }
 
+.resume-ai-summary__collapsed {
+  margin-bottom: 12px;
+
+  // 收起态刻意做轻：灰字小按钮，不和打分面板抢注意力
+  .ant-btn {
+    color: #8c8c8c;
+    font-size: 12px;
+  }
+}
+
 .resume-ai-summary--empty {
   display: block;
   margin-bottom: 12px;

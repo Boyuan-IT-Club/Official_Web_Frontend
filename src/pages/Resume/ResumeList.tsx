@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { readFilters, writeFilters, SUBMITTED_STATUSES } from './filterParams';
-import { isUngradedBy } from './scorePanel';
+import { isUngradedBy, othersHidden } from './scorePanel';
 import {
   Card,
   List,
@@ -47,7 +47,6 @@ import ResumePhotoAvatar from '@/components/ResumePhotoAvatar';
 import {
   ScorecardRow, listEvaluationJobs, listEvaluationQueue, runResumeEvaluation,
 } from '@/api/manage/evaluationApis';
-import { AiGradeTags } from '@/components/ResumeAiEvaluation';
 import { getToken } from '@/utils';
 import { applyBatchPoll } from './evaluationPolling';
 import { hasPermission } from '@/utils/jwt';
@@ -161,6 +160,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const dispatch = useDispatch<any>();
   // #177:发起 AI 初筛是执行权 evaluation:run(查看结果仍是 resume:audit)
   const canUseAiScreening = hasPermission(getToken(), 'evaluation:run');
+  // 能打分的人才走盲评（见 othersHidden）
+  const canScore = hasPermission(getToken(), 'resume:audit');
 
   // 从 Redux 获取分页相关状态
   const { resumes, adminLoading, adminError, pagination } = useSelector(
@@ -876,7 +877,6 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
                 // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
                 const photo = getFieldValueFromResume(resume, '个人照片');
-                const aiCard = scorecards[String(resume.resumeId)];
                 const isScreening = screeningIds.includes(String(resume.resumeId));
                 return (
                   <List.Item key={String(resume.resumeId)}>
@@ -938,8 +938,14 @@ const ResumeList: React.FC<ResumeListProps> = ({
                             </Tag>
                             {/* 分数直接摆在封面：批量筛简历时最想先看到的就是它，
                                 否则要逐个点进详情才知道谁打过分。
-                                未打分显示灰色「未评分」，一眼看出还剩谁要处理。 */}
-                            {(resume as any).resumeScore != null ? (
+                                未打分显示灰色「未评分」，一眼看出还剩谁要处理。
+                                盲评：别人打过、我还没打的只显示人数，不露分数。 */}
+                            {(resume as any).resumeScore != null
+                              && othersHidden((resume as any).scoreEntries, myUserId, canScore) ? (
+                              <Tooltip title="你打分后可见">
+                                <Tag>{`已有 ${((resume as any).scoreEntries ?? []).length || 1} 人评`}</Tag>
+                              </Tooltip>
+                            ) : (resume as any).resumeScore != null ? (
                               <Tooltip
                                 title={(resume as any).scoredByName
                                   ? `${(resume as any).scoredByName} 评分`
@@ -962,8 +968,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
                             「专/业:」两行。窄卡片（侧栏 200px + 三列 ≈ 320px）必现。
                           */
                           <div className="resume-card-description">
-                            {/* 没有初筛结果时只留一行浅灰小字:不抢眼,但扫一眼能知道还没跑过 */}
-                            {isScreening || failedScreening[String(resume.resumeId)] || aiCard ? (
+                            {/* AI 的等级不上卡片：批量扫简历时它最抢眼，容易先入为主，
+                                想参考去详情里点开。卡片上只留「初筛中 / 失败可重跑」这类
+                                进度状态——那是操作信息，不是评价。 */}
+                            {(isScreening || failedScreening[String(resume.resumeId)]) && (
                               <div className="resume-card-ai">
                                 <RobotOutlined />
                                 {isScreening ? (
@@ -981,13 +989,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
                                       重新评分
                                     </Button>
                                   </>
-                                ) : aiCard ? (
-                                  <AiGradeTags grades={aiCard} />
                                 ) : null}
-                              </div>
-                            ) : (
-                              <div className="resume-card-ai resume-card-ai--empty">
-                                <RobotOutlined /> 暂无 AI 初筛
                               </div>
                             )}
                             <div>

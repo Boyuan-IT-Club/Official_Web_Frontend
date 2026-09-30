@@ -3,7 +3,7 @@ import { resumeActions } from '@/store/modules/resume';
 import React, { useState } from 'react';
 import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, InputNumber, Popconfirm, message } from 'antd';
 import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
-import { ScoreEntry, myScoreOf, scorerLabel } from './scorePanel';
+import { ScoreEntry, myScoreOf, othersHidden, scorerLabel } from './scorePanel';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import { extractGithubRepos, githubFieldLink } from '@/utils/githubRepo';
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
@@ -207,6 +207,9 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
   const [savedScore, setSavedScore] = useState<number | undefined>(initialMyScore);
   const [scoreSaving, setScoreSaving] = useState(false);
   const [scoreWithdrawing, setScoreWithdrawing] = useState(false);
+  // 盲评：我还没打分时藏起别人的分（平均分与逐人明细），只留人数
+  const canScore = hasPermission(getToken(), 'resume:audit');
+  const blind = othersHidden(entries, myUserId, canScore);
 
   // 误触打分后反悔：只撤我这一票，平均分按剩下的人重算，一票不剩就回到「未评」
   const handleWithdrawScore = async (): Promise<void> => {
@@ -227,7 +230,8 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
         scoredAt: res?.data?.scoredAt ?? null,
         scoreEntries: newEntries,
       }));
-      message.success(avg == null ? '已撤销你的打分，这份简历回到未评' : `已撤销你的打分（剩余平均 ${avg}）`);
+      // 撤完我又回到盲评状态，提示里不带剩余平均分
+      message.success('已撤销你的打分');
     } catch (e: any) {
       message.error(e?.message || '撤销打分失败');
     } finally {
@@ -354,19 +358,24 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
       <div className="resume-score-panel">
         <div className="score-panel-left">
           <div className={`score-badge score-badge--${
-            avgScore == null ? 'empty' : avgScore >= 85 ? 'high' : avgScore >= 60 ? 'mid' : 'low'
+            avgScore == null || blind ? 'empty' : avgScore >= 85 ? 'high' : avgScore >= 60 ? 'mid' : 'low'
           }`}>
-            {avgScore == null ? '未评' : avgScore}
+            {avgScore == null ? '未评' : blind ? '待你评' : avgScore}
           </div>
           <div className="score-panel-info">
             <div className="score-panel-title">
               简历评分
-              {entries.length > 0 && <span className="score-panel-by">{entries.length} 人平均</span>}
+              {entries.length > 0 && (
+                <span className="score-panel-by">{blind ? `已有 ${entries.length} 人打分` : `${entries.length} 人平均`}</span>
+              )}
             </div>
-            {/* 逐人明细：谁打了几分。多人打分的核心诉求就是这行可追溯 */}
+            {/* 逐人明细：谁打了几分。多人打分的核心诉求就是这行可追溯。
+                盲评时整行换成提示，打完分再展开 */}
             <div className="score-panel-entries">
               {entries.length === 0 ? (
                 <span className="score-panel-none">还没有人打分</span>
+              ) : blind ? (
+                <span className="score-panel-none">你打分后可见其他人的打分</span>
               ) : entries.map((e) => (
                 <span key={e.scorerId} className="score-panel-entry">
                   {scorerLabel(e)} <b>{e.score}</b>
