@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { readFilters, writeFilters, SUBMITTED_STATUSES } from './filterParams';
+import { isUngradedBy } from './scorePanel';
 import {
   Card,
   List,
@@ -165,6 +166,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const { resumes, adminLoading, adminError, pagination } = useSelector(
     (state: RootStateLike) => state.resume
   );
+  const myUserId = useSelector((state: any) => state.user?.userInfo?.userId);
 
   // 添加 ref 来跟踪是否是从详情页返回
   const isReturningFromDetail = useRef<boolean>(false);
@@ -692,9 +694,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 icon={<ThunderboltOutlined />}
                 disabled={(resumes ?? []).length === 0}
                 onClick={() => {
-                  // 从第一位未打分的开始；都打完了就从第一份开始复查
+                  // 从第一位我未打分的开始；都打完了就从第一份开始复查
                   const list: any[] = resumes ?? [];
-                  const target = list.find((r) => r.resumeScore == null) ?? list[0];
+                  const target = list.find(isUngradedBy(myUserId)) ?? list[0];
                   if (target) onEnterStage(target);
                 }}
               >

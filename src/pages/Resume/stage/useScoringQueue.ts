@@ -5,8 +5,13 @@
 export interface QueueItem {
   resumeId: number;
   name: string;
-  /** 展示分：null = 没人打过分（后端已按署名判定，0 分不会误判成未打） */
+  /** 展示分（全体平均）：null = 没人打过分（后端已按署名判定，0 分不会误判成未打） */
   score: number | null;
+  /**
+   * 我这一票：null = 我还没打。队列推进只看它——多人打分时别人打过
+   * 不代表我打过，按平均分判断会把别人先打的那份跳过去，我这票就漏了。
+   */
+  mine: number | null;
   /** 志愿部门（第一/第二志愿的并集，用于部门快切） */
   depts: string[];
 }
@@ -27,7 +32,7 @@ export function neighborOf(items: QueueItem[], currentId: number, step: 1 | -1):
 }
 
 /**
- * 下一位未打分：从当前往后找，找不到再从头绕一圈。
+ * 下一位「我」未打分：从当前往后找，找不到再从头绕一圈。
  * 刻意排除当前这位——刚打完分时列表数据可能还没回填，
  * 不排除会原地打转。全部打完返回 null。
  */
@@ -35,26 +40,26 @@ export function nextUngradedOf(items: QueueItem[], currentId: number): QueueItem
   if (items.length === 0) return null;
   const at = items.findIndex((it) => it.resumeId === currentId);
   const ordered = at < 0 ? items : [...items.slice(at + 1), ...items.slice(0, at)];
-  return ordered.find((it) => it.score == null && it.resumeId !== currentId) ?? null;
+  return ordered.find((it) => it.mine == null && it.resumeId !== currentId) ?? null;
 }
 
 /**
  * 部门切换后的落点：当前这位仍在新范围里就留在原地（不打断正在看的人），
- * 否则优先落到第一位未打分的，再退而求其次落到第一位。
+ * 否则优先落到第一位我未打分的，再退而求其次落到第一位。
  */
 export function landingAfterDeptChange(items: QueueItem[], currentId: number): QueueItem | null {
   if (items.length === 0) return null;
   const stay = items.find((it) => it.resumeId === currentId);
   if (stay) return stay;
-  return items.find((it) => it.score == null) ?? items[0];
+  return items.find((it) => it.mine == null) ?? items[0];
 }
 
-/** 进度信息：第几位 / 共几位 / 还剩几位未打分 */
+/** 进度信息：第几位 / 共几位 / 还剩几位我没打分 */
 export function progressOf(items: QueueItem[], currentId: number) {
   const at = items.findIndex((it) => it.resumeId === currentId);
   return {
     index: at < 0 ? 0 : at + 1,
     total: items.length,
-    ungraded: items.filter((it) => it.score == null).length,
+    ungraded: items.filter((it) => it.mine == null).length,
   };
 }

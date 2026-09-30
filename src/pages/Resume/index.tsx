@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { message } from 'antd';
 import ScoringStage from './stage/ScoringStage';
 import { loadAllResumes } from './stage/loadAllResumes';
+import { isUngradedBy } from './scorePanel';
 import { request } from '@/utils';
 import { resumeActions } from '@/store/modules/resume';
 import ResumeList from './ResumeList';
@@ -66,8 +67,6 @@ export function resolveStageExit(
   return latest?.find((r) => String(r.resumeId) === String(entry.resumeId)) ?? entry;
 }
 
-/** 未打分：resumeScore 为 null/undefined。0 分算打过分 */
-export const isUngraded = (r: ResumeItem): boolean => (r as any).resumeScore == null;
 
 /**
  * 本页内当前这位之后、第一个符合条件的人。
@@ -94,12 +93,13 @@ export function findNextInPage(
   ) ?? null;
 }
 
-/** 本页内下一位未打分的人（不回绕，见 findNextInPage） */
+/** 本页内下一位我未打分的人（不回绕，见 findNextInPage） */
 export function findNextUngraded(
   resumes: ResumeItem[],
   current: ResumeItem | null,
+  myUserId?: number | string | null,
 ): ResumeItem | null {
-  return findNextInPage(resumes, current, isUngraded);
+  return findNextInPage(resumes, current, isUngradedBy(myUserId));
 }
 
 /**
@@ -157,8 +157,8 @@ const Resume: React.FC = () => {
    * 本页没有不代表没有下一位 —— 回绕与翻页在 goNext 里按整个结果集做。
    */
   const nextUngraded = useMemo<ResumeItem | null>(
-    () => findNextUngraded(resumes, selectedResume),
-    [resumes, selectedResume],
+    () => findNextUngraded(resumes, selectedResume, myUserId),
+    [resumes, selectedResume, myUserId],
   );
 
   // 本页内顺序的下一位（含已打分的），同样只用于按钮文案
@@ -190,7 +190,7 @@ const Resume: React.FC = () => {
    * 原来那种「回到本页第一个」正是用户报的「同一页无限循环」。
    */
   const goNext = useCallback(async (ungradedOnly: boolean): Promise<void> => {
-    const match = ungradedOnly ? isUngraded : () => true;
+    const match = ungradedOnly ? isUngradedBy(myUserId) : () => true;
     const inPage = findNextInPage(resumes, selectedResume, match);
     if (inPage) {
       setSelectedResume(inPage);
@@ -211,7 +211,7 @@ const Resume: React.FC = () => {
           return;
         }
       }
-      message.info(ungradedOnly ? '所有简历都打过分了' : '已经是最后一位了');
+      message.info(ungradedOnly ? '所有简历你都打过分了' : '已经是最后一位了');
       // 扫了一圈没结果时 store 里停在最后翻到的那一页，把页码对上，
       // 免得点返回时列表和页码对不上
       setCurrentPage(pagination.current ?? currentPage);
@@ -220,7 +220,7 @@ const Resume: React.FC = () => {
     } finally {
       setNextLoading(false);
     }
-  }, [resumes, selectedResume, currentPage, totalPages, fetchPage, pagination.current]);
+  }, [resumes, selectedResume, currentPage, totalPages, fetchPage, pagination.current, myUserId]);
 
   const handleNextUngraded = useCallback((): void => { void goNext(true); }, [goNext]);
   const handleNextSequential = useCallback((): void => { void goNext(false); }, [goNext]);
@@ -361,7 +361,7 @@ const Resume: React.FC = () => {
   // 自动落到第一位未打分的，都打完了就落第一份——否则页面会退回列表，
   // 用户看到的是「链接没生效」
   if (stageOn && !selectedResume && resumes.length > 0 && !exitingStage.current) {
-    const fallback = resumes.find((r: any) => r.resumeScore == null) ?? resumes[0];
+    const fallback = resumes.find(isUngradedBy(myUserId)) ?? resumes[0];
     if (fallback) setTimeout(() => setSelectedResume(fallback), 0);
   }
 
