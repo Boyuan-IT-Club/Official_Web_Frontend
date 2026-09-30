@@ -381,7 +381,12 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
   if (!cycleId) return null;
   if (loading) return <Card className="resume-ai-summary"><Skeleton active paragraph={{ rows: 2 }} /></Card>;
   if (!detail) {
-    return <Alert className="resume-ai-summary" type="info" showIcon message="这份简历还没有 AI 初筛结果" />;
+    // 没有初筛结果时不占卡片位,只留一行浅灰小字
+    return (
+      <Text type="secondary" className="resume-ai-summary--empty">
+        <RobotOutlined /> 暂无 AI 初筛结果
+      </Text>
+    );
   }
 
   return (

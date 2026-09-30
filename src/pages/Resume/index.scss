@@ -498,5 +498,16 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
     padding: 7px 8px;
     border-radius: 6px;
     background: #f4f6fa;
+
+    // 未初筛:去掉底色与留白,只剩一行浅灰小字
+    &--empty {
+      min-height: 0;
+      margin: 0 0 8px;
+      padding: 0;
+      background: none;
+      color: #bfbfbf;
+      font-size: 12px;
+      gap: 4px;
+    }
   }
 }

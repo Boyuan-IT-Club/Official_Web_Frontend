@@ -815,7 +815,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
             onChange={setAiFilter}
             options={[
               { value: 'all', label: '全部 AI 状态' },
-              { value: 'pending', label: '待 AI 初筛' },
+              { value: 'pending', label: '暂无 AI 初筛' },
               { value: 'match_top', label: '部门匹配优秀' },
               { value: 'effort_low', label: '认真程度一般' },
               { value: 'transfer', label: '有调剂建议' },
@@ -943,29 +943,34 @@ const ResumeList: React.FC<ResumeListProps> = ({
                             「专/业:」两行。窄卡片（侧栏 200px + 三列 ≈ 320px）必现。
                           */
                           <div className="resume-card-description">
-                            <div className="resume-card-ai">
-                              <RobotOutlined />
-                              {isScreening ? (
-                                <Tag color="processing">AI 初筛中</Tag>
-                              ) : failedScreening[String(resume.resumeId)] ? (
-                                <>
-                                  <Tooltip title={failedScreening[String(resume.resumeId)]}>
-                                    <Tag color="error">AI 初筛失败</Tag>
-                                  </Tooltip>
-                                  <Button
-                                    size="small"
-                                    type="link"
-                                    onClick={() => startAiScreening([Number(resume.resumeId)])}
-                                  >
-                                    重新评分
-                                  </Button>
-                                </>
-                              ) : aiCard ? (
-                                <AiGradeTags grades={aiCard} />
-                              ) : (
-                                <Tag>待 AI 初筛</Tag>
-                              )}
-                            </div>
+                            {/* 没有初筛结果时只留一行浅灰小字:不抢眼,但扫一眼能知道还没跑过 */}
+                            {isScreening || failedScreening[String(resume.resumeId)] || aiCard ? (
+                              <div className="resume-card-ai">
+                                <RobotOutlined />
+                                {isScreening ? (
+                                  <Tag color="processing">AI 初筛中</Tag>
+                                ) : failedScreening[String(resume.resumeId)] ? (
+                                  <>
+                                    <Tooltip title={failedScreening[String(resume.resumeId)]}>
+                                      <Tag color="error">AI 初筛失败</Tag>
+                                    </Tooltip>
+                                    <Button
+                                      size="small"
+                                      type="link"
+                                      onClick={() => startAiScreening([Number(resume.resumeId)])}
+                                    >
+                                      重新评分
+                                    </Button>
+                                  </>
+                                ) : aiCard ? (
+                                  <AiGradeTags grades={aiCard} />
+                                ) : null}
+                              </div>
+                            ) : (
+                              <div className="resume-card-ai resume-card-ai--empty">
+                                <RobotOutlined /> 暂无 AI 初筛
+                              </div>
+                            )}
                             <div>
                               <Text type="secondary" className="resume-card-description__label">专业</Text>
                               <span className="resume-card-description__value">{major || '未提供'}</span>
