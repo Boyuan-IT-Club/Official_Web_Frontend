@@ -177,9 +177,9 @@ type ResumeDetailProps = {
   onDownload?: (resumeId: string | number) => void;
   /** 返回按钮文案，默认「返回列表」 */
   backText?: string;
-  /** 顺序里下一位未打分同学的姓名；null 表示都打完了 */
+  /** 顺序里下一位「我」还没打分的同学姓名；null 表示我都打完了 */
   nextUngradedName?: string | null;
-  /** 跳到下一位未打分同学。未提供表示没有下一位 */
+  /** 跳到下一位我还没打分的同学（别人打过不算）。未提供表示没有下一位 */
   onNextUngraded?: () => void;
   /** 顺序里的下一位（含已打分），复查时用 */
   nextName?: string | null;
@@ -415,7 +415,7 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
                   message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），跳到${nextUngradedName ? `「${nextUngradedName}」` : '下一位'}`);
                   onNextUngraded();
                 } else {
-                  message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），本页简历都打完了`);
+                  message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），本页简历你都打完了`);
                 }
               } catch (e: any) {
                 message.error(e?.message || '打分失败');
@@ -442,7 +442,7 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
           {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位未打分的 */}
           {onNextUngraded && (
             <Button onClick={() => onNextUngraded()} loading={nextLoading}>
-              {`下一位未打分${nextUngradedName ? `：${nextUngradedName}` : ''}`}
+              {`下一位待我打分${nextUngradedName ? `：${nextUngradedName}` : ''}`}
             </Button>
           )}
           {/* 顺序浏览：已打过分的也能一路翻下去复查，不被「未打分」过滤挡住。

@@ -26,3 +26,16 @@ export function myScoreOf(
 export function scorerLabel(e: ScoreEntry): string {
   return e.scorerName && e.scorerName.trim() ? e.scorerName : '已注销';
 }
+
+/**
+ * 「我」还没打分：看打分明细里有没有我这一票。0 分算打过。
+ *
+ * 多人打分下不能看平均分——别人先打过的那份平均分已不为空，按它判断
+ * 会把这份跳过去，我这一票就漏了。拿不到自己的 userId（用户信息还没
+ * 加载）时退回按平均分判断，否则刚打完的人仍算「未打」，会原地打转。
+ */
+export const isUngradedBy = (myUserId?: number | string | null) => (r: any): boolean => (
+  myUserId == null
+    ? r?.resumeScore == null
+    : myScoreOf(r?.scoreEntries, myUserId) == null
+);

@@ -116,3 +116,26 @@ describe('本页没有下一位时该翻哪几页', () => {
     expect(new Set(scanned).size).toBe(scanned.length);
   });
 });
+
+describe('下一位未打分：多人打分时看我这一票', () => {
+  const ME = 7;
+  const withEntries = (id: number, avg: number | null, scorers: number[]): ResumeItem => ({
+    resumeId: id, status: 2, resumeScore: avg,
+    scoreEntries: scorers.map((s) => ({ scorerId: s, score: 80 })),
+  } as unknown as ResumeItem);
+
+  it('别人打过但我没打的不跳过', () => {
+    const list = [withEntries(1, 80, [ME]), withEntries(2, 80, [9]), withEntries(3, null, [])];
+    expect(findNextUngraded(list, list[0], ME)?.resumeId).toBe(2);
+  });
+
+  it('我打过的跳过', () => {
+    const list = [withEntries(1, null, []), withEntries(2, 80, [9, ME]), withEntries(3, null, [])];
+    expect(findNextUngraded(list, list[0], ME)?.resumeId).toBe(3);
+  });
+
+  it('拿不到我的 userId 时退回按平均分判断，不至于原地打转', () => {
+    const list = [withEntries(1, null, []), withEntries(2, 80, [9]), withEntries(3, null, [])];
+    expect(findNextUngraded(list, list[0], undefined)?.resumeId).toBe(3);
+  });
+});

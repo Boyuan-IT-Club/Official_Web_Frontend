@@ -27,9 +27,9 @@ const DEPTS = ['技术部', '项目部', '媒体部', '综合部'];
 
 const KEYS: Array<[string, string]> = [
   ['0-9', '直接输入分数'],
-  ['Enter', '保存并跳下一位未打分'],
+  ['Enter', '保存并跳到我未打分的下一位'],
   ['⌘/Ctrl + ← →', '上一位 / 下一位（不保存）'],
-  ['U', '跳过，去下一位未打分'],
+  ['U', '跳过，去我未打分的下一位'],
   ['Esc', '退出舞台'],
 ];
 
@@ -166,8 +166,9 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
     resumeId: Number(r.resumeId),
     name: nameOf(r),
     score: r.resumeScore == null ? null : Number(r.resumeScore),
+    mine: myScoreOf(r.scoreEntries, myUserId) ?? null,
     depts: deptsOf(r),
-  })), [resumes]);
+  })), [resumes, myUserId]);
 
   const items = useMemo(() => filterByDept(allItems, dept), [allItems, dept]);
 
@@ -212,9 +213,9 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
       onScored(currentId, nextAvg, nextEntries);
       if (thenNext) {
         // 本地先把这位标记成已打分，避免「下一位未打分」绕回自己
-        const marked = items.map((it) => (it.resumeId === currentId ? { ...it, score: nextAvg } : it));
+        const marked = items.map((it) => (it.resumeId === currentId ? { ...it, score: nextAvg, mine: score } : it));
         const next = nextUngradedOf(marked, currentId);
-        if (next) { go(next); } else { message.success(`已打分 ${score}，这一批都打完了`); }
+        if (next) { go(next); } else { message.success(`已打分 ${score}，这一批你都打完了`); }
       } else {
         message.success(`已打分 ${score}`);
       }
@@ -267,7 +268,7 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
       if ((e.key === 'u' || e.key === 'U') && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         const next = nextUngradedOf(items, currentId);
-        if (next) go(next); else message.info('这一批都打完了');
+        if (next) go(next); else message.info('这一批你都打完了');
       }
     };
     window.addEventListener('keydown', onKey);
@@ -279,8 +280,10 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
   const chips: FilmChip[] = items.map((it) => ({
     key: it.resumeId,
     name: it.name,
-    tag: it.score == null ? '未评' : `${it.score}`,
-    tagTone: it.score == null ? 'muted' : 'good',
+    // 三态：我打过（绿，显示平均分）/ 别人打过、我还没打（橙，待我评）/ 没人打过
+    tag: it.mine != null ? `${it.score ?? it.mine}` : it.score != null ? '待我评' : '未评',
+    tagTone: it.mine != null ? 'good' : it.score != null ? 'warn' : 'muted',
+    sub: it.mine == null && it.score != null ? `均 ${it.score}` : undefined,
     selected: it.resumeId === currentId,
   }));
 
@@ -291,7 +294,7 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
         <>
           {cycleName && <span className="scoring-stage__cycle">{cycleName}</span>}
           <span>第 <b>{prog.index}</b> / {prog.total} 位</span>
-          <span>未打分 <b>{prog.ungraded}</b></span>
+          <span>我未打分 <b>{prog.ungraded}</b></span>
           {loadingAll && <span className="scoring-stage__loading">正在载入全部筛选结果…</span>}
         </>
       }
