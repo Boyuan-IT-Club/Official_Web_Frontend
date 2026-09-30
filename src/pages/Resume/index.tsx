@@ -1,9 +1,11 @@
 // src/pages/Resume/index.tsx
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
 import { message } from 'antd';
 import ScoringStage from './stage/ScoringStage';
+import { loadAllResumes } from './stage/loadAllResumes';
+import { request } from '@/utils';
 import { resumeActions } from '@/store/modules/resume';
 import ResumeList from './ResumeList';
 import ResumeDetail from './ResumeDetail';
@@ -221,6 +223,47 @@ const Resume: React.FC = () => {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  /*
+    舞台队列：按列表同一套筛选条件取回「全部」结果。
+
+    以前舞台直接用 store 里的 resumes，那只是当前这一页（9 份）——打完 9 个
+    就得退出舞台、翻页、再进来。现在进舞台时按 lastQuery 分页取全；
+    取数期间先用当前页顶着，舞台立刻可用，取回来再换成全量。
+    不经过 fetchResumes 这个 thunk：它会把 store 里的列表页换掉，退出时就错页了。
+  */
+  const [stageResumes, setStageResumes] = useState<ResumeItem[] | null>(null);
+  const [stageLoading, setStageLoading] = useState(false);
+
+  useEffect(() => {
+    // 退出舞台就丢掉：下次进来可能换了筛选条件，得按新条件重取
+    if (!stageOn) {
+      setStageResumes(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setStageLoading(true);
+    loadAllResumes(lastQuery, async (params) => {
+      // 与 fetchResumes 同一条兜底：没带状态时只取已提交及之后的，不混进草稿
+      const q = params.status ? params : { ...params, status: '2,3,4,5' };
+      const res: any = await request.get('/api/resumes/search', { params: q });
+      if (res?.code !== 200) throw new Error(res?.message || '获取简历失败');
+      return {
+        content: res.data?.content ?? [],
+        total: res.data?.totalElements ?? 0,
+      };
+    })
+      .then((all) => { if (!cancelled) setStageResumes(all as ResumeItem[]); })
+      .catch(() => {
+        // 取不到全量不该让舞台不可用：退回当前页，并说清楚为什么只有这几个人
+        if (!cancelled) message.warning('没能载入全部筛选结果，暂时只显示当前这一页');
+      })
+      .finally(() => { if (!cancelled) setStageLoading(false); });
+    return () => { cancelled = true; };
+    // lastQuery 故意不进依赖：舞台打开期间列表不会再发请求，
+    // 而进舞台那一刻的条件才是这一批该打的人
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageOn]);
+
   const closeStage = useCallback((): void => {
     const next = new URLSearchParams(searchParams);
     next.delete('stage');
@@ -232,6 +275,13 @@ const Resume: React.FC = () => {
     dispatch(resumeActions.patchResumeScore({
       resumeId: resumeId as any, resumeScore: avg, scoreEntries: entries,
     }));
+    // 舞台现在吃的是自己取回的全量队列，不是 store —— 只改 store 的话，
+    // 芯片上的「未评」不会变，「下一位未打分」也会绕回刚打完的人
+    setStageResumes((prev) => prev && prev.map((r) => (
+      String(r.resumeId) === String(resumeId)
+        ? { ...r, resumeScore: avg, scoreEntries: entries }
+        : r
+    )));
   }, [dispatch]);
 
   const handleBackToList = (): void => {
@@ -273,7 +323,8 @@ const Resume: React.FC = () => {
   if (stageOn && selectedResume) {
     return (
       <ScoringStage
-        resumes={resumes}
+        resumes={stageResumes ?? resumes}
+        loadingAll={stageLoading}
         initialResumeId={Number(selectedResume.resumeId)}
         myUserId={myUserId}
         onExit={closeStage}
