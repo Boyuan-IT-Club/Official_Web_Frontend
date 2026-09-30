@@ -35,6 +35,7 @@ import {
 import { getToken } from '@/utils';
 import { hasPermission } from '@/utils/jwt';
 import { getAllCycles } from "@/api/manage/cycleApis";
+import { AiGradeTags, AiScorecardBody } from "@/components/ResumeAiEvaluation";
 
 const { Text, Paragraph } = Typography;
 
@@ -42,12 +43,6 @@ const STATUS_TAG: Record<string, { color: string; text: string }> = {
   draft: { color: "default", text: "待评审" },
   adopted: { color: "success", text: "已采纳" },
   rejected: { color: "error", text: "已驳回" },
-};
-
-const VERDICT_TEXT: Record<string, string> = {
-  sincere: "态度端正",
-  perfunctory: "态度敷衍",
-  bad_faith: "态度不端",
 };
 
 /** 简历评估评审队列(B 模块 #135,#128):0 分队列/维卡/采纳/驳回/题库勾选。
@@ -197,7 +192,7 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
 
   const doReject = (row: ScorecardRow) => {
     Modal.confirm({
-      title: "驳回该 AI 参考分?",
+      title: "驳回该 AI 初筛结果?",
       content: "驳回后卡置为已驳回,可重新触发初筛生成新版本。",
       onOk: async () => {
         try {
@@ -247,18 +242,12 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
         <Tag color={STATUS_TAG[v]?.color}>{STATUS_TAG[v]?.text ?? v}</Tag>
       ),
     },
+    { title: "志愿", dataIndex: "intended_first", width: 90, render: (v?: string | null) => v || "未填" },
     {
-      title: "初筛",
-      dataIndex: "hard_zero",
-      width: 100,
-      render: (v: boolean) =>
-        v ? <Tag color="red">初筛不过</Tag> : <Tag color="green">通过</Tag>,
-    },
-    {
-      title: "AI 参考总分",
-      dataIndex: "total",
-      width: 110,
-      render: (v: number | null) => (v === null ? "-" : <b>{v}</b>),
+      title: "AI 初筛",
+      key: "grades",
+      width: 300,
+      render: (_: unknown, r) => <AiGradeTags grades={r} />,
     },
     {
       title: "生成时间",
@@ -313,7 +302,7 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
           }}
           options={[
             { value: "all", label: "全部" },
-            { value: "zero", label: "0 分/初筛不过" },
+            { value: "zero", label: "需重点复核" },
           ]}
         />
         <Button icon={<ReloadOutlined />} onClick={() => load()} />
@@ -364,38 +353,9 @@ const EvaluationReview: React.FC<{ embedded?: boolean }> = ({ embedded = false }
             <Tag color={STATUS_TAG[detail.status]?.color}>
               {STATUS_TAG[detail.status]?.text ?? detail.status}
             </Tag>
-            {detail.hard_zero ? <Tag color="red">初筛不过</Tag> : null}
             <Text type="secondary">AI 标注,仅供参考</Text>
           </Space>
-          {detail.card?.summary ? (
-            <Paragraph style={{ marginBottom: 12 }}>{detail.card.summary}</Paragraph>
-          ) : null}
-          {(detail.card?.traits ?? []).map((tr) => (
-            <div
-              key={tr.trait}
-              style={{
-                border: "1px solid #f0f0f0",
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 8,
-              }}
-            >
-              <Space>
-                <Text strong>{tr.trait}</Text>
-                <Tag color={tr.met ? "green" : "default"}>{tr.met ? "达成" : "未达成"}</Tag>
-              </Space>
-              <Paragraph style={{ marginBottom: tr.quote ? 4 : 0 }}>{tr.reason}</Paragraph>
-              {tr.quote ? (
-                <Paragraph type="secondary" style={{ marginBottom: 0 }} italic>
-                  依据:「{tr.quote}」
-                </Paragraph>
-              ) : null}
-            </div>
-          ))}
-          <Paragraph type="secondary">
-            态度:{VERDICT_TEXT[detail.card?.attitude?.verdict] ?? "-"}
-            {detail.card?.attitude?.reason ? ` — ${detail.card.attitude.reason}` : ""}
-          </Paragraph>
+          <AiScorecardBody detail={detail} />
         </div>
       )}
     </Drawer>

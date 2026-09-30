@@ -1,27 +1,58 @@
 import { request } from '@/utils';
 
 /**
- * 简历评估(B 模块 #135)管理面 API:Backend 代理 /api/admin/agent/evaluation/**,
+ * 简历评估管理面 API:Backend 代理 /api/admin/agent/evaluation/**,
  * 数据权威在 Agent 服务 /admin/evaluation*。权限:resume:audit(评审)/
  * interview:evaluate(面试官只读题库与维卡)。
  */
 
-/** 评分卡行(评审队列投影;AI 参考分≠终分,resumeScore 由后端多人打分出) */
-export interface ScorecardRow {
+/** AI 初筛等级:同一周期、同一第一志愿部门的候选人之间相对划分(头尾各约两成) */
+export type AiGrade = '优秀' | '良好' | '一般';
+
+/** 调剂建议:简历明显更贴合别的部门 */
+export interface TransferHint {
+  dept: string;
+  /** 建议的部门就是候选人的第二志愿 */
+  is_second_choice: boolean;
+}
+
+/** 等级依据:pool=同部门候选池内相对划分;anchor=候选不足,按绝对标准;hard_zero=命中重点复核规则 */
+export type GradeBasis = 'pool' | 'anchor' | 'hard_zero';
+
+/** 两维等级字段(队列行与维卡共用) */
+export interface AiGrades {
+  /** 与志愿部门的匹配度;未填志愿时为 null */
+  match_level?: AiGrade | null;
+  /** 写简历的认真程度 */
+  effort_level?: AiGrade | null;
+  grade_basis?: GradeBasis | null;
+  /** 候选池名(第一志愿部门,或「未填志愿」) */
+  pool?: string | null;
+  pool_size?: number | null;
+  /** 旧版初筛结果(单一总分),需要重新初筛才有两维等级 */
+  needs_rerun?: boolean;
+}
+
+/** 评分卡行(评审队列投影;AI 只给等级,终分由后端多人打分出) */
+export interface ScorecardRow extends AiGrades {
   resume_id: number;
   card_version: number;
   status: 'draft' | 'adopted' | 'rejected';
+  /** 需重点复核(空白/占位/敷衍,或两张清单一项未达成) */
   hard_zero: boolean;
+  /** 仅旧版卡且持 evaluation:score:view 时有值 */
   total: number | null;
   prompt_version: string;
   created_at?: string;
-  /** #154 评审页重评:队列 SQL 由 evaluation_job 带出(可能缺,历史行) */
+  /** 评审页重评:队列 SQL 由 evaluation_job 带出(可能缺,历史行) */
   user_id?: number;
+  intended_first?: string | null;
+  transfer_hint?: TransferHint | null;
 }
 
-/** 一项特质的判定结果。met=false 时 reason 写「缺什么」。 */
-export interface TraitVerdict {
-  trait: string;
+/** 清单里一个判定项的结果。met=false 时 reason 写「缺什么」。 */
+export interface ItemVerdict {
+  item: string;
   met: boolean;
   /** 判定依据的原文逐字片段(判 true 时必填) */
   quote: string;
@@ -29,20 +60,43 @@ export interface TraitVerdict {
   reason: string;
 }
 
+/** 一个部门的匹配清单 */
+export interface DeptMatch {
+  dept: string;
+  /** 0-10 分,仅持 evaluation:score:view 可见 */
+  score?: number;
+  items: ItemVerdict[];
+}
+
+/** 旧版卡的特质判定(单一总分时代) */
+export interface TraitVerdict {
+  trait: string;
+  met: boolean;
+  quote: string;
+  reason: string;
+}
+
 /** 评分卡详情 */
-export interface ScorecardDetail {
+export interface ScorecardDetail extends AiGrades {
   card_version: number;
   status: string;
   hard_zero: boolean;
   total: number | null;
   card: {
-    traits: TraitVerdict[];
-    /** 整体理由(2-4 句):强在哪、弱在哪、建议怎么面 */
+    schema?: string;
+    intended?: { first: string | null; second: string | null };
+    /** 四个部门都判:志愿部门决定匹配度,其余用于调剂建议 */
+    match?: DeptMatch[];
+    effort?: { score?: number; items: ItemVerdict[] };
+    /** 整体理由(2-4 句):对得上的地方、缺什么、面试建议 */
     summary: string;
     attitude: { verdict: string; reason: string };
-    /** 达成项数(总分即由它派生) */
-    met_count?: number;
+    transfer_hint?: TransferHint | null;
+    /** 给面试官的提示(非计算机类专业、技术部无技术基础等) */
+    interview_hints?: string[];
     hard_zero_reasons?: Record<string, string>;
+    /** 旧版卡才有 */
+    traits?: TraitVerdict[];
   };
   created_at?: string;
 }
@@ -68,7 +122,7 @@ export function listEvaluationJobs(cycleId: number, status?: string) {
   });
 }
 
-/** 评审队列:queue=zero → 初筛不过子队列(#128) */
+/** 评审队列:queue=zero → 需重点复核子队列 */
 export function listEvaluationQueue(cycleId: number, queue: 'zero' | 'all' = 'all') {
   return request({
     url: '/api/admin/agent/evaluation/queue',
@@ -86,7 +140,7 @@ export function getEvaluationScorecard(resumeId: number, cycleId: number) {
   });
 }
 
-/** 采纳:评审本人一票 upsert 后端(AI 不占 scorer);score=AI total 或人工改分 */
+/** 采纳:评审本人一票 upsert 后端(AI 不占 scorer);score 由评审本人给出 */
 export function adoptEvaluation(
   resumeId: number,
   cycleId: number,
