@@ -70,6 +70,18 @@
 
   &__preview-audio { width: 100%; }
 
+  // 点「预览」后弹窗先出来、链接还在路上：给出和内容区一样高的占位，别让弹窗先塌后撑
+  &__preview-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: t.$gap-xs;
+    height: 40vh;
+    color: #6b7280;
+    font-size: t.$text-sm;
+  }
+
   &__preview-frame {
     width: 100%;
     height: 68vh;

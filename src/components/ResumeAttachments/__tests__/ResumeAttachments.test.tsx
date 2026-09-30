@@ -10,6 +10,8 @@ jest.mock('@/api/resumeAttachment', () => ({
   uploadAttachment: jest.fn(),
   deleteAttachment: jest.fn(),
   fetchAttachmentBlob: jest.fn(),
+  // 默认 null（相当于 COS 未启用）：老测试继续走 blob 路径，断言不用改
+  fetchAttachmentUrl: jest.fn(),
   formatSize: (n: number) => `${n}B`,
 }));
 
@@ -39,6 +41,7 @@ function pickFile(file: File): void {
 beforeEach(() => {
   api.listAttachments.mockResolvedValue({ data: [PDF, DOC] });
   api.fetchAttachmentBlob.mockResolvedValue(new Blob(['x']));
+  api.fetchAttachmentUrl.mockResolvedValue(null);
   api.deleteAttachment.mockResolvedValue({});
   api.uploadAttachment.mockResolvedValue({});
   (global.URL as any).createObjectURL = jest.fn(() => 'blob:fake');
@@ -114,6 +117,73 @@ describe('简历附件', () => {
     const link = screen.getByRole('link', { name: /新标签页打开/ });
     expect(link).toHaveAttribute('href', 'blob:fake');
     expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('有直链就用直链：不再经服务器下整个文件，也不创建 blob', async () => {
+    /*
+      服务器公网出口只有 5~8Mbps、全员共享。附件原来 COS → 服务器 → 浏览器转一道，
+      一份大 PDF 就把管道占满，同时发出的列表请求排队超时。直链让浏览器直接从 COS 下。
+    */
+    api.fetchAttachmentUrl.mockResolvedValue('https://cos.example/signed.pdf');
+    render(<ResumeAttachments resumeId={9} />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /预览/ })[0]);
+
+    await waitFor(() => expect(document.querySelector('object[type="application/pdf"]'))
+      .toHaveAttribute('data', 'https://cos.example/signed.pdf'));
+    expect(api.fetchAttachmentUrl).toHaveBeenCalledWith(1, true);
+    expect(api.fetchAttachmentBlob).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('点预览立刻弹窗、先显示加载中 —— 以前要等整个文件下完才有反应', async () => {
+    let resolveUrl: (v: string) => void = () => {};
+    api.fetchAttachmentUrl.mockReturnValue(new Promise<string>((r) => { resolveUrl = r; }));
+    render(<ResumeAttachments resumeId={9} />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /预览/ })[0]);
+
+    // 链接还没回来，弹窗已经在了
+    expect(await screen.findByText('正在打开…')).toBeInTheDocument();
+    resolveUrl('https://cos.example/signed.pdf');
+    await waitFor(() => expect(screen.queryByText('正在打开…')).toBeNull());
+  });
+
+  it('直链接口出错（非 403）就退回旧的 blob 路径，预览照样能用', async () => {
+    api.fetchAttachmentUrl.mockRejectedValue({ status: 500, message: 'boom' });
+    render(<ResumeAttachments resumeId={9} />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /预览/ })[0]);
+    await waitFor(() => expect(api.fetchAttachmentBlob).toHaveBeenCalledWith(1, true));
+    await waitFor(() => expect(document.querySelector('object[type="application/pdf"]'))
+      .toHaveAttribute('data', 'blob:fake'));
+  });
+
+  it('403 就是没权限：不退回旧路径再试一次，直接报错并收起弹窗', async () => {
+    api.fetchAttachmentUrl.mockRejectedValue({ status: 403, message: '没有权限' });
+    const error = jest.spyOn(message, 'error').mockImplementation(() => undefined as never);
+    render(<ResumeAttachments resumeId={9} />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /预览/ })[0]);
+    await waitFor(() => expect(error).toHaveBeenCalledWith('没有权限'));
+    expect(api.fetchAttachmentBlob).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByText('正在打开…')).toBeNull());
+    error.mockRestore();
+  });
+
+  it('关掉直链预览时不去 revoke —— 那不是我们创建的 blob', async () => {
+    api.fetchAttachmentUrl.mockResolvedValue('https://cos.example/signed.pdf');
+    render(<ResumeAttachments resumeId={9} />);
+    await waitFor(() => expect(screen.getByText('作品集.pdf')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: /预览/ })[0]);
+    await waitFor(() => expect(document.querySelector('object')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /关\s*闭/ }));
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
   });
 
   it('关闭预览时释放 blob URL，不漏内存', async () => {
