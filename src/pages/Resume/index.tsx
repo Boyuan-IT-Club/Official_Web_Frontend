@@ -1,5 +1,5 @@
 // src/pages/Resume/index.tsx
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
 import { message } from 'antd';
@@ -42,6 +42,28 @@ export function pagesToScan(current: number, totalPages: number, wrap: boolean):
   const before: number[] = [];
   for (let p = 1; p <= current; p += 1) before.push(p);
   return [...after, ...before];
+}
+
+/** 打分舞台是从哪进来的：退出时按原路回去 */
+export type StageOrigin = 'list' | 'detail';
+
+/**
+ * 退出打分舞台后该显示谁的详情；返回 null 表示回总览列表。
+ *
+ * 以前一律落回「进舞台时那一位」的简历详情 —— 从总览点「打分舞台」进去，
+ * 退出却掉进某个人的详情页，得再点一次返回。现在：
+ * - 从总览进的，回总览；
+ * - 从某人详情页进的，回那个人的详情，并换上舞台里打过的最新分数
+ *   （否则详情页还显示进舞台前的旧分）。
+ * 刷新后来源丢失，按总览处理 —— 比落进一个莫名其妙的人更好。
+ */
+export function resolveStageExit(
+  origin: StageOrigin,
+  entry: ResumeItem | null,
+  latest: ReadonlyArray<ResumeItem> | null,
+): ResumeItem | null {
+  if (origin !== 'detail' || !entry) return null;
+  return latest?.find((r) => String(r.resumeId) === String(entry.resumeId)) ?? entry;
 }
 
 /** 未打分：resumeScore 为 null/undefined。0 分算打过分 */
@@ -215,9 +237,27 @@ const Resume: React.FC = () => {
       : null
   );
 
-  /** 进入/退出舞台。带上当前这位，退出后回到列表原位 */
-  const openStage = useCallback((resume: ResumeItem): void => {
+  /** 进舞台时记下来源，退出时按原路回去（见 resolveStageExit） */
+  const [stageOrigin, setStageOrigin] = useState<StageOrigin>('list');
+
+  /*
+    正在退出舞台的标记。
+
+    下面有段兜底：「在舞台里却没有选中的人（刷新进来）→ 自动选第一位未打分的」。
+    退出时我们会先清空选中、再删 URL 里的 stage。react-router 7 默认把导航
+    包进 startTransition，URL 那一步可能晚一拍生效 —— 中间那一帧就是
+    「还在舞台、选中为空」，兜底会误判成刷新进来，又塞一个人进去，
+    结果退出后落进那个人的详情页。这个标记就是挡住那一帧的。
+  */
+  const exitingStage = useRef(false);
+  useEffect(() => {
+    if (!stageOn) exitingStage.current = false;
+  }, [stageOn]);
+
+  /** 进入舞台。resume 是舞台的起点那一位；from 决定退出后回哪 */
+  const openStage = useCallback((resume: ResumeItem, from: StageOrigin): void => {
     setSelectedResume(resume);
+    setStageOrigin(from);
     const next = new URLSearchParams(searchParams);
     next.set('stage', '1');
     setSearchParams(next, { replace: true });
@@ -265,10 +305,15 @@ const Resume: React.FC = () => {
   }, [stageOn]);
 
   const closeStage = useCallback((): void => {
+    // 以前只删 stage 参数，selectedResume（舞台起点那一位）还留着，
+    // 于是一律落进那个人的详情页 —— 从总览进去的也一样
+    exitingStage.current = true;
+    setSelectedResume(resolveStageExit(stageOrigin, selectedResume, stageResumes));
+    setStageOrigin('list');
     const next = new URLSearchParams(searchParams);
     next.delete('stage');
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, stageOrigin, selectedResume, stageResumes]);
 
   /** 舞台里打完分回写列表 store，退出后列表分数已是新值 */
   const handleScored = useCallback((resumeId: number, avg: number, entries: any[]): void => {
@@ -315,7 +360,7 @@ const Resume: React.FC = () => {
   // 带 ?stage=1 直接进来（分享链接、刷新）时没有选中项：
   // 自动落到第一位未打分的，都打完了就落第一份——否则页面会退回列表，
   // 用户看到的是「链接没生效」
-  if (stageOn && !selectedResume && resumes.length > 0) {
+  if (stageOn && !selectedResume && resumes.length > 0 && !exitingStage.current) {
     const fallback = resumes.find((r: any) => r.resumeScore == null) ?? resumes[0];
     if (fallback) setTimeout(() => setSelectedResume(fallback), 0);
   }
@@ -351,11 +396,11 @@ const Resume: React.FC = () => {
           nextName={nameOf(nextSequential)}
           onNext={nextSequential || hasNextPage ? handleNextSequential : undefined}
           nextLoading={nextLoading}
-          onEnterStage={() => openStage(selectedResume)}
+          onEnterStage={() => openStage(selectedResume, 'detail')}
         />
       ) : (
         <ResumeList
-          onEnterStage={(r: ResumeItem) => openStage(r)}
+          onEnterStage={(r: ResumeItem) => openStage(r, 'list')}
           onShowDetail={handleShowDetail}
           onDownload={handleDownload}
           currentPage={currentPage}
