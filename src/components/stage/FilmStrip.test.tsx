@@ -42,6 +42,22 @@ describe('胶片条的游动标尺', () => {
     expect(container.querySelectorAll('.film-ruler__tick.is-bucket').length).toBeGreaterThan(0);
   });
 
+  it('ruler={false} 时不画标尺（打分舞台）、卡片照常可点', () => {
+    const onSelect = jest.fn();
+    const { container } = render(<FilmStrip items={people(57)} ruler={false} onSelect={onSelect} />);
+    expect(screen.queryByTestId('film-ruler')).toBeNull();
+    // 外壳带上 no-ruler 标记：据此恢复原生滚动条和原来的底边距
+    expect(container.querySelector('.film--no-ruler')).toBeInTheDocument();
+    act(() => { screen.getByText('同学5').closest('button')!.click(); });
+    expect(onSelect).toHaveBeenCalledWith(5);
+  });
+
+  it('默认带标尺 —— 预录取与面试评价两个舞台不受打分舞台的开关影响', () => {
+    const { container } = render(<FilmStrip items={people(10)} onSelect={() => {}} />);
+    expect(screen.getByTestId('film-ruler')).toBeInTheDocument();
+    expect(container.querySelector('.film--no-ruler')).toBeNull();
+  });
+
   it('只有一个人时不画标尺 —— 没什么可导航的', () => {
     render(<FilmStrip items={people(1)} onSelect={() => {}} />);
     expect(screen.queryByTestId('film-ruler')).toBeNull();

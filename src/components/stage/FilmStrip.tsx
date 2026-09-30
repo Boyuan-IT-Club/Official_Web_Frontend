@@ -21,7 +21,19 @@ export interface FilmChip {
   selected?: boolean;
 }
 
-const FilmStrip: React.FC<{ items: FilmChip[]; onSelect: (key: FilmChip['key']) => void }> = ({ items, onSelect }) => {
+interface FilmStripProps {
+  items: FilmChip[];
+  onSelect: (key: FilmChip['key']) => void;
+  /**
+   * 是否显示下方的游动标尺，默认显示。
+   * 打分舞台关掉了（用户觉得太丑）；预录取、面试评价仍保留。
+   * 关掉时胶片条恢复原生滚动条与原来的底边距 —— 没有标尺还藏着滚动条，
+   * 就看不出这一排能横向滚。
+   */
+  ruler?: boolean;
+}
+
+const FilmStrip: React.FC<FilmStripProps> = ({ items, onSelect, ruler = true }) => {
   const ref = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
 
@@ -114,7 +126,7 @@ const FilmStrip: React.FC<{ items: FilmChip[]; onSelect: (key: FilmChip['key']) 
   const hovered = hover ? items[hover.index] : undefined;
 
   return (
-    <div className="film">
+    <div className={ruler ? 'film' : 'film film--no-ruler'}>
       <div className="film-strip" ref={ref} onScroll={syncWindow}>
         {items.map((it) => (
           <button
@@ -136,7 +148,7 @@ const FilmStrip: React.FC<{ items: FilmChip[]; onSelect: (key: FilmChip['key']) 
         aria-hidden：它只是指针的快捷通道，键盘用户走上面的卡片按钮（每张都可聚焦），
         不需要再听一遍几十根刻度。
       */}
-      {count > 1 && (
+      {ruler && count > 1 && (
         <div
           className="film-ruler"
           ref={rulerRef}

@@ -40,6 +40,24 @@
   // 高度账：卡片上下 10+4 + 标尺 22 + 这里 4 = 40px，原来是 10+14=24px，
   // 整条正好高 16px —— EvaluationWorkspace 的 calc(100vh - 191px) 按这个数算的
   padding-bottom: 4px;
+
+  // 带标尺时，原生滚动条交给标尺：它既显示看得到哪一段，也能拖。
+  // 触控板横滑 / Shift+滚轮照常可用。
+  // 只在这里隐藏，而不是先全局藏、再给无标尺的撤销 —— WebKit 里一旦给
+  // ::-webkit-scrollbar 写过样式就进了自定义模式，写 display:block 也回不到原生
+  &:not(.film--no-ruler) > .film-strip {
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  // 不带标尺（打分舞台）：恢复原来的底边距，和加标尺之前一模一样
+  &--no-ruler {
+    padding-bottom: 0;
+
+    > .film-strip {
+      padding-bottom: 14px;
+    }
+  }
 }
 
 .film-strip {
@@ -48,10 +66,6 @@
   // 底边距让给下方标尺（高度账见上面 .film）
   padding: 10px 16px 4px;
   overflow-x: auto;
-  // 原生滚动条交给下方标尺：它既显示看得到哪一段，也能拖。
-  // 触控板横滑 / Shift+滚轮照常可用
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
 
   &__chip {
     flex: none;

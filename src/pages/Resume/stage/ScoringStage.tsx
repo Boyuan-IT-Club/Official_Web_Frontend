@@ -284,7 +284,8 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
         />
       }
       onExit={onExit}
-      film={<FilmStrip items={chips} onSelect={(k) => setCurrentId(Number(k))} />}
+      // 打分舞台不要游动标尺（用户反馈太丑），只留胶片条
+      film={<FilmStrip items={chips} ruler={false} onSelect={(k) => setCurrentId(Number(k))} />}
     >
       <div className="scoring-stage">
         <div className="scoring-stage__paper">
