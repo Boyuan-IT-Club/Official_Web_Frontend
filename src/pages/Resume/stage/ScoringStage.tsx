@@ -10,12 +10,12 @@
 //   ③ 打分状态全部以 resumeId 为 key 派生，切人即重建——
 //      「上一位分数残留」那类 bug 从结构上绝迹。
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { InputNumber, Button, Select, Tooltip, message } from 'antd';
+import { InputNumber, Button, Popconfirm, Select, Tooltip, message } from 'antd';
 import { DownOutlined, HolderOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import StageShell from '@/components/stage/StageShell';
 import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
 import ResumeDetail from '../ResumeDetail';
-import { updateResumeScore } from '@/api/manage/resumeEntry';
+import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
 import { myScoreOf, scorerLabel, ScoreEntry } from '../scorePanel';
 import {
   QueueItem, filterByDept, landingAfterDeptChange, neighborOf, nextUngradedOf, progressOf,
@@ -47,7 +47,7 @@ export interface ScoringStageProps {
   myUserId?: number | string;
   onExit: () => void;
   /** 保存成功后回写列表 store */
-  onScored: (resumeId: number, avg: number, entries: ScoreEntry[]) => void;
+  onScored: (resumeId: number, avg: number | null, entries: ScoreEntry[]) => void;
 }
 
 const nameOf = (r: any): string =>
@@ -185,6 +185,8 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
 
   const entries: ScoreEntry[] = (current as any)?.scoreEntries ?? [];
   const avg: number | null = (current as any)?.resumeScore ?? null;
+  /** 我已经存下的那一票；有才显示「撤销」 */
+  const mySaved = myScoreOf(entries, myUserId);
 
   // 我的打分：以 currentId 为 key 重建，切人自动清空（不会残留上一位的分）
   const [score, setScore] = useState<number | undefined>(undefined);
@@ -223,6 +225,26 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
     }
   }, [score, saving, currentId, items, onScored, go]);
 
+  // 误触打分后反悔：只撤我这一票。不自动跳人——撤完通常是要当场重打
+  const [withdrawing, setWithdrawing] = useState(false);
+  const withdraw = useCallback(async () => {
+    if (withdrawing) return;
+    setWithdrawing(true);
+    try {
+      const res: any = await withdrawResumeScore(currentId);
+      const nextAvg: number | null = res?.data?.resumeScore ?? null;
+      const nextEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
+      onScored(currentId, nextAvg, nextEntries);
+      setScore(undefined);
+      message.success(nextAvg == null ? '已撤销你的打分，回到未评' : `已撤销你的打分（剩余平均 ${nextAvg}）`);
+      setTimeout(() => inputRef.current?.focus?.({ cursor: 'all' }), 60);
+    } catch (e: any) {
+      message.error(e?.message || '撤销打分失败');
+    } finally {
+      setWithdrawing(false);
+    }
+  }, [withdrawing, currentId, onScored]);
+
   // 键盘流：Enter 由输入框的 onPressEnter 接（antd InputNumber 会吞掉冒泡，
   // 挂 window 收不到）；其余键位是全局的，挂 window。
   useEffect(() => {
@@ -230,7 +252,8 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
       // 焦点在下拉/搜索框等控件里时，把键盘完全交还给该控件——
       // 否则回车会被舞台抢走，antd Select 的选项提交不了（实测踩到）
       const t = e.target as HTMLElement | null;
-      if (t?.closest?.('.ant-select, .ant-picker, textarea')) return;
+      // 撤销确认气泡也一样：在「撤销」键上回车不能顺手把分又存了一遍
+      if (t?.closest?.('.ant-select, .ant-picker, .ant-popover, textarea')) return;
       // Enter 双保险：输入框的 onPressEnter 已接一次，这里兜住焦点不在框内
       // 的情形（点过胶片条/部门下拉之后）。saving 期间忽略，避免重复提交。
       if (e.key === 'Enter' && !e.isComposing) {
@@ -342,6 +365,20 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
             <Button type="primary" loading={saving} disabled={score == null} onClick={() => save(true)}>
               保存 ⏎
             </Button>
+            {mySaved != null && (
+              <Popconfirm
+                title="撤销你的打分？"
+                description={`将删除你打的 ${mySaved} 分，其他人的不受影响`}
+                okText="撤销"
+                cancelText="取消"
+                placement="top"
+                onConfirm={withdraw}
+              >
+                <Button danger type="text" loading={withdrawing} disabled={saving}>
+                  撤销
+                </Button>
+              </Popconfirm>
+            )}
             <Tooltip
               title={
                 entries.length === 0 ? '还没有人打分'

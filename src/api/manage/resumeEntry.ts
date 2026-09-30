@@ -667,6 +667,17 @@ export const updateResumeScore = (resumeId: number, score: number) => {
   });
 };
 
+/**
+ * 撤销「我」对这份简历的打分（误触后反悔用）。只删自己那一票，别人的不动。
+ * 返回的 resumeScore 是剩余票的平均分；一票都不剩时为 null（回到「未评」）。
+ */
+export const withdrawResumeScore = (resumeId: number) => {
+  return request({
+    url: `/api/resumes/${resumeId}/score`,
+    method: 'delete',
+  });
+};
+
 export const updateResumeField = (fieldId: number, data: Partial<BackendResumeField>) => {
   return request({
     url: `/api/resumes/fields/${fieldId}`,

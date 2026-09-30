@@ -527,6 +527,12 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
   // 「开始审核/评审中」流程已随三态化移除：录取与否在「面试管理 → 结果与通知」中决定
 
+  // 非默认排序时把当前方式写在按钮上——按分数排着却看不出来，容易误以为是时间序
+  const SORT_LABELS: Record<string, string> = {
+    time_asc: '时间正序', name_asc: '姓名正序', name_desc: '姓名倒序',
+    score_desc: '分数高→低', score_asc: '分数低→高',
+  };
+
   // 排序菜单 - 添加 selectedKeys（保持原逻辑不变）
   const sortMenu = (
     <Menu
@@ -541,6 +547,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
           handleSortChange('name', 'ASC', 'name_asc');
         } else if (k === 'name_desc') {
           handleSortChange('name', 'DESC', 'name_desc');
+        } else if (k === 'score_desc') {
+          handleSortChange('resume_score', 'DESC', 'score_desc');
+        } else if (k === 'score_asc') {
+          handleSortChange('resume_score', 'ASC', 'score_asc');
         }
       }}
     >
@@ -555,6 +565,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
       </Menu.Item>
       <Menu.Item key="name_desc" icon={<SortDescendingOutlined />}>
         按姓名倒序
+      </Menu.Item>
+      {/* 按平均分排；未评分的无论升降序都沉底。配合「期望部门」筛选即部门内排名 */}
+      <Menu.Item key="score_desc" icon={<SortDescendingOutlined />}>
+        按分数从高到低
+      </Menu.Item>
+      <Menu.Item key="score_asc" icon={<SortAscendingOutlined />}>
+        按分数从低到高
       </Menu.Item>
     </Menu>
   );
@@ -743,7 +760,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
 
           <div className="control-item sort-dropdown">
             <Dropdown overlay={sortMenu} trigger={['click']}>
-              <Button icon={<FilterOutlined />}>排序方式</Button>
+              <Button icon={<FilterOutlined />}>{SORT_LABELS[currentSortKey] ?? '排序方式'}</Button>
             </Dropdown>
           </div>
 

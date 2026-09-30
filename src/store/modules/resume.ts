@@ -605,7 +605,7 @@ const resumeSlice = createSlice({
      */
     patchResumeScore: (
       state,
-      action: PayloadAction<{ resumeId: ID; resumeScore: number; scoredByName?: string | null; scoredAt?: string | null; scoreEntries?: any[] }>,
+      action: PayloadAction<{ resumeId: ID; resumeScore: number | null; scoredByName?: string | null; scoredAt?: string | null; scoreEntries?: any[] }>,
     ) => {
       const { resumeId, resumeScore, scoredByName, scoredAt, scoreEntries } = action.payload;
       const hit = state.resumes?.find(
