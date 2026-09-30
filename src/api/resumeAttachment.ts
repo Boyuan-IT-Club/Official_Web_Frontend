@@ -53,6 +53,28 @@ export async function fetchAttachmentBlob(id: number, inline: boolean): Promise<
   return res instanceof Blob ? res : res?.data;
 }
 
+/**
+ * 取附件的限时直链（15 分钟），浏览器拿去直接从 COS 下载，不经过我们的服务器。
+ *
+ * 为什么不再用 fetchAttachmentBlob：那条路是 COS → 服务器 → 浏览器转一道，
+ * 而服务器公网出口只有 5~8Mbps、所有人共享。一份 4MB 的 PDF 就能把管道占满好几秒，
+ * 页面上同时发出的列表请求排队超过 10 秒超时，报「获取简历列表失败」。
+ * 同一台机器实测：COS 直链 14~32MB/s，走服务器 0.4~1.1MB/s。
+ *
+ * 签名本身就是凭据，链接可以直接放进 img / object / video 的 src，
+ * 不需要 Authorization 头，浏览器还能边下边渲染（PDF 先出第一页）。
+ *
+ * @returns 直链；COS 未启用时为 null，调用方退回 fetchAttachmentBlob
+ */
+export async function fetchAttachmentUrl(id: number, inline: boolean): Promise<string | null> {
+  const res: any = await request({
+    url: `/api/resumes/attachments/${id}/url`,
+    method: 'get',
+    params: { inline },
+  });
+  return res?.data?.url ?? null;
+}
+
 /** 人类可读的体积。 */
 export function formatSize(bytes: number): string {
   if (!bytes || bytes < 0) return '—';

@@ -51,6 +51,24 @@ const request: AxiosInstance = axios.create({
 /**
  * 设置请求拦截器（只执行一次）
  */
+/*
+  给用户看的错误文案。
+
+  原来是 String(resData?.message || ...) || error.message ——
+  超时、断网时根本没有响应体，resData 为 undefined，String(undefined) 得到的是
+  字符串 "undefined"，它是真值，后面的 || error.message 永远走不到。
+  于是所有超时都在页面上显示成一个「undefined」（线上截图：获取简历列表失败 undefined）。
+*/
+export const describeError = (error: AxiosError, resData?: Record<string, unknown>): string => {
+  const fromServer = resData?.message ?? (resData?.data as any)?.message;
+  if (typeof fromServer === 'string' && fromServer.trim()) return fromServer;
+  if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
+    return '网络较慢，请求超时了，请稍后重试';
+  }
+  if (!error.response) return '网络连接失败，请检查网络后重试';
+  return error.message || `请求失败（${error.response.status}）`;
+};
+
 const setupRequestInterceptor = (): void => {
   if (isInterceptorSet) return;
   isInterceptorSet = true;
@@ -97,9 +115,7 @@ const setupRequestInterceptor = (): void => {
 
       return Promise.reject({
         status: error.response?.status,
-        message:
-          String(resData?.message || (resData?.data as any)?.message) ||
-          error.message,
+        message: describeError(error, resData),
         code: bizCode,
         // 限流时后端会带 Retry-After（秒）。不透出来的话调用方只知道「失败了」，
         // 只能靠用户自己停手——线上出现过按住回车 11 分钟重试 211 次的情况。

@@ -10,7 +10,7 @@ import {
   DeleteOutlined, DownloadOutlined, EyeOutlined, FileOutlined, UploadOutlined,
 } from '@ant-design/icons';
 import {
-  MAX_ATTACHMENT_BYTES, ResumeAttachment, deleteAttachment, fetchAttachmentBlob, formatSize,
+  MAX_ATTACHMENT_BYTES, ResumeAttachment, deleteAttachment, fetchAttachmentBlob, fetchAttachmentUrl, formatSize,
   listAttachments, uploadAttachment,
 } from '@/api/resumeAttachment';
 import './index.scss';
@@ -29,7 +29,12 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
   const [items, setItems] = useState<ResumeAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<{ att: ResumeAttachment; url: string } | null>(null);
+  /*
+    url 为 null 表示弹窗已开、还在取链接 —— 点「预览」立刻弹窗，而不是干等。
+    isBlob 标记这是不是我们自己创建的 blob: URL（只有它需要 revoke；
+    COS 直链是普通地址，revoke 它没有意义）。
+  */
+  const [preview, setPreview] = useState<{ att: ResumeAttachment; url: string | null; isBlob: boolean } | null>(null);
 
   const load = useCallback(async () => {
     if (!resumeId) { setItems([]); return; }
@@ -47,8 +52,10 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
 
   useEffect(() => { void load(); }, [load]);
 
-  // 预览用的 blob: URL 必须显式释放，否则每开一次就漏一份文件大小的内存
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
+  // 退回旧路径时创建的 blob: URL 必须显式释放，否则每开一次就漏一份文件大小的内存
+  useEffect(() => () => {
+    if (preview?.isBlob && preview.url) URL.revokeObjectURL(preview.url);
+  }, [preview]);
 
   const handleUpload = async (file: File): Promise<boolean> => {
     if (!resumeId) { message.warning('简历还没创建，请先保存一次草稿'); return false; }
@@ -80,31 +87,58 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
     }
   };
 
-  /** 取 blob 后交给回调。预览与下载都要带鉴权，不能直接用 URL。 */
-  const withBlob = async (att: ResumeAttachment, inline: boolean, use: (url: string) => void) => {
+  /**
+   * 拿到能直接用的地址：优先 COS 直链（不占服务器带宽），
+   * 拿不到（COS 未启用 / 签名接口出错）再退回旧的「经服务器取 blob」。
+   */
+  const resolveUrl = async (att: ResumeAttachment, inline: boolean): Promise<{ url: string; isBlob: boolean }> => {
     try {
-      const blob = await fetchAttachmentBlob(att.id, inline);
-      use(URL.createObjectURL(blob));
+      const direct = await fetchAttachmentUrl(att.id, inline);
+      if (direct) return { url: direct, isBlob: false };
+    } catch (e: any) {
+      // 403 是真的没权限，退回旧路径也一样会被拒，没必要再试一次
+      if (e?.status === 403) throw e;
+    }
+    const blob = await fetchAttachmentBlob(att.id, inline);
+    return { url: URL.createObjectURL(blob), isBlob: true };
+  };
+
+  const handlePreview = async (att: ResumeAttachment) => {
+    // 先弹窗再取链接：以前要等整个文件下完才弹，点了之后好几秒毫无反应
+    setPreview({ att, url: null, isBlob: false });
+    try {
+      const { url, isBlob } = await resolveUrl(att, true);
+      // 取链接期间用户可能已经关掉弹窗或换了一份：只认还开着的那一份
+      setPreview((cur) => {
+        if (cur && cur.att.id === att.id && cur.url === null) return { att, url, isBlob };
+        if (isBlob) URL.revokeObjectURL(url);
+        return cur;
+      });
+    } catch (e: any) {
+      setPreview((cur) => (cur && cur.att.id === att.id ? null : cur));
+      message.error(e?.message || '读取附件失败');
+    }
+  };
+
+  const handleDownload = async (att: ResumeAttachment) => {
+    try {
+      const { url, isBlob } = await resolveUrl(att, false);
+      const a = document.createElement('a');
+      a.href = url;
+      // 直链是跨域的，download 属性会被浏览器忽略；靠签名里带的
+      // Content-Disposition: attachment 触发下载，文件名也由它带上
+      if (isBlob) a.download = att.fileName;
+      a.rel = 'noopener';
+      a.click();
+      // 触发下载后就能释放；浏览器已经拿走了数据
+      if (isBlob) setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (e: any) {
       message.error(e?.message || '读取附件失败');
     }
   };
 
-  const handlePreview = (att: ResumeAttachment) =>
-    withBlob(att, true, (url) => setPreview({ att, url }));
-
-  const handleDownload = (att: ResumeAttachment) =>
-    withBlob(att, false, (url) => {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = att.fileName;
-      a.click();
-      // 触发下载后就能释放；浏览器已经拿走了数据
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-    });
-
   const closePreview = () => {
-    if (preview) URL.revokeObjectURL(preview.url);
+    if (preview?.isBlob && preview.url) URL.revokeObjectURL(preview.url);
     setPreview(null);
   };
 
@@ -188,6 +222,8 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
       <Modal
         open={!!preview}
         onCancel={closePreview}
+        // 关掉就拆掉内容：预览现在是 COS 直链，不拆的话隐藏着的 <object> 会继续往下拉 PDF
+        destroyOnHidden
         title={preview?.att.fileName}
         width="80%"
         footer={[
@@ -196,7 +232,15 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
           <Button key="c" type="primary" onClick={closePreview}>关闭</Button>,
         ]}
       >
-        {preview && <PreviewBody att={preview.att} url={preview.url} />}
+        {preview && (preview.url
+          ? <PreviewBody att={preview.att} url={preview.url} />
+          // 文字单独写：antd 5 的 Spin 独立使用时 tip 不渲染（只在包裹子元素时生效）
+          : (
+            <div className="resume-attachments__preview-loading">
+              <Spin />
+              <span>正在打开…</span>
+            </div>
+          ))}
       </Modal>
     </div>
   );
