@@ -16,7 +16,9 @@ import StageShell from '@/components/stage/StageShell';
 import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
 import ResumeDetail from '../ResumeDetail';
 import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
-import { myScoreOf, scorerLabel, ScoreEntry } from '../scorePanel';
+import { myScoreOf, othersHidden, scorerLabel, ScoreEntry } from '../scorePanel';
+import { getToken } from '@/utils';
+import { hasPermission } from '@/utils/jwt';
 import {
   QueueItem, filterByDept, landingAfterDeptChange, neighborOf, nextUngradedOf, progressOf,
 } from './useScoringQueue';
@@ -188,6 +190,9 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
   const avg: number | null = (current as any)?.resumeScore ?? null;
   /** 我已经存下的那一票；有才显示「撤销」 */
   const mySaved = myScoreOf(entries, myUserId);
+  // 盲评：我还没打这一位时，打分卡上不露平均分与逐人明细
+  const canScore = hasPermission(getToken(), 'resume:audit');
+  const blind = othersHidden(entries, myUserId, canScore);
 
   // 我的打分：以 currentId 为 key 重建，切人自动清空（不会残留上一位的分）
   const [score, setScore] = useState<number | undefined>(undefined);
@@ -237,7 +242,8 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
       const nextEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
       onScored(currentId, nextAvg, nextEntries);
       setScore(undefined);
-      message.success(nextAvg == null ? '已撤销你的打分，回到未评' : `已撤销你的打分（剩余平均 ${nextAvg}）`);
+      // 撤完回到盲评，提示里不带剩余平均分
+      message.success('已撤销你的打分');
       setTimeout(() => inputRef.current?.focus?.({ cursor: 'all' }), 60);
     } catch (e: any) {
       message.error(e?.message || '撤销打分失败');
@@ -280,10 +286,9 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
   const chips: FilmChip[] = items.map((it) => ({
     key: it.resumeId,
     name: it.name,
-    // 三态：我打过（绿，显示平均分）/ 别人打过、我还没打（橙，待我评）/ 没人打过
+    // 三态：我打过（绿，显示平均分）/ 别人打过、我还没打（橙，待我评，盲评不露分）/ 没人打过
     tag: it.mine != null ? `${it.score ?? it.mine}` : it.score != null ? '待我评' : '未评',
     tagTone: it.mine != null ? 'good' : it.score != null ? 'warn' : 'muted',
-    sub: it.mine == null && it.score != null ? `均 ${it.score}` : undefined,
     selected: it.resumeId === currentId,
   }));
 
@@ -351,8 +356,8 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
                 <HolderOutlined />
               </span>
             </Tooltip>
-            <span className={`scoring-stage__avg${avg == null ? ' is-empty' : ''}`}>
-              {avg == null ? '未评' : avg}
+            <span className={`scoring-stage__avg${avg == null || blind ? ' is-empty' : ''}`}>
+              {avg == null ? '未评' : blind ? '待评' : avg}
             </span>
             <InputNumber
               ref={inputRef}
@@ -385,7 +390,8 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
             <Tooltip
               title={
                 entries.length === 0 ? '还没有人打分'
-                  : entries.map((e) => `${scorerLabel(e)} ${e.score}`).join(' · ')
+                  : blind ? '你打分后可见其他人的打分'
+                    : entries.map((e) => `${scorerLabel(e)} ${e.score}`).join(' · ')
               }
             >
               <span className="scoring-stage__scorers">

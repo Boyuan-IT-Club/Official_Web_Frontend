@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import resumeReducer, { resumeActions } from '@/store/modules/resume';
-import { withdrawResumeScore } from '@/api/manage/resumeEntry';
+import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
 import ResumeDetail from './ResumeDetail';
 
 jest.mock('@/api/manage/resumeEntry', () => ({
@@ -14,7 +14,9 @@ jest.mock('@/api/manage/resumeEntry', () => ({
 jest.mock('@/hooks/useResumePhoto', () => ({ useResumePhoto: () => '' }));
 jest.mock('@/components/ResumeAttachments', () => () => null);
 jest.mock('@/components/ResumeAiEvaluation', () => ({ ResumeAiSummary: () => null }));
-jest.mock('@/utils/jwt', () => ({ hasPermission: () => false }));
+// canScore 可切换：默认按只读账号（不走盲评），盲评用例里打开 resume:audit
+let mockPerms: string[] = [];
+jest.mock('@/utils/jwt', () => ({ hasPermission: (_t: unknown, code: string) => mockPerms.includes(code) }));
 
 const ME = 7;
 
@@ -49,7 +51,7 @@ const confirmWithdraw = async () => {
 };
 
 describe('撤销我的打分', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); mockPerms = []; });
 
   it('没打过分时不显示撤销键', () => {
     renderDetail(resumeWith([{ scorerId: 9, scorerName: '乙', score: 80 }], 80));
@@ -106,5 +108,48 @@ describe('patchResumeScore 接受 null（撤销后回到未评）', () => {
     const state: any = { ...resumeReducer(undefined, { type: '@@init' }), resumes: [{ resumeId: 3, resumeScore: 88 }] };
     const next: any = resumeReducer(state, resumeActions.patchResumeScore({ resumeId: 3, resumeScore: null, scoreEntries: [] }));
     expect(next.resumes[0].resumeScore).toBeNull();
+  });
+});
+
+describe('盲评：自己打分前看不到别人的分', () => {
+  beforeEach(() => { jest.clearAllMocks(); mockPerms = ['resume:audit']; });
+
+  const others = [{ scorerId: 9, scorerName: '乙', score: 70 }, { scorerId: 10, scorerName: '丙', score: 90 }];
+
+  it('我没打过：平均分与逐人明细都藏起来，只显示人数', () => {
+    renderDetail(resumeWith(others, 80));
+    expect(screen.getByText('待你评')).toBeInTheDocument();
+    expect(screen.getByText('已有 2 人打分')).toBeInTheDocument();
+    expect(screen.getByText('你打分后可见其他人的打分')).toBeInTheDocument();
+    expect(screen.queryByText('80')).toBeNull();
+    expect(screen.queryByText(/乙/)).toBeNull();
+  });
+
+  it('打完分立刻看到平均分与明细', async () => {
+    (updateResumeScore as jest.Mock).mockResolvedValue({
+      data: { resumeScore: 70, scoreEntries: [...others, { scorerId: ME, scorerName: '我', score: 50 }] },
+    });
+    renderDetail(resumeWith(others, 80));
+    fireEvent.change(screen.getByPlaceholderText('0~100'), { target: { value: '50' } });
+    fireEvent.click(screen.getByRole('button', { name: /保存我的打分/ }));
+    expect(await screen.findByText('3 人平均')).toBeInTheDocument();
+    expect(document.querySelector('.score-badge')?.textContent).toBe('70');
+    expect(screen.getByText(/乙/)).toBeInTheDocument();
+  });
+
+  it('撤销后重新藏起来', async () => {
+    (withdrawResumeScore as jest.Mock).mockResolvedValue({ data: { resumeScore: 80, scoreEntries: others } });
+    renderDetail(resumeWith([...others, { scorerId: ME, scorerName: '我', score: 50 }], 70));
+    expect(screen.getByText('3 人平均')).toBeInTheDocument();
+    await confirmWithdraw();
+    expect(await screen.findByText('待你评')).toBeInTheDocument();
+    expect(screen.queryByText(/乙/)).toBeNull();
+  });
+
+  it('只读账号（不能打分）不走盲评', () => {
+    mockPerms = [];
+    renderDetail(resumeWith(others, 80));
+    expect(screen.getByText('80')).toBeInTheDocument();
+    expect(screen.getByText('2 人平均')).toBeInTheDocument();
   });
 });

@@ -365,8 +365,12 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
   const [detail, setDetail] = useState<ScorecardDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [qbankOpen, setQbankOpen] = useState(false);
+  // 默认收起：先看简历、自己下判断，想参考再点开——AI 的等级太显眼会先入为主。
+  // 换一份简历就重新收起，不把上一位「已展开」带过去。
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
+    setExpanded(false);
     if (!cycleId) return;
     let cancelled = false;
     setLoading(true);
@@ -379,7 +383,8 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
   }, [resumeId, cycleId]);
 
   if (!cycleId) return null;
-  if (loading) return <Card className="resume-ai-summary"><Skeleton active paragraph={{ rows: 2 }} /></Card>;
+  // 加载中不占位：收起状态下本来就只是一颗小按钮，骨架屏反而抢眼
+  if (loading) return null;
   if (!detail) {
     // 没有初筛结果时不占卡片位,只留一行浅灰小字
     return (
@@ -389,12 +394,27 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
     );
   }
 
+  if (!expanded) {
+    return (
+      <div className="resume-ai-summary__collapsed">
+        <Button size="small" icon={<RobotOutlined />} onClick={() => setExpanded(true)}>
+          查看 AI 评价
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <>
       <Card
         className="resume-ai-summary"
         title={<Space><RobotOutlined />AI 初筛参考</Space>}
-        extra={<Button icon={<BookOutlined />} onClick={() => setQbankOpen(true)}>预设题库</Button>}
+        extra={(
+          <Space size={4} wrap>
+            <Button icon={<BookOutlined />} onClick={() => setQbankOpen(true)}>预设题库</Button>
+            <Button type="text" onClick={() => setExpanded(false)}>收起</Button>
+          </Space>
+        )}
       >
         <AiScorecardBody detail={detail} />
         <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>AI 标注,仅供参考,终审以人工为准</Text>
