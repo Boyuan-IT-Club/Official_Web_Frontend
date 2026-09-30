@@ -441,7 +441,7 @@ const AuthCard: FC = () => {
 
   return (
     <div className="auth-container">
-      <Card className="auth-card" hoverable>
+      <Card className="auth-card">
         <div className="brand-title">
           <h1>
             Welcome To <span>BOYUAN</span>

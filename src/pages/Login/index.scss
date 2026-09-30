@@ -17,9 +17,12 @@ body {
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
+  // 不锁死 100vh：注册表单比登录长，矮屏（1366×768 的笔记本）上原来会被裁掉底部
   min-height: 100vh;
-  height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
+  position: relative;
+  padding-top: 24px;
+  padding-bottom: 24px;
 
   background: {
     image: $background-image;
@@ -29,22 +32,30 @@ body {
     attachment: fixed;
   }
 
-  padding-right: 10%;
+  // 卡片中心落在视口 75% 处——正好是背景右侧灰色斜块的中间。
+  // 原来固定 padding-right:10%，窄一点的屏幕上卡片就压到左边的 Logo 上。
+  padding-right: max(24px, calc(25vw - 200px));
   box-sizing: border-box;
 
   // 卡片样式
   .auth-card {
     width: 100%;
-    max-width: 420px;
+    max-width: 400px;
     border-radius: t.$radius-sm;
     box-shadow: t.$shadow-md;
-    background-color: rgba(255, 255, 255, 0.95);
-    padding: 30px;
+    background-color: rgba(255, 255, 255, 0.96);
     margin: 0;
+    position: relative;
+
+    // 内边距只留一层：原来卡片 30px + antd Card body 24px 叠在一起，
+    // 输入框被挤到 310px，四周空得发虚
+    .ant-card-body {
+      padding: 36px 36px 28px;
+    }
 
     .brand-title {
       text-align: center;
-      margin-bottom: 30px;
+      margin-bottom: 32px;
 
       h1 {
         font-family: 'Arial', sans-serif;
@@ -103,60 +114,67 @@ body {
 
     .ant-form {
       .ant-form-item {
-        margin-bottom: 16px;
+        margin-bottom: 18px;
 
         &:last-child {
           margin-bottom: 0;
         }
       }
 
-      .ant-input {
+      /*
+        所有输入框统一成同一套盒子：高 40、左右内边距 11、图标与文字间距 8、
+        图标同一灰色。原来的 .ant-input { height:40px; padding-bottom:4px }
+        连密码框、验证码框里面那个 input 也一起撑到 40，外框也是 40，
+        里面的 input 就从外框上沿往下错 5px、下沿溢出 5px——文字看着偏下，
+        和学号框对不齐。现在只给独立的 input 定高，带图标的由外框定高。
+      */
+      .ant-input-affix-wrapper,
+      .email-field,
+      .ant-form-item-control-input-content > .ant-input {
         height: 40px;
+        padding: 0 11px;
         border-radius: t.$radius-control;
-        padding-bottom: 4px;
+      }
 
-        &::placeholder {
-          color: #bfbfbf;
-          opacity: 1;
+      .ant-input-affix-wrapper {
+        align-items: center;
+
+        > input.ant-input {
+          height: 100%;
+          padding: 0;
         }
 
-        &::-webkit-input-placeholder {
-          color: #bfbfbf;
-        }
-
-        &::-moz-placeholder {
-          color: #bfbfbf;
-        }
-
-        &:-ms-input-placeholder {
-          color: #bfbfbf;
+        .ant-input-prefix {
+          margin-inline-end: 8px;
+          color: rgba(0, 0, 0, 0.45);
         }
       }
 
-      .ant-input-password {
-        height: 40px;
-        border-radius: t.$radius-control;
-        padding-bottom: 4px;
-
-        input::placeholder {
-          color: #bfbfbf;
-          opacity: 1;
+      // 验证码框：输入框与「获取验证码」同高，圆角只留外侧
+      .ant-input-group-wrapper {
+        .ant-input-affix-wrapper {
+          border-start-end-radius: 0;
+          border-end-end-radius: 0;
         }
 
-        input::-webkit-input-placeholder {
-          color: #bfbfbf;
-        }
+        .ant-input-group-addon {
+          padding: 0;
+          border-start-end-radius: t.$radius-control;
+          border-end-end-radius: t.$radius-control;
 
-        input::-moz-placeholder {
-          color: #bfbfbf;
-        }
-
-        input:-ms-input-placeholder {
-          color: #bfbfbf;
+          .ant-btn {
+            height: 38px;
+            padding: 0 12px;
+          }
         }
       }
 
-      .ant-btn {
+      input::placeholder {
+        color: #bfbfbf;
+        opacity: 1;
+      }
+
+      .ant-btn-primary {
         height: 40px;
         border-radius: t.$radius-control;
         font-weight: 500;
@@ -165,8 +183,8 @@ body {
 
     .auth-links {
       text-align: center;
-      margin-top: 16px;
-      font-size: 12px;
+      margin-top: 18px;
+      font-size: 13px;
 
       span {
         color: #1890ff;
@@ -180,7 +198,7 @@ body {
 
       .divider {
         color: #d9d9d9;
-        margin: 0 8px;
+        margin: 0 10px;
         cursor: default;
       }
     }
@@ -188,11 +206,12 @@ body {
 
   // 响应式调整
   @media (max-width: 1200px) {
-    padding-right: 8%;
-
     .auth-card {
       max-width: 380px;
-      padding: 25px;
+
+      .ant-card-body {
+        padding: 32px 30px 24px;
+      }
 
       .brand-title h1 {
         font-size: 2rem;
@@ -200,35 +219,33 @@ body {
     }
   }
 
-  @media (max-width: 992px) {
-    padding-right: 5%;
+  // 再窄，右侧灰块放不下卡片了：卡片居中，背景蒙一层白，
+  // 免得卡片压在 Logo 字上显得像叠错了图层
+  @media (max-width: 960px) {
+    align-items: center;
+    padding: 20px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.72);
+    }
 
     .auth-card {
-      max-width: 350px;
-      padding: 20px;
+      max-width: 380px;
 
       .brand-title h1 {
         font-size: 1.8rem;
-      }
-
-      .brand-title p {
-        font-size: 0.8rem;
       }
     }
   }
 
-  @media (max-width: 768px) {
-    align-items: center;
-    padding: 20px;
-    justify-content: center;
+  @media (max-width: 480px) {
+    padding: 16px;
 
-    .auth-card {
-      max-width: 100%;
-      padding: 20px;
-
-      .brand-title h1 {
-        font-size: 1.8rem;
-      }
+    .auth-card .ant-card-body {
+      padding: 28px 20px 20px;
     }
   }
 }
@@ -247,7 +264,7 @@ body {
   align-items: center;
   width: 100%;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 11px;
   box-sizing: border-box;
   border: 1px solid #d9d9d9;
   border-radius: t.$radius-control;
@@ -255,9 +272,10 @@ body {
   transition: background t.$dur-base ease, border-color t.$dur-base ease;
   position: relative;
 
+  // 与密码框的锁图标同色、同间距，两行文字才能左对齐
   .email-icon {
     margin-right: 8px;
-    color: #000000;
+    color: rgba(0, 0, 0, 0.45);
     flex-shrink: 0;
   }
 
