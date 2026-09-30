@@ -315,8 +315,8 @@ const Resume: React.FC = () => {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, stageOrigin, selectedResume, stageResumes]);
 
-  /** 舞台里打完分回写列表 store，退出后列表分数已是新值 */
-  const handleScored = useCallback((resumeId: number, avg: number, entries: any[]): void => {
+  /** 舞台里打完分（或撤销打分，avg 为 null）回写列表 store，退出后列表分数已是新值 */
+  const handleScored = useCallback((resumeId: number, avg: number | null, entries: any[]): void => {
     dispatch(resumeActions.patchResumeScore({
       resumeId: resumeId as any, resumeScore: avg, scoreEntries: entries,
     }));

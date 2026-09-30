@@ -1,8 +1,8 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import React, { useState } from 'react';
-import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, InputNumber, message } from 'antd';
-import { updateResumeScore } from '@/api/manage/resumeEntry';
+import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, InputNumber, Popconfirm, message } from 'antd';
+import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
 import { ScoreEntry, myScoreOf, scorerLabel } from './scorePanel';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import { extractGithubRepos, githubFieldLink } from '@/utils/githubRepo';
@@ -206,6 +206,34 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
   const [score, setScore] = useState<number | undefined>(initialMyScore);
   const [savedScore, setSavedScore] = useState<number | undefined>(initialMyScore);
   const [scoreSaving, setScoreSaving] = useState(false);
+  const [scoreWithdrawing, setScoreWithdrawing] = useState(false);
+
+  // 误触打分后反悔：只撤我这一票，平均分按剩下的人重算，一票不剩就回到「未评」
+  const handleWithdrawScore = async (): Promise<void> => {
+    if (!resume) return;
+    setScoreWithdrawing(true);
+    try {
+      const res: any = await withdrawResumeScore(Number(resume.resumeId));
+      const avg: number | null = res?.data?.resumeScore ?? null;
+      const newEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
+      setSavedScore(undefined);
+      setScore(undefined);
+      setAvgScore(avg ?? undefined);
+      setEntries(newEntries);
+      dispatch(resumeActions.patchResumeScore({
+        resumeId: resume.resumeId as any,
+        resumeScore: avg,
+        scoredByName: res?.data?.scoredByName ?? null,
+        scoredAt: res?.data?.scoredAt ?? null,
+        scoreEntries: newEntries,
+      }));
+      message.success(avg == null ? '已撤销你的打分，这份简历回到未评' : `已撤销你的打分（剩余平均 ${avg}）`);
+    } catch (e: any) {
+      message.error(e?.message || '撤销打分失败');
+    } finally {
+      setScoreWithdrawing(false);
+    }
+  };
 
   // 「下一位」跳转不重挂载本组件，打分状态必须跟着简历重置——
   // 否则上一位的分数残留在输入框，一点保存就把别人的分写给了这一位。
@@ -398,6 +426,19 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
           >
             {savedScore == null ? '保存我的打分' : '更新我的打分'}
           </Button>
+          {savedScore != null && (
+            <Popconfirm
+              title="撤销你的打分？"
+              description={`将删除你打的 ${savedScore} 分，其他人的打分不受影响`}
+              okText="撤销"
+              cancelText="取消"
+              onConfirm={handleWithdrawScore}
+            >
+              <Button danger loading={scoreWithdrawing} disabled={scoreSaving}>
+                撤销我的打分
+              </Button>
+            </Popconfirm>
+          )}
           {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位未打分的 */}
           {onNextUngraded && (
             <Button onClick={() => onNextUngraded()} loading={nextLoading}>
