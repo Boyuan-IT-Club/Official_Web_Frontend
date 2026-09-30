@@ -34,8 +34,13 @@ const KEYS: Array<[string, string]> = [
 ];
 
 export interface ScoringStageProps {
-  /** 列表当前页的简历（已含筛选结果），舞台队列由它派生 */
+  /**
+   * 符合列表筛选条件的全部简历，舞台队列由它派生。
+   * 进舞台时先是当前页，全量取回后再换成全部（见 Resume/index.tsx）。
+   */
   resumes: any[];
+  /** 正在取全部筛选结果：此时队列只是当前页，顶栏要说清楚，免得总数突然跳变 */
+  loadingAll?: boolean;
   /** 进入舞台时选中的那一位 */
   initialResumeId: number;
   cycleName?: string;
@@ -71,7 +76,7 @@ const deptsOf = (r: any): string[] => {
 };
 
 const ScoringStage: React.FC<ScoringStageProps> = ({
-  resumes, initialResumeId, cycleName, myUserId, onExit, onScored,
+  resumes, loadingAll, initialResumeId, cycleName, myUserId, onExit, onScored,
 }) => {
   const [dept, setDept] = useState<string | undefined>();
   const [currentId, setCurrentId] = useState<number>(initialResumeId);
@@ -264,6 +269,7 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
           {cycleName && <span className="scoring-stage__cycle">{cycleName}</span>}
           <span>第 <b>{prog.index}</b> / {prog.total} 位</span>
           <span>未打分 <b>{prog.ungraded}</b></span>
+          {loadingAll && <span className="scoring-stage__loading">正在载入全部筛选结果…</span>}
         </>
       }
       topExtra={
