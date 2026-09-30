@@ -218,9 +218,8 @@ $mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   .eval-ws-split {
     gap: 0;
     align-items: stretch;
-    // 顶栏 ~52px + 上边距 + 胶片条 ~102px（86px 卡片 + 16px 游动标尺）：两栏底边永远对齐。
-    // 胶片条是 fixed 钉在底部的，这里不同步加高，两栏最后一截就会被它盖住
-    height: calc(100vh - 191px);
+    // 顶栏 ~52px + 上边距 + 胶片条 ~86px：两栏底边永远对齐
+    height: calc(100vh - 175px);
 
     @media (max-width: 1100px) {
       // 窄屏没有拖拽的意义，退回上下堆叠由原规则接管
