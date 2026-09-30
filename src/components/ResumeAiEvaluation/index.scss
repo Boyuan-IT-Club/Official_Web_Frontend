@@ -37,11 +37,27 @@
 }
 
 .resume-ai-summary__collapsed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
   margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f4f6fa;
 
-  // 收起态刻意做轻：灰字小按钮，不和打分面板抢注意力
-  .ant-btn {
+  .resume-ai-summary__label {
     color: #8c8c8c;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .ant-tag {
+    margin-inline-end: 0;
+  }
+
+  .ant-btn-link {
+    padding: 0 4px;
     font-size: 12px;
   }
 }

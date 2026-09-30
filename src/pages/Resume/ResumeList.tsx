@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { readFilters, writeFilters, SUBMITTED_STATUSES } from './filterParams';
 import { isUngradedBy, othersHidden } from './scorePanel';
+import { AiFilter, chunkIds, matchesAiFilter } from './aiScreening';
+import { loadAllResumes } from './stage/loadAllResumes';
+import { fetchSearchPage } from './stage/fetchSearchPage';
 import {
   Card,
   List,
@@ -168,6 +171,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
     (state: RootStateLike) => state.resume
   );
   const myUserId = useSelector((state: any) => state.user?.userInfo?.userId);
+  // 列表最后一次查询的条件：跨页全选按它把所有页取回来
+  const lastQuery = useSelector((state: any) => state.resume?.lastQuery ?? {});
 
   // 添加 ref 来跟踪是否是从详情页返回
   const isReturningFromDetail = useRef<boolean>(false);
@@ -240,9 +245,14 @@ const ResumeList: React.FC<ResumeListProps> = ({
   // 用于高亮显示当前排序方式
   const [currentSortKey, setCurrentSortKey] = useState<string>(initial.sortKey);
   const [selectedIds, setSelectedIds] = useState<React.Key[]>([]);
-  const [aiFilter, setAiFilter] = useState<
-    'all' | 'pending' | 'match_top' | 'effort_low' | 'transfer' | 'review' | 'rerun'
-  >('all');
+  const [aiFilter, setAiFilter] = useState<AiFilter>('all');
+  /**
+   * 「全选当前筛选结果」上一次取回的全部命中 id（跨页）。
+   * 原来全选只看当前页：100 条/页、120 份里「暂无 AI 初筛」的只选中了第 1 页的 41 份。
+   * 筛选条件一变就作废（null），勾选框回到按本页判断。
+   */
+  const [allMatchIds, setAllMatchIds] = useState<string[] | null>(null);
+  const [selectingAll, setSelectingAll] = useState(false);
   const [scorecards, setScorecards] = useState<Record<string, ScorecardRow>>({});
   const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
   // 初筛失败的简历 → 错误文案(闸门4:失败可观测 + 重新评分入口)
@@ -579,60 +589,85 @@ const ResumeList: React.FC<ResumeListProps> = ({
     </Menu>
   );
 
-  const visibleResumes = resumes.filter((resume) => {
-    const card = scorecards[String(resume.resumeId)];
-    if (aiFilter === 'pending') return !card;
-    if (aiFilter === 'match_top') return card?.match_level === '优秀';
-    if (aiFilter === 'effort_low') return card?.effort_level === '一般';
-    if (aiFilter === 'transfer') return Boolean(card?.transfer_hint);
-    if (aiFilter === 'review') return Boolean(card?.hard_zero);
-    if (aiFilter === 'rerun') return Boolean(card?.needs_rerun);
-    return true;
-  });
+  // AI 状态筛选只能在前端做（评分卡在 Agent，不在简历搜索接口里），
+  // 所以这里只作用于已加载的这一页；跨页全选另走 selectAllMatching
+  const visibleResumes = resumes.filter(
+    (resume) => matchesAiFilter(scorecards[String(resume.resumeId)], aiFilter),
+  );
   const visibleIds = visibleResumes.map((resume) => String(resume.resumeId));
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
-  const someVisibleSelected = visibleIds.some((id) => selectedIds.includes(id));
+  // 全选过就按全部命中判断勾选态，否则按本页
+  const matchIds = allMatchIds ?? visibleIds;
+  const allVisibleSelected = matchIds.length > 0 && matchIds.every((id) => selectedIds.map(String).includes(id));
+  const someVisibleSelected = matchIds.some((id) => selectedIds.map(String).includes(id));
 
-  const toggleAllVisible = (checked: boolean) => {
-    setSelectedIds((current) => checked
-      ? Array.from(new Set([...current.map(String), ...visibleIds]))
-      : current.filter((id) => !visibleIds.includes(String(id))));
+  // 筛选条件或 AI 状态一变，上次的跨页全选结果就不再代表「当前筛选结果」
+  useEffect(() => { setAllMatchIds(null); }, [lastQuery, aiFilter]);
+
+  /** 跨页全选：按列表同一套条件把所有页取回来，再套 AI 状态筛选 */
+  const toggleAllVisible = async (checked: boolean) => {
+    if (!checked) {
+      const drop = new Set(matchIds);
+      setSelectedIds((current) => current.filter((id) => !drop.has(String(id))));
+      return;
+    }
+    setSelectingAll(true);
+    try {
+      const all = await loadAllResumes(lastQuery, fetchSearchPage);
+      const ids = all
+        .filter((r: any) => matchesAiFilter(scorecards[String(r.resumeId)], aiFilter))
+        .map((r: any) => String(r.resumeId));
+      setAllMatchIds(ids);
+      setSelectedIds((current) => Array.from(new Set([...current.map(String), ...ids])));
+      if (ids.length > visibleIds.length) {
+        message.success(`已选中全部 ${ids.length} 份（含其他页）`);
+      }
+    } catch {
+      // 取全量失败时退回只选本页，并说清楚
+      setSelectedIds((current) => Array.from(new Set([...current.map(String), ...visibleIds])));
+      message.warning('没能载入全部筛选结果，只选中了当前这一页');
+    } finally {
+      setSelectingAll(false);
+    }
   };
 
   const startAiScreening = (explicitIds?: number[]) => {
-    const selected = explicitIds
-      ? resumes.filter((resume) => explicitIds.includes(Number(resume.resumeId)))
-      : resumes.filter((resume) => selectedIds.includes(String(resume.resumeId)));
-    if (!cycleId || selected.length === 0) {
+    // 直接用勾选的 id，不再和当前页求交集——原来翻页勾选的、全选取回的其他页，
+    // 提交时都被这一步悄悄丢掉，于是「只能覆盖本页」
+    const ids: number[] = explicitIds ?? selectedIds.map((id) => Number(id));
+    if (!cycleId || ids.length === 0) {
       message.info('请先选择当前周期内要初筛的简历');
       return;
     }
     // 方案A(闸门1):只传 resume_id,user_id 由 Agent 权威派生——
     // 不再需要候选人字段守卫,前端也不携带归属号码。
     Modal.confirm({
-      title: `启动 ${selected.length} 份简历的 AI 初筛？`,
+      title: `启动 ${ids.length} 份简历的 AI 初筛？`,
       content: '任务将在后台运行。已有结果的简历会生成新版本，人工评分不会被改动。',
       okText: '启动初筛',
       cancelText: '取消',
       onOk: async () => {
         setScreening(true);
         try {
-          const res: any = await runResumeEvaluation(cycleId, selected.map((resume) => Number(resume.resumeId)));
-          // #192:记录本次批次的 job_id → resume_id(Agent 按提交顺序返回 job_ids),
-          // 轮询只观察这批 job
-          const jobIds: any[] = res?.data?.job_ids ?? [];
-          jobIds.forEach((jid: any, i: number) => {
-            activeJobResumeRef.current[String(jid)] = String(selected[i]?.resumeId ?? '');
-          });
-          setScreeningIds((current) => Array.from(new Set([...current, ...selected.map((r) => String(r.resumeId))])));
+          // Agent 单次上限 200 条，超出按批提交
+          for (const batch of chunkIds(ids)) {
+            // eslint-disable-next-line no-await-in-loop
+            const res: any = await runResumeEvaluation(cycleId, batch);
+            // #192:记录本次批次的 job_id → resume_id(Agent 按提交顺序返回 job_ids),
+            // 轮询只观察这批 job
+            const jobIds: any[] = res?.data?.job_ids ?? [];
+            jobIds.forEach((jid: any, i: number) => {
+              activeJobResumeRef.current[String(jid)] = String(batch[i] ?? '');
+            });
+          }
+          setScreeningIds((current) => Array.from(new Set([...current.map(String), ...ids.map(String)])));
           // 重评时清掉这些简历的失败标记(轮询会重新判定)
           setFailedScreening((current) => {
             const next = { ...current };
-            for (const r of selected) delete next[String(r.resumeId)];
+            for (const id of ids) delete next[String(id)];
             return next;
           });
-          if (!explicitIds) setSelectedIds([]);
-          message.success(`已提交 ${selected.length} 份简历，AI 正在后台初筛`);
+          if (!explicitIds) { setSelectedIds([]); setAllMatchIds(null); }
+          message.success(`已提交 ${ids.length} 份简历，AI 正在后台初筛`);
         } catch (e: any) {
           message.error(e?.message || '启动 AI 初筛失败');
         } finally {
@@ -768,7 +803,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
           </div>
 
           <div className="control-item results-info-wrapper">
-            <div className="results-info">共找到 {pagination.total} 份简历</div>
+            <div className="results-info">
+              共找到 {pagination.total} 份简历
+              {/* AI 状态筛选只作用于本页，明说，免得把本页命中数当成全部 */}
+              {aiFilter !== 'all' && `，本页符合 AI 筛选 ${visibleIds.length} 份`}
+            </div>
           </div>
         </div>
       </div>
@@ -825,9 +864,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
           <Checkbox
             checked={allVisibleSelected}
             indeterminate={!allVisibleSelected && someVisibleSelected}
-            onChange={(event) => toggleAllVisible(event.target.checked)}
+            disabled={selectingAll}
+            onChange={(event) => { void toggleAllVisible(event.target.checked); }}
           >
-            全选当前筛选结果
+            {selectingAll ? '正在选取全部…' : '全选当前筛选结果'}
           </Checkbox>
           <Select
             value={aiFilter}
@@ -878,6 +918,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
                 const photo = getFieldValueFromResume(resume, '个人照片');
                 const isScreening = screeningIds.includes(String(resume.resumeId));
+                const transferHint = scorecards[String(resume.resumeId)]?.transfer_hint ?? null;
                 return (
                   <List.Item key={String(resume.resumeId)}>
                     <Card
@@ -969,9 +1010,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
                           */
                           <div className="resume-card-description">
                             {/* AI 的等级不上卡片：批量扫简历时它最抢眼，容易先入为主，
-                                想参考去详情里点开。卡片上只留「初筛中 / 失败可重跑」这类
-                                进度状态——那是操作信息，不是评价。 */}
-                            {(isScreening || failedScreening[String(resume.resumeId)]) && (
+                                等级去详情里看。卡片上只留「初筛中 / 失败可重跑」这类进度状态，
+                                外加 AI 建议调剂——那是分派信息，扫列表时就该看到。 */}
+                            {(isScreening || failedScreening[String(resume.resumeId)] || transferHint) && (
                               <div className="resume-card-ai">
                                 <RobotOutlined />
                                 {isScreening ? (
@@ -989,6 +1030,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
                                       重新评分
                                     </Button>
                                   </>
+                                ) : transferHint ? (
+                                  <Tag color="purple">
+                                    {`AI 建议调剂：${transferHint.dept}${transferHint.is_second_choice ? '（第二志愿）' : ''}`}
+                                  </Tag>
                                 ) : null}
                               </div>
                             )}
