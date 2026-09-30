@@ -365,8 +365,8 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
   const [detail, setDetail] = useState<ScorecardDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [qbankOpen, setQbankOpen] = useState(false);
-  // 默认收起：先看简历、自己下判断，想参考再点开——AI 的等级太显眼会先入为主。
-  // 换一份简历就重新收起，不把上一位「已展开」带过去。
+  // 等级标签（部门匹配 / 认真程度 / 调剂建议）直接可见；逐项依据、面试提示等
+  // 完整评分卡默认收起，想细看再点开。换一份简历就重新收起。
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -397,8 +397,10 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
   if (!expanded) {
     return (
       <div className="resume-ai-summary__collapsed">
-        <Button size="small" icon={<RobotOutlined />} onClick={() => setExpanded(true)}>
-          查看 AI 评价
+        <span className="resume-ai-summary__label"><RobotOutlined /> AI 初筛</span>
+        <AiGradeTags grades={{ ...detail, transfer_hint: detail.card?.transfer_hint }} />
+        <Button size="small" type="link" onClick={() => setExpanded(true)}>
+          查看完整评价
         </Button>
       </div>
     );

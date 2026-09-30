@@ -5,8 +5,8 @@ import { useSearchParams } from 'react-router-dom';
 import { message } from 'antd';
 import ScoringStage from './stage/ScoringStage';
 import { loadAllResumes } from './stage/loadAllResumes';
+import { fetchSearchPage } from './stage/fetchSearchPage';
 import { isUngradedBy } from './scorePanel';
-import { request } from '@/utils';
 import { resumeActions } from '@/store/modules/resume';
 import ResumeList from './ResumeList';
 import ResumeDetail from './ResumeDetail';
@@ -282,16 +282,7 @@ const Resume: React.FC = () => {
     }
     let cancelled = false;
     setStageLoading(true);
-    loadAllResumes(lastQuery, async (params) => {
-      // 与 fetchResumes 同一条兜底：没带状态时只取已提交及之后的，不混进草稿
-      const q = params.status ? params : { ...params, status: '2,3,4,5' };
-      const res: any = await request.get('/api/resumes/search', { params: q });
-      if (res?.code !== 200) throw new Error(res?.message || '获取简历失败');
-      return {
-        content: res.data?.content ?? [],
-        total: res.data?.totalElements ?? 0,
-      };
-    })
+    loadAllResumes(lastQuery, fetchSearchPage)
       .then((all) => { if (!cancelled) setStageResumes(all as ResumeItem[]); })
       .catch(() => {
         // 取不到全量不该让舞台不可用：退回当前页，并说清楚为什么只有这几个人
