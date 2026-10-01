@@ -6,6 +6,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import resumeReducer, { resumeActions } from '@/store/modules/resume';
 import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
 import ResumeDetail from './ResumeDetail';
+import { resetScoreRevealForTest, setRevealAll } from './scoreReveal';
 
 jest.mock('@/api/manage/resumeEntry', () => ({
   updateResumeScore: jest.fn(),
@@ -45,7 +46,7 @@ const renderDetail = (resume: any) => {
 };
 
 const confirmWithdraw = async () => {
-  fireEvent.click(screen.getByRole('button', { name: /撤销我的打分/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^undo 撤销$/ }));
   // Popconfirm 的确认键
   fireEvent.click(await screen.findByRole('button', { name: '撤 销' }));
 };
@@ -55,7 +56,7 @@ describe('撤销我的打分', () => {
 
   it('没打过分时不显示撤销键', () => {
     renderDetail(resumeWith([{ scorerId: 9, scorerName: '乙', score: 80 }], 80));
-    expect(screen.queryByRole('button', { name: /撤销我的打分/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^undo 撤销$/ })).not.toBeInTheDocument();
   });
 
   it('唯一一票撤掉后回到「未评」，列表那条也同步清空', async () => {
@@ -69,8 +70,8 @@ describe('撤销我的打分', () => {
     await waitFor(() => expect(withdrawResumeScore).toHaveBeenCalledWith(11));
     expect(await screen.findByText('未评')).toBeInTheDocument();
     expect(screen.getByText('还没有人打分')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /撤销我的打分/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /保存我的打分/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^undo 撤销$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^保\s*存$/ })).toBeInTheDocument();
     const hit: any = (store.getState() as any).resume.resumes[0];
     expect(hit.resumeScore).toBeNull();
     expect(hit.scoreEntries).toEqual([]);
@@ -88,7 +89,7 @@ describe('撤销我的打分', () => {
 
     await waitFor(() => expect((store.getState() as any).resume.resumes[0].resumeScore).toBe(70));
     expect(screen.getByText('1 人平均')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /撤销我的打分/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^undo 撤销$/ })).not.toBeInTheDocument();
   });
 
   it('撤销失败时保留原分，撤销键还在', async () => {
@@ -98,7 +99,8 @@ describe('撤销我的打分', () => {
     await confirmWithdraw();
 
     await waitFor(() => expect(withdrawResumeScore).toHaveBeenCalled());
-    expect(screen.getByRole('button', { name: /撤销我的打分/ })).toBeInTheDocument();
+    // 失败后 loading 结束，撤销键恢复成可点的样子
+    expect(await screen.findByRole('button', { name: /^undo 撤销$/ })).toBeInTheDocument();
     expect(screen.queryByText('未评')).not.toBeInTheDocument();
   });
 });
@@ -112,7 +114,12 @@ describe('patchResumeScore 接受 null（撤销后回到未评）', () => {
 });
 
 describe('盲评：自己打分前看不到别人的分', () => {
-  beforeEach(() => { jest.clearAllMocks(); mockPerms = ['resume:audit']; });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPerms = ['resume:audit'];
+    window.localStorage.clear();
+    resetScoreRevealForTest();
+  });
 
   const others = [{ scorerId: 9, scorerName: '乙', score: 70 }, { scorerId: 10, scorerName: '丙', score: 90 }];
 
@@ -120,7 +127,7 @@ describe('盲评：自己打分前看不到别人的分', () => {
     renderDetail(resumeWith(others, 80));
     expect(screen.getByText('待你评')).toBeInTheDocument();
     expect(screen.getByText('已有 2 人打分')).toBeInTheDocument();
-    expect(screen.getByText('你打分后可见其他人的打分')).toBeInTheDocument();
+    expect(screen.getByText('打分后可见，或点小眼睛查看')).toBeInTheDocument();
     expect(screen.queryByText('80')).toBeNull();
     expect(screen.queryByText(/乙/)).toBeNull();
   });
@@ -130,8 +137,8 @@ describe('盲评：自己打分前看不到别人的分', () => {
       data: { resumeScore: 70, scoreEntries: [...others, { scorerId: ME, scorerName: '我', score: 50 }] },
     });
     renderDetail(resumeWith(others, 80));
-    fireEvent.change(screen.getByPlaceholderText('0~100'), { target: { value: '50' } });
-    fireEvent.click(screen.getByRole('button', { name: /保存我的打分/ }));
+    fireEvent.change(screen.getByRole('spinbutton', { name: '我的打分' }), { target: { value: '50' } });
+    fireEvent.click(screen.getByRole('button', { name: /^保\s*存$/ }));
     expect(await screen.findByText('3 人平均')).toBeInTheDocument();
     expect(document.querySelector('.score-badge')?.textContent).toBe('70');
     expect(screen.getByText(/乙/)).toBeInTheDocument();
@@ -153,3 +160,39 @@ describe('盲评：自己打分前看不到别人的分', () => {
     expect(screen.getByText('2 人平均')).toBeInTheDocument();
   });
 });
+
+describe('小眼睛：盲评下主动查看他人打分', () => {
+  const others = [{ scorerId: 9, scorerName: '乙', score: 70 }, { scorerId: 10, scorerName: '丙', score: 90 }];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPerms = ['resume:audit'];
+    window.localStorage.clear();
+    resetScoreRevealForTest();
+  });
+
+  it('点小眼睛揭开这一份，再点收起', () => {
+    renderDetail(resumeWith(others, 80));
+    expect(screen.queryByText(/乙/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '查看他人打分' }));
+    expect(document.querySelector('.score-badge')?.textContent).toBe('80');
+    expect(screen.getByText(/乙/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '收起他人打分' }));
+    expect(screen.queryByText(/乙/)).toBeNull();
+    expect(screen.getByText('待你评')).toBeInTheDocument();
+  });
+
+  it('「显示全部打分」开着时直接可见，单份小眼睛置灰', () => {
+    setRevealAll(true);
+    renderDetail(resumeWith(others, 80));
+    expect(screen.getByText(/乙/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '收起他人打分' })).toBeDisabled();
+    expect(window.localStorage.getItem('resume.revealAllScores')).toBe('1');
+  });
+
+  it('我打过分就不显示小眼睛', () => {
+    renderDetail(resumeWith([...others, { scorerId: ME, scorerName: '我', score: 50 }], 70));
+    expect(screen.queryByRole('button', { name: /他人打分/ })).toBeNull();
+  });
+});
+

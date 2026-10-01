@@ -133,6 +133,23 @@
 
   &__foldbtn { flex: none; }
 
+  // 撤销：灰色文字键，不用红色——它是反悔用的次要操作
+  &__withdraw {
+    flex: none;
+    padding: 0 6px;
+    color: var(--skin-muted, #8296b0);
+
+    &:not(:disabled):hover {
+      color: rgba(0, 0, 0, 0.75);
+      background: rgba(0, 0, 0, 0.04);
+    }
+  }
+
+  &__eye {
+    flex: none;
+    color: var(--skin-muted, #8296b0);
+  }
+
   // 拖拽手柄：只有它触发拖动，其余区域照常点击
   &__grip {
     flex: none;

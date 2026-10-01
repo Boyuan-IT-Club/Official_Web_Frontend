@@ -45,6 +45,7 @@ export const isUngradedBy = (myUserId?: number | string | null) => (r: any): boo
  * 免得被先打的人带着走。打完即可见，撤销后重新藏起来。
  *
  * - 不能打分（只读）的账号不受影响，否则他们永远看不到分数；
+ * - 点了小眼睛（单份或全部）就照常显示——盲评是默认，不是强制；
  * - 还拿不到自己的 userId（用户信息未加载）时先藏着，宁可晚一拍显示，
  *   也不闪一下别人的分。
  */
@@ -52,8 +53,10 @@ export function othersHidden(
   entries: ScoreEntry[] | null | undefined,
   myUserId: number | string | null | undefined,
   canScore: boolean,
+  /** 点了小眼睛主动查看（单份或全部），见 scoreReveal */
+  revealed: boolean = false,
 ): boolean {
-  if (!canScore) return false;
+  if (!canScore || revealed) return false;
   if (myUserId == null) return true;
   return myScoreOf(entries, myUserId) == null;
 }
