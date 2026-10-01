@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { readFilters, writeFilters, SUBMITTED_STATUSES } from './filterParams';
 import { isUngradedBy, othersHidden } from './scorePanel';
+import { scorersTip } from './ScorersTip';
 import { isRevealed, setRevealAll, toggleRevealOne, useScoreReveal } from './scoreReveal';
 import { AiFilter, chunkIds, matchesAiFilter } from './aiScreening';
 import { loadAllResumes } from './stage/loadAllResumes';
@@ -1055,7 +1056,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
                               && othersHidden((resume as any).scoreEntries, myUserId, canScore)
                               && !reveal.revealAll ? (
                               // 单份揭开后：显示分数，带睁眼图标，再点收起
-                              <Tooltip title="点击收起">
+                              <Tooltip
+                                title={scorersTip((resume as any).scoreEntries, (resume as any).resumeScore,
+                                  (resume as any).scoredByName, '点击收起')}
+                              >
                                 <Tag
                                   className="score-peek-tag"
                                   color={scoreColor((resume as any).resumeScore)}
@@ -1068,9 +1072,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
                               </Tooltip>
                             ) : (resume as any).resumeScore != null ? (
                               <Tooltip
-                                title={(resume as any).scoredByName
-                                  ? `${(resume as any).scoredByName} 评分`
-                                  : '已评分'}
+                                title={scorersTip((resume as any).scoreEntries, (resume as any).resumeScore,
+                                  (resume as any).scoredByName)}
                               >
                                 <Tag color={scoreColor((resume as any).resumeScore)}>
                                   {(resume as any).resumeScore} 分

@@ -703,3 +703,33 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
     pointer-events: none;
   }
 }
+
+// 分数标签悬停：全部打分人（Tooltip 是深底，文字沿用白色）
+.scorers-tip {
+  min-width: 140px;
+  font-variant-numeric: tabular-nums;
+
+  &__head {
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    font-size: 12px;
+    opacity: 0.75;
+  }
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    line-height: 22px;
+
+    b { font-weight: 600; }
+  }
+
+  &__foot {
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: 0.65;
+  }
+}
+
