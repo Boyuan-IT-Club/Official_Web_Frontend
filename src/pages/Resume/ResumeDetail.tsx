@@ -1,9 +1,10 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import React, { useState } from 'react';
-import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, InputNumber, Popconfirm, Tooltip, message } from 'antd';
+import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, Input, InputNumber, Popconfirm, Tooltip, message } from 'antd';
 import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
-import { ScoreEntry, myScoreOf, othersHidden, scorerLabel } from './scorePanel';
+import { COMMENT_MAX, ScoreEntry, myCommentOf, myScoreOf, othersHidden, scorerLabel } from './scorePanel';
+import ScoreComments from './ScoreComments';
 import { isRevealed, toggleRevealOne, useScoreReveal } from './scoreReveal';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import { extractGithubRepos, githubFieldLink } from '@/utils/githubRepo';
@@ -212,6 +213,12 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
   const initialMyScore = myScoreOf(initialEntries, myUserId);
   const [score, setScore] = useState<number | undefined>(initialMyScore);
   const [savedScore, setSavedScore] = useState<number | undefined>(initialMyScore);
+  // 我的评语：随打分一起保存（同一个保存键），savedComment 用于判断有没有改动
+  const initialMyComment = myCommentOf(initialEntries, myUserId);
+  const [comment, setComment] = useState<string>(initialMyComment);
+  const [savedComment, setSavedComment] = useState<string>(initialMyComment);
+  // 分数和评语都没改 → 保存键显示为「已保存」
+  const unchanged = score != null && score === savedScore && comment.trim() === savedComment.trim();
   const [scoreSaving, setScoreSaving] = useState(false);
   const [scoreWithdrawing, setScoreWithdrawing] = useState(false);
   const scoreInputRef = React.useRef<any>(null);
@@ -233,6 +240,9 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
       const newEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
       setSavedScore(undefined);
       setScore(undefined);
+      // 评语挂在这一票上，随撤销一起删掉了
+      setComment('');
+      setSavedComment('');
       setAvgScore(avg ?? undefined);
       setEntries(newEntries);
       dispatch(resumeActions.patchResumeScore({
@@ -260,6 +270,9 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
     setAvgScore((resume as any)?.resumeScore ?? undefined);
     setScore(mine);
     setSavedScore(mine);
+    const myComment = myCommentOf(freshEntries, myUserId);
+    setComment(myComment);
+    setSavedComment(myComment);
     // scoreEntries 也要跟：打分舞台里打完分，舞台把新明细写回这份 resume（同一个 id），
     // 不跟的话这里还当我没打过，AI 评价也就一直藏着
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -445,9 +458,9 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
                 loading={scoreSaving}
                 // 没填分时不禁用：灰色禁用键会被当成「坏了/不可用」（线上反馈），
                 // 点了就提示先填分并把光标放进输入框。只有「分数没改」才禁用，且显示为绿色「已保存」
-                disabled={score != null && score === savedScore}
-                className={score != null && score === savedScore ? 'is-saved' : undefined}
-                icon={score != null && score === savedScore ? <CheckOutlined /> : undefined}
+                disabled={unchanged}
+                className={unchanged ? 'is-saved' : undefined}
+                icon={unchanged ? <CheckOutlined /> : undefined}
                 onClick={async () => {
                   if (score == null) {
                     message.info('先在左边输入 0–100 的分数');
@@ -456,8 +469,12 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
                   }
                   setScoreSaving(true);
                   try {
-                    const res: any = await updateResumeScore(Number(resume.resumeId), score);
+                    const trimmed = comment.trim();
+                    // 评语总是随打分一起提交：空串即清空
+                    const res: any = await updateResumeScore(Number(resume.resumeId), score, trimmed);
                     setSavedScore(score);
+                    setComment(trimmed);
+                    setSavedComment(trimmed);
                     const avg = res?.data?.resumeScore ?? score;
                     const newEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
                     setAvgScore(avg);
@@ -486,13 +503,13 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
                   }
                 }}
               >
-                {score != null && score === savedScore ? '已保存' : savedScore == null ? '保存' : '更新'}
+                {unchanged ? '已保存' : savedScore == null ? '保存' : '更新'}
               </Button>
             </Space.Compact>
             {savedScore != null && (
               <Popconfirm
                 title="撤销你的打分？"
-                description={`将删除你打的 ${savedScore} 分，其他人的打分不受影响`}
+                description={`将删除你打的 ${savedScore} 分${savedComment ? '和评语' : ''}，其他人的不受影响`}
                 okText="撤销"
                 cancelText="取消"
                 onConfirm={handleWithdrawScore}
@@ -544,7 +561,34 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
             <span className="score-panel-none">没有其他简历</span>
           )}
         </div>
+
+        {/* 我的评语：面板最下一行，占满宽度。一行起步、随内容长高，
+            和分数一起用上面的保存键提交——一票就是「分数 + 理由」 */}
+        <div className="score-panel-comment">
+          <CommentOutlined className="score-panel-comment__icon" />
+          <Input.TextArea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder={savedScore == null
+              ? '写几句评语（可选）：亮点、顾虑、面试想追问什么…… 随打分一起保存'
+              : '写几句评语（可选），改完点「更新」保存'}
+            autoSize={{ minRows: 1, maxRows: 4 }}
+            maxLength={COMMENT_MAX}
+            showCount={comment.length > COMMENT_MAX - 60}
+            aria-label="我的评语"
+            className="score-panel-comment__input"
+          />
+        </div>
       </div>
+
+      {/* 打分评语：谁写了什么。盲评下与他人分数同一规则 */}
+      <ScoreComments
+        resumeId={resume.resumeId}
+        entries={entries}
+        myUserId={myUserId}
+        blind={blind}
+        revealAll={reveal.revealAll}
+      />
 
       <div className="resume-detail-content">
         <Card

@@ -606,6 +606,34 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
     }
   }
 
+  // 我的评语：面板最下一行，占满宽度；与上面隔一条极淡的线
+  .score-panel-comment {
+    flex-basis: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed #e6eaf2;
+
+    &__icon {
+      margin-top: 7px;
+      color: rgba(0, 0, 0, 0.35);
+    }
+
+    &__input {
+      flex: 1;
+
+      textarea {
+        background: #f7f9fc;
+        border-color: transparent;
+        line-height: 1.6;
+
+        &:hover { border-color: #d6e2f5; }
+        &:focus { background: #fff; }
+      }
+    }
+  }
+
   // 窄屏：两组各占一行，竖线去掉
   @media (max-width: 768px) {
     .score-panel-actions { width: 100%; }
@@ -731,5 +759,118 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
     font-size: 12px;
     opacity: 0.65;
   }
+}
+
+// 打分评语卡：打分面板下方、简历正文之前。白卡 + 左侧头像字，像一串批注
+.score-comments {
+  margin-bottom: 16px;
+  padding: 14px 18px 6px;
+  background: #fff;
+  border: 1px solid #e6eaf2;
+  border-radius: 12px;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.85);
+  }
+
+  &__icon { color: #5b7fc4; }
+
+  &__count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: #eef4ff;
+    color: #1f5fc8;
+    font-size: 12px;
+    line-height: 18px;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  // 盲评下只露一行：条数 + 小眼睛
+  &.is-blind {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 13px;
+    background: #f7f9fc;
+    border-style: dashed;
+  }
+}
+
+.score-comment {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+
+  & + & { border-top: 1px solid #f0f2f7; }
+
+  &__avatar {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__body { min-width: 0; flex: 1; }
+
+  &__meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  &__name {
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.85);
+  }
+
+  &__me {
+    padding: 0 6px;
+    border-radius: 4px;
+    background: #eef4ff;
+    color: #1f5fc8;
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  &__score {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: #2f6bd8;
+  }
+
+  &__text {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: rgba(0, 0, 0, 0.78);
+    white-space: pre-wrap;        // 保留换行
+    overflow-wrap: anywhere;      // 长链接不撑破卡片
+  }
+
+  &.is-mine &__avatar { box-shadow: 0 0 0 2px #cfe0fb; }
 }
 

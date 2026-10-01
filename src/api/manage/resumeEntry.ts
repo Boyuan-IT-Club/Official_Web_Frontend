@@ -658,12 +658,15 @@ export const batchScreening = (resumeIds: number[], passed: boolean) =>
 export const notifyScreenedOut = (resumeIds: number[], customMessage?: string) =>
   request({ url: '/api/resumes/screening/notify', method: 'post', data: { resumeIds, customMessage } });
 
-/** 管理员为简历打分（0~100）。resume_score 此前只有飞书导出在读，没有写入口 */
-export const updateResumeScore = (resumeId: number, score: number) => {
+/**
+ * 管理员为简历打分（0~100），可附评语。
+ * comment 不传 = 不改动原评语（打分舞台快速打分用）；传空串 = 清空。
+ */
+export const updateResumeScore = (resumeId: number, score: number, comment?: string) => {
   return request({
     url: `/api/resumes/${resumeId}/score`,
     method: 'put',
-    data: { score },
+    data: comment === undefined ? { score } : { score, comment },
   });
 };
 
