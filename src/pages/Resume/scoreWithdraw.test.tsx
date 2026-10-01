@@ -106,8 +106,13 @@ describe('撤销我的打分', () => {
     await confirmWithdraw();
 
     await waitFor(() => expect(withdrawResumeScore).toHaveBeenCalled());
-    // 失败后 loading 结束，撤销键恢复成可点的样子
-    expect(await screen.findByRole('button', { name: /^undo 撤销$/ })).toBeInTheDocument();
+    // 失败后 loading 结束，撤销键恢复成可点的样子。
+    // 用 DOM 查询而不是 *ByRole：整页 antd 树上算可访问名很慢，CI 机器上单次就可能超过 1s
+    await waitFor(() => {
+      const btn = document.querySelector('.score-panel-withdraw');
+      expect(btn).toBeInTheDocument();
+      expect(btn).not.toHaveClass('ant-btn-loading');
+    }, { timeout: 5000 });
     expect(screen.queryByText('未评')).not.toBeInTheDocument();
   });
 });
