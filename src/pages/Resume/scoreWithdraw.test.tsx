@@ -14,7 +14,10 @@ jest.mock('@/api/manage/resumeEntry', () => ({
 }));
 jest.mock('@/hooks/useResumePhoto', () => ({ useResumePhoto: () => '' }));
 jest.mock('@/components/ResumeAttachments', () => () => null);
-jest.mock('@/components/ResumeAiEvaluation', () => ({ ResumeAiSummary: () => null }));
+// AI 评价组件替身：把 blind / cycleId 渲染出来，便于断言 ResumeDetail 传了什么
+jest.mock('@/components/ResumeAiEvaluation', () => ({
+  ResumeAiSummary: ({ blind, cycleId }: any) => <div data-testid="ai">{`${blind ? 'ai-blind' : 'ai-open'}:${cycleId}`}</div>,
+}));
 // canScore 可切换：默认按只读账号（不走盲评），盲评用例里打开 resume:audit
 let mockPerms: string[] = [];
 jest.mock('@/utils/jwt', () => ({ hasPermission: (_t: unknown, code: string) => mockPerms.includes(code) }));
@@ -211,6 +214,25 @@ describe('保存键不因没填分而变灰', () => {
   it('分数没改时显示「已保存」并禁用', () => {
     renderDetail(resumeWith([{ scorerId: ME, scorerName: '我', score: 66 }], 66));
     expect(screen.getByRole('button', { name: /已保存/ })).toBeDisabled();
+  });
+});
+
+describe('AI 评价跟随盲评（ResumeDetail 传参）', () => {
+  beforeEach(() => { jest.clearAllMocks(); mockPerms = ['resume:audit', 'evaluation:run']; window.localStorage.clear(); resetScoreRevealForTest(); });
+
+  it('没传 cycleId 时用简历自带的（打分舞台就是这种情况）', () => {
+    renderDetail({ ...resumeWith([], null), cycleId: 9 });
+    expect(screen.getByTestId('ai').textContent).toBe('ai-blind:9');
+  });
+
+  it('舞台里打完分（同一份简历的明细被替换）后 AI 自动解锁', () => {
+    const before = { ...resumeWith([{ scorerId: 9, scorerName: '乙', score: 70 }], 70), cycleId: 9 };
+    const store = makeStore([before]);
+    const { rerender } = render(<Provider store={store}><ResumeDetail resume={before} /></Provider>);
+    expect(screen.getByTestId('ai').textContent).toBe('ai-blind:9');
+    const after = { ...before, scoreEntries: [...before.scoreEntries, { scorerId: ME, scorerName: '我', score: 80 }] };
+    rerender(<Provider store={store}><ResumeDetail resume={after} /></Provider>);
+    expect(screen.getByTestId('ai').textContent).toBe('ai-open:9');
   });
 });
 

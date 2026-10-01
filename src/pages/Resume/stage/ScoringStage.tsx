@@ -17,7 +17,7 @@ import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
 import ResumeDetail from '../ResumeDetail';
 import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
 import { myScoreOf, othersHidden, scorerLabel, ScoreEntry } from '../scorePanel';
-import { isRevealed, toggleRevealOne, useScoreReveal } from '../scoreReveal';
+import { isRevealed, setRevealAll, toggleRevealOne, useScoreReveal } from '../scoreReveal';
 import { getToken } from '@/utils';
 import { hasPermission } from '@/utils/jwt';
 import {
@@ -295,8 +295,13 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
   const chips: FilmChip[] = items.map((it) => ({
     key: it.resumeId,
     name: it.name,
-    // 三态：我打过（绿，显示平均分）/ 别人打过、我还没打（橙，待我评，盲评不露分）/ 没人打过
-    tag: it.mine != null ? `${it.score ?? it.mine}` : it.score != null ? '待我评' : '未评',
+    // 三态：我打过（绿，显示平均分）/ 别人打过、我还没打（橙，待我评）/ 没人打过。
+    // 第二态默认不露分；点了小眼睛（单份或全部）就带上平均分
+    tag: it.mine != null
+      ? `${it.score ?? it.mine}`
+      : it.score != null
+        ? (isRevealed(reveal, it.resumeId) ? `待我评 · ${it.score}` : '待我评')
+        : '未评',
     tagTone: it.mine != null ? 'good' : it.score != null ? 'warn' : 'muted',
     selected: it.resumeId === currentId,
   }));
@@ -313,15 +318,34 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
         </>
       }
       topExtra={
-        <Select
-          size="small"
-          allowClear
-          placeholder="全部志愿部门"
-          style={{ width: 148 }}
-          value={dept}
-          onChange={(v) => setDept(v)}
-          options={DEPTS.map((d) => ({ value: d, label: d }))}
-        />
+        <>
+          {/* 全部的小眼睛：与列表页「显示全部打分」是同一个开关 */}
+          {canScore && (
+            <Tooltip
+              title={reveal.revealAll
+                ? '点击恢复盲评：没打过分的简历隐藏他人打分'
+                : '显示所有简历的他人打分（底部人员条也带上分数）'}
+            >
+              <Button
+                size="small"
+                className={`reveal-all-btn${reveal.revealAll ? ' is-on' : ''}`}
+                icon={reveal.revealAll ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                onClick={() => setRevealAll(!reveal.revealAll)}
+              >
+                {reveal.revealAll ? '已显示全部打分' : '显示全部打分'}
+              </Button>
+            </Tooltip>
+          )}
+          <Select
+            size="small"
+            allowClear
+            placeholder="全部志愿部门"
+            style={{ width: 148 }}
+            value={dept}
+            onChange={(v) => setDept(v)}
+            options={DEPTS.map((d) => ({ value: d, label: d }))}
+          />
+        </>
       }
       onExit={onExit}
       film={<FilmStrip items={chips} onSelect={(k) => setCurrentId(Number(k))} />}
