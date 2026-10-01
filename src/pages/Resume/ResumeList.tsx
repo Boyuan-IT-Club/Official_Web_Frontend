@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { readFilters, writeFilters, SUBMITTED_STATUSES } from './filterParams';
 import { isUngradedBy, othersHidden } from './scorePanel';
+import { isRevealed, setRevealAll, toggleRevealOne, useScoreReveal } from './scoreReveal';
 import { AiFilter, chunkIds, matchesAiFilter } from './aiScreening';
 import { loadAllResumes } from './stage/loadAllResumes';
 import { fetchSearchPage } from './stage/fetchSearchPage';
@@ -30,6 +31,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   EyeOutlined,
+  EyeInvisibleOutlined,
   DownloadOutlined,
   SearchOutlined,
   FilterOutlined,
@@ -165,6 +167,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const canUseAiScreening = hasPermission(getToken(), 'evaluation:run');
   // 能打分的人才走盲评（见 othersHidden）
   const canScore = hasPermission(getToken(), 'resume:audit');
+  // 盲评的小眼睛：单份揭开 / 全部揭开（见 scoreReveal）
+  const reveal = useScoreReveal();
 
   // 从 Redux 获取分页相关状态
   const { resumes, adminLoading, adminError, pagination } = useSelector(
@@ -347,6 +351,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
       params.sortOrder = sortOrder;
     }
 
+    // 开了「显示全部打分」：按分数排序也用真实顺序，不再把我没打的垫底
+    if (reveal.revealAll) {
+      params.revealScores = true;
+    }
+
     // eslint-disable-next-line no-console
     console.log('Dispatching fetchResumes with params:', params);
     dispatch(resumeActions.fetchResumes(params));
@@ -357,6 +366,15 @@ const ResumeList: React.FC<ResumeListProps> = ({
       isReturningFromDetail.current = false;
     }
   };
+
+  // 切换「显示全部打分」时，按分数排序的顺序会变（盲评垫底 ↔ 真实顺序），重拉第一页。
+  // 首次挂载不触发，免得和挂载时的那次拉取重复
+  const revealMounted = useRef(false);
+  useEffect(() => {
+    if (!revealMounted.current) { revealMounted.current = true; return; }
+    if (sortBy === 'resume_score') loadResumes(1, pagination.pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal.revealAll]);
 
   // 当父组件的 currentPage 变化时更新本地状态（保持原逻辑不变）
   // 拉周期列表并默认选中进行中的那一届：默认「全部周期」会把历届混在一起，
@@ -800,6 +818,23 @@ const ResumeList: React.FC<ResumeListProps> = ({
             <Dropdown overlay={sortMenu} trigger={['click']}>
               <Button icon={<FilterOutlined />}>{SORT_LABELS[currentSortKey] ?? '排序方式'}</Button>
             </Dropdown>
+            {/* 全部的小眼睛：一键显示所有简历的他人打分；再点恢复盲评。
+                只对能打分的人有意义（只读账号本来就全可见） */}
+            {canScore && (
+              <Tooltip
+                title={reveal.revealAll
+                  ? '点击恢复盲评：没打过分的简历隐藏他人打分'
+                  : '显示所有简历的他人打分（包括你还没打的）'}
+              >
+                <Button
+                  icon={reveal.revealAll ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                  className={`reveal-all-btn${reveal.revealAll ? ' is-on' : ''}`}
+                  onClick={() => setRevealAll(!reveal.revealAll)}
+                >
+                  {reveal.revealAll ? '已显示全部打分' : '显示全部打分'}
+                </Button>
+              </Tooltip>
+            )}
           </div>
 
           <div className="control-item results-info-wrapper">
@@ -925,7 +960,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
                       hoverable
                       className={`resume-card${selectedIds.includes(String(resume.resumeId)) ? ' is-picked' : ''}`}
                       actions={[
-                        <Button type="link" icon={<EyeOutlined />} onClick={() => handleViewResume(resume)}>
+                        <Button
+                          className="resume-card-action resume-card-action--primary"
+                          icon={<EyeOutlined />}
+                          onClick={() => handleViewResume(resume)}
+                        >
                           查看
                         </Button>,
                         <Dropdown
@@ -951,7 +990,7 @@ const ResumeList: React.FC<ResumeListProps> = ({
                             ],
                           }}
                         >
-                          <Button type="link" icon={<DownloadOutlined />}>下载</Button>
+                          <Button className="resume-card-action" icon={<DownloadOutlined />}>下载</Button>
                         </Dropdown>,
                       ]}
                     >
@@ -982,9 +1021,33 @@ const ResumeList: React.FC<ResumeListProps> = ({
                                 未打分显示灰色「未评分」，一眼看出还剩谁要处理。
                                 盲评：别人打过、我还没打的只显示人数，不露分数。 */}
                             {(resume as any).resumeScore != null
-                              && othersHidden((resume as any).scoreEntries, myUserId, canScore) ? (
-                              <Tooltip title="你打分后可见">
-                                <Tag>{`已有 ${((resume as any).scoreEntries ?? []).length || 1} 人评`}</Tag>
+                              && othersHidden((resume as any).scoreEntries, myUserId, canScore)
+                              && !isRevealed(reveal, resume.resumeId) ? (
+                              // 盲评下的单份小眼睛：点一下揭开这一份
+                              <Tooltip title="打分后可见，或点击查看">
+                                <Tag
+                                  className="score-peek-tag"
+                                  icon={<EyeInvisibleOutlined />}
+                                  role="button"
+                                  onClick={(e) => { e.stopPropagation(); toggleRevealOne(resume.resumeId); }}
+                                >
+                                  {`已有 ${((resume as any).scoreEntries ?? []).length || 1} 人评`}
+                                </Tag>
+                              </Tooltip>
+                            ) : (resume as any).resumeScore != null
+                              && othersHidden((resume as any).scoreEntries, myUserId, canScore)
+                              && !reveal.revealAll ? (
+                              // 单份揭开后：显示分数，带睁眼图标，再点收起
+                              <Tooltip title="点击收起">
+                                <Tag
+                                  className="score-peek-tag"
+                                  color={scoreColor((resume as any).resumeScore)}
+                                  icon={<EyeOutlined />}
+                                  role="button"
+                                  onClick={(e) => { e.stopPropagation(); toggleRevealOne(resume.resumeId); }}
+                                >
+                                  {(resume as any).resumeScore} 分
+                                </Tag>
                               </Tooltip>
                             ) : (resume as any).resumeScore != null ? (
                               <Tooltip

@@ -11,12 +11,13 @@
 //      「上一位分数残留」那类 bug 从结构上绝迹。
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InputNumber, Button, Popconfirm, Select, Tooltip, message } from 'antd';
-import { DownOutlined, HolderOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { DownOutlined, EyeInvisibleOutlined, EyeOutlined, HolderOutlined, QuestionCircleOutlined, UndoOutlined } from '@ant-design/icons';
 import StageShell from '@/components/stage/StageShell';
 import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
 import ResumeDetail from '../ResumeDetail';
 import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
 import { myScoreOf, othersHidden, scorerLabel, ScoreEntry } from '../scorePanel';
+import { isRevealed, toggleRevealOne, useScoreReveal } from '../scoreReveal';
 import { getToken } from '@/utils';
 import { hasPermission } from '@/utils/jwt';
 import {
@@ -192,7 +193,10 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
   const mySaved = myScoreOf(entries, myUserId);
   // 盲评：我还没打这一位时，打分卡上不露平均分与逐人明细
   const canScore = hasPermission(getToken(), 'resume:audit');
-  const blind = othersHidden(entries, myUserId, canScore);
+  const reveal = useScoreReveal();
+  const peeked = isRevealed(reveal, currentId);
+  const blindByDefault = othersHidden(entries, myUserId, canScore);
+  const blind = othersHidden(entries, myUserId, canScore, peeked);
 
   // 我的打分：以 currentId 为 key 重建，切人自动清空（不会残留上一位的分）
   const [score, setScore] = useState<number | undefined>(undefined);
@@ -382,7 +386,13 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
                 placement="top"
                 onConfirm={withdraw}
               >
-                <Button danger type="text" loading={withdrawing} disabled={saving}>
+                <Button
+                  type="text"
+                  className="scoring-stage__withdraw"
+                  icon={<UndoOutlined />}
+                  loading={withdrawing}
+                  disabled={saving}
+                >
                   撤销
                 </Button>
               </Popconfirm>
@@ -390,7 +400,7 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
             <Tooltip
               title={
                 entries.length === 0 ? '还没有人打分'
-                  : blind ? '你打分后可见其他人的打分'
+                  : blind ? '打分后可见，或点小眼睛查看'
                     : entries.map((e) => `${scorerLabel(e)} ${e.score}`).join(' · ')
               }
             >
@@ -400,6 +410,20 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
                   : `${entries.length} 人已打分`}
               </span>
             </Tooltip>
+            {/* 单份小眼睛：盲评下查看/收起这一位的他人打分 */}
+            {blindByDefault && entries.length > 0 && (
+              <Tooltip title={reveal.revealAll ? '已在列表开启「显示全部打分」' : peeked ? '收起他人打分' : '查看他人打分'}>
+                <Button
+                  type="text"
+                  size="small"
+                  className="scoring-stage__eye"
+                  aria-label={peeked ? '收起他人打分' : '查看他人打分'}
+                  icon={peeked ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                  disabled={reveal.revealAll}
+                  onClick={() => toggleRevealOne(currentId)}
+                />
+              </Tooltip>
+            )}
             <Tooltip
               open={tipOpen}
               onOpenChange={setTipOpen}

@@ -155,11 +155,49 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
       }
     }
 
+    /*
+      底部操作：原来是 #fafafa 灰底 + 链接按钮，被反馈「看着像不能点」。
+      改成白底上两颗实体按钮：查看是主操作（浅蓝底），下载为描边；
+      悬停加深，一眼就知道能按。
+    */
     .ant-card-actions {
-      background: #fafafa;
+      display: flex;
+      gap: 10px;
+      padding: 10px 14px 12px;
+      background: #fff;
+      border-top: 1px solid #eef1f6;
 
       > li {
-        margin: 4px 0;
+        flex: 1;
+        width: auto !important;
+        margin: 0;
+        border-inline-end: none !important;
+      }
+    }
+
+    .resume-card-action {
+      width: 100%;
+      height: 34px;
+      border-radius: 8px;
+      border-color: #d6e2f5;
+      color: #1f5fc8;
+      font-weight: 500;
+      box-shadow: none;
+
+      &:not(:disabled):hover {
+        border-color: #9fbfee !important;
+        color: #174fa8 !important;
+        background: #f5f9ff !important;
+      }
+
+      &--primary {
+        border-color: transparent;
+        background: #eaf2ff;
+
+        &:not(:disabled):hover {
+          border-color: transparent !important;
+          background: #dbe8ff !important;
+        }
       }
     }
   }
@@ -452,11 +490,138 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
   .score-panel-mine {
     font-size: 13px;
     color: rgba(0, 0, 0, 0.55);
+    white-space: nowrap;
   }
 
-  // 窄屏时按钮组换行后与左侧对齐
+  // 小眼睛：和标题同一行的轻量图标键
+  .score-panel-eye {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    color: rgba(0, 0, 0, 0.45);
+
+    &:not(:disabled):hover {
+      color: #2f6bd8;
+      background: #eef4ff;
+    }
+  }
+
+  /*
+    右侧操作区 = 打分 | 前进，两组之间一条细竖线。
+    原来是五个一样的描边按钮排成一串（含一颗大红「撤销」），
+    看不出主次，也看不出哪些是一组。
+  */
   .score-panel-actions {
-    row-gap: 8px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+
+  .score-panel-score {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .score-panel-input {
+    width: 96px;
+
+    input {
+      font-size: 15px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  // 「已保存」：分数没改时保存键变成浅绿确认态，而不是一块死灰的禁用键
+  .ant-btn.is-saved:disabled {
+    color: #2e7d4f;
+    background: #edf7f1;
+    border-color: #cfe9da;
+  }
+
+  // 撤销：灰色文字键，悬停才显出可点
+  .score-panel-withdraw {
+    padding: 0 6px;
+    color: rgba(0, 0, 0, 0.45);
+
+    &:not(:disabled):hover {
+      color: rgba(0, 0, 0, 0.75);
+      background: #f2f4f8;
+    }
+  }
+
+  .score-panel-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 16px;
+    border-left: 1px solid #e6eaf2;
+
+    &__btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 220px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border-color: #dfe5ef;
+      color: rgba(0, 0, 0, 0.75);
+
+      .anticon {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.35);
+      }
+
+      &--primary {
+        border-color: #cfe0fb;
+        background: #eef4ff;
+        color: #1f5fc8;
+
+        .anticon { color: #1f5fc8; }
+
+        &:not(:disabled):hover {
+          border-color: #a9c7f5 !important;
+          background: #e2edff !important;
+          color: #174fa8 !important;
+        }
+      }
+    }
+
+    &__label {
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    // 名字可能很长（含括号备注），超出省略，完整名在 title 里
+    &__name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 400;
+      opacity: 0.75;
+    }
+  }
+
+  // 窄屏：两组各占一行，竖线去掉
+  @media (max-width: 768px) {
+    .score-panel-actions { width: 100%; }
+
+    .score-panel-nav {
+      width: 100%;
+      padding-left: 0;
+      border-left: none;
+    }
+
+    .score-panel-nav__btn {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: none;
+      justify-content: center;
+    }
   }
 }
 
@@ -510,4 +675,22 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
       gap: 4px;
     }
   }
+}
+
+// 盲评小眼睛：卡片上可点的「已有 N 人评」/ 揭开后的分数
+.score-peek-tag {
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    border-color: #9fbfee;
+  }
+}
+
+// 「显示全部打分」开着时用浅蓝底常驻提示，免得忘了自己关掉了盲评
+.reveal-all-btn.is-on {
+  color: #1f5fc8;
+  background: #eef4ff;
+  border-color: #cfe0fb;
 }

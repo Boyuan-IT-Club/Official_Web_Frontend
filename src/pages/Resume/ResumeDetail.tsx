@@ -1,9 +1,10 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { resumeActions } from '@/store/modules/resume';
 import React, { useState } from 'react';
-import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, InputNumber, Popconfirm, message } from 'antd';
+import { Card, Row, Col, Typography, Divider, Image, Tag, Space, Button, InputNumber, Popconfirm, Tooltip, message } from 'antd';
 import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
 import { ScoreEntry, myScoreOf, othersHidden, scorerLabel } from './scorePanel';
+import { isRevealed, toggleRevealOne, useScoreReveal } from './scoreReveal';
 import { buildExportDataFromSimpleFields, exportResumeAsDOCX } from '@/utils/exportResume';
 import { extractGithubRepos, githubFieldLink } from '@/utils/githubRepo';
 import { resolveResumePhotoDataUrl } from '@/api/resumePhoto';
@@ -27,6 +28,12 @@ import {
   ClockCircleOutlined,
   DownloadOutlined, ThunderboltOutlined,
   ArrowLeftOutlined,
+  CheckOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  RightOutlined,
+  StepForwardOutlined,
+  UndoOutlined,
 } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
@@ -209,7 +216,11 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
   const [scoreWithdrawing, setScoreWithdrawing] = useState(false);
   // 盲评：我还没打分时藏起别人的分（平均分与逐人明细），只留人数
   const canScore = hasPermission(getToken(), 'resume:audit');
-  const blind = othersHidden(entries, myUserId, canScore);
+  const reveal = useScoreReveal();
+  const peeked = isRevealed(reveal, resume?.resumeId);
+  // blindByDefault：不点小眼睛时是否该藏——决定要不要露出小眼睛
+  const blindByDefault = othersHidden(entries, myUserId, canScore);
+  const blind = othersHidden(entries, myUserId, canScore, peeked);
 
   // 误触打分后反悔：只撤我这一票，平均分按剩下的人重算，一票不剩就回到「未评」
   const handleWithdrawScore = async (): Promise<void> => {
@@ -368,14 +379,32 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
               {entries.length > 0 && (
                 <span className="score-panel-by">{blind ? `已有 ${entries.length} 人打分` : `${entries.length} 人平均`}</span>
               )}
+              {/* 小眼睛：盲评下主动查看/收起这一份的他人打分。我打过分就不需要了 */}
+              {blindByDefault && entries.length > 0 && (
+                <Tooltip
+                  title={reveal.revealAll
+                    ? '已在列表开启「显示全部打分」'
+                    : peeked ? '收起他人打分' : '查看他人打分'}
+                >
+                  <Button
+                    type="text"
+                    size="small"
+                    className="score-panel-eye"
+                    aria-label={peeked ? '收起他人打分' : '查看他人打分'}
+                    icon={peeked ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                    disabled={reveal.revealAll}
+                    onClick={() => toggleRevealOne(resume.resumeId)}
+                  />
+                </Tooltip>
+              )}
             </div>
             {/* 逐人明细：谁打了几分。多人打分的核心诉求就是这行可追溯。
-                盲评时整行换成提示，打完分再展开 */}
+                盲评时整行换成提示，打完分（或点小眼睛）再展开 */}
             <div className="score-panel-entries">
               {entries.length === 0 ? (
                 <span className="score-panel-none">还没有人打分</span>
               ) : blind ? (
-                <span className="score-panel-none">你打分后可见其他人的打分</span>
+                <span className="score-panel-none">打分后可见，或点小眼睛查看</span>
               ) : entries.map((e) => (
                 <span key={e.scorerId} className="score-panel-entry">
                   {scorerLabel(e)} <b>{e.score}</b>
@@ -384,86 +413,121 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
             </div>
           </div>
         </div>
-        <Space size={8} wrap className="score-panel-actions">
-          <span className="score-panel-mine">我的打分</span>
-          <InputNumber
-            min={0}
-            max={100}
-            placeholder="0~100"
-            value={score}
-            onChange={(v) => setScore(v == null ? undefined : Number(v))}
-            style={{ width: 110 }}
-            onPressEnter={() => { /* 交给保存按钮统一处理，避免重复提交 */ }}
-          />
-          <Button
-            type="primary"
-            loading={scoreSaving}
-            disabled={score == null || score === savedScore}
-            onClick={async () => {
-              if (score == null) return;
-              setScoreSaving(true);
-              try {
-                const res: any = await updateResumeScore(Number(resume.resumeId), score);
-                setSavedScore(score);
-                const avg = res?.data?.resumeScore ?? score;
-                const newEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
-                setAvgScore(avg);
-                setEntries(newEntries);
-                // 同步列表里的那一条，否则「下一位未打分」会把刚打完的人
-                // 再算进去、绕回同一个人；返回列表也还显示「未评分」。
-                // 注意进列表的是平均分，不是我这一票。
-                dispatch(resumeActions.patchResumeScore({
-                  resumeId: resume.resumeId as any,
-                  resumeScore: avg,
-                  scoredByName: res?.data?.scoredByName ?? undefined,
-                  scoreEntries: newEntries,
-                }));
-                // 打完直接送到下一位未打分的人：批量打分时这是最高频的动线，
-                // 不用回列表再找。没有下一位就只提示打完了。
-                if (onNextUngraded) {
-                  message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），跳到${nextUngradedName ? `「${nextUngradedName}」` : '下一位'}`);
-                  onNextUngraded();
-                } else {
-                  message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），本页简历你都打完了`);
-                }
-              } catch (e: any) {
-                message.error(e?.message || '打分失败');
-              } finally {
-                setScoreSaving(false);
-              }
-            }}
-          >
-            {savedScore == null ? '保存我的打分' : '更新我的打分'}
-          </Button>
-          {savedScore != null && (
-            <Popconfirm
-              title="撤销你的打分？"
-              description={`将删除你打的 ${savedScore} 分，其他人的打分不受影响`}
-              okText="撤销"
-              cancelText="取消"
-              onConfirm={handleWithdrawScore}
-            >
-              <Button danger loading={scoreWithdrawing} disabled={scoreSaving}>
-                撤销我的打分
+
+        <div className="score-panel-actions">
+          {/* 打分：输入框与保存键连成一体，撤销降级成灰色文字键——
+              它是反悔用的次要操作，不该和保存抢眼，更不该是一片大红 */}
+          <div className="score-panel-score">
+            <span className="score-panel-mine">我的打分</span>
+            <Space.Compact>
+              <InputNumber
+                min={0}
+                max={100}
+                placeholder="0–100"
+                value={score}
+                onChange={(v) => setScore(v == null ? undefined : Number(v))}
+                className="score-panel-input"
+                aria-label="我的打分"
+                onPressEnter={() => { /* 交给保存按钮统一处理，避免重复提交 */ }}
+              />
+              <Button
+                type="primary"
+                loading={scoreSaving}
+                disabled={score == null || score === savedScore}
+                className={score != null && score === savedScore ? 'is-saved' : undefined}
+                icon={score != null && score === savedScore ? <CheckOutlined /> : undefined}
+                onClick={async () => {
+                  if (score == null) return;
+                  setScoreSaving(true);
+                  try {
+                    const res: any = await updateResumeScore(Number(resume.resumeId), score);
+                    setSavedScore(score);
+                    const avg = res?.data?.resumeScore ?? score;
+                    const newEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
+                    setAvgScore(avg);
+                    setEntries(newEntries);
+                    // 同步列表里的那一条，否则「下一位未打分」会把刚打完的人
+                    // 再算进去、绕回同一个人；返回列表也还显示「未评分」。
+                    // 注意进列表的是平均分，不是我这一票。
+                    dispatch(resumeActions.patchResumeScore({
+                      resumeId: resume.resumeId as any,
+                      resumeScore: avg,
+                      scoredByName: res?.data?.scoredByName ?? undefined,
+                      scoreEntries: newEntries,
+                    }));
+                    // 打完直接送到下一位未打分的人：批量打分时这是最高频的动线，
+                    // 不用回列表再找。没有下一位就只提示打完了。
+                    if (onNextUngraded) {
+                      message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），跳到${nextUngradedName ? `「${nextUngradedName}」` : '下一位'}`);
+                      onNextUngraded();
+                    } else {
+                      message.success(`已打分 ${score}（平均 ${res?.data?.resumeScore ?? score}），本页简历你都打完了`);
+                    }
+                  } catch (e: any) {
+                    message.error(e?.message || '打分失败');
+                  } finally {
+                    setScoreSaving(false);
+                  }
+                }}
+              >
+                {score != null && score === savedScore ? '已保存' : savedScore == null ? '保存' : '更新'}
               </Button>
-            </Popconfirm>
-          )}
-          {/* 独立的跳过按钮：这份暂时不打分，也能直接换下一位未打分的 */}
-          {onNextUngraded && (
-            <Button onClick={() => onNextUngraded()} loading={nextLoading}>
-              {`下一位待我打分${nextUngradedName ? `：${nextUngradedName}` : ''}`}
-            </Button>
-          )}
-          {/* 顺序浏览：已打过分的也能一路翻下去复查，不被「未打分」过滤挡住。
-              全部打完时它就是唯一的前进键。 */}
-          {onNext ? (
-            <Button onClick={() => onNext()} loading={nextLoading}>
-              {`下一位${nextName ? `：${nextName}` : ''}`}
-            </Button>
+            </Space.Compact>
+            {savedScore != null && (
+              <Popconfirm
+                title="撤销你的打分？"
+                description={`将删除你打的 ${savedScore} 分，其他人的打分不受影响`}
+                okText="撤销"
+                cancelText="取消"
+                onConfirm={handleWithdrawScore}
+              >
+                <Button
+                  type="text"
+                  size="small"
+                  className="score-panel-withdraw"
+                  icon={<UndoOutlined />}
+                  loading={scoreWithdrawing}
+                  disabled={scoreSaving}
+                >
+                  撤销
+                </Button>
+              </Popconfirm>
+            )}
+          </div>
+
+          {/* 前进：两种「下一位」合成一组。待我打分是批量打分的主动线，浅蓝底强调；
+              顺序下一位用于复查（已打过的也会经过），保持素色 */}
+          {(onNextUngraded || onNext) ? (
+            <div className="score-panel-nav">
+              {onNextUngraded && (
+                <Button
+                  className="score-panel-nav__btn score-panel-nav__btn--primary"
+                  onClick={() => onNextUngraded()}
+                  loading={nextLoading}
+                  title={nextUngradedName ? `下一位待我打分：${nextUngradedName}` : '下一位待我打分'}
+                >
+                  <span className="score-panel-nav__label">待我打分</span>
+                  {nextUngradedName && <span className="score-panel-nav__name">{nextUngradedName}</span>}
+                  <StepForwardOutlined />
+                </Button>
+              )}
+              {onNext && (
+                <Button
+                  className="score-panel-nav__btn"
+                  onClick={() => onNext()}
+                  loading={nextLoading}
+                  title={nextName ? `下一位：${nextName}` : '下一位'}
+                >
+                  <span className="score-panel-nav__label">下一位</span>
+                  {nextName && <span className="score-panel-nav__name">{nextName}</span>}
+                  <RightOutlined />
+                </Button>
+              )}
+            </div>
           ) : (
-            !onNextUngraded && <Button disabled>没有其他简历</Button>
+            <span className="score-panel-none">没有其他简历</span>
           )}
-        </Space>
+        </div>
       </div>
 
       <div className="resume-detail-content">
