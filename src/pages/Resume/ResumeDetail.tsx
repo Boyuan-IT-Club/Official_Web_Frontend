@@ -214,6 +214,7 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
   const [savedScore, setSavedScore] = useState<number | undefined>(initialMyScore);
   const [scoreSaving, setScoreSaving] = useState(false);
   const [scoreWithdrawing, setScoreWithdrawing] = useState(false);
+  const scoreInputRef = React.useRef<any>(null);
   // 盲评：我还没打分时藏起别人的分（平均分与逐人明细），只留人数
   const canScore = hasPermission(getToken(), 'resume:audit');
   const reveal = useScoreReveal();
@@ -428,16 +429,23 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
                 onChange={(v) => setScore(v == null ? undefined : Number(v))}
                 className="score-panel-input"
                 aria-label="我的打分"
+                ref={scoreInputRef}
                 onPressEnter={() => { /* 交给保存按钮统一处理，避免重复提交 */ }}
               />
               <Button
                 type="primary"
                 loading={scoreSaving}
-                disabled={score == null || score === savedScore}
+                // 没填分时不禁用：灰色禁用键会被当成「坏了/不可用」（线上反馈），
+                // 点了就提示先填分并把光标放进输入框。只有「分数没改」才禁用，且显示为绿色「已保存」
+                disabled={score != null && score === savedScore}
                 className={score != null && score === savedScore ? 'is-saved' : undefined}
                 icon={score != null && score === savedScore ? <CheckOutlined /> : undefined}
                 onClick={async () => {
-                  if (score == null) return;
+                  if (score == null) {
+                    message.info('先在左边输入 0–100 的分数');
+                    scoreInputRef.current?.focus?.();
+                    return;
+                  }
                   setScoreSaving(true);
                   try {
                     const res: any = await updateResumeScore(Number(resume.resumeId), score);
