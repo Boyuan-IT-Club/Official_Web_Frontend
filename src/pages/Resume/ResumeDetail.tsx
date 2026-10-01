@@ -260,8 +260,10 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
     setAvgScore((resume as any)?.resumeScore ?? undefined);
     setScore(mine);
     setSavedScore(mine);
+    // scoreEntries 也要跟：打分舞台里打完分，舞台把新明细写回这份 resume（同一个 id），
+    // 不跟的话这里还当我没打过，AI 评价也就一直藏着
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resume?.resumeId, myUserId]);
+  }, [resume?.resumeId, myUserId, (resume as any)?.scoreEntries]);
 
   // 「个人照片」字段值：新数据是 COS objectKey，历史数据是整段 base64，
   // hook 内部两种都解析成可渲染的 URL。hook 必须在下面的 early return 之前调用
@@ -360,8 +362,14 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
         </Space>
       </div>
 
+      {/* cycleId 退回简历自带的：打分舞台没有传周期，原来 AI 评价在舞台里整块不显示。
+          blind：我还没打这份分时 AI 等级也先藏着，打完自动显示 */}
       {canUseAiScreening && (
-        <ResumeAiSummary resumeId={Number(resume.resumeId)} cycleId={cycleId} />
+        <ResumeAiSummary
+          resumeId={Number(resume.resumeId)}
+          cycleId={cycleId ?? (resume as any).cycleId}
+          blind={canScore && myScoreOf(entries, myUserId) == null}
+        />
       )}
 
       {/* 简历打分面板：审核动线的主操作。

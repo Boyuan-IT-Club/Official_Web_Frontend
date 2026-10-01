@@ -57,3 +57,36 @@ describe('AI 评价默认收起', () => {
     expect(screen.queryByRole('button', { name: /查看完整评价/ })).toBeNull();
   });
 });
+
+describe('AI 评价跟随盲评：没打分时手动查看，打完自动显示', () => {
+  beforeEach(() => (getEvaluationScorecard as jest.Mock).mockResolvedValue({ data: detail }));
+
+  it('我还没打分：只提示已出结果，不露等级', async () => {
+    render(<ResumeAiSummary resumeId={1} cycleId={3} blind />);
+    expect(await screen.findByText('已出结果，打分后自动显示')).toBeInTheDocument();
+    expect(screen.queryByText('部门匹配 良好')).toBeNull();
+  });
+
+  it('点「查看」揭开，点「收起」再藏起', async () => {
+    render(<ResumeAiSummary resumeId={1} cycleId={3} blind />);
+    fireEvent.click(await screen.findByRole('button', { name: /查\s*看/ }));
+    expect(screen.getByText('部门匹配 良好')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /收\s*起/ }));
+    expect(screen.queryByText('部门匹配 良好')).toBeNull();
+  });
+
+  it('打完分（blind 变 false）自动显示等级', async () => {
+    const { rerender } = render(<ResumeAiSummary resumeId={1} cycleId={3} blind />);
+    await screen.findByText('已出结果，打分后自动显示');
+    rerender(<ResumeAiSummary resumeId={1} cycleId={3} blind={false} />);
+    expect(screen.getByText('部门匹配 良好')).toBeInTheDocument();
+  });
+
+  it('换一份简历重新藏起', async () => {
+    const { rerender } = render(<ResumeAiSummary resumeId={1} cycleId={3} blind />);
+    fireEvent.click(await screen.findByRole('button', { name: /查\s*看/ }));
+    rerender(<ResumeAiSummary resumeId={2} cycleId={3} blind />);
+    expect(await screen.findByText('已出结果，打分后自动显示')).toBeInTheDocument();
+  });
+});
+

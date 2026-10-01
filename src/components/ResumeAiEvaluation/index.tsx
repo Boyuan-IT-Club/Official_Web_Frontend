@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert, Button, Card, Collapse, Drawer, Empty, Skeleton, Space, Tabs, Tag, Typography, message,
 } from 'antd';
-import { BookOutlined, CheckOutlined, RobotOutlined } from '@ant-design/icons';
+import { BookOutlined, CheckOutlined, EyeInvisibleOutlined, RobotOutlined } from '@ant-design/icons';
 import {
   AiGrade, AiGrades, DeptMatch, ItemVerdict, ScorecardDetail, ScorecardRow, TransferHint,
   getEvaluationQbank, getEvaluationScorecard, pickQuestions,
@@ -359,18 +359,26 @@ export const EvaluationQbankDrawer: React.FC<QbankDrawerProps> = ({
 type ResumeAiSummaryProps = {
   resumeId: number;
   cycleId?: number | null;
+  /**
+   * 盲评：我还没给这份简历打分。此时 AI 的等级也先藏起来，免得先入为主——
+   * 只留一行「已出结果」，手动点「查看」才揭开；打完分自动显示（与他人打分的小眼睛同一规则）。
+   */
+  blind?: boolean;
 };
 
-export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycleId }) => {
+export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycleId, blind = false }) => {
   const [detail, setDetail] = useState<ScorecardDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [qbankOpen, setQbankOpen] = useState(false);
   // 等级标签（部门匹配 / 认真程度 / 调剂建议）直接可见；逐项依据、面试提示等
   // 完整评分卡默认收起，想细看再点开。换一份简历就重新收起。
   const [expanded, setExpanded] = useState(false);
+  // 盲评下手动揭开；换一份简历重新藏起
+  const [peek, setPeek] = useState(false);
 
   useEffect(() => {
     setExpanded(false);
+    setPeek(false);
     if (!cycleId) return;
     let cancelled = false;
     setLoading(true);
@@ -394,6 +402,18 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
     );
   }
 
+  if (blind && !peek) {
+    return (
+      <div className="resume-ai-summary__collapsed is-blind">
+        <span className="resume-ai-summary__label"><RobotOutlined /> AI 初筛</span>
+        <span className="resume-ai-summary__hint">已出结果，打分后自动显示</span>
+        <Button size="small" type="link" icon={<EyeInvisibleOutlined />} onClick={() => setPeek(true)}>
+          查看
+        </Button>
+      </div>
+    );
+  }
+
   if (!expanded) {
     return (
       <div className="resume-ai-summary__collapsed">
@@ -402,6 +422,11 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
         <Button size="small" type="link" onClick={() => setExpanded(true)}>
           查看完整评价
         </Button>
+        {blind && (
+          <Button size="small" type="link" className="resume-ai-summary__hide" onClick={() => setPeek(false)}>
+            收起
+          </Button>
+        )}
       </div>
     );
   }
