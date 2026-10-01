@@ -694,3 +694,12 @@ $menu-bg: #1c1f26;   // 原为三色渐变，统一到石墨深色
   background: #eef4ff;
   border-color: #cfe0fb;
 }
+
+// 让禁用按钮也能触发 Tooltip（禁用的 button 不派发鼠标事件，由外层 span 接）
+.btn-tip-wrap {
+  display: inline-block;
+
+  .ant-btn:disabled {
+    pointer-events: none;
+  }
+}

@@ -196,3 +196,21 @@ describe('小眼睛：盲评下主动查看他人打分', () => {
   });
 });
 
+describe('保存键不因没填分而变灰', () => {
+  beforeEach(() => { jest.clearAllMocks(); mockPerms = ['resume:audit']; window.localStorage.clear(); resetScoreRevealForTest(); });
+
+  it('没填分时保存键可点，点了提示先填分、不发请求', async () => {
+    renderDetail(resumeWith([], null));
+    const save = screen.getByRole('button', { name: /^保\s*存$/ });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    expect(await screen.findByText('先在左边输入 0–100 的分数')).toBeInTheDocument();
+    expect(updateResumeScore).not.toHaveBeenCalled();
+  });
+
+  it('分数没改时显示「已保存」并禁用', () => {
+    renderDetail(resumeWith([{ scorerId: ME, scorerName: '我', score: 66 }], 66));
+    expect(screen.getByRole('button', { name: /已保存/ })).toBeDisabled();
+  });
+});
+

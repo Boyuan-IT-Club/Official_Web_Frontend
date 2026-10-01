@@ -32,8 +32,9 @@ const dawn: Skin = {
   layout: 'classic',
   theme: {
     token: {
-      colorPrimary: '#2b7fe0',
-      colorLink: '#2b7fe0',
+      // 与管理端晨霞同步加深一档：#2b7fe0 白字对比 4.0，主按钮偏虚
+      colorPrimary: '#1f6fd6',
+      colorLink: '#1f6fd6',
       colorLinkHover: '#4da6ff',
       colorBgLayout: '#f8fbff',
       borderRadius: 10,
@@ -42,7 +43,7 @@ const dawn: Skin = {
     },
   },
   cssVars: {
-    '--skin-accent': '#2b7fe0',
+    '--skin-accent': '#1f6fd6',
     '--skin-accent-2': '#8f6ce8',
     '--skin-accent-bg': '#e4f0ff',
     '--skin-accent-text': '#1d5fb8',

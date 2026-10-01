@@ -19,11 +19,17 @@ const PALETTES: Palette[] = [
     key: 'graphite',
     name: '石墨深色',
     shell: 'dark',
-    // 深底上强调色改用浅化版：深蓝/靛蓝在深色里辨识度不足
-    accent: '#8ab4f8',
-    accentHover: '#a3c5fa',
-    accentBg: '#2b303b',
-    accentText: '#e8f0fe',
+    /*
+      强调色给的是「浅色内容区」用的：主按钮、链接、标签页都长在白底上。
+      原来这里是 #8ab4f8（为深色侧栏挑的浅化蓝），白字对比只有 2.1:1，
+      主按钮一片淡蓝，被反馈「灰的老让人以为按钮不可用」，新手指引的按钮也一样。
+      深色侧栏的选中态走 siderElevated / 白字，不读 accent，所以这里放心用深一档的蓝。
+      所有皮肤主色对白字 ≥ 4.5:1，由 theme/contrast.test.ts 守住。
+    */
+    accent: '#1967d2',
+    accentHover: '#1a73e8',
+    accentBg: '#e8f0fe',
+    accentText: '#174ea6',
     pageBg: '#f1f3f6',
     subtleBg: '#f6f8fa',
     border: '#e1e5ea',
@@ -45,8 +51,9 @@ const PALETTES: Palette[] = [
     key: 'dawn',
     name: '晨霞 · 粉蓝流光',
     shell: 'light',
-    accent: '#2b7fe0',
-    accentHover: '#4d94f0',
+    // #2b7fe0 → #1f6fd6：白字对比 4.0 → 4.9，主按钮不再发虚
+    accent: '#1f6fd6',
+    accentHover: '#2b7fe0',
     accentBg: '#e4f0ff',
     accentText: '#1d5fb8',
     pageBg: '#f4f8ff',
@@ -94,8 +101,8 @@ const PALETTES: Palette[] = [
     key: 'sky',
     name: '电蓝',
     shell: 'light',
-    accent: '#0284c7',
-    accentHover: '#0b95dc',
+    accent: '#0277b8',
+    accentHover: '#0284c7',
     accentBg: '#e6f1fb',
     accentText: '#0c447c',
     pageBg: '#fbfcfd',
@@ -110,8 +117,8 @@ const PALETTES: Palette[] = [
     key: 'violet',
     name: '电光紫',
     shell: 'light',
-    accent: '#7f77dd',
-    accentHover: '#8f88e6',
+    accent: '#6b63d1',
+    accentHover: '#7f77dd',
     accentBg: '#eeedfe',
     accentText: '#3c3489',
     pageBg: '#fdfcff',

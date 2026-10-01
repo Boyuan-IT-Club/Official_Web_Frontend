@@ -868,9 +868,14 @@ const ResumeList: React.FC<ResumeListProps> = ({
               disabled={selectedIds.length === 0}
               onConfirm={() => runScreening(true)}
             >
-              <Button type="primary" loading={screening} disabled={selectedIds.length === 0}>
-                标为通过初筛
-              </Button>
+              {/* 禁用时说明原因：光一个灰键会被当成「坏了」 */}
+              <Tooltip title={selectedIds.length === 0 ? '先勾选要处理的简历（卡片右上角）' : undefined}>
+                <span className="btn-tip-wrap">
+                  <Button type="primary" loading={screening} disabled={selectedIds.length === 0}>
+                    标为通过初筛
+                  </Button>
+                </span>
+              </Tooltip>
             </Popconfirm>
             <Popconfirm
               title={`标记 ${selectedIds.length} 份为未通过初筛？`}
@@ -880,9 +885,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
               disabled={selectedIds.length === 0}
               onConfirm={() => runScreening(false)}
             >
-              <Button danger loading={screening} disabled={selectedIds.length === 0}>
-                标为未通过初筛
-              </Button>
+              <Tooltip title={selectedIds.length === 0 ? '先勾选要处理的简历（卡片右上角）' : undefined}>
+                <span className="btn-tip-wrap">
+                  <Button danger loading={screening} disabled={selectedIds.length === 0}>
+                    标为未通过初筛
+                  </Button>
+                </span>
+              </Tooltip>
             </Popconfirm>
             {selectedIds.length > 0 && (
               <Button type="text" onClick={() => setSelectedIds([])}>取消选择</Button>
@@ -918,15 +927,23 @@ const ResumeList: React.FC<ResumeListProps> = ({
               { value: 'rerun', label: '旧版结果待重评' },
             ]}
           />
-          <Button
-            type="primary"
-            icon={<ThunderboltOutlined />}
-            disabled={selectedIds.length === 0 || !cycleId}
-            loading={screening}
-            onClick={() => startAiScreening()}
+          <Tooltip
+            title={!cycleId
+              ? '先在上方选择招募周期'
+              : selectedIds.length === 0 ? '先勾选要初筛的简历，或点「全选当前筛选结果」' : undefined}
           >
-            启动 AI 初筛{selectedIds.length ? `（${selectedIds.length}）` : ''}
-          </Button>
+            <span className="btn-tip-wrap">
+              <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                disabled={selectedIds.length === 0 || !cycleId}
+                loading={screening}
+                onClick={() => startAiScreening()}
+              >
+                启动 AI 初筛{selectedIds.length ? `（${selectedIds.length}）` : ''}
+              </Button>
+            </span>
+          </Tooltip>
         </Space>}
       </div>
 

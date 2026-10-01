@@ -213,7 +213,12 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
   }, []);
 
   const save = useCallback(async (thenNext: boolean) => {
-    if (score == null || saving) return;
+    if (saving) return;
+    if (score == null) {
+      message.info('先输入 0–100 的分数');
+      inputRef.current?.focus?.({ cursor: 'all' });
+      return;
+    }
     setSaving(true);
     try {
       const res: any = await updateResumeScore(currentId, score);
@@ -374,7 +379,8 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
               controls={false}
               onPressEnter={() => void save(true)}
             />
-            <Button type="primary" loading={saving} disabled={score == null} onClick={() => save(true)}>
+            {/* 不因没填分而禁用：灰键像坏了。没填时点了会提示并聚焦输入框 */}
+            <Button type="primary" loading={saving} onClick={() => save(true)}>
               保存 ⏎
             </Button>
             {mySaved != null && (
