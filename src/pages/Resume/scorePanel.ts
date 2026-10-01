@@ -9,6 +9,8 @@ export interface ScoreEntry {
   /** 账号已注销时为 null，展示「已注销」 */
   scorerName?: string | null;
   score: number;
+  /** 打分评语；没写为 null（V50 起） */
+  comment?: string | null;
   scoredAt?: string | null;
 }
 
@@ -21,6 +23,18 @@ export function myScoreOf(
   const mine = entries.find((e) => String(e.scorerId) === String(myUserId));
   return mine ? mine.score : undefined;
 }
+
+/** 我写过的评语；没写返回空串（输入框受控用） */
+export function myCommentOf(
+  entries: ScoreEntry[] | null | undefined,
+  myUserId: number | string | null | undefined,
+): string {
+  if (!entries || myUserId == null) return '';
+  return entries.find((e) => String(e.scorerId) === String(myUserId))?.comment ?? '';
+}
+
+/** 评语上限（后端 500，界面收紧到 300：「几句话」够用，也防止写成长文） */
+export const COMMENT_MAX = 300;
 
 /** 打分人展示名 */
 export function scorerLabel(e: ScoreEntry): string {

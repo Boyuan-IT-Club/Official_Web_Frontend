@@ -145,6 +145,64 @@
     }
   }
 
+  &__comment-btn {
+    flex: none;
+    position: relative;
+    color: var(--skin-muted, #8296b0);
+
+    // 已写评语：右上角一个小蓝点
+    &.has-comment::after {
+      content: '';
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #1f6fd6;
+    }
+
+    &.is-open { color: #1f6fd6; background: #eef4ff; }
+  }
+
+  // 评语编辑框：贴在打分卡上方（打分卡被拖到靠顶时改贴下方）
+  &__comment-pop {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    // 底部多留一行：antd 的字数统计绝对定位在输入框下方，不留就溢出卡片
+    padding: 10px 12px 30px;
+    background: #fff;
+    border: 1px solid var(--card-line, #dfeafa);
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(80, 110, 180, 0.16);
+    cursor: default;
+
+    &.is-below {
+      bottom: auto;
+      top: calc(100% + 8px);
+    }
+  }
+
+  &__comment-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.8);
+  }
+
+  &__comment-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--skin-muted, #8296b0);
+  }
+
   &__eye {
     flex: none;
     color: var(--skin-muted, #8296b0);

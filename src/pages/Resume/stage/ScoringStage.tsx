@@ -10,13 +10,13 @@
 //   ③ 打分状态全部以 resumeId 为 key 派生，切人即重建——
 //      「上一位分数残留」那类 bug 从结构上绝迹。
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { InputNumber, Button, Popconfirm, Select, Tooltip, message } from 'antd';
-import { DownOutlined, EyeInvisibleOutlined, EyeOutlined, HolderOutlined, QuestionCircleOutlined, UndoOutlined } from '@ant-design/icons';
+import { Input, InputNumber, Button, Popconfirm, Select, Tooltip, message } from 'antd';
+import { CommentOutlined, DownOutlined, EyeInvisibleOutlined, EyeOutlined, HolderOutlined, QuestionCircleOutlined, UndoOutlined } from '@ant-design/icons';
 import StageShell from '@/components/stage/StageShell';
 import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
 import ResumeDetail from '../ResumeDetail';
 import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry';
-import { myScoreOf, othersHidden, scorerLabel, ScoreEntry } from '../scorePanel';
+import { COMMENT_MAX, myCommentOf, myScoreOf, othersHidden, scorerLabel, ScoreEntry } from '../scorePanel';
 import { isRevealed, setRevealAll, toggleRevealOne, useScoreReveal } from '../scoreReveal';
 import { getToken } from '@/utils';
 import { hasPermission } from '@/utils/jwt';
@@ -200,8 +200,12 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
 
   // 我的打分：以 currentId 为 key 重建，切人自动清空（不会残留上一位的分）
   const [score, setScore] = useState<number | undefined>(undefined);
+  // 我的评语：同样随人切换重建；评语框开合状态跨人保留（习惯写评语的人一直开着）
+  const [comment, setComment] = useState('');
+  const [commentOpen, setCommentOpen] = useState(false);
   useEffect(() => {
     setScore(myScoreOf(entries, myUserId));
+    setComment(myCommentOf(entries, myUserId));
     // 进入新的一位时聚焦并全选，直接敲数字即覆盖
     const t = setTimeout(() => inputRef.current?.focus?.({ cursor: 'all' }), 60);
     return () => clearTimeout(t);
@@ -221,7 +225,8 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
     }
     setSaving(true);
     try {
-      const res: any = await updateResumeScore(currentId, score);
+      // 评语总是一起提交（初值就是我原来的评语，没动过等于原样写回；空串即清空）
+      const res: any = await updateResumeScore(currentId, score, comment.trim());
       const nextAvg = res?.data?.resumeScore ?? score;
       const nextEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
       onScored(currentId, nextAvg, nextEntries);
@@ -238,7 +243,7 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [score, saving, currentId, items, onScored, go]);
+  }, [score, comment, saving, currentId, items, onScored, go]);
 
   // 误触打分后反悔：只撤我这一票。不自动跳人——撤完通常是要当场重打
   const [withdrawing, setWithdrawing] = useState(false);
@@ -251,6 +256,7 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
       const nextEntries: ScoreEntry[] = res?.data?.scoreEntries ?? [];
       onScored(currentId, nextAvg, nextEntries);
       setScore(undefined);
+      setComment('');
       // 撤完回到盲评，提示里不带剩余平均分
       message.success('已撤销你的打分');
       setTimeout(() => inputRef.current?.focus?.({ cursor: 'all' }), 60);
@@ -410,7 +416,7 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
             {mySaved != null && (
               <Popconfirm
                 title="撤销你的打分？"
-                description={`将删除你打的 ${mySaved} 分，其他人的不受影响`}
+                description={`将删除你打的 ${mySaved} 分${myCommentOf(entries, myUserId) ? '和评语' : ''}，其他人的不受影响`}
                 okText="撤销"
                 cancelText="取消"
                 placement="top"
@@ -426,6 +432,39 @@ const ScoringStage: React.FC<ScoringStageProps> = ({
                   撤销
                 </Button>
               </Popconfirm>
+            )}
+            {/* 评语：点开在打分卡上方弹出编辑框，随「保存」一起提交 */}
+            <Tooltip title={commentOpen ? '收起评语' : comment.trim() ? '编辑我的评语' : '写评语'}>
+              <Button
+                type="text"
+                className={`scoring-stage__comment-btn${comment.trim() ? ' has-comment' : ''}${commentOpen ? ' is-open' : ''}`}
+                icon={<CommentOutlined />}
+                aria-label="我的评语"
+                onClick={() => setCommentOpen((o) => !o)}
+              />
+            </Tooltip>
+            {commentOpen && (
+              <div
+                className={`scoring-stage__comment-pop${dockPos && dockPos.y < 260 ? ' is-below' : ''}`}
+              >
+                <div className="scoring-stage__comment-head">
+                  <span>我的评语</span>
+                  <span className="scoring-stage__comment-hint">随「保存」一起提交 · ⌘/Ctrl + Enter 保存</span>
+                </div>
+                <Input.TextArea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="亮点、顾虑、面试想追问什么……（可选）"
+                  autoSize={{ minRows: 2, maxRows: 6 }}
+                  maxLength={COMMENT_MAX}
+                  showCount
+                  autoFocus
+                  aria-label="评语内容"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save(true); }
+                  }}
+                />
+              </div>
             )}
             <Tooltip
               title={

@@ -8,6 +8,10 @@ import { updateResumeScore, withdrawResumeScore } from '@/api/manage/resumeEntry
 import ResumeDetail from './ResumeDetail';
 import { resetScoreRevealForTest, setRevealAll } from './scoreReveal';
 
+// 本文件每个用例都渲染整份 ResumeDetail（antd 全套），全量并行跑时单个用例偶尔超过
+// 默认 5s（单独跑 1s 内）。放宽到 15s，避免 CI 上因机器负载误报。
+jest.setTimeout(15000);
+
 jest.mock('@/api/manage/resumeEntry', () => ({
   updateResumeScore: jest.fn(),
   withdrawResumeScore: jest.fn(),
@@ -102,8 +106,13 @@ describe('撤销我的打分', () => {
     await confirmWithdraw();
 
     await waitFor(() => expect(withdrawResumeScore).toHaveBeenCalled());
-    // 失败后 loading 结束，撤销键恢复成可点的样子
-    expect(await screen.findByRole('button', { name: /^undo 撤销$/ })).toBeInTheDocument();
+    // 失败后 loading 结束，撤销键恢复成可点的样子。
+    // 用 DOM 查询而不是 *ByRole：整页 antd 树上算可访问名很慢，CI 机器上单次就可能超过 1s
+    await waitFor(() => {
+      const btn = document.querySelector('.score-panel-withdraw');
+      expect(btn).toBeInTheDocument();
+      expect(btn).not.toHaveClass('ant-btn-loading');
+    }, { timeout: 5000 });
     expect(screen.queryByText('未评')).not.toBeInTheDocument();
   });
 });
@@ -233,6 +242,50 @@ describe('AI 评价跟随盲评（ResumeDetail 传参）', () => {
     const after = { ...before, scoreEntries: [...before.scoreEntries, { scorerId: ME, scorerName: '我', score: 80 }] };
     rerender(<Provider store={store}><ResumeDetail resume={after} /></Provider>);
     expect(screen.getByTestId('ai').textContent).toBe('ai-open:9');
+  });
+});
+
+describe('打分评语（详情页面板）', () => {
+  beforeEach(() => { jest.clearAllMocks(); mockPerms = ['resume:audit']; window.localStorage.clear(); resetScoreRevealForTest(); });
+
+  it('评语随打分一起提交（去首尾空白），保存后显示在评语卡里', async () => {
+    (updateResumeScore as jest.Mock).mockResolvedValue({
+      data: { resumeScore: 80, scoreEntries: [{ scorerId: ME, scorerName: '我', score: 80, comment: '基础不错' }] },
+    });
+    renderDetail(resumeWith([], null));
+    fireEvent.change(screen.getByRole('spinbutton', { name: '我的打分' }), { target: { value: '80' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '我的评语' }), { target: { value: '  基础不错  ' } });
+    fireEvent.click(screen.getByRole('button', { name: /^保\s*存$/ }));
+    await waitFor(() => expect(updateResumeScore).toHaveBeenCalledWith(11, 80, '基础不错'));
+    expect(await screen.findByText('打分评语')).toBeInTheDocument();
+    expect(screen.getAllByText('基础不错').length).toBeGreaterThan(0);
+  });
+
+  it('只改评语也能「更新」', async () => {
+    (updateResumeScore as jest.Mock).mockResolvedValue({
+      data: { resumeScore: 70, scoreEntries: [{ scorerId: ME, scorerName: '我', score: 70, comment: '补一句' }] },
+    });
+    renderDetail(resumeWith([{ scorerId: ME, scorerName: '我', score: 70, comment: null }], 70));
+    expect(screen.getByRole('button', { name: /已保存/ })).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: '我的评语' }), { target: { value: '补一句' } });
+    const update = screen.getByRole('button', { name: /^更\s*新$/ });
+    expect(update).toBeEnabled();
+    fireEvent.click(update);
+    await waitFor(() => expect(updateResumeScore).toHaveBeenCalledWith(11, 70, '补一句'));
+  });
+
+  it('已有评语回填到输入框；撤销打分后评语一起清空', async () => {
+    (withdrawResumeScore as jest.Mock).mockResolvedValue({ data: { resumeScore: null, scoreEntries: [] } });
+    renderDetail(resumeWith([{ scorerId: ME, scorerName: '我', score: 70, comment: '原来的评语' }], 70));
+    expect(screen.getByRole('textbox', { name: '我的评语' })).toHaveValue('原来的评语');
+    await confirmWithdraw();
+    await waitFor(() => expect(screen.getByRole('textbox', { name: '我的评语' })).toHaveValue(''));
+  });
+
+  it('盲评下他人的评语也藏着', () => {
+    renderDetail(resumeWith([{ scorerId: 9, scorerName: '乙', score: 70, comment: '乙的评语' }], 70));
+    expect(screen.queryByText('乙的评语')).toBeNull();
+    expect(screen.getByText('已有 1 条评语，打分后可见')).toBeInTheDocument();
   });
 });
 
