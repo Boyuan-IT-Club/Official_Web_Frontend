@@ -4,6 +4,7 @@
 // 看到的是「丁华烨 评分」，像是只有他一个人打过。
 import React from 'react';
 import { ScoreEntry, scorerLabel } from './scorePanel';
+import './scorersTip.scss';
 
 export function scorersTip(
   entries: ScoreEntry[] | null | undefined,

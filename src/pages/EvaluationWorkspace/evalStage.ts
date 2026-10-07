@@ -1,5 +1,8 @@
-// 评价舞台的纯逻辑：本场时间表排序、「正在面试」推定、状态标签、总览聚合。
+// 评价舞台的纯逻辑：本场时间表排序、「正在面试」推定、状态标签、总览聚合、初筛分悬停。
+import type { ReactNode } from 'react';
 import type { CandidateSummary, EvaluationDimension } from '@/api/manage/interviewEvaluation';
+import { scorersTip } from '@/pages/Resume/ScorersTip';
+import type { ScoreEntry } from '@/pages/Resume/scorePanel';
 
 export interface StageRow {
   scheduleId: number;
@@ -111,4 +114,22 @@ export function aggregateOverview(
     labels.push(`${max.toFixed(0)}`);
   }
   return { finalized, inProgress, missing, notStarted, perSession: Array.from(sessions, ([label, v]) => ({ label, ...v })), dimAverages, histogram: { bins, labels } };
+}
+
+/**
+ * 初筛分标签的悬停内容。
+ *
+ * 原来只显示 resumeScoredByName（最后打分的那一个），六个人打过也只看到一个
+ * 名字，像是只有他评过。这里列出全部打分人；没有明细的历史数据退回署名。
+ *
+ * @param canSeeNames 打分人署名只给管理员看，面试官只看到「简历初筛分」
+ */
+export function resumeScoreTip(
+  canSeeNames: boolean,
+  entries: ScoreEntry[] | null | undefined,
+  avg: number | null | undefined,
+  fallbackName?: string | null,
+): ReactNode {
+  if (!canSeeNames) return '简历初筛分';
+  return scorersTip(entries, avg, fallbackName);
 }
