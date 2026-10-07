@@ -109,7 +109,7 @@ describe('面试名单 · 调整时间与地点', () => {
   it('弹窗里能选场次，默认停在该同学当前的场次', async () => {
     render(<RosterTab cycleId={14} />);
     const dialog = await openDialog('甲');
-    expect(within(dialog).getByText('面试地点（场次）')).toBeInTheDocument();
+    expect(within(dialog).getByText('面试场次')).toBeInTheDocument();
     // 当前场次 17 的地点回显在选择框里
     expect(within(dialog).getByText(/教书院205（#17/)).toBeInTheDocument();
   });
@@ -133,11 +133,15 @@ describe('面试名单 · 调整时间与地点', () => {
       1, '2026-10-11T09:00:00', 19));
   });
 
-  it('已满的场次在下拉里禁选', async () => {
+  it('已满的场次也能选并提交（手动调整不按容量拦）', async () => {
     render(<RosterTab cycleId={14} />);
     const dialog = await openDialog('甲');
     fireEvent.mouseDown(within(dialog).getByRole('combobox'));
-    const full = await screen.findByText(/教书院205（#21/);
-    expect(full.closest('.ant-select-item')).toHaveClass('ant-select-item-option-disabled');
+    const full = await screen.findByText(/教书院205（#21 技术部 已满）/);
+    expect(full.closest('.ant-select-item')).not.toHaveClass('ant-select-item-option-disabled');
+    fireEvent.click(full);
+    fireEvent.click(screen.getByRole('button', { name: '保 存' }));
+    await waitFor(() => expect(api.updateScheduleInterviewTime).toHaveBeenCalledWith(
+      1, '2026-10-11T09:00:00', 21));
   });
 });

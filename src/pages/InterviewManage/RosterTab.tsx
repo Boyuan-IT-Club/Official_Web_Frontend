@@ -131,18 +131,20 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     ...rows.map((r) => r.firstDeptName), ...rows.map((r) => r.secondDeptName),
   ].filter(Boolean) as string[])).map((d) => ({ value: d, label: d })), [rows]);
 
-  /** 换场下拉：带余量，满的场次禁掉——后端也会拒，这里先挡住省一次往返 */
+  /**
+   * 换场下拉。满的场次照样可选——手动调整是管理员明确要把人放进这一场
+   * （临时加座、背靠背），后端也不按容量拦，只在超额时给告警。
+   * 余量仍标出来，但只作参考。
+   */
   const sessionMoveOptions = useMemo(() => sessions.map((s) => {
     const left = s.remaining ?? (s.capacity != null && s.currentOccupied != null
       ? s.capacity - s.currentOccupied : undefined);
-    const full = left != null && left <= 0 && s.sessionId !== timeEditing?.sessionId;
     return {
       value: s.sessionId,
       label: `${s.location}（#${s.sessionId} ${s.deptName || ''}`
-        + (left != null ? ` 余 ${left}` : '') + '）',
-      disabled: full,
+        + (left != null ? (left > 0 ? ` 余 ${left}` : ' 已满') : '') + '）',
     };
-  }), [sessions, timeEditing]);
+  }), [sessions]);
 
   const sessionOptions = useMemo(() => sessions.map((s) => ({
     value: s.sessionId,
@@ -452,7 +454,7 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           onChange={setTimeValue}
         />
         {/* 地点不单独存在安排上，它属于场次：换场次就是换地点 */}
-        <div style={{ margin: '14px 0 6px' }}>面试地点（场次）</div>
+        <div style={{ margin: '14px 0 6px' }}>面试场次</div>
         <Select
           showSearch
           optionFilterProp="label"
@@ -463,7 +465,7 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           options={sessionMoveOptions}
         />
         <div style={{ color: '#888', fontSize: 12, marginTop: 6 }}>
-          面试地点随场次走。换到别的场次会占用该场次名额并归还原场次；场次已满时保存会被拒绝。
+          面试地点随场次走。换场会占用目标场次名额并归还原场次；已满的场次也能选，按超额安排处理。
         </div>
       </Modal>
 
