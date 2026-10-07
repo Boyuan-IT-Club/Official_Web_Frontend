@@ -150,15 +150,25 @@ const renderInterviewTime = (label: string, value: string): React.ReactNode => {
   );
 };
 
-const parseInterviewTimes = (resume: Resume): { first: string; second: string; canAttend: string; customTime: string } => {
+/**
+ * canAttend 为 null 表示简历里没存这个回答（不是「能参加」）。
+ * 报名表的单选默认停在「能参加」，旧版表单只在改动时才保存，大量同学的这一项是空的。
+ */
+export const parseInterviewTimes = (
+  resume: Resume,
+): { first: string; second: string; canAttend: 'yes' | 'no' | null; customTime: string } => {
   try {
-    const interviewTimeField = resume.simpleFields?.find((f) => f.fieldId === 14);
+    // 按 fieldKey 找。原先写死 fieldId === 14：字段按周期配置，每届 id 都不同
+    // （2026 届是 277），于是永远找不到、一律显示「能参加」，连明确选了
+    // 「不能参加」的同学也不例外。14 只留作没有 fieldKey 的远古数据兜底。
+    const interviewTimeField = resume.simpleFields?.find((f) => f.fieldKey === 'expected_interview_time')
+      ?? resume.simpleFields?.find((f) => !f.fieldKey && f.fieldId === 14);
     if (interviewTimeField && interviewTimeField.fieldValue) {
       const timesData = JSON.parse(interviewTimeField.fieldValue) as any;
       return {
         first: timesData.first || '',
         second: timesData.second || '',
-        canAttend: timesData.canAttend || 'yes',
+        canAttend: timesData.canAttend === 'no' ? 'no' : timesData.canAttend === 'yes' ? 'yes' : null,
         customTime: timesData.customTime || '',
       };
     }
@@ -166,7 +176,14 @@ const parseInterviewTimes = (resume: Resume): { first: string; second: string; c
     // eslint-disable-next-line no-console
     console.error('解析面试时间失败', e);
   }
-  return { first: '', second: '', canAttend: 'yes', customTime: '' };
+  return { first: '', second: '', canAttend: null, customTime: '' };
+};
+
+/** 「是否能参加线下面试」一栏的文案 */
+export const attendanceLabel = (canAttend: 'yes' | 'no' | null): string => {
+  if (canAttend === 'yes') return '能参加';
+  if (canAttend === 'no') return '不能参加';
+  return '未填写（表单默认能参加）';
 };
 
 // --- 新增：获取字段值的辅助函数（只加类型）---
@@ -657,7 +674,7 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
               {renderDepartment('第一志愿', departments.first)}
               {renderDepartment('第二志愿', departments.second)}
 
-              {interviewTimes.canAttend === 'yes' ? (
+              {interviewTimes.canAttend !== 'no' ? (
                 <>
                   {renderInterviewTime('第一面试时间', interviewTimes.first)}
                   {renderInterviewTime('第二面试时间', interviewTimes.second)}
@@ -672,10 +689,7 @@ const ResumeDetail: React.FC<ResumeDetailProps> = ({ resume, cycleId, onBack, on
                 </div>
               )}
 
-              {renderInterviewTime(
-                '是否能参加线下面试',
-                interviewTimes.canAttend === 'yes' ? '能参加' : '不能参加'
-              )}
+              {renderInterviewTime('是否能参加线下面试', attendanceLabel(interviewTimes.canAttend))}
             </Col>
           </Row>
 

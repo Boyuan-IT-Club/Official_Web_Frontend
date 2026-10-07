@@ -19,6 +19,9 @@ jest.mock('../../utils', () => ({
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const api = require('../../api/manage/interviewAdmin');
 
+// 整张 antd Table + Popconfirm 渲染，本地 1~2 秒，CI 机器上会超过默认 5 秒（#247 CI 实测）
+jest.setTimeout(15000);
+
 const row = (scheduleId: number, name: string, resumeStatus = 2) => ({
   scheduleId, resumeId: scheduleId + 100, userId: scheduleId, name,
   interviewTime: '2026-10-11T09:00:00', deptName: '技术部', location: '教书院 205', resumeStatus,
