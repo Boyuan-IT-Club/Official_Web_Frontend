@@ -233,12 +233,14 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           导出 CSV
         </Button>
         <Tag>{filtered ? `筛选后 ${visible.length} / ${rows.length} 人` : `共 ${rows.length} 人`}</Tag>
-        {/* 初筛未通过却还占着场次的人，一键摘出来。数量为 0 时不显示，
-            平时这条工具栏不该多一个用不上的红按钮 */}
-        {screenedOutRows.length > 0 && (
+        {/* 两种用法：勾了人 → 取消所选（如改了场次部门后要重排）；
+            没勾 → 一键摘出初筛未通过却还占着场次的人。
+            两者都没有时不显示，平时这条工具栏不该多一个用不上的红按钮。
+            之前只看后者，全员过了初筛的周期里勾多少人按钮都不出来 */}
+        {(picked.length > 0 || screenedOutRows.length > 0) && (
           <Popconfirm
             title={`取消 ${picked.length > 0 ? picked.length : screenedOutRows.length} 条面试安排？`}
-            description="安排置为已取消、清空面试时间并归还场次名额。学生端不再显示这场面试。"
+            description="安排置为已取消、清空面试时间并归还场次名额。学生端不再显示这场面试。要重排的话，取消后到「分配与调剂」一键分配即可。"
             okText="确认取消"
             okButtonProps={{ danger: true }}
             onConfirm={doCancel}
