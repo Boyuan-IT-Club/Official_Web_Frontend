@@ -30,12 +30,15 @@ beforeEach(() => {
   api.cancelSchedules.mockResolvedValue({ data: { cancelled: 1, skipped: [] } });
 });
 
-describe('面试名单 · 取消安排按钮', () => {
-  it('全员过了初筛、也没勾人时不显示', async () => {
+describe('面试名单 · 批量取消', () => {
+  it('没勾人时按钮常驻但禁用，并提示怎么用', async () => {
     api.listSchedulesRoster.mockResolvedValue({ data: [row(1, '甲'), row(2, '乙')] });
     render(<RosterTab cycleId={14} />);
     await screen.findByText('甲');
-    expect(screen.queryByRole('button', { name: /取消/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /取消安排/ })).toBeDisabled();
+    expect(screen.getByText(/勾选安排后可批量取消/)).toBeInTheDocument();
+    // 没有初筛未通过的人时，不出现「摘出」按钮
+    expect(screen.queryByRole('button', { name: /摘出/ })).toBeNull();
   });
 
   it('全员过了初筛时，勾选后仍能取消所选（改场次部门后重排要用）', async () => {
@@ -45,18 +48,31 @@ describe('面试名单 · 取消安排按钮', () => {
 
     // 第 0 个是表头全选，第 1 个是第一行
     fireEvent.click(screen.getAllByRole('checkbox')[1]);
-    fireEvent.click(await screen.findByRole('button', { name: '取消所选 1 条安排' }));
+    expect(screen.getByText('已选 1 条安排')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /取消安排/ }));
+    expect(await screen.findByText('取消所选 1 条面试安排？')).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: '确认取消' }));
 
     await waitFor(() => expect(api.cancelSchedules).toHaveBeenCalledWith(14, [1]));
   });
 
-  it('有初筛未通过的人且没勾人时，默认摘出那批（原有用法不变）', async () => {
+  it('全选时确认框点明是「全部」并提醒只勾要调整的人', async () => {
+    api.listSchedulesRoster.mockResolvedValue({ data: [row(1, '甲'), row(2, '乙')] });
+    render(<RosterTab cycleId={14} />);
+    await screen.findByText('甲');
+
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(screen.getByRole('button', { name: /取消安排/ }));
+    expect(await screen.findByText('取消本周期全部 2 条面试安排？')).toBeInTheDocument();
+    expect(screen.getByText(/请只勾那一部分/)).toBeInTheDocument();
+  });
+
+  it('有初筛未通过的人时，可一键摘出那批（原有用法保留）', async () => {
     api.listSchedulesRoster.mockResolvedValue({ data: [row(1, '甲'), row(2, '乙', 5)] });
     render(<RosterTab cycleId={14} />);
     await screen.findByText('甲');
 
-    fireEvent.click(await screen.findByRole('button', { name: '取消 1 条初筛未通过的安排' }));
+    fireEvent.click(await screen.findByRole('button', { name: /摘出 1 名初筛未通过/ }));
     fireEvent.click(await screen.findByRole('button', { name: '确认取消' }));
 
     await waitFor(() => expect(api.cancelSchedules).toHaveBeenCalledWith(14, [2]));

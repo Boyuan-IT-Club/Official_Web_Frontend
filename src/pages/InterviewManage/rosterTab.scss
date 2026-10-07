@@ -1,0 +1,48 @@
+// 面试名单的批量操作条。
+//
+// 和筛选条分开放：筛选是「看」，取消是「改」，挤在同一行里红按钮会被当成
+// 又一个筛选项，而且文案一长整行都被它撑歪。
+// 常驻显示（同简历页的批量初筛条）：勾选后才浮出的按钮没人知道它存在。
+.roster-bulk-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0 0 12px;
+  padding: 8px 8px 8px 16px;
+  background: var(--ant-color-bg-container, #fff);
+  border: 1px solid var(--ant-color-border-secondary, #e2e8f2);
+  border-radius: 10px;
+  transition: border-color 0.15s, background 0.15s;
+
+  // 有选中时整条轻轻着色，提示「接下来的操作作用于这些行」
+  &--active {
+    background: var(--ant-color-primary-bg, #f0f5ff);
+    border-color: var(--ant-color-primary-border, #adc6ff);
+  }
+
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__count {
+    font-weight: 600;
+  }
+
+  &__hint {
+    color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+    font-size: 13px;
+  }
+
+  // 禁用按钮外包一层，Tooltip 才能在禁用态下触发
+  &__tip {
+    display: inline-block;
+  }
+}
