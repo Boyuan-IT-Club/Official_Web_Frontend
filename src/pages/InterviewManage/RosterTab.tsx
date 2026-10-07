@@ -63,6 +63,8 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const [sessionFilter, setSessionFilter] = useState<number | undefined>();
   const [timeEditing, setTimeEditing] = useState<ScheduleRosterItem | null>(null);
   const [timeValue, setTimeValue] = useState<any>(null);
+  // 目标场次。面试地点属于场次，改地点就是换场次，所以和改时间同一个弹窗
+  const [timeSession, setTimeSession] = useState<number | undefined>();
   const [timeSaving, setTimeSaving] = useState(false);
   const [resumeDetail, setResumeDetail] = useState<any>(null);
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -128,6 +130,19 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const choiceOptions = useMemo(() => Array.from(new Set([
     ...rows.map((r) => r.firstDeptName), ...rows.map((r) => r.secondDeptName),
   ].filter(Boolean) as string[])).map((d) => ({ value: d, label: d })), [rows]);
+
+  /** 换场下拉：带余量，满的场次禁掉——后端也会拒，这里先挡住省一次往返 */
+  const sessionMoveOptions = useMemo(() => sessions.map((s) => {
+    const left = s.remaining ?? (s.capacity != null && s.currentOccupied != null
+      ? s.capacity - s.currentOccupied : undefined);
+    const full = left != null && left <= 0 && s.sessionId !== timeEditing?.sessionId;
+    return {
+      value: s.sessionId,
+      label: `${s.location}（#${s.sessionId} ${s.deptName || ''}`
+        + (left != null ? ` 余 ${left}` : '') + '）',
+      disabled: full,
+    };
+  }), [sessions, timeEditing]);
 
   const sessionOptions = useMemo(() => sessions.map((s) => ({
     value: s.sessionId,
@@ -387,7 +402,8 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
               <Button type="link" size="small" onClick={() => {
                 setTimeEditing(r);
                 setTimeValue(r.interviewTime ? dayjs(r.interviewTime) : null);
-              }}>调时间</Button>
+                setTimeSession(r.sessionId ?? undefined);
+              }}>调时间/地点</Button>
             ),
           },
         ] as any}
@@ -395,22 +411,26 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
 
       <Modal
         title={timeEditing
-          ? `调整面试时间：${displayName(timeEditing.name, timeEditing.username, timeEditing.userId)}`
+          ? `调整面试时间 / 地点：${displayName(timeEditing.name, timeEditing.username, timeEditing.userId)}`
           : ''}
         open={!!timeEditing}
         confirmLoading={timeSaving}
-        okText="保存新时间"
+        okText="保存"
         onCancel={() => setTimeEditing(null)}
         destroyOnClose
         onOk={async () => {
           if (!timeEditing || !timeValue) { message.warning('请选择新的面试时间'); return; }
           setTimeSaving(true);
+          const moved = timeSession != null && timeSession !== timeEditing.sessionId;
           try {
             await updateScheduleInterviewTime(
               timeEditing.scheduleId,
               dayjs(timeValue).format('YYYY-MM-DDTHH:mm:00'),
+              moved ? timeSession : undefined,
             );
-            message.success('时间已调整，记得到「通知」页重新发送面试提醒');
+            message.success(moved
+              ? '时间与地点已调整，记得到「通知」页重新发送面试提醒'
+              : '时间已调整，记得到「通知」页重新发送面试提醒');
             setTimeEditing(null);
             load();
           } catch (e: any) {
@@ -423,6 +443,7 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
         <p style={{ color: '#888', marginTop: 0 }}>
           调整后该同学的时间被标记为「手调」，自动分配与换场不会再覆盖；提醒邮件需重新发送。
         </p>
+        <div style={{ marginBottom: 6 }}>面试时间</div>
         <DatePicker
           showTime={{ format: 'HH:mm', minuteStep: 5 }}
           format="YYYY-MM-DD HH:mm"
@@ -430,6 +451,20 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           value={timeValue}
           onChange={setTimeValue}
         />
+        {/* 地点不单独存在安排上，它属于场次：换场次就是换地点 */}
+        <div style={{ margin: '14px 0 6px' }}>面试地点（场次）</div>
+        <Select
+          showSearch
+          optionFilterProp="label"
+          style={{ width: '100%' }}
+          placeholder="选择场次"
+          value={timeSession}
+          onChange={setTimeSession}
+          options={sessionMoveOptions}
+        />
+        <div style={{ color: '#888', fontSize: 12, marginTop: 6 }}>
+          面试地点随场次走。换到别的场次会占用该场次名额并归还原场次；场次已满时保存会被拒绝。
+        </div>
       </Modal>
 
       {resumeOpen && (
