@@ -5,7 +5,7 @@
 // 带搜索与筛选，并把决策时要看的信息（学号、志愿、地点）并进来。
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Input, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, Modal, DatePicker, message } from 'antd';
-import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ReloadOutlined, StopOutlined, WarningOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import PageHint from '@/components/PageHint';
 import {
@@ -19,6 +19,7 @@ import {
 import { getCandidateResume } from '@/api/manage/interviewEvaluation';
 import ResumeDetail from '@/pages/Resume/ResumeDetail';
 import { displayName, request } from '@/utils';
+import './rosterTab.scss';
 
 const fmt = (v?: string | null, len = 16) => (v ? String(v).replace('T', ' ').slice(0, len) : '');
 
@@ -155,9 +156,7 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   /** 已初筛未通过却还挂着安排的人 */
   const screenedOutRows = useMemo(() => rows.filter((r) => r.resumeStatus === 5), [rows]);
 
-  const doCancel = async () => {
-    // 没勾人就默认处理「初筛未通过」那批——这是这个按钮九成的用法
-    const ids = picked.length > 0 ? picked : screenedOutRows.map((r) => r.scheduleId);
+  const doCancel = async (ids: number[]) => {
     if (ids.length === 0) return;
     setCancelling(true);
     try {
@@ -233,26 +232,70 @@ const RosterTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           导出 CSV
         </Button>
         <Tag>{filtered ? `筛选后 ${visible.length} / ${rows.length} 人` : `共 ${rows.length} 人`}</Tag>
-        {/* 两种用法：勾了人 → 取消所选（如改了场次部门后要重排）；
-            没勾 → 一键摘出初筛未通过却还占着场次的人。
-            两者都没有时不显示，平时这条工具栏不该多一个用不上的红按钮。
-            之前只看后者，全员过了初筛的周期里勾多少人按钮都不出来 */}
-        {(picked.length > 0 || screenedOutRows.length > 0) && (
-          <Popconfirm
-            title={`取消 ${picked.length > 0 ? picked.length : screenedOutRows.length} 条面试安排？`}
-            description="安排置为已取消、清空面试时间并归还场次名额。学生端不再显示这场面试。要重排的话，取消后到「分配与调剂」一键分配即可。"
-            okText="确认取消"
-            okButtonProps={{ danger: true }}
-            onConfirm={doCancel}
-          >
-            <Button danger loading={cancelling}>
-              {picked.length > 0
-                ? `取消所选 ${picked.length} 条安排`
-                : `取消 ${screenedOutRows.length} 条初筛未通过的安排`}
-            </Button>
-          </Popconfirm>
-        )}
       </Space>
+
+      <div className={`roster-bulk-bar${picked.length > 0 ? ' roster-bulk-bar--active' : ''}`}>
+        <div className="roster-bulk-bar__info">
+          {picked.length > 0 ? (
+            <>
+              <span className="roster-bulk-bar__count">已选 {picked.length} 条安排</span>
+              <Button type="link" size="small" onClick={() => setPicked([])}>清空选择</Button>
+            </>
+          ) : (
+            <span className="roster-bulk-bar__hint">
+              勾选安排后可批量取消；取消后到「分配与调剂」一键分配即可重排
+            </span>
+          )}
+        </div>
+        <Space wrap size={8}>
+          {/* 初筛未通过却还占着场次的人：面试官会白等，名额也一直被占着。
+              有才出现——平时不该多一个用不上的按钮 */}
+          {screenedOutRows.length > 0 && (
+            <Popconfirm
+              title={`取消 ${screenedOutRows.length} 名初筛未通过同学的安排？`}
+              description="他们本届流程已结束。安排置为已取消、清空面试时间并归还场次名额。"
+              okText="确认取消"
+              cancelText="再想想"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => doCancel(screenedOutRows.map((r) => r.scheduleId))}
+            >
+              <Button icon={<WarningOutlined />} loading={cancelling}>
+                摘出 {screenedOutRows.length} 名初筛未通过
+              </Button>
+            </Popconfirm>
+          )}
+          <Popconfirm
+            disabled={picked.length === 0}
+            title={picked.length === rows.length
+              ? `取消本周期全部 ${picked.length} 条面试安排？`
+              : `取消所选 ${picked.length} 条面试安排？`}
+            description={
+              <div style={{ maxWidth: 300 }}>
+                安排置为已取消、清空面试时间并归还场次名额，学生端随即看不到这场面试。
+                {picked.length === rows.length && (
+                  <div style={{ marginTop: 6, color: 'var(--ant-color-error, #ff4d4f)' }}>
+                    这是全部安排。只想调整一部分人的话，请只勾那一部分。
+                  </div>
+                )}
+              </div>
+            }
+            okText="确认取消"
+            // 默认是「取消」，紧挨着「确认取消」分不清哪个是撤销操作
+            cancelText="再想想"
+            okButtonProps={{ danger: true }}
+            onConfirm={() => doCancel(picked)}
+          >
+            {/* 禁用时说明原因：光一个灰键会被当成「坏了」 */}
+            <Tooltip title={picked.length === 0 ? '先在下方表格勾选要取消的安排' : undefined}>
+              <span className="roster-bulk-bar__tip">
+                <Button danger icon={<StopOutlined />} disabled={picked.length === 0} loading={cancelling}>
+                  取消安排
+                </Button>
+              </span>
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      </div>
 
       <Table
         rowKey="scheduleId"
