@@ -27,7 +27,8 @@ type Departments = { first: string; second: string };
 type InterviewTimes = {
   first: string;
   second: string;
-  canAttend: 'yes' | 'no' | string;
+  /** null = 简历里没存这个回答（旧版表单不改默认值就不保存） */
+  canAttend: 'yes' | 'no' | null;
   customTime: string;
 };
 
@@ -111,7 +112,7 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = ({
         return {
           first: timesData.first || '',
           second: timesData.second || '',
-          canAttend: timesData.canAttend || 'yes',
+          canAttend: timesData.canAttend === 'no' ? 'no' : timesData.canAttend === 'yes' ? 'yes' : null,
           customTime: timesData.customTime || '',
         };
       }
@@ -119,7 +120,7 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = ({
       // eslint-disable-next-line no-console
       console.error('解析面试时间失败', e);
     }
-    return { first: '', second: '', canAttend: 'yes', customTime: '' };
+    return { first: '', second: '', canAttend: null, customTime: '' };
   };
 
   const interviewTimes = parseInterviewTimes();
@@ -185,7 +186,7 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = ({
           <Title level={4}>志愿信息</Title>
           {renderDepartment('第一志愿', departments.first)}
           {renderDepartment('第二志愿', departments.second)}
-          {interviewTimes.canAttend === 'yes' ? (
+          {interviewTimes.canAttend !== 'no' ? (
             <>
               {renderInterviewTime('第一面试时间', interviewTimes.first)}
               {renderInterviewTime('第二面试时间', interviewTimes.second)}
@@ -201,7 +202,9 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = ({
           )}
           {renderInterviewTime(
             '是否能参加线下面试',
-            interviewTimes.canAttend === 'yes' ? '能参加' : '不能参加'
+            interviewTimes.canAttend === 'yes' ? '能参加'
+              : interviewTimes.canAttend === 'no' ? '不能参加'
+                : '未填写（表单默认能参加，更新简历即可确认）'
           )}
         </Col>
       </Row>

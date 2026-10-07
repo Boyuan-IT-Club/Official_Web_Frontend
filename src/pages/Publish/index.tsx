@@ -1,5 +1,6 @@
 // src/pages/Publish/index.tsx
 import { useNavigate } from 'react-router-dom';
+import { InterviewTimesState, ensureInterviewTimesInPayload, serializeInterviewTimes } from './interviewTimes';
 import PageHint from '@/components/PageHint';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
@@ -148,12 +149,7 @@ type RootStateLike = {
 
 type DepartmentsState = { first: string; second: string };
 
-type InterviewTimesState = {
-  first: string;
-  second: string;
-  canAttend: 'yes' | 'no';
-  customTime: string;
-};
+
 
 type ValidationErrorLike = {
   errorFields?: unknown[];
@@ -574,13 +570,7 @@ const Publish: React.FC = () => {
   const handleInterviewTimeChange = useCallback((type: keyof InterviewTimesState, value: string): void => {
     setInterviewTimes(prev => {
       const next: InterviewTimesState = { ...prev, [type]: value } as any;
-      const timesData = {
-        first: next.canAttend === 'yes' && next.first !== '无' ? next.first : '',
-        second: next.canAttend === 'yes' && next.second !== '无' ? next.second : '',
-        canAttend: next.canAttend,
-        customTime: next.customTime,
-      };
-      handleFieldChange('expected_interview_time', JSON.stringify(timesData));
+      handleFieldChange('expected_interview_time', serializeInterviewTimes(next));
       return next;
     });
   }, [handleFieldChange]);
@@ -938,8 +928,17 @@ const Publish: React.FC = () => {
       if (fv?.fieldValue == null || String(fv.fieldValue).trim() === '') return; // 空值跳过
       result.push({ fieldId, fieldValue: fv.fieldValue, valueId: fv.valueId, resumeId: currentResumeId });
     });
-    return result;
-  }, [configFields, fieldIdMapping, fieldValueMap]);
+
+    // 「能否参加线下面试」没动过默认值也要落库，见 ensureInterviewTimesInPayload
+    const timesFieldId = fieldIdMapping['expected_interview_time'];
+    return ensureInterviewTimesInPayload(result, {
+      fieldId: timesFieldId,
+      disabled: !!timesFieldId && disabledFieldIds.has(timesFieldId),
+      times: interviewTimes,
+      existingValueId: timesFieldId ? fieldValueMap.get(timesFieldId)?.valueId : undefined,
+      resumeId: currentResumeId,
+    });
+  }, [configFields, fieldIdMapping, fieldValueMap, interviewTimes]);
 
   // ---- 面试意向（方案B：志愿部门 + 可接受时间窗，随简历一次提交）----
   const [openSlots, setOpenSlots] = useState<PreferenceTimeSlot[]>([]);
