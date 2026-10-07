@@ -291,11 +291,19 @@ export function getFeishuTask(taskId: number) {
 }
 
 /** 手动把某条面试安排的时间调到精确钟点；会触发飞书重同步与重新通知标记 */
-export const updateScheduleInterviewTime = (scheduleId: number, interviewTime: string) =>
+/**
+ * 调整某条安排的面试时间，并可一并换场次。
+ *
+ * 面试地点属于场次（安排本身不存地点），所以「改地点」= 传 sessionId 换场；
+ * 不传则只改时间。目标场次已满或跨周期后端会拒绝。
+ */
+export const updateScheduleInterviewTime = (
+  scheduleId: number, interviewTime: string, sessionId?: number,
+) =>
   request({
     url: `/api/interview/admin/schedules/${scheduleId}/interview-time`,
     method: 'put',
-    data: { interviewTime },
+    data: sessionId == null ? { interviewTime } : { interviewTime, sessionId },
   });
 
 // ---- 预录取名单（录取决策草稿，学生端不可见） ----
