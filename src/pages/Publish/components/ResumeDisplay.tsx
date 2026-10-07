@@ -204,7 +204,7 @@ const ResumeDisplay: React.FC<ResumeDisplayProps> = ({
             '是否能参加线下面试',
             interviewTimes.canAttend === 'yes' ? '能参加'
               : interviewTimes.canAttend === 'no' ? '不能参加'
-                : '未填写（表单默认能参加，更新简历即可确认）'
+                : '未填写（表单默认能参加）'
           )}
         </Col>
       </Row>
