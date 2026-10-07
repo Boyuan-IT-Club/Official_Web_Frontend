@@ -1,0 +1,29 @@
+// 分数标签悬停卡：打分人逐行明细。样式跟组件走——简历列表、打分舞台都用它，
+// 放在简历页的 index.scss 里会让其它页面少了样式而错位。
+.scorers-tip {
+  min-width: 140px;
+  font-variant-numeric: tabular-nums;
+
+  &__head {
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    font-size: 12px;
+    opacity: 0.75;
+  }
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    line-height: 22px;
+
+    b { font-weight: 600; }
+  }
+
+  &__foot {
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: 0.65;
+  }
+}

@@ -31,8 +31,9 @@ import {
   type BoardRow,
 } from '../EvaluationBoard/collab';
 import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
+import type { ScoreEntry } from '@/pages/Resume/scorePanel';
 import EvalOverview from './EvalOverview';
-import { chipStatus, currentScheduleId, sortSessionRows } from './evalStage';
+import { chipStatus, currentScheduleId, resumeScoreTip, sortSessionRows } from './evalStage';
 import { PaneFold, clampRatio, gridColumns, loadLayoutPrefs, nextFold, saveLayoutPrefs } from './stageLayout';
 import './index.scss';
 
@@ -249,6 +250,8 @@ const EvaluationWorkspace: React.FC = () => {
   // 简历：按需拉取，评价表名单可能几百人，不该在列表阶段就全取回来
   const [resume, setResume] = useState<any>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  /** 初筛打分明细：谁打的、几分。随简历一起返回（V38 起） */
+  const resumeScoreEntries: ScoreEntry[] = resume?.scoreEntries ?? [];
   useEffect(() => {
     if (!Number.isFinite(cycleId) || !Number.isFinite(scheduleId)) return;
     let cancelled = false;
@@ -425,14 +428,17 @@ const EvaluationWorkspace: React.FC = () => {
             简历
             {row.resumeScore !== undefined && row.resumeScore !== null && (
               <Tooltip
-                title={
-                  // 打分人署名只给管理员看，面试官只看到分数
-                  hasAnyPermission(token, ['resume:audit', 'interview:board:manage']) && row.resumeScoredByName
-                    ? `初筛打分：${row.resumeScoredByName}`
-                    : '简历初筛分'
-                }
+                title={resumeScoreTip(
+                  hasAnyPermission(token, ['resume:audit', 'interview:board:manage']),
+                  resumeScoreEntries,
+                  row.resumeScore,
+                  row.resumeScoredByName,
+                )}
               >
-                <Tag color="geekblue" style={{ marginLeft: 8 }}>初筛 {row.resumeScore} 分</Tag>
+                <Tag color="geekblue" style={{ marginLeft: 8 }}>
+                  初筛 {row.resumeScore} 分
+                  {resumeScoreEntries.length > 1 && ` · ${resumeScoreEntries.length} 人`}
+                </Tag>
               </Tooltip>
             )}
           </div>
