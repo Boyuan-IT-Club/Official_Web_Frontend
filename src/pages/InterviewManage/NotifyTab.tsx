@@ -31,7 +31,7 @@ const fmt = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16)
 /** 五类通知 */
 type Kind = 'rejected' | 'arranged' | 'eve' | 'day' | 'result';
 /** 名单看全部还是只看已发/未发 */
-type Filter = 'all' | 'sent' | 'pending';
+type Filter = 'all' | 'sent' | 'pending' | 'stale';
 
 interface KindMeta {
   title: string;
@@ -173,19 +173,41 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     }));
   }, [openKind, screenedOut, decided, scheduleRows]);
 
+  /** 这一行是不是「发过旧的、需要补发」——只有面试安排通知有这个概念 */
+  const isStale = (r: { raw: any }) => openKind === 'arranged' && !!r.raw?.noticeStale;
+
   const visible = useMemo(
-    () => rows.filter((r) => filter === 'all' || (filter === 'sent' ? r.sent : !r.sent)),
-    [rows, filter]);
+    () => rows.filter((r) => {
+      if (filter === 'all') return true;
+      if (filter === 'stale') return isStale(r);
+      return filter === 'sent' ? r.sent : !r.sent;
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, filter, openKind]);
 
   const counts = useMemo(() => {
     const sent = rows.filter((r) => r.sent).length;
-    return { total: rows.length, sent, pending: rows.length - sent };
-  }, [rows]);
+    const stale = rows.filter(isStale).length;
+    return { total: rows.length, sent, pending: rows.length - sent, stale };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, openKind]);
 
   const openModal = (k: Kind) => {
     setOpenKind(k);
     setCustomMsg('');
-    // 默认落在「未发」并把他们全勾上：打开这个弹窗多半就是来补发的
+    /*
+     * 「发过旧的」优先于「从没发过」。
+     * 前者更急：学生手上拿着一个作废的时间，还以为自己知道该几点去哪；
+     * 后者只是还没通知，至少不会把人引到错的地方。
+     * 有这种人就默认落在那个筛选上并全勾，没有才退回「未发」。
+     */
+    const stale = k === 'arranged'
+      ? scheduleRows.filter((r) => r.noticeStale).map((r) => r.scheduleId) : [];
+    if (stale.length > 0) {
+      setFilter('stale');
+      setSelected(stale);
+      return;
+    }
     setFilter('pending');
     const pending = (k === 'rejected'
       ? screenedOut.filter((i) => !i.notifiedAt).map((i) => i.resumeId)
@@ -286,8 +308,16 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
         // 三类一起列出来：管理员多半是想确认「这个人该收到的都收到了没」
         title: '安排 / 前一天 / 当天', width: 200,
         render: (_: unknown, r: any) => (
-          <Space size={4}>
-            <Tag color={r.raw.arranged ? 'green' : undefined}>安排</Tag>
+          <Space size={4} wrap>
+            {/* 发过但作废了，比「没发」更危险：绿勾会让人以为这个人已经没问题了，
+                所以不能只显示绿色的「安排」，要明确标成橙色 */}
+            {r.raw.noticeStale
+              ? (
+                <Tooltip title={`通知发于 ${fmt(r.raw.noticeSentAt)}，之后安排在 ${fmt(r.raw.scheduleUpdatedAt)} 被改过`}>
+                  <Tag color="orange">安排已过期</Tag>
+                </Tooltip>
+              )
+              : <Tag color={r.raw.arranged ? 'green' : undefined}>安排</Tag>}
             <Tag color={r.raw.eve ? 'green' : undefined}>前一天</Tag>
             <Tag color={r.raw.day ? 'green' : undefined}>当天</Tag>
           </Space>),
@@ -333,7 +363,12 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
             <p className="notify-modal__scope">
               {meta.scope}。共 <b>{counts.total}</b> 人，已发 <b>{counts.sent}</b>，未发 <b>{counts.pending}</b>。
               {meta.auto && '这一类由系统定时发送，手动发只用于补发漏掉的人。'}
-              已发过的再发一次会被跳过，不会重复打扰。
+              {openKind === 'arranged' && counts.stale > 0 ? (
+                <>
+                  <b style={{ color: '#d46b08' }}>其中 {counts.stale} 人收到的是作废的旧安排</b>
+                  ——通知发出去之后时间或场次又被改过，他们手上拿的是错的。这些人必须补发。
+                </>
+              ) : '已发过的再发一次会被跳过，不会重复打扰。'}
             </p>
 
             <Space wrap style={{ marginBottom: 10 }}>
@@ -345,6 +380,9 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
                   { label: `全部 ${counts.total}`, value: 'all' },
                   { label: `已发 ${counts.sent}`, value: 'sent' },
                   { label: `未发 ${counts.pending}`, value: 'pending' },
+                  // 只有面试安排通知有「发过但作废了」这回事
+                  ...(openKind === 'arranged' && counts.stale > 0
+                    ? [{ label: `需补发 ${counts.stale}`, value: 'stale' }] : []),
                 ]}
               />
               <Button size="small" onClick={() => setSelected(visible.map((r) => r.key))}>
@@ -363,7 +401,8 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
               locale={{
                 emptyText: counts.total === 0
                   ? '这一类现在没有人需要通知'
-                  : filter === 'sent' ? '还没有发送记录' : '都发过了，没有待发的',
+                  : filter === 'stale' ? '没有人拿着过期的安排'
+                    : filter === 'sent' ? '还没有发送记录' : '都发过了，没有待发的',
               }}
               rowSelection={{ selectedRowKeys: selected, onChange: setSelected }}
               columns={columns as any}
