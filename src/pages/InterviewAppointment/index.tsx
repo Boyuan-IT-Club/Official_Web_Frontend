@@ -253,7 +253,8 @@ const InterviewAppointment: React.FC = () => {
     : screenRejected
       ? { emoji: '🌱', title: '本届招新到这里结束', sub: '感谢投递！社团的技术分享与公开活动欢迎继续参与' }
     : schedule?.interviewTime
-      ? { emoji: '📅', title: '面试已安排', sub: `${fmtDT(schedule.interviewTime)}${schedule.deptName ? ` · ${schedule.deptName}` : ''}${schedule.location ? ` · ${schedule.location}` : ''}，请准时到场` }
+      // 这里同样不带部门，理由见下方时间线里的说明；只留时间和面试教室
+      ? { emoji: '📅', title: '面试已安排', sub: `${fmtDT(schedule.interviewTime)}${schedule.location ? ` · ${schedule.location}` : ''}，请准时到场` }
       : preference
         ? { emoji: '⏳', title: '等待安排面试', sub: '志愿已提交，管理员正在排期，结果会邮件通知' }
         : submitted
@@ -366,11 +367,27 @@ const InterviewAppointment: React.FC = () => {
       <>
         <Text strong>面试安排</Text>
         {schedule?.interviewTime ? (
-          <div>
-            <div>
-              <Text>{fmtDT(schedule.interviewTime)}</Text>
-              {schedule.deptName && <Tag color="blue" style={{ marginLeft: 8 }}>{schedule.deptName}</Tag>}
-              {schedule.location && <Text type="secondary">@{schedule.location}</Text>}
+          <div className="sched">
+            {/*
+              不显示部门。场次挂的 dept 是排期用的分组口径，和学生最终面哪个
+              部门不是一回事（跨部门面试、调剂都会错位），摆在这里只会让人
+              以为「我被定到这个部门了」。志愿在上一节已经写明了。
+            */}
+            <div className="sched__time">{fmtDT(schedule.interviewTime)}</div>
+            <div className="sched__rooms">
+              {schedule.location && (
+                <div className="sched-room sched-room--interview">
+                  <span className="sched-room__label">面试教室</span>
+                  <span className="sched-room__value">{schedule.location}</span>
+                </div>
+              )}
+              {schedule.waitingRoom && (
+                <div className="sched-room sched-room--waiting">
+                  <span className="sched-room__label">候场教室</span>
+                  <span className="sched-room__value">{schedule.waitingRoom}</span>
+                  <span className="sched-room__hint">请提前 10 分钟到这里候场</span>
+                </div>
+              )}
             </div>
             {reschedule && (
               <div style={{ marginTop: 4 }}>
