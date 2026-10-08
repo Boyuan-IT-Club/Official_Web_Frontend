@@ -903,7 +903,10 @@ const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ c
 
   return (
     <>
-      <PageHint style={{ marginBottom: 12 }}>同意后需到「分配与调剂」手动改到新场次。</PageHint>
+      <PageHint style={{ marginBottom: 12 }}>
+        同意只会取消原安排，还要到「分配与调剂」把人改到新场次——状态里标着「待重排」的就是还没排完的。
+        重排之后记得去「通知」页补发面试安排通知，学生那边才会拿到新时间。
+      </PageHint>
       <Table
         rowKey="requestId"
         size="middle"
@@ -912,22 +915,61 @@ const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ c
         pagination={false}
         locale={{ emptyText: "暂无改期申请" }}
         columns={[
-          { title: "ID", dataIndex: "requestId", width: 60 },
-          { title: "简历ID", dataIndex: "resumeId", width: 80 },
+          /*
+           * 不再显示 requestId / resumeId。处理一条申请要知道的是「谁、现在排在
+           * 什么时候、想换到哪」，这三样原先一个都没有：表里是两列 ID 加一串
+           * "11,12,13"，管理员得去别的页面查两次才知道在处理谁。
+           */
+          {
+            title: "学生",
+            width: 150,
+            render: (_: unknown, r: AdminRescheduleRequest) => (
+              <div>
+                <div style={{ fontWeight: 600 }}>{r.name || <span style={{ color: "#bbb" }}>—</span>}</div>
+                {r.studentId && <div style={{ fontSize: 12, color: "#8c8c8c" }}>{r.studentId}</div>}
+              </div>
+            ),
+          },
+          {
+            title: "当前安排",
+            width: 170,
+            render: (_: unknown, r: AdminRescheduleRequest) => (r.currentInterviewTime ? (
+              <div>
+                <div>{String(r.currentInterviewTime).replace("T", " ").slice(0, 16)}</div>
+                {r.currentLocation && (
+                  <div style={{ fontSize: 12, color: "#8c8c8c" }}>{r.currentLocation}</div>
+                )}
+              </div>
+            ) : <span style={{ color: "#bbb" }}>已取消 / 未排</span>),
+          },
           { title: "原因", dataIndex: "reason", ellipsis: true },
           {
             title: "期望时间窗",
-            dataIndex: "preferredTimeSlotIds",
-            width: 120,
-            render: (v: string) => v || <span style={{ color: "#bbb" }}>未指定</span>,
+            width: 190,
+            render: (_: unknown, r: AdminRescheduleRequest) => (
+              r.preferredSlots && r.preferredSlots.length > 0 ? (
+                <Space direction="vertical" size={2}>
+                  {r.preferredSlots.map((s) => (
+                    <Tag key={s.timeSlotId} style={{ marginInlineEnd: 0 }}>{s.label}</Tag>
+                  ))}
+                </Space>
+              ) : <span style={{ color: "#bbb" }}>未指定</span>
+            ),
           },
-          { title: "提交时间", dataIndex: "createdAt", width: 150, render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },
+          { title: "提交时间", dataIndex: "submittedAt", width: 140, render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },
           {
             title: "状态",
             dataIndex: "status",
-            width: 90,
+            width: 130,
             render: (s: number, r: AdminRescheduleRequest) => (
-              <Tag color={STATUS_TAG[s]?.color}>{STATUS_TAG[s]?.text ?? s}{r.adminNote ? `（${r.adminNote}）` : ""}</Tag>
+              <Space direction="vertical" size={2}>
+                <Tag color={STATUS_TAG[s]?.color} style={{ marginInlineEnd: 0 }}>
+                  {STATUS_TAG[s]?.text ?? s}{r.adminNote ? `（${r.adminNote}）` : ""}
+                </Tag>
+                {/* 同意只是取消了原安排，真正换到哪一场还得再操作一次。
+                    不标出来，点完「同意」就以为结束了——线上已经漏过一批。 */}
+                {r.awaitingReassign && <Tag color="orange" style={{ marginInlineEnd: 0 }}>待重排</Tag>}
+              </Space>
             ),
           },
           {
@@ -943,14 +985,31 @@ const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ c
         ] as any}
       />
       <Modal
-        title={handling ? `${handleStatus === 1 ? "同意" : "拒绝"}改期申请 #${handling.requestId}` : ""}
+        title={handling
+          ? `${handleStatus === 1 ? "同意" : "拒绝"}改期申请 · ${handling.name || ""}${handling.studentId ? `（${handling.studentId}）` : ""}`
+          : ""}
         open={!!handling}
         onOk={doHandle}
         confirmLoading={saving}
         onCancel={() => setHandling(null)}
         destroyOnClose
       >
-        <div style={{ marginBottom: 8 }}>原因：{handling?.reason}</div>
+        {handling?.currentInterviewTime && (
+          <div style={{ marginBottom: 6 }}>
+            当前安排：{String(handling.currentInterviewTime).replace("T", " ").slice(0, 16)}
+            {handling.currentLocation ? ` · ${handling.currentLocation}` : ""}
+          </div>
+        )}
+        <div style={{ marginBottom: 6 }}>原因：{handling?.reason}</div>
+        {/* 同意时正要看他能来哪几个时段，放在这里省得再回表里找 */}
+        {handling?.preferredSlots && handling.preferredSlots.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            期望时间窗：
+            {handling.preferredSlots.map((s) => (
+              <Tag key={s.timeSlotId} style={{ marginInlineEnd: 4 }}>{s.label}</Tag>
+            ))}
+          </div>
+        )}
         <Input.TextArea
           rows={2}
           maxLength={500}
