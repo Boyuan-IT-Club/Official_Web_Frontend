@@ -475,6 +475,12 @@ export interface ScheduleNoticeItem {
   location?: string | null;
   /** 面试安排通知已发 */
   arranged: boolean;
+  /** 收到过安排通知，但那封发出去之后安排又被改过——他手上拿的是旧时间 */
+  noticeStale?: boolean;
+  /** 最后一封安排通知的发送时间 */
+  noticeSentAt?: string;
+  /** 安排最后被改动的时间 */
+  scheduleUpdatedAt?: string;
   /** 前一天提醒已发 */
   eve: boolean;
   /** 当天提醒已发 */
