@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CycleSwitcher from '@/components/CycleSwitcher';
 import { getMyResumes } from '@/api/resume';
 import {
-  Alert, Button, Card, Drawer, Input, Modal, Space, Spin, Tag, Timeline, Typography, message,
+  Alert, Button, Card, Drawer, Input, Modal, Radio, Space, Spin, Tag, Timeline, Typography, message,
 } from 'antd';
 import {
   ArrowLeftOutlined, CalendarOutlined, CheckCircleTwoTone, ClockCircleOutlined,
@@ -114,6 +114,8 @@ const InterviewAppointment: React.FC = () => {
   const [reschedSlots, setReschedSlots] = useState<number[]>([]);
   const [openSlots, setOpenSlots] = useState<PreferenceTimeSlot[]>([]);
   const [reschedSaving, setReschedSaving] = useState(false);
+  /** 0=换个时间 1=改为线上。两种诉求处理方式完全不同，不能混在一个「原因」里让管理员猜 */
+  const [reschedType, setReschedType] = useState<0 | 1>(0);
 
   const loadAll = useCallback(async (cid: number) => {
     setLoading(true);
@@ -207,6 +209,7 @@ const InterviewAppointment: React.FC = () => {
   const openReschedModal = async () => {
     setReschedReason('');
     setReschedSlots([]);
+    setReschedType(0);
     setReschedOpen(true);
     try {
       const res: any = await listOpenTimeSlots(cycleId);
@@ -222,9 +225,13 @@ const InterviewAppointment: React.FC = () => {
       await submitReschedule({
         cycleId,
         reason: reschedReason.trim(),
-        preferredTimeSlotIds: reschedSlots.length ? reschedSlots.join(',') : undefined,
+        // 改为线上时间不变，期望时间窗没有意义，后端也会忽略
+        preferredTimeSlotIds: reschedType === 0 && reschedSlots.length ? reschedSlots.join(',') : undefined,
+        requestType: reschedType,
       });
-      message.success('改期申请已提交，请等待管理员处理');
+      message.success(reschedType === 1
+        ? '线上面试申请已提交，请等待管理员处理'
+        : '改期申请已提交，请等待管理员处理');
       setReschedOpen(false);
       loadAll(cycleId);
     } catch (e: any) {
@@ -375,18 +382,41 @@ const InterviewAppointment: React.FC = () => {
             */}
             <div className="sched__time">{fmtDT(schedule.interviewTime)}</div>
             <div className="sched__rooms">
-              {schedule.location && (
-                <div className="sched-room sched-room--interview">
-                  <span className="sched-room__label">面试教室</span>
-                  <span className="sched-room__value">{schedule.location}</span>
+              {/* 线上面试没有教室，地点就是会议链接；候场教室对线上也没有意义，
+                  后端在这种情况下根本不返回它。 */}
+              {schedule.interviewMode === 1 ? (
+                <div className="sched-room sched-room--online">
+                  <span className="sched-room__label">线上面试</span>
+                  {schedule.onlineMeetingLink ? (
+                    <a
+                      className="sched-room__value sched-room__link"
+                      href={schedule.onlineMeetingLink}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {schedule.onlineMeetingLink}
+                    </a>
+                  ) : (
+                    <span className="sched-room__value">会议链接稍后通知，请留意邮件</span>
+                  )}
+                  <span className="sched-room__hint">请提前 5 分钟进入会议并测试摄像头与麦克风</span>
                 </div>
-              )}
-              {schedule.waitingRoom && (
-                <div className="sched-room sched-room--waiting">
-                  <span className="sched-room__label">候场教室</span>
-                  <span className="sched-room__value">{schedule.waitingRoom}</span>
-                  <span className="sched-room__hint">请提前 10 分钟到这里候场</span>
-                </div>
+              ) : (
+                <>
+                  {schedule.location && (
+                    <div className="sched-room sched-room--interview">
+                      <span className="sched-room__label">面试教室</span>
+                      <span className="sched-room__value">{schedule.location}</span>
+                    </div>
+                  )}
+                  {schedule.waitingRoom && (
+                    <div className="sched-room sched-room--waiting">
+                      <span className="sched-room__label">候场教室</span>
+                      <span className="sched-room__value">{schedule.waitingRoom}</span>
+                      <span className="sched-room__hint">请提前 10 分钟到这里候场</span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             {reschedule && (
@@ -580,7 +610,7 @@ const InterviewAppointment: React.FC = () => {
       </Drawer>
 
       <Modal
-        title="申请面试改期"
+        title="面试时间有冲突？"
         open={reschedOpen}
         onOk={handleSubmitResched}
         okButtonProps={{ disabled: !reschedReason.trim() }}
@@ -588,8 +618,32 @@ const InterviewAppointment: React.FC = () => {
         onCancel={() => setReschedOpen(false)}
         destroyOnClose
       >
+        {/* 先让人选诉求再填原因。此前只有一个原因输入框，想改线上的同学
+            只能写在原因里，管理员得从自由文本里读出意图再手工处理。 */}
+        <Radio.Group
+          value={reschedType}
+          onChange={(e) => setReschedType(e.target.value)}
+          style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}
+        >
+          <Radio value={0}>
+            换一个时间
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginLeft: 24 }}>
+              管理员会把你重新排到别的场次，新时间会邮件通知
+            </div>
+          </Radio>
+          <Radio value={1}>
+            时间可以，但来不了现场 —— 申请改为线上面试
+            <div style={{ fontSize: 12, color: '#8c8c8c', marginLeft: 24 }}>
+              面试时间不变，改成线上参加；通过后这里会显示会议链接
+            </div>
+          </Radio>
+        </Radio.Group>
         <div style={{ marginBottom: 8 }}>
-          <Text type="secondary">请说明改期原因（管理员审核后会重新安排并通知你）：</Text>
+          <Text type="secondary">
+            {reschedType === 1
+              ? '请说明不能到现场的原因（管理员审核后会把你转为线上）：'
+              : '请说明改期原因（管理员审核后会重新安排并通知你）：'}
+          </Text>
         </div>
         <Input.TextArea
           rows={3}
@@ -597,9 +651,11 @@ const InterviewAppointment: React.FC = () => {
           showCount
           value={reschedReason}
           onChange={(e) => setReschedReason(e.target.value)}
-          placeholder="如：当天下午有课程考试，17:00 后可到场"
+          placeholder={reschedType === 1
+            ? '如：当天人在外地赶不回学校，希望线上参加'
+            : '如：当天下午有课程考试，17:00 后可到场'}
         />
-        {openSlots.length > 0 && (
+        {reschedType === 0 && openSlots.length > 0 && (
           <div style={{ marginTop: 12 }}>
             <Text type="secondary">（可选）勾选你期望的时间窗，便于管理员重排：</Text>
             <Space direction="vertical" size={2} style={{ marginTop: 6 }}>

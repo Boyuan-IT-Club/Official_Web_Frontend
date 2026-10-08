@@ -76,6 +76,7 @@ const CycleManage: React.FC = () => {
       range: [dayjs(record.startDate), dayjs(record.endDate)],
       isActive: record.isActive,
       waitingRoom: record.waitingRoom,
+      onlineMeetingLink: record.onlineMeetingLink,
       contactInfo: record.contactInfo,
     });
     setModalOpen(true);
@@ -94,6 +95,7 @@ const CycleManage: React.FC = () => {
       isActive: values.isActive,
       // 显式传 null 而不是省略：后端据此判断「清空」还是「不动」
       waitingRoom: values.waitingRoom?.trim() || null,
+      onlineMeetingLink: values.onlineMeetingLink?.trim() || null,
       contactInfo: values.contactInfo?.trim() || null,
     };
     setSaving(true);
@@ -352,6 +354,13 @@ const CycleManage: React.FC = () => {
             tooltip="面试提醒邮件里会写「请提前 10 分钟抵达 XXX 候场」。留空则邮件里不出现这一行"
           >
             <Input placeholder="如：教书院202（同一周期通常只有一间）" allowClear />
+          </Form.Item>
+          <Form.Item
+            name="onlineMeetingLink"
+            label="线上会议链接"
+            tooltip="全周期共用一个会议号。留空则学生无法申请「改为线上面试」，同意线上也没地方让人进"
+          >
+            <Input placeholder="如：https://meeting.tencent.com/dm/xxxxxx" allowClear />
           </Form.Item>
           <Form.Item
             name="contactInfo"

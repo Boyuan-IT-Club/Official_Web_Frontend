@@ -134,6 +134,8 @@ export interface PreferredSlot {
 
 export interface AdminRescheduleRequest {
   requestId: number;
+  /** 0=改时间 1=改为线上 */
+  requestType?: number;
   /** 学生姓名 */
   name?: string;
   /** 学号 */

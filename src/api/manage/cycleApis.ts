@@ -14,6 +14,8 @@ export interface RecruitmentCycle {
   updatedAt?: string;
   /** 候场教室（V33） */
   waitingRoom?: string | null;
+  /** 线上面试会议链接（V51），全周期共用；留空表示本届不支持线上 */
+  onlineMeetingLink?: string | null;
   /** 本届负责人联系方式（V33） */
   contactInfo?: string | null;
 }
@@ -29,6 +31,8 @@ export interface CyclePayload {
   isActive?: number;
   /** 候场教室，面试提醒邮件里用；同一周期通常只有一间 */
   waitingRoom?: string | null;
+  /** 线上面试会议链接，全周期共用；留空则学生无法申请改为线上 */
+  onlineMeetingLink?: string | null;
   /** 本届负责人联系方式，未录取通知邮件末尾附上 */
   contactInfo?: string | null;
 }
