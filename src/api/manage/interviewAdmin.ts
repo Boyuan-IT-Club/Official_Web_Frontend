@@ -126,18 +126,30 @@ export function manualAssign(resumeId: number, targetSessionId: number) {
 }
 
 // ---- 改期申请（管理员） ----
+/** 期望时间窗，后端已解析成人话（如「10-11 周六上午 09:00-11:00」） */
+export interface PreferredSlot {
+  timeSlotId: number;
+  label: string;
+}
+
 export interface AdminRescheduleRequest {
   requestId: number;
-  scheduleId: number;
-  resumeId: number;
-  userId: number;
-  cycleId: number;
+  /** 学生姓名 */
+  name?: string;
+  /** 学号 */
+  studentId?: string;
   reason: string;
-  preferredTimeSlotIds?: string;
+  /** 当前被排在什么时候；还没排或已取消时为空 */
+  currentInterviewTime?: string;
+  /** 当前面试教室 */
+  currentLocation?: string;
+  preferredSlots?: PreferredSlot[];
+  submittedAt?: string;
   status: number; // 0待处理 1已同意 2已拒绝
   adminNote?: string;
-  createdAt?: string;
   handledAt?: string;
+  /** 已同意但原安排还停在「已取消」——还等着去「分配与调剂」重排 */
+  awaitingReassign?: boolean;
 }
 
 export function listReschedules(cycleId: number, status?: number) {
