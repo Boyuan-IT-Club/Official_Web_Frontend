@@ -232,6 +232,12 @@ export interface OfflineUnavailableItem {
   /** 学生自己填的说明，可能为空 */
   note?: string | null;
   resumeStatus?: number | null;
+  /** declared=学生简历里声明不能线下；assigned=管理员标为线上；both=两者都有 */
+  source?: 'declared' | 'assigned' | 'both';
+  /** 已标为线上的那条安排；declared 且未标记时没有 */
+  scheduleId?: number;
+  /** 约好的线上面试时间；为空表示还没约 */
+  interviewTime?: string;
 }
 
 /**
