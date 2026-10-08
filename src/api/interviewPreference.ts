@@ -34,8 +34,12 @@ export interface MySchedule {
   deptName?: string;
   /** 面试教室：属于场次 */
   location?: string;
-  /** 候场教室：按周期配置，全周期共用；没配时后端不返回这个字段 */
+  /** 候场教室：按周期配置，全周期共用；没配时后端不返回这个字段。线上面试时不返回 */
   waitingRoom?: string;
+  /** 0=线下 1=线上 */
+  interviewMode?: number;
+  /** 线上会议链接，按周期配置；仅 interviewMode=1 时返回 */
+  onlineMeetingLink?: string;
 }
 
 /** 某周期开放中的面试时间窗（学生可勾选） */
@@ -97,7 +101,13 @@ export interface RescheduleRequest {
 }
 
 /** 提交面试改期申请（需已分配面试；存在待处理申请时后端会拒绝） */
-export function submitReschedule(data: { cycleId: number; reason: string; preferredTimeSlotIds?: string }) {
+export function submitReschedule(data: {
+  cycleId: number;
+  reason: string;
+  preferredTimeSlotIds?: string;
+  /** 0=改时间（默认） 1=改为线上面试 */
+  requestType?: number;
+}) {
   return request({ url: '/api/interview/reschedule', method: 'post', data });
 }
 

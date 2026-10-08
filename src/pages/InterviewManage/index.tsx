@@ -942,6 +942,13 @@ const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ c
               </div>
             ) : <span style={{ color: "#bbb" }}>已取消 / 未排</span>),
           },
+          {
+            title: "诉求",
+            width: 96,
+            render: (_: unknown, r: AdminRescheduleRequest) => (r.requestType === 1
+              ? <Tag color="cyan">改为线上</Tag>
+              : <Tag>换个时间</Tag>),
+          },
           { title: "原因", dataIndex: "reason", ellipsis: true },
           {
             title: "期望时间窗",
@@ -953,7 +960,7 @@ const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ c
                     <Tag key={s.timeSlotId} style={{ marginInlineEnd: 0 }}>{s.label}</Tag>
                   ))}
                 </Space>
-              ) : <span style={{ color: "#bbb" }}>未指定</span>
+              ) : <span style={{ color: "#bbb" }}>{r.requestType === 1 ? "不适用" : "未指定"}</span>
             ),
           },
           { title: "提交时间", dataIndex: "submittedAt", width: 140, render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },

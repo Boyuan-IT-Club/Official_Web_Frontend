@@ -164,6 +164,27 @@
         &::before { background: #d97706; }
       }
     }
+
+    /* 线上：和两间教室明显区分开，青色——它既不是「去哪间屋」也不是「先等着」 */
+    &--online {
+      background: #ecfeff;
+      border-color: #a5f3fc;
+
+      .sched-room__label {
+        color: #0e7490;
+        &::before { background: #0891b2; }
+      }
+
+      .sched-room__hint { color: #0e7490; }
+    }
+
+    &__link {
+      color: var(--skin-primary, #1d6fd0);
+      text-decoration: underline;
+      word-break: break-all;
+
+      &:hover { opacity: 0.85; }
+    }
   }
 
   @media (max-width: 420px) {
