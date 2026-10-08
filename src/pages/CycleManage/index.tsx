@@ -358,7 +358,7 @@ const CycleManage: React.FC = () => {
           <Form.Item
             name="onlineMeetingLink"
             label="线上会议链接"
-            tooltip="全周期共用一个会议号。留空则学生无法申请「改为线上面试」，同意线上也没地方让人进"
+            tooltip="全周期共用一个会议号。可以后补——学生申请和管理员转线上都不依赖它，只是在填上之前，进度页和邮件显示「会议链接稍后通知」"
           >
             <Input placeholder="如：https://meeting.tencent.com/dm/xxxxxx" allowClear />
           </Form.Item>

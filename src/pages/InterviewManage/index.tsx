@@ -28,6 +28,7 @@ import {
 } from "antd";
 import { DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import {
   AdminRescheduleRequest,
   FeishuTaskStatus,
@@ -62,6 +63,7 @@ import {
   getFeishuTask,
   listTimeSlots,
   listUnassigned,
+  assignOnline,
   manualAssign,
   updateSession,
   updateTimeSlot,
@@ -705,6 +707,10 @@ const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle; refre
   const [assigning, setAssigning] = useState(false);
   const [lastResult, setLastResult] = useState<SessionAssignmentResult | null>(null);
   const [manualTarget, setManualTarget] = useState<UnassignedItem | null>(null);
+  /** 「安排线上面试」弹窗的对象与时间 */
+  const [onlineTarget, setOnlineTarget] = useState<UnassignedItem | null>(null);
+  const [onlineTime, setOnlineTime] = useState<Dayjs | null>(null);
+  const [onlineSaving, setOnlineSaving] = useState(false);
   const [availableSessions, setAvailableSessions] = useState<InterviewSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<number | undefined>();
   const [manualSaving, setManualSaving] = useState(false);
@@ -755,6 +761,22 @@ const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle; refre
       });
     } else {
       doAssign();
+    }
+  };
+
+  const handleAssignOnline = async () => {
+    if (!onlineTarget || !onlineTime) return;
+    setOnlineSaving(true);
+    try {
+      await assignOnline(onlineTarget.resumeId, onlineTime.format('YYYY-MM-DDTHH:mm:ss'));
+      message.success(`已把 ${onlineTarget.name} 安排为线上面试`);
+      setOnlineTarget(null);
+      setOnlineTime(null);
+      loadUnassigned();
+    } catch (e: any) {
+      message.error(e?.message || '安排失败');
+    } finally {
+      setOnlineSaving(false);
     }
   };
 
@@ -811,17 +833,47 @@ const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle; refre
           { title: "原因", dataIndex: "reason", render: (v: string) => v || "志愿场次均无余量" },
           {
             title: "操作",
-            width: 120,
+            width: 190,
             render: (_: unknown, r: UnassignedItem) => (
-              <Button type="link" size="small" onClick={() => openManual(r)}>
-                人工调剂
-              </Button>
+              <Space size={0}>
+                <Button type="link" size="small" onClick={() => openManual(r)}>
+                  人工调剂
+                </Button>
+                {/* 另一条出口：有人要的本来就不是「换个教室」而是线上。
+                    没有这个按钮，这类人只能被塞回某个场次，或者在系统外私下约。 */}
+                <Button type="link" size="small" onClick={() => { setOnlineTarget(r); setOnlineTime(null); }}>
+                  安排线上
+                </Button>
+              </Space>
             ),
           },
         ] as any}
       />
       {/* 同一屏里的第二拨「分不进去的人」，原因不同但都要人工处理 */}
       <OfflineUnavailableSection cycleId={cycleId} refreshToken={refreshToken} />
+
+      <Modal
+        title={onlineTarget ? `安排线上面试：${onlineTarget.name}` : ""}
+        open={!!onlineTarget}
+        onOk={handleAssignOnline}
+        okButtonProps={{ disabled: !onlineTime }}
+        confirmLoading={onlineSaving}
+        onCancel={() => setOnlineTarget(null)}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 10, color: "#595959" }}>
+          线上面试不占教室，也不进任何场次。确定后学生那边会显示会议链接（在「招募周期」里配置，
+          没配先显示「稍后通知」，后补一样生效），并进入通知页的待发列表。
+        </div>
+        <DatePicker
+          showTime={{ format: "HH:mm" }}
+          format="YYYY-MM-DD HH:mm"
+          style={{ width: "100%" }}
+          placeholder="选择面试时间"
+          value={onlineTime}
+          onChange={setOnlineTime}
+        />
+      </Modal>
 
       <Modal
         title={manualTarget ? `人工调剂：${manualTarget.name}（简历 #${manualTarget.resumeId}）` : ""}

@@ -634,7 +634,7 @@ const InterviewAppointment: React.FC = () => {
           <Radio value={1}>
             时间可以，但来不了现场 —— 申请改为线上面试
             <div style={{ fontSize: 12, color: '#8c8c8c', marginLeft: 24 }}>
-              面试时间不变，改成线上参加；通过后这里会显示会议链接
+              面试时间不变，改成线上参加；管理员通过后，这里会显示会议链接
             </div>
           </Radio>
         </Radio.Group>
