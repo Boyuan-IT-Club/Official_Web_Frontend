@@ -479,8 +479,8 @@ export interface ScheduleNoticeItem {
   noticeStale?: boolean;
   /** 最后一封安排通知的发送时间 */
   noticeSentAt?: string;
-  /** 安排最后被改动的时间 */
-  scheduleUpdatedAt?: string;
+  /** 那封通知里写的面试时间；和当前 interviewTime 不同即为过期 */
+  notifiedInterviewTime?: string;
   /** 前一天提醒已发 */
   eve: boolean;
   /** 当天提醒已发 */

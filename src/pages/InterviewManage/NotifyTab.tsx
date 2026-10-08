@@ -313,7 +313,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
                 所以不能只显示绿色的「安排」，要明确标成橙色 */}
             {r.raw.noticeStale
               ? (
-                <Tooltip title={`通知发于 ${fmt(r.raw.noticeSentAt)}，之后安排在 ${fmt(r.raw.scheduleUpdatedAt)} 被改过`}>
+                <Tooltip title={`${fmt(r.raw.noticeSentAt)} 那封通知告诉他的是 ${fmt(r.raw.notifiedInterviewTime)}，现在排在 ${fmt(r.raw.interviewTime)}`}>
                   <Tag color="orange">安排已过期</Tag>
                 </Tooltip>
               )
@@ -366,7 +366,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
               {openKind === 'arranged' && counts.stale > 0 ? (
                 <>
                   <b style={{ color: '#d46b08' }}>其中 {counts.stale} 人收到的是作废的旧安排</b>
-                  ——通知发出去之后时间或场次又被改过，他们手上拿的是错的。这些人必须补发。
+                  ——通知里写的时间和现在的安排对不上，他们手上拿的是错的。这些人必须补发。
                 </>
               ) : '已发过的再发一次会被跳过，不会重复打扰。'}
             </p>
