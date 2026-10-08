@@ -117,6 +117,18 @@ export function listAvailableSessions(cycleId: number, deptId?: number) {
   });
 }
 /** 人工调剂：把候选人（按简历ID）分配/重分配到目标场次 */
+/**
+ * 安排线上面试 / 把已排好的人转成线上。
+ * interviewTime 不传时沿用这条安排上已有的时间（「原地转线上」最常见，时间不用动）。
+ */
+export function assignOnline(resumeId: number, interviewTime?: string) {
+  return request({
+    url: `/api/interview/admin/resumes/${resumeId}/online`,
+    method: 'post',
+    data: interviewTime ? { interviewTime } : {},
+  });
+}
+
 export function manualAssign(resumeId: number, targetSessionId: number) {
   return request({
     url: `/api/interview/admin/preferences/${resumeId}/assign`,

@@ -31,7 +31,7 @@ export interface CyclePayload {
   isActive?: number;
   /** 候场教室，面试提醒邮件里用；同一周期通常只有一间 */
   waitingRoom?: string | null;
-  /** 线上面试会议链接，全周期共用；留空则学生无法申请改为线上 */
+  /** 线上面试会议链接，全周期共用；可后补，补上后进度页与邮件自动生效 */
   onlineMeetingLink?: string | null;
   /** 本届负责人联系方式，未录取通知邮件末尾附上 */
   contactInfo?: string | null;
