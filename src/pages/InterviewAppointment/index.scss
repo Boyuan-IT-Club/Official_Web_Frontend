@@ -76,6 +76,105 @@
     }
   }
 
+  /*
+   * 面试安排。两间教室是两种东西——先去候场教室等，被叫到才进面试教室——
+   * 所以不能并排成两个一样的灰条，得让人一眼分出主次：
+   * 面试教室用主色实心点 + 深色字，候场教室用琥珀色 + 一行动作提示。
+   * 颜色都挂 --skin-* 兜底，换肤时跟着走。
+   */
+  .sched {
+    margin-top: 6px;
+
+    &__time {
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: 0.2px;
+      font-variant-numeric: tabular-nums;
+      color: var(--skin-text-strong, #1f2937);
+    }
+
+    &__rooms {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+  }
+
+  .sched-room {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    column-gap: 10px;
+    row-gap: 2px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    line-height: 1.5;
+
+    &__label {
+      position: relative;
+      padding-left: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        margin-top: -3px;
+        border-radius: 50%;
+      }
+    }
+
+    &__value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--skin-text-strong, #1f2937);
+      word-break: break-all;
+    }
+
+    /* 提示独占一行，和值左对齐 */
+    &__hint {
+      grid-column: 2;
+      font-size: 12px;
+      color: #b45309;
+    }
+
+    &--interview {
+      background: var(--skin-info-soft, #eff6ff);
+      border-color: var(--skin-info-border, #bfdbfe);
+
+      .sched-room__label {
+        color: var(--skin-primary, #1d6fd0);
+        &::before { background: var(--skin-primary, #1d6fd0); }
+      }
+    }
+
+    &--waiting {
+      background: #fffbeb;
+      border-color: #fde68a;
+
+      .sched-room__label {
+        color: #b45309;
+        &::before { background: #d97706; }
+      }
+    }
+  }
+
+  @media (max-width: 420px) {
+    .sched-room {
+      /* 窄屏下标签换到值上面，避免「候场教室」四个字把地址挤成一列 */
+      grid-template-columns: 1fr;
+
+      &__hint { grid-column: 1; }
+    }
+  }
+
   .progress-timeline {
     margin-top: 8px;
     padding: 0 4px;

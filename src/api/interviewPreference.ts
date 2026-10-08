@@ -32,7 +32,10 @@ export interface MySchedule {
   status?: number;
   deptId?: number;
   deptName?: string;
+  /** 面试教室：属于场次 */
   location?: string;
+  /** 候场教室：按周期配置，全周期共用；没配时后端不返回这个字段 */
+  waitingRoom?: string;
 }
 
 /** 某周期开放中的面试时间窗（学生可勾选） */
