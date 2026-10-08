@@ -637,6 +637,10 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
 const OfflineUnavailableSection: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycleId, refreshToken }) => {
   const [list, setList] = useState<OfflineUnavailableItem[]>([]);
   const [loading, setLoading] = useState(false);
+  /** 约好之后回来补时间 */
+  const [timeTarget, setTimeTarget] = useState<OfflineUnavailableItem | null>(null);
+  const [pickedTime, setPickedTime] = useState<Dayjs | null>(null);
+  const [savingTime, setSavingTime] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -652,15 +656,32 @@ const OfflineUnavailableSection: React.FC<{ cycleId: number; refreshToken?: numb
 
   useEffect(() => { void load(); }, [load, refreshToken]);
 
+  const saveTime = async () => {
+    if (!timeTarget || !pickedTime) return;
+    setSavingTime(true);
+    try {
+      await assignOnline(timeTarget.resumeId, pickedTime.format('YYYY-MM-DDTHH:mm:ss'));
+      message.success(`已记录 ${timeTarget.name} 的线上面试时间`);
+      setTimeTarget(null);
+      setPickedTime(null);
+      void load();
+    } catch (e: any) {
+      message.error(e?.message || '保存失败');
+    } finally {
+      setSavingTime(false);
+    }
+  };
+
   return (
     <>
       <Divider style={{ margin: "28px 0 12px" }} />
       <Typography.Title level={5} style={{ margin: "0 0 4px" }}>
-        待约线上面试
+        线上面试
       </Typography.Title>
       <PageHint style={{ marginBottom: 12 }}>
-        这些同学选了「不能参加线下面试」，一键分配不会把他们排进场次，需要单独约线上时间。
-        「说明」是他们自己填的，据此联系更省事。
+        这里是两拨人：自己在简历里选了「不能参加线下面试」的，和你在上面手动标成线上的。
+        一键分配都不会把他们排进场次，<b>系统也不给他们发邮件</b>——时间由你私下约，约好后点「记录时间」存一下，
+        学生在进度页就能看到。
       </PageHint>
       <Table
         rowKey="userId"
@@ -688,6 +709,24 @@ const OfflineUnavailableSection: React.FC<{ cycleId: number; refreshToken?: numb
           { title: "邮箱", dataIndex: "email", width: 220, render: (v: string) => v || "-" },
           { title: "手机", dataIndex: "phone", width: 130, render: (v: string) => v || "-" },
           {
+            title: "来源",
+            dataIndex: "source",
+            width: 110,
+            render: (v: string) => (v === 'assigned'
+              ? <Tag color="cyan">管理员标记</Tag>
+              : v === 'both'
+                ? <Tag color="cyan">本人+标记</Tag>
+                : <Tag>本人声明</Tag>),
+          },
+          {
+            title: "线上面试时间",
+            dataIndex: "interviewTime",
+            width: 150,
+            render: (v: string) => (v
+              ? String(v).replace("T", " ").slice(0, 16)
+              : <Typography.Text type="warning">待约</Typography.Text>),
+          },
+          {
             title: "说明",
             dataIndex: "note",
             // 说明是这张表存在的意义，给它最宽的一列
@@ -695,8 +734,47 @@ const OfflineUnavailableSection: React.FC<{ cycleId: number; refreshToken?: numb
               ? <span style={{ whiteSpace: "pre-wrap" }}>{v}</span>
               : <Typography.Text type="secondary">未填写</Typography.Text>,
           },
+          {
+            title: "操作",
+            width: 110,
+            render: (_: unknown, r: OfflineUnavailableItem) => (
+              <Button
+                type="link"
+                size="small"
+                onClick={() => {
+                  setTimeTarget(r);
+                  setPickedTime(r.interviewTime ? dayjs(r.interviewTime) : null);
+                }}
+              >
+                {r.interviewTime ? "改时间" : "记录时间"}
+              </Button>
+            ),
+          },
         ]}
       />
+
+      <Modal
+        title={timeTarget ? `线上面试时间：${timeTarget.name}` : ""}
+        open={!!timeTarget}
+        onOk={saveTime}
+        okButtonProps={{ disabled: !pickedTime }}
+        confirmLoading={savingTime}
+        onCancel={() => setTimeTarget(null)}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 10, color: "#595959" }}>
+          填你和他私下约好的时间。存下来之后学生在「申请进度」里能看到，
+          系统仍然不会发邮件。
+        </div>
+        <DatePicker
+          showTime={{ format: "HH:mm" }}
+          format="YYYY-MM-DD HH:mm"
+          style={{ width: "100%" }}
+          placeholder="选择线上面试时间"
+          value={pickedTime}
+          onChange={setPickedTime}
+        />
+      </Modal>
     </>
   );
 };
@@ -765,11 +843,13 @@ const AssignmentTab: React.FC<{ cycleId: number; cycle?: RecruitmentCycle; refre
   };
 
   const handleAssignOnline = async () => {
-    if (!onlineTarget || !onlineTime) return;
+    if (!onlineTarget) return;
     setOnlineSaving(true);
     try {
-      await assignOnline(onlineTarget.resumeId, onlineTime.format('YYYY-MM-DDTHH:mm:ss'));
-      message.success(`已把 ${onlineTarget.name} 安排为线上面试`);
+      await assignOnline(onlineTarget.resumeId, onlineTime?.format('YYYY-MM-DDTHH:mm:ss'));
+      message.success(onlineTime
+        ? `已把 ${onlineTarget.name} 安排为线上面试`
+        : `已把 ${onlineTarget.name} 标为线上面试，记得私下约时间`);
       setOnlineTarget(null);
       setOnlineTime(null);
       loadUnassigned();
