@@ -16,6 +16,8 @@ export interface RecruitmentCycle {
   waitingRoom?: string | null;
   /** 线上面试会议链接（V51），全周期共用；留空表示本届不支持线上 */
   onlineMeetingLink?: string | null;
+  /** 是否接受改期申请（V53）：1=接受 0=已关闭；老数据为 null 时按接受处理 */
+  rescheduleOpen?: number | null;
   /** 本届负责人联系方式（V33） */
   contactInfo?: string | null;
 }
@@ -33,6 +35,8 @@ export interface CyclePayload {
   waitingRoom?: string | null;
   /** 线上面试会议链接，全周期共用；可后补，补上后进度页与邮件自动生效 */
   onlineMeetingLink?: string | null;
+  /** 是否接受改期申请：1=接受 0=已关闭 */
+  rescheduleOpen?: number | null;
   /** 本届负责人联系方式，未录取通知邮件末尾附上 */
   contactInfo?: string | null;
 }
@@ -96,6 +100,13 @@ export interface OpenCycle {
    * （看简历、看进度），但不能提交、修改或新建简历。旧后端没有这个字段时按 true 处理。
    */
   intakeOpen?: boolean;
+  /**
+   * 是否仍接受改期申请。false = 管理员已关闭（排期定死之后通常会关）。
+   * 旧后端没有这个字段时按 true 处理，免得把改期入口无声藏掉。
+   */
+  rescheduleOpen?: boolean;
+  /** 本届负责人联系方式，改期关闭后指引学生找人 */
+  contactInfo?: string | null;
 }
 
 /**

@@ -144,12 +144,20 @@ const InterviewAppointment: React.FC = () => {
    * 以 cycleId 为依赖的 effect 承担，选中变到哪数据就跟到哪。
    */
   const [openIds, setOpenIds] = useState<number[] | null>(null);
+  /** 本届周期的配置，用来判断改期入口开没开 */
+  const [openCycleMeta, setOpenCycleMeta] = useState<Record<number, {
+    rescheduleOpen?: boolean; contactInfo?: string | null;
+  }>>({});
   useEffect(() => {
     (async () => {
       let ids: number[] = [];
       try {
         const open = await dispatch(fetchOpenCycles()).unwrap();
         ids = (open ?? []).map((c) => Number(c.cycleId));
+        setOpenCycleMeta(Object.fromEntries((open ?? []).map((c: any) => [Number(c.cycleId), {
+          rescheduleOpen: c.rescheduleOpen,
+          contactInfo: c.contactInfo,
+        }])));
       } catch { /* 拿不到开放列表就不标往届，也不参与初始选中 */ }
       setOpenIds(ids);
       if (!paramCycleId && ids.length > 0) {
@@ -242,6 +250,9 @@ const InterviewAppointment: React.FC = () => {
   };
 
   // ---- 时间线节点 ----
+  // 后端没给这个字段时按「开」处理，免得老数据把入口藏掉
+  const rescheduleOpen = cycleId == null || openCycleMeta[cycleId]?.rescheduleOpen !== false;
+  const cycleContact = cycleId == null ? null : openCycleMeta[cycleId]?.contactInfo;
   const status: number | null = resume?.status ?? null;
   const submitted = (status ?? 0) >= 2;
   // 简历状态 4=通过初筛 5=未通过初筛
@@ -427,9 +438,20 @@ const InterviewAppointment: React.FC = () => {
               </div>
             )}
             {!result && (!reschedule || reschedule.status !== 0) && (
-              <Button size="small" icon={<SwapOutlined />} style={{ marginTop: 4 }} onClick={openReschedModal}>
-                时间冲突？申请改期
-              </Button>
+              /* 管理员排完期会关掉改期入口。关了还让人点，他提交后才被拒，
+                 白填一遍原因——不如直接说清楚，并把联系方式给他。 */
+              rescheduleOpen ? (
+                <Button size="small" icon={<SwapOutlined />} style={{ marginTop: 4 }} onClick={openReschedModal}>
+                  时间冲突？申请改期
+                </Button>
+              ) : (
+                <div style={{ marginTop: 6 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    改期申请已关闭
+                    {cycleContact ? `，如有紧急情况请联系：${cycleContact}` : '，如有紧急情况请联系负责人'}
+                  </Text>
+                </div>
+              )
             )}
           </div>
         ) : (

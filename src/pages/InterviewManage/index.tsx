@@ -69,7 +69,7 @@ import {
   updateTimeSlot,
 } from "@/api/manage/interviewAdmin";
 import { getCandidateResume } from "@/api/manage/interviewEvaluation";
-import { getAllCycles, RecruitmentCycle } from "@/api/manage/cycleApis";
+import { getAllCycles, updateCycle, RecruitmentCycle } from "@/api/manage/cycleApis";
 import { getValidDept } from "@/api/manage/deptManage";
 import { displayName, request } from "@/utils";
 import ResumeDetail from "@/pages/Resume/ResumeDetail";
@@ -1010,6 +1010,36 @@ const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ c
     // 已挂载的面板，不加这个依赖切回来看到的是切走时的旧数据
   }, [load, refreshToken]);
 
+  /*
+   * 改期申请开关。放在这个页签顶上而不是埋进「招募周期」配置里——
+   * 管理员想关它的那一刻，人就正在这张表前面看着申请一条条进来。
+   */
+  const [cycle, setCycle] = useState<RecruitmentCycle | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const rescheduleOpen = cycle?.rescheduleOpen !== 0;   // null/undefined 按「开」
+
+  const loadCycle = useCallback(async () => {
+    try {
+      const res: any = await getAllCycles();
+      setCycle((res?.data ?? []).find((c: RecruitmentCycle) => c.cycleId === cycleId) ?? null);
+    } catch { /* 读不到就按「开」显示，不挡住处理申请 */ }
+  }, [cycleId]);
+  useEffect(() => { void loadCycle(); }, [loadCycle, refreshToken]);
+
+  const toggleReschedule = async (next: boolean) => {
+    if (!cycle) return;
+    setSwitching(true);
+    try {
+      await updateCycle({ ...cycle, rescheduleOpen: next ? 1 : 0 } as any);
+      setCycle({ ...cycle, rescheduleOpen: next ? 1 : 0 });
+      message.success(next ? "已开放改期申请" : "已关闭改期申请，学生那边提交会被拒绝");
+    } catch (e: any) {
+      message.error(e?.message || "切换失败");
+    } finally {
+      setSwitching(false);
+    }
+  };
+
   const openHandle = (r: AdminRescheduleRequest, s: 1 | 2) => {
     setHandling(r);
     setHandleStatus(s);
@@ -1035,6 +1065,22 @@ const RescheduleTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ c
 
   return (
     <>
+      <Space style={{ marginBottom: 10 }} align="center">
+        <Switch
+          checked={rescheduleOpen}
+          loading={switching}
+          disabled={!cycle}
+          onChange={toggleReschedule}
+        />
+        <span style={{ fontWeight: 600 }}>
+          {rescheduleOpen ? "正在接受改期申请" : "已关闭改期申请"}
+        </span>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {rescheduleOpen
+            ? "排期定下来之后可以关掉，学生那边的「申请改期」按钮会置灰"
+            : "学生提交会被拒绝并提示联系负责人；已提交的申请不受影响，照常可以同意或拒绝"}
+        </Typography.Text>
+      </Space>
       <PageHint style={{ marginBottom: 12 }}>
         同意只会取消原安排，还要到「分配与调剂」把人改到新场次——状态里标着「待重排」的就是还没排完的。
         重排之后记得去「通知」页补发面试安排通知，学生那边才会拿到新时间。
