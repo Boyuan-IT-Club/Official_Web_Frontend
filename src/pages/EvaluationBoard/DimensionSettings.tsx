@@ -12,7 +12,8 @@ export interface DimensionSettingsProps {
   open: boolean;
   cycleId: number;
   onClose: () => void;
-  onSaved: () => void;
+  /** 带上保存后的维度列表：调用方据此就地刷新评价表的列，不必等协同服务对账 */
+  onSaved: (dimensions: EvaluationDimension[]) => void;
 }
 
 const DimensionSettings: React.FC<DimensionSettingsProps> = ({ open, cycleId, onClose, onSaved }) => {
@@ -53,9 +54,9 @@ const DimensionSettings: React.FC<DimensionSettingsProps> = ({ open, cycleId, on
     }
     setSaving(true);
     try {
-      await saveDimensions(cycleId, rows.map((row, index) => ({ ...row, sortOrder: index + 1 })));
+      const res = await saveDimensions(cycleId, rows.map((row, index) => ({ ...row, sortOrder: index + 1 })));
       message.success('评分维度已保存');
-      onSaved();
+      onSaved(res?.data ?? []);
       onClose();
     } catch (e: any) {
       message.error(e?.message || '保存失败');
