@@ -63,6 +63,15 @@ export interface BoardColumn {
 }
 
 /** 候选人行的只读快照 */
+/**
+ * 线上面试在评价表里的「地点」。后端 EvaluationBoardServiceImpl.ONLINE_LOCATION
+ * 原样下发，两边必须一致 —— 它既是分组按钮的名字，也是前端识别这一组的依据。
+ *
+ * 线上面试不占场次，session_id 为空，本来既没有地点也没有面试官名单：
+ * 分组里找不着，canEdit 还因为名单为空而谁都填不了。
+ */
+export const ONLINE_LOCATION = '线上面试';
+
 export interface BoardRow {
   scheduleId: number;
   resumeId: number;
@@ -72,7 +81,7 @@ export interface BoardRow {
   deptId?: number;
   deptName?: string;
   sessionId?: number;
-  /** 面试地点（取自场次） */
+  /** 面试地点：取自场次；线上面试没有场次，后端给虚拟地点 {@link ONLINE_LOCATION} */
   location?: string;
   /** 简历初筛分（管理员在简历审核里打的 0~100） */
   resumeScore?: number;
