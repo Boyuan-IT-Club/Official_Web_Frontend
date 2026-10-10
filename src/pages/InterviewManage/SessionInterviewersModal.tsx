@@ -14,8 +14,16 @@ interface PickableUser {
   roles?: { roleName?: string; roleCode?: string }[];
 }
 
-/** 一次取够：社团总人数这个量级（百级）不值得做分页加载 */
+/** 一次取够：能进后台的人是几十个量级，不值得做分页加载 */
 const USER_PAGE_SIZE = 1000;
+
+/** 徽标只取最高那个角色：不少人同时挂着 社员/管理员/超级管理员，全列出来每行都很吵 */
+const ROLE_RANK: { code: string; label: string }[] = [
+  { code: 'SUPER_ADMIN', label: '超级管理员' },
+  { code: 'ADMIN', label: '管理员' },
+  { code: 'INTERVIEWER', label: '面试官' },
+  { code: 'MEMBER', label: '社员' },
+];
 
 export interface SessionInterviewersModalProps {
   open: boolean;
@@ -36,10 +44,14 @@ const SessionInterviewersModal: React.FC<SessionInterviewersModalProps> = ({
     if (!open || !sessionId) return;
     setLoading(true);
     Promise.all([
+      // roleGroup=console：只列能进管理后台的人（后端按 console:access 权限判定）。
+      // 没有这张门票的人进不了后台、也就填不了评价表，绑上去等于白绑；
+      // 而全量名单里绝大多数是正在应聘的候选人，绑错一个他就能翻看同场所有人的简历。
+      //
       // 参数名必须是 size：写 pageSize 会被后端忽略并回落到默认 10 条 ——
       // 原先就是这样，一百多号人只列得出 10 个，想绑的人根本搜不到。
       // （用户管理页踩过同一个坑，见 Management/index.tsx 的注释。）
-      getAllUsers({ page: '0', size: String(USER_PAGE_SIZE) }) as any,
+      getAllUsers({ page: '0', size: String(USER_PAGE_SIZE), roleGroup: 'console' }) as any,
       listSessionInterviewers(sessionId),
     ])
       .then(([userRes, boundRes]: any[]) => {
@@ -51,45 +63,43 @@ const SessionInterviewersModal: React.FC<SessionInterviewersModalProps> = ({
   }, [open, sessionId]);
 
   /*
-   * 名单里绝大多数是还没有任何角色的注册者 —— 本届 182 个用户里有 152 个
-   * （正在应聘的候选人就在其中）。绑定面试官会连带授予「本场候选人的简历查看权限」，
-   * 手滑绑上一位候选人，他就能翻看同场所有人的简历与附件。
+   * 候选名单限定在「能进管理后台」的人（roleGroup=console，后端按 console:access 判定）。
    *
-   * 不做硬过滤：新面试官可能还没来得及授角色，滤掉就绑不上了。
-   * 改为把角色写进选项、按「谁该来面试」排序，谁是候选人一眼看得见。
+   * 这不是收紧，而是本来就该如此：没有这张门票的人进不了后台、填不了评价表，
+   * 绑上去等于白绑；而不筛的话名单里 152/182 是还没授角色的注册者 ——
+   * 正在应聘的候选人就在其中，而绑定会连带授予「本场候选人的简历查看权限」，
+   * 手滑绑上一位，他就能翻看同场所有人的简历与附件。
+   *
+   * 想绑的人不在列表里，正确做法是先去「用户与角色」授「面试官」角色。
    */
   const options = useMemo(() => {
-    const ranked = users.map((user) => {
+    const listed = users.map((user) => {
       const codes = new Set((user.roles ?? []).map((r) => r.roleCode).filter(Boolean) as string[]);
-      const roleNames = (user.roles ?? []).map((r) => r.roleName).filter(Boolean) as string[];
-
-      // 能面试的那几类排前面：面试官 > 超管/管理员 > 社员 > 其它 > 没角色
-      const tier = codes.has('INTERVIEWER') ? 0
-        : (codes.has('SUPER_ADMIN') || codes.has('ADMIN')) ? 1
-          : codes.has('MEMBER') ? 2
-            : codes.size > 0 ? 3
-              : 4;
-
+      const badge = ROLE_RANK.find((r) => codes.has(r.code))?.label ?? '可进后台';
       const display = user.name || user.username || `#${user.userId}`;
-      // 角色直接写进选项：光看姓名分不出谁是来面试的、谁是来应聘的
-      const badge = roleNames.length > 0
-        ? roleNames.join('/')
-        : '未授角色 · 可能是报名的候选人';
       const parts = [badge, user.dept].filter(Boolean);
-
       return {
         value: user.userId,
         label: `${display}（${parts.join(' · ')}）`,
-        tier,
         display,
         // 标签之外再留一份检索文本：占位符写的是「搜索姓名或账号」，
         // 而账号是一长串学号、放进标签每行都很吵，但它得能搜到
-        search: `${user.name ?? ''} ${user.username ?? ''} ${user.dept ?? ''} ${roleNames.join(' ')}`.toLowerCase(),
+        search: `${user.name ?? ''} ${user.username ?? ''} ${user.dept ?? ''} ${badge}`.toLowerCase(),
       };
     });
 
-    return ranked.sort((a, b) => a.tier - b.tier || a.display.localeCompare(b.display, 'zh-CN'));
-  }, [users]);
+    // 已绑定却不在名单里的人（后来被收走权限、或被冻结）不能凭空消失 ——
+    // 否则一保存就把他从这一场删掉了，而操作的人根本没看见发生了什么
+    const known = new Set(listed.map((o) => o.value));
+    const orphans = selected.filter((id) => !known.has(id)).map((id) => ({
+      value: id,
+      label: `#${id}（已绑定 · 当前无后台权限）`,
+      display: `#${id}`,
+      search: String(id),
+    }));
+
+    return [...listed, ...orphans].sort((a, b) => a.display.localeCompare(b.display, 'zh-CN'));
+  }, [users, selected]);
 
   const handleSave = async () => {
     if (!sessionId) return;
@@ -115,7 +125,7 @@ const SessionInterviewersModal: React.FC<SessionInterviewersModalProps> = ({
       okText="保存"
       destroyOnClose
     >
-      <PageHint style={{ marginBottom: 16 }} title="绑定后这些人才能在评价表里评分">每人一列评分互不覆盖，并获得本场候选人的简历查看权限。</PageHint>
+      <PageHint style={{ marginBottom: 16 }} title="绑定后这些人才能在评价表里评分">每人一列评分互不覆盖，并获得本场候选人的简历查看权限。只列出能进管理后台的人；找不到想绑的人，先去「用户与角色」给他授「面试官」角色。</PageHint>
       <Spin spinning={loading}>
         <Select
           mode="multiple"
