@@ -18,7 +18,7 @@ import {
 import CandidateDrawer from './CandidateDrawer';
 import { clearCandidateResumeCache } from './resumeCache';
 import DimensionSettings from './DimensionSettings';
-import { BoardRow, RowEvaluation, useCollabBoard } from './collab';
+import { BoardRow, ONLINE_LOCATION, RowEvaluation, useCollabBoard } from './collab';
 import './index.scss';
 
 const { Text } = Typography;
@@ -128,7 +128,13 @@ const EvaluationBoardPage: React.FC = () => {
       if (row.location) counts.set(row.location, (counts.get(row.location) ?? 0) + 1);
     });
     return Array.from(counts.entries())
-      .sort((a, b) => a[0].localeCompare(b[0], 'zh-CN'))
+      // 线上面试是后端给的虚拟地点，不是教室：按名字排会插进教室中间，
+      // 固定排在最后，教室那几组的相对次序才不会被它打乱
+      .sort((a, b) => {
+        if (a[0] === ONLINE_LOCATION) return 1;
+        if (b[0] === ONLINE_LOCATION) return -1;
+        return a[0].localeCompare(b[0], 'zh-CN');
+      })
       .map(([value, count]) => ({ value, count, label: `${value}（${count}）` }));
   }, [derivedRows]);
 
