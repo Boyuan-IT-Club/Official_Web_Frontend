@@ -15,7 +15,9 @@ interface GetUsersParams {
   role?: string;
   roleGroup?: string;
   status?: string;
-  [property: string]: any;
+  // 刻意不留 [property: string]: any —— 正是它让 pageSize 这种错名一路放行：
+  // 面试官绑定弹窗传了 pageSize: '500'，被后端忽略回落到 10 条，182 个用户只列出 10 个。
+  // 收紧之后同类笔误编译期就报错。
 }
 
 export const getAllUsers = (params?: GetUsersParams) => {

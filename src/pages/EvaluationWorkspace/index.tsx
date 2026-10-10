@@ -20,7 +20,7 @@ import ResumeQuickView from '@/components/ResumeQuickView';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import JoinSessionButton from '@/components/JoinSessionButton';
 import { EvaluationQbankDrawer } from '@/components/ResumeAiEvaluation';
-import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
+import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, listSessionInterviewers, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
 import CollabTextArea from '../EvaluationBoard/CollabTextArea';
 import {
   COMMENT_COL,
@@ -119,6 +119,8 @@ const EvaluationWorkspace: React.FC = () => {
   const token = getToken();
   const { userInfo } = useSelector((state: any) => state.user);
   const jwt = useMemo(() => (token ? parseJwtPayload(token) : null), [token]);
+  // 只有管理员能顶班：纯面试官不该能自己给自己开口子（后端同样这么拦）
+  const canJoinSession = hasAnyPermission(token, ['resume:audit', 'interview:schedule']);
   // 与评价表页保持同一取法：userInfo 优先，未加载时退回 JWT
   const userId = Number(userInfo?.userId ?? jwt?.userId ?? 0);
   const userName = String(userInfo?.name || userInfo?.username || jwt?.sub || '我');
@@ -146,13 +148,18 @@ const EvaluationWorkspace: React.FC = () => {
   const [qbankOpen, setQbankOpen] = useState(false);
 
   /*
-   * 自助顶班：面试当天常有人临时换场，而能否打分是按场次绑定判定的。
+   * 自助顶班之后，这一场的面试官名单直接问库，不只信协同文档。
    *
-   * 加进去之后协同文档不会立刻知道 —— 行上的面试官名单是「播种」进 Y.Doc 的，
-   * 要等协同服务下一次对账（5 分钟一轮）才刷新。本地先记一笔把编辑放开：
-   * 写入照样会落进文档，而物化时后端是按库里的绑定逐条校验的，库已经改了。
+   * 文档里的名单是「播种」进 Y.Doc 的，加完自己要等协同服务下一轮对账
+   * （默认 5 分钟）才刷新。最初的做法是本地记一笔把编辑放开，但那笔只活在
+   * 组件 state 里 —— 退出这一页再进来就没了，界面又变回「你没有被排在这场
+   * 面试上」，而库里明明已经绑好了，用户只会以为加入没生效。
+   *
+   * 绑定关系的权威本来就在库里（物化时后端也是按库里的绑定逐条校验），
+   * 所以这里查一次，把它和文档里的名单取并集。
    */
-  const [claimedSessions, setClaimedSessions] = useState<number[]>([]);
+  const [boundInterviewers, setBoundInterviewers] = useState<number[] | null>(null);
+  const [claimTick, setClaimTick] = useState(0);
   // 专注模式（方案 C 作为开关）：一次只放大一个维度，回车下一维
   const [focusMode, setFocusMode] = useState(false);
   const [focusIdx, setFocusIdx] = useState(0);
@@ -298,6 +305,21 @@ const EvaluationWorkspace: React.FC = () => {
     return () => { cancelled = true; };
   }, [row?.userId]);
 
+  // 该接口要管理员权限，面试官调会 403；而只有管理员能自助加入，也只有他们需要这条旁路
+  const rowSessionId = row?.sessionId ?? null;
+  useEffect(() => {
+    if (!canJoinSession || rowSessionId == null) {
+      setBoundInterviewers(null);
+      return undefined;
+    }
+    let cancelled = false;
+    listSessionInterviewers(rowSessionId)
+      .then((res: any) => { if (!cancelled) setBoundInterviewers((res?.data ?? []).map(Number)); })
+      // 查不到就退回只信文档，不打扰用户：最差也就是回到对账前的旧行为
+      .catch(() => { if (!cancelled) setBoundInterviewers(null); });
+    return () => { cancelled = true; };
+  }, [canJoinSession, rowSessionId, claimTick]);
+
   // 维度署名：来自物化后的汇总接口（协同文档里不存作者，那是服务端旁路记录的）。
   // 因此署名会滞后于正在输入的内容，最多一个物化防抖周期（30s）；
   // 「谁正在编辑」由下面的在线成员实时体现，两者互补。
@@ -349,13 +371,15 @@ const EvaluationWorkspace: React.FC = () => {
   }
 
   const evaluation = board.readEvaluation(scheduleId);
-  const selfClaimed = row.sessionId != null && claimedSessions.includes(row.sessionId) && !row.removed;
-  const editable = (board.canEdit(row) || selfClaimed) && !board.readOnly && !board.locked;
+  // 库里绑了就能编辑，哪怕协同文档还没对账到
+  const boundInDb = boundInterviewers != null && boundInterviewers.includes(userId) && !row.removed;
+  const editable = (board.canEdit(row) || boundInDb) && !board.readOnly && !board.locked;
 
-  // 只有管理员能顶班：纯面试官不该能自己给自己开口子（后端同样这么拦）
-  const canJoinSession = hasAnyPermission(token, ['resume:audit', 'interview:schedule']);
-  const rememberClaim = (sessionId: number) =>
-    setClaimedSessions((prev) => (prev.includes(sessionId) ? prev : [...prev, sessionId]));
+  const rememberClaim = (sessionId: number) => {
+    // 先广播给在线的同场面试官（文档立刻变），再重查库（刷新本地的权威判定）
+    board.addSessionInterviewer(sessionId, userId);
+    setClaimTick((t) => t + 1);
+  };
   const total = weightedTotal(evaluation.scores, board.columns);
   const scoredCount = dimensionColumns.filter((c) => {
     const v = evaluation.scores[c.id];
