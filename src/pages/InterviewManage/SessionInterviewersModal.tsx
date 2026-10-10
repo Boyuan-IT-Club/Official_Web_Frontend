@@ -77,13 +77,15 @@ const SessionInterviewersModal: React.FC<SessionInterviewersModalProps> = ({
       const codes = new Set((user.roles ?? []).map((r) => r.roleCode).filter(Boolean) as string[]);
       const badge = ROLE_RANK.find((r) => codes.has(r.code))?.label ?? '可进后台';
       const display = user.name || user.username || `#${user.userId}`;
-      const parts = [badge, user.dept].filter(Boolean);
       return {
         value: user.userId,
-        label: `${display}（${parts.join(' · ')}）`,
+        // 只显示人名。角色与部门曾经写在这里，是为了在全量名单里认出「报名的候选人」；
+        // 现在名单只剩能进后台的二十来人（且无重名），那层提示没必要了，
+        // 反倒让每个标签都拖着一长串，下拉和已选区都很吵。
+        label: display,
         display,
-        // 标签之外再留一份检索文本：占位符写的是「搜索姓名或账号」，
-        // 而账号是一长串学号、放进标签每行都很吵，但它得能搜到
+        // 标签之外留一份检索文本：占位符写的是「搜索姓名或账号」，
+        // 而账号是一长串学号、角色部门也不该挤进标签，但它们都得能搜到
         search: `${user.name ?? ''} ${user.username ?? ''} ${user.dept ?? ''} ${badge}`.toLowerCase(),
       };
     });
@@ -129,7 +131,11 @@ const SessionInterviewersModal: React.FC<SessionInterviewersModalProps> = ({
       <Spin spinning={loading}>
         <Select
           mode="multiple"
-          allowClear
+          /*
+           * 不要 allowClear：它在输入框右端放一枚清空按钮，位置正好压着下拉箭头，
+           * 点开列表时很容易误触，而它一下清掉整场已绑的面试官 ——
+           * 保存就等于把这一场的人全删了。要去掉某个人，点他自己的 × 就行。
+           */
           style={{ width: '100%' }}
           placeholder="搜索姓名或账号后选择"
           value={selected}
