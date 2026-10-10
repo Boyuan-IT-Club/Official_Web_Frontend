@@ -48,6 +48,120 @@ export function dimensionColId(dimensionId: number): string {
   return `${DIMENSION_COL_PREFIX}${SEPARATOR}${dimensionId}`;
 }
 
+/** 评分维度（与 /api/interview/evaluation/cycles/{id}/dimensions 的返回一致） */
+export interface DimensionSeed {
+  dimensionId: number;
+  name: string;
+  maxScore: number;
+  weight: number;
+  sortOrder?: number;
+}
+
+/**
+ * 由评分维度算出整张表的列定义。
+ *
+ * 规则必须与协同服务 doc-model.js 的 buildColumns 逐字一致：两边都会写 columns，
+ * 规则一旦分叉，管理员这边刚改好的列会在服务端下一次对账时被改回去，看起来像「改了又弹回」。
+ */
+export function buildDimensionColumns(dimensions: DimensionSeed[]): BoardColumn[] {
+  const columns: BoardColumn[] = dimensions.map((dimension, index) => ({
+    id: dimensionColId(dimension.dimensionId),
+    dimensionId: dimension.dimensionId,
+    label: dimension.name,
+    type: 'score' as const,
+    maxScore: dimension.maxScore,
+    weight: Number(dimension.weight),
+    width: 90,
+    order: dimension.sortOrder ?? index + 1,
+  }));
+  const base = columns.length;
+  columns.push({
+    id: COMMENT_COL, label: '面试记录与评语', type: 'text', width: 320, order: base + 1,
+  });
+  columns.push({
+    id: RECOMMENDATION_COL,
+    label: '推荐意见',
+    type: 'select',
+    options: [
+      { value: 1, label: '倾向通过' },
+      { value: 2, label: '待定' },
+      { value: 3, label: '不倾向' },
+    ],
+    width: 110,
+    order: base + 2,
+  });
+  return columns;
+}
+
+function sameColumnValue(current: unknown, next: unknown): boolean {
+  if (current === next) return true;
+  if (typeof current === 'object' || typeof next === 'object') {
+    return JSON.stringify(current ?? null) === JSON.stringify(next ?? null);
+  }
+  return false;
+}
+
+/**
+ * 把维度改动就地应用到文档的 columns。
+ *
+ * 权威仍在协同服务：它每轮对账都会按同样的规则把列追平。这里多写一次，
+ * 只是为了让管理员保存完当场就看到结果，而不是等到下一轮对账（默认 5 分钟）。
+ * 幂等且与服务端同规则，所以两边先后执行都收敛到同一结果。
+ *
+ * 已填的分数一律不动：维度被删时只撤列，行里的 dim:&lt;id&gt; 单元格留着。
+ */
+export function reconcileDimensionColumns(doc: Y.Doc, dimensions: DimensionSeed[]): void {
+  const desired = buildDimensionColumns(dimensions);
+  const desiredById = new Map(desired.map((column) => [column.id, column]));
+  const columns = doc.getArray<Y.Map<any>>('columns');
+
+  doc.transact(() => {
+    // 先正序扫出要删的下标，再倒序删：Y.Array 删一项后面的下标就前移
+    const kept = new Set<string>();
+    const dropIndices: number[] = [];
+    for (let i = 0; i < columns.length; i += 1) {
+      const item = columns.get(i);
+      const id = item instanceof Y.Map ? String(item.get('id')) : null;
+      if (id === null || !desiredById.has(id) || kept.has(id)) {
+        dropIndices.push(i);
+        continue;
+      }
+      kept.add(id);
+    }
+    for (let i = dropIndices.length - 1; i >= 0; i -= 1) {
+      columns.delete(dropIndices[i], 1);
+    }
+
+    for (let i = 0; i < columns.length; i += 1) {
+      const item = columns.get(i);
+      const want = desiredById.get(String(item.get('id')));
+      if (!want) continue;
+      Object.entries(want).forEach(([key, value]) => {
+        if (!sameColumnValue(item.get(key), value)) item.set(key, value);
+      });
+    }
+
+    desired.forEach((want) => {
+      if (kept.has(want.id)) return;
+      const map = new Y.Map<any>();
+      Object.entries(want).forEach(([key, value]) => map.set(key, value));
+      columns.push([map]);
+    });
+
+    // 新维度的评语格在这里一并预建，和服务端播种时做的事一样。
+    // 不建的话，两位面试官同时在这个空格里敲第一个字会各自新建一个 Y.Text，
+    // 合并时只活下来一个，另一人刚写的话直接消失——新增维度后的头几分钟正是高发期。
+    const rows = doc.getMap<Y.Map<any>>('rows');
+    rows.forEach((rowMap) => {
+      if (!(rowMap instanceof Y.Map)) return;
+      dimensions.forEach((dimension) => {
+        const key = dimensionNoteColId(dimension.dimensionId);
+        if (!(rowMap.get(key) instanceof Y.Text)) rowMap.set(key, new Y.Text());
+      });
+    });
+  }, 'local');
+}
+
 export type BoardStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
 export interface BoardColumn {
@@ -416,6 +530,11 @@ export interface CollabBoard {
   writeDimensionNote: (scheduleId: number, dimensionId: number, text: string) => void;
   writeRecommendation: (scheduleId: number, value: number | null) => void;
   writeStatus: (scheduleId: number, status: number) => void;
+  /**
+   * 管理员改完评分维度后就地刷新列，不必等协同服务下一轮对账。
+   * 表被锁定或只读时跳过——那时写入会被服务端丢弃，本地改了反而与别人看到的不一致。
+   */
+  syncDimensionColumns: (dimensions: DimensionSeed[]) => void;
   /** 广播我正在看哪位候选人 */
   /**
    * 把某人即时加进该场次所有行的面试官名单，广播给在线的所有人。
@@ -758,6 +877,12 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     return decodeCursor(doc, peer.cursor);
   }, []);
 
+  const syncDimensionColumns = useCallback((dimensions: DimensionSeed[]) => {
+    const doc = docRef.current;
+    if (!doc || readOnly) return;
+    reconcileDimensionColumns(doc, dimensions);
+  }, [readOnly]);
+
   // 关掉抽屉/断开连接时把打字状态一起收掉，别留一个永久亮着的提示
   useEffect(() => () => {
     if (typingTimer.current !== null) {
@@ -786,6 +911,7 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     writeDimensionNote,
     writeRecommendation,
     writeStatus,
+    syncDimensionColumns,
     setActiveRow,
     setTyping,
     setCursor,

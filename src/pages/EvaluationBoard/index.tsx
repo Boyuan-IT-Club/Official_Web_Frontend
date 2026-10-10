@@ -507,7 +507,13 @@ const EvaluationBoardPage: React.FC = () => {
           open={dimensionOpen}
           cycleId={cycleId}
           onClose={() => setDimensionOpen(false)}
-          onSaved={() => loadBoard(cycleId)}
+          onSaved={(dimensions) => {
+            // 列存在协同文档里，改库不会自动传导过去。协同服务每轮对账会追平，
+            // 但默认 5 分钟一轮——管理员保存完当场看不到变化会以为没生效（线上报过）。
+            // 这里按同一套规则就地写一次，其余在线的人靠 CRDT 立即同步。
+            board.syncDimensionColumns(dimensions);
+            loadBoard(cycleId);
+          }}
         />
       )}
     </Card>

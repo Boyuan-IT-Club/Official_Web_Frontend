@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import {
-  addInterviewerToSessionRows, applyTextDiff, dimensionColId, weightedTotal, BoardColumn,
+  addInterviewerToSessionRows, applyTextDiff, buildDimensionColumns, dimensionColId,
+  reconcileDimensionColumns, weightedTotal, BoardColumn,
 } from './collab';
 
 const textOf = (doc: Y.Doc) => doc.getText('t');
@@ -168,5 +169,80 @@ describe('addInterviewerToSessionRows', () => {
     addInterviewerToSessionRows(doc, 17, 2);
 
     expect(updates).toBe(1);
+  });
+});
+
+// 评分维度改动后，评价表的列必须跟着变。
+// 线上 bug：管理端改了维度，表纹丝不动——列只在协同文档首次播种时写过一次。
+// 这组断言同时锁住「与 collab-server/src/doc-model.js 同规则」这条约定：
+// 两边都会写 columns，规则分叉会表现为「刚改好又被服务端改回去」。
+describe('评分维度列', () => {
+  const dims = (...items: Array<[number, string]>) => items.map(([dimensionId, name], index) => ({
+    dimensionId, name, maxScore: 10, weight: 1, sortOrder: index + 1,
+  }));
+
+  const idsOf = (doc: Y.Doc) => doc.getArray<Y.Map<any>>('columns').toArray().map((c) => c.get('id'));
+
+  const seeded = (...items: Array<[number, string]>) => {
+    const doc = new Y.Doc();
+    reconcileDimensionColumns(doc, dims(...items));
+    return doc;
+  };
+
+  it('评语列与推荐意见列始终排在维度之后', () => {
+    const columns = buildDimensionColumns(dims([1, '能力'], [2, '价值']));
+    expect(columns.map((c) => c.id)).toEqual([
+      dimensionColId(1), dimensionColId(2), 'comment', 'recommendation',
+    ]);
+    expect(columns.map((c) => c.order)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('新增维度后多出一列，原有列保持原样', () => {
+    const doc = seeded([1, '能力'], [2, '价值']);
+    reconcileDimensionColumns(doc, dims([1, '能力'], [2, '价值'], [3, '社交']));
+    expect(idsOf(doc)).toEqual([
+      dimensionColId(1), dimensionColId(2), 'comment', 'recommendation', dimensionColId(3),
+    ]);
+    // 物理顺序无所谓，渲染按 order 排
+    const byId = (id: string) => doc.getArray<Y.Map<any>>('columns').toArray().find((c) => c.get('id') === id);
+    expect(byId(dimensionColId(3))!.get('order')).toBe(3);
+    expect(byId('comment')!.get('order')).toBe(4);
+  });
+
+  it('改名就地生效', () => {
+    const doc = seeded([1, '能力'], [2, '价值']);
+    reconcileDimensionColumns(doc, dims([1, '能力（技术+学习+思维）'], [2, '价值']));
+    const first = doc.getArray<Y.Map<any>>('columns').toArray()[0];
+    expect(first.get('id')).toBe(dimensionColId(1));
+    expect(first.get('label')).toBe('能力（技术+学习+思维）');
+  });
+
+  it('删除维度只撤列', () => {
+    const doc = seeded([1, '能力'], [2, '价值']);
+    reconcileDimensionColumns(doc, dims([1, '能力']));
+    expect(idsOf(doc)).toEqual([dimensionColId(1), 'comment', 'recommendation']);
+  });
+
+  it('新增维度时顺手预建每行的评语格', () => {
+    // 不预建的话，两人同时在这个空格里敲第一个字会各建一个 Y.Text，合并后有人丢字
+    const doc = seeded([1, '能力']);
+    const rowMap = new Y.Map<any>();
+    doc.getMap<Y.Map<any>>('rows').set('100', rowMap);
+
+    reconcileDimensionColumns(doc, dims([1, '能力'], [2, '价值']));
+
+    expect(rowMap.get(`${dimensionColId(2)}:note`)).toBeInstanceOf(Y.Text);
+  });
+
+  it('重复执行不产生重复列，也不再写入任何改动', () => {
+    // 服务端对账与本地刷新先后跑同一套规则，必须幂等，否则两边会互相推翻
+    const doc = seeded([1, '能力'], [2, '价值']);
+    let changed = false;
+    doc.on('update', () => { changed = true; });
+    reconcileDimensionColumns(doc, dims([1, '能力'], [2, '价值']));
+    expect(idsOf(doc)).toEqual([
+      dimensionColId(1), dimensionColId(2), 'comment', 'recommendation',
+    ]);
+    expect(changed).toBe(false);
   });
 });
