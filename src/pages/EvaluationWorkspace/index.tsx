@@ -19,7 +19,7 @@ import { hasAnyPermission, parseJwtPayload } from '@/utils/jwt';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import { EvaluationQbankDrawer } from '@/components/ResumeAiEvaluation';
-import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
+import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, joinSessionAsInterviewer, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
 import CollabTextArea from '../EvaluationBoard/CollabTextArea';
 import {
   COMMENT_COL,
@@ -143,6 +143,16 @@ const EvaluationWorkspace: React.FC = () => {
   }, [navigate, cycleId, scheduleId]);
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [qbankOpen, setQbankOpen] = useState(false);
+
+  /*
+   * 自助顶班：面试当天常有人临时换场，而能否打分是按场次绑定判定的。
+   *
+   * 加进去之后协同文档不会立刻知道 —— 行上的面试官名单是「播种」进 Y.Doc 的，
+   * 要等协同服务下一次对账（5 分钟一轮）才刷新。本地先记一笔把编辑放开：
+   * 写入照样会落进文档，而物化时后端是按库里的绑定逐条校验的，库已经改了。
+   */
+  const [claimedSessions, setClaimedSessions] = useState<number[]>([]);
+  const [joining, setJoining] = useState(false);
   // 专注模式（方案 C 作为开关）：一次只放大一个维度，回车下一维
   const [focusMode, setFocusMode] = useState(false);
   const [focusIdx, setFocusIdx] = useState(0);
@@ -339,7 +349,26 @@ const EvaluationWorkspace: React.FC = () => {
   }
 
   const evaluation = board.readEvaluation(scheduleId);
-  const editable = board.canEdit(row) && !board.readOnly && !board.locked;
+  const selfClaimed = row.sessionId != null && claimedSessions.includes(row.sessionId) && !row.removed;
+  const editable = (board.canEdit(row) || selfClaimed) && !board.readOnly && !board.locked;
+
+  // 只有管理员能顶班：纯面试官不该能自己给自己开口子（后端同样这么拦）
+  const canJoinSession = hasAnyPermission(token, ['resume:audit', 'interview:schedule']);
+
+  const handleJoinSession = async () => {
+    const sessionId = row.sessionId;
+    if (sessionId == null) return;
+    setJoining(true);
+    try {
+      await joinSessionAsInterviewer(sessionId);
+      setClaimedSessions((prev) => (prev.includes(sessionId) ? prev : [...prev, sessionId]));
+      message.success('已把你加进这一场，现在可以打分了');
+    } catch (e: any) {
+      message.error(e?.message || '加入失败');
+    } finally {
+      setJoining(false);
+    }
+  };
   const total = weightedTotal(evaluation.scores, board.columns);
   const scoredCount = dimensionColumns.filter((c) => {
     const v = evaluation.scores[c.id];
@@ -417,7 +446,18 @@ const EvaluationWorkspace: React.FC = () => {
           message={
             board.locked
               ? '评价表已锁定，当前为只读'
-              : '你没有被排在这场面试上，因此只能查看'
+              : row.sessionId == null
+                // 线上面试不占场次，没有「这一场」可加 —— 它的可编辑范围是本周期的
+                // 面试官，所以得先在任意一场线下场次里把自己加进去
+                ? '线上面试由本周期的面试官共同负责；你还不是，请先在任意一场线下面试里把自己加为面试官'
+                : '你没有被排在这场面试上，因此只能查看'
+          }
+          action={
+            !board.locked && row.sessionId != null && canJoinSession ? (
+              <Button size="small" type="primary" loading={joining} onClick={handleJoinSession}>
+                把我加为这场的面试官
+              </Button>
+            ) : undefined
           }
         />
       )}
