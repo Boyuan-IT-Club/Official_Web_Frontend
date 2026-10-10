@@ -18,8 +18,9 @@ import { getToken } from '@/utils';
 import { hasAnyPermission, parseJwtPayload } from '@/utils/jwt';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import ResumeAttachments from '@/components/ResumeAttachments';
+import JoinSessionButton from '@/components/JoinSessionButton';
 import { EvaluationQbankDrawer } from '@/components/ResumeAiEvaluation';
-import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, joinSessionAsInterviewer, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
+import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
 import CollabTextArea from '../EvaluationBoard/CollabTextArea';
 import {
   COMMENT_COL,
@@ -152,7 +153,6 @@ const EvaluationWorkspace: React.FC = () => {
    * 写入照样会落进文档，而物化时后端是按库里的绑定逐条校验的，库已经改了。
    */
   const [claimedSessions, setClaimedSessions] = useState<number[]>([]);
-  const [joining, setJoining] = useState(false);
   // 专注模式（方案 C 作为开关）：一次只放大一个维度，回车下一维
   const [focusMode, setFocusMode] = useState(false);
   const [focusIdx, setFocusIdx] = useState(0);
@@ -354,21 +354,8 @@ const EvaluationWorkspace: React.FC = () => {
 
   // 只有管理员能顶班：纯面试官不该能自己给自己开口子（后端同样这么拦）
   const canJoinSession = hasAnyPermission(token, ['resume:audit', 'interview:schedule']);
-
-  const handleJoinSession = async () => {
-    const sessionId = row.sessionId;
-    if (sessionId == null) return;
-    setJoining(true);
-    try {
-      await joinSessionAsInterviewer(sessionId);
-      setClaimedSessions((prev) => (prev.includes(sessionId) ? prev : [...prev, sessionId]));
-      message.success('已把你加进这一场，现在可以打分了');
-    } catch (e: any) {
-      message.error(e?.message || '加入失败');
-    } finally {
-      setJoining(false);
-    }
-  };
+  const rememberClaim = (sessionId: number) =>
+    setClaimedSessions((prev) => (prev.includes(sessionId) ? prev : [...prev, sessionId]));
   const total = weightedTotal(evaluation.scores, board.columns);
   const scoredCount = dimensionColumns.filter((c) => {
     const v = evaluation.scores[c.id];
@@ -454,9 +441,7 @@ const EvaluationWorkspace: React.FC = () => {
           }
           action={
             !board.locked && row.sessionId != null && canJoinSession ? (
-              <Button size="small" type="primary" loading={joining} onClick={handleJoinSession}>
-                把我加为这场的面试官
-              </Button>
+              <JoinSessionButton sessionId={row.sessionId} onJoined={rememberClaim} />
             ) : undefined
           }
         />

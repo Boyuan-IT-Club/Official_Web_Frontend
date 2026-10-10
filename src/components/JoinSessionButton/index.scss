@@ -1,0 +1,66 @@
+/*
+ * 「把我加为这场的面试官」。
+ *
+ * 原先是 type="primary" 的实心蓝，砸在琥珀色的警告条上像两套设计语言拼起来的，
+ * 抢走的注意力也超过它的分量 —— 这是个随手可用的补救，不是页面主操作。
+ *
+ * 改成与提示同色系的描边按钮：白底撑出对比（警告条本身就是淡黄 #fffbe6，
+ * 再用淡黄会糊成一片），琥珀描边与左侧那枚警告图标呼应，hover 才轻轻填色。
+ *
+ * 颜色写死不走 token：各皮肤的内容区一律浅色（只有侧栏是石墨深色，见 theme/admin.ts），
+ * 不存在深色反转。文字 #985c00 对白底 5.3:1、对 #fffbe6 5.1:1，都过 4.5:1。
+ */
+.join-session-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+
+  color: #985c00;
+  background: #fff;
+  border: 1px solid #ffd666;
+  box-shadow: none;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+
+  .anticon {
+    font-size: 13px;
+    // 图标比文字淡一档，让「文字」继续是读的重点
+    color: #d48806;
+    transition: color .16s ease;
+  }
+
+  // antd 的 Button 自带 hover/active 颜色，优先级压得过类选择器，这里逐个接管
+  &:not(:disabled):hover,
+  &:not(:disabled):focus-visible {
+    color: #7a4a00;
+    background: #fff7e0;
+    border-color: #ffbf3d;
+
+    .anticon { color: #ad6800; }
+  }
+
+  &:not(:disabled):active {
+    color: #7a4a00;
+    background: #ffeec2;
+    border-color: #ffa940;
+  }
+
+  // 键盘可达：antd 默认的主色描边在琥珀底上很跳
+  &:focus-visible {
+    outline: 2px solid rgba(212, 136, 6, .45);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    color: #bfbfbf;
+    background: #fafafa;
+    border-color: #f0f0f0;
+    .anticon { color: #d9d9d9; }
+  }
+}

@@ -8,9 +8,10 @@ import {
 } from 'antd';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import { EvaluationQbankDrawer } from '@/components/ResumeAiEvaluation';
+import JoinSessionButton from '@/components/JoinSessionButton';
 import { BookOutlined } from '@ant-design/icons';
 import {
-  CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS, joinSessionAsInterviewer,
+  CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS,
 } from '@/api/manage/interviewEvaluation';
 import { getToken } from '@/utils';
 import { hasAnyPermission } from '@/utils/jwt';
@@ -48,7 +49,6 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
   // 自助顶班。文档里的面试官名单要等协同服务对账才刷新，本地先记一笔放开编辑，
   // 理由与评价工作台里那处相同（物化时后端按库里的绑定校验，库已经改了）。
   const [claimedSessions, setClaimedSessions] = useState<number[]>([]);
-  const [joining, setJoining] = useState(false);
 
   const scheduleId = row?.scheduleId;
   const selfClaimed = !!row && row.sessionId != null
@@ -142,21 +142,8 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
   };
 
   const canJoinSession = hasAnyPermission(getToken(), ['resume:audit', 'interview:schedule']);
-
-  const handleJoinSession = async () => {
-    const sessionId = row?.sessionId;
-    if (sessionId == null) return;
-    setJoining(true);
-    try {
-      await joinSessionAsInterviewer(sessionId);
-      setClaimedSessions((prev) => (prev.includes(sessionId) ? prev : [...prev, sessionId]));
-      message.success('已把你加进这一场，现在可以打分了');
-    } catch (e: any) {
-      message.error(e?.message || '加入失败');
-    } finally {
-      setJoining(false);
-    }
-  };
+  const rememberClaim = (sessionId: number) =>
+    setClaimedSessions((prev) => (prev.includes(sessionId) ? prev : [...prev, sessionId]));
 
   const notEditableReason = (): React.ReactNode => {
     if (board.locked) return '评价表已锁定，当前为只读状态。';
@@ -170,9 +157,7 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
       return canJoinSession ? (
         <Space size={8} wrap>
           <span>你不是这一场的面试官，只能查看。</span>
-          <Button size="small" type="primary" loading={joining} onClick={handleJoinSession}>
-            把我加为这场的面试官
-          </Button>
+          <JoinSessionButton sessionId={row.sessionId} onJoined={rememberClaim} />
         </Space>
       ) : '你不是该场次的面试官，只能查看。如需评价请让管理员在「场次」里绑定你。';
     }
