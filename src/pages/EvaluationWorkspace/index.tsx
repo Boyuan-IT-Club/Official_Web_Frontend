@@ -12,11 +12,13 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Alert, Avatar, Button, Empty, InputNumber, List, Result, Select, Space, Spin, Table, Tag, Tooltip, Typography, message,
 } from 'antd';
-import { ArrowLeftOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, BookOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { getToken } from '@/utils';
 import { hasAnyPermission, parseJwtPayload } from '@/utils/jwt';
 import ResumeQuickView from '@/components/ResumeQuickView';
+import ResumeAttachments from '@/components/ResumeAttachments';
+import { EvaluationQbankDrawer } from '@/components/ResumeAiEvaluation';
 import { getCandidateResume, getCandidateProfileDetail, getEvaluationSummary, type CandidateProfileDetailForWorkspace, type CandidateAward, type CandidateSubmission } from '@/api/manage/interviewEvaluation';
 import CollabTextArea from '../EvaluationBoard/CollabTextArea';
 import {
@@ -140,6 +142,7 @@ const EvaluationWorkspace: React.FC = () => {
     navigate(`/evaluation/${cycleId}/${scheduleId}${on ? '?stage=1' : ''}`, { replace: true });
   }, [navigate, cycleId, scheduleId]);
   const [overviewOpen, setOverviewOpen] = useState(false);
+  const [qbankOpen, setQbankOpen] = useState(false);
   // 专注模式（方案 C 作为开关）：一次只放大一个维度，回车下一维
   const [focusMode, setFocusMode] = useState(false);
   const [focusIdx, setFocusIdx] = useState(0);
@@ -260,6 +263,12 @@ const EvaluationWorkspace: React.FC = () => {
       .catch((e: any) => { if (!cancelled) setResumeError(e?.message || '简历加载失败'); });
     return () => { cancelled = true; };
   }, [cycleId, scheduleId]);
+
+  // 附件与题库都按简历号取，而评价表名单给的是 scheduleId —— 简历拉回来才有它
+  const resumeId = useMemo(() => {
+    const id = Number(resume?.resumeId ?? resume?.resume_id ?? resume?.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }, [resume]);
 
   // 候选人的获奖经历 + Autograding 成绩（全部周期汇总），供面试官打分时参考。
   // 取 row.userId（候选人），绝不能用当前用户的 userId（那是面试官自己）。
@@ -441,10 +450,33 @@ const EvaluationWorkspace: React.FC = () => {
                 </Tag>
               </Tooltip>
             )}
+            {/*
+              AI 在简历初筛时已按这个人的简历出好了一套题，面试时却要另开评审页才看得到。
+              放在简历标题栏而不是顶栏：题是从这份简历里长出来的，就近才找得到。
+            */}
+            <Tooltip title={resumeId ? '查看 AI 按这份简历预设的面试题' : '该候选人这一周期还没有简历'}>
+              <Button
+                className="ws-pane-action"
+                type="link"
+                size="small"
+                icon={<BookOutlined />}
+                disabled={!resumeId}
+                onClick={() => setQbankOpen(true)}
+              >
+                预设题库
+              </Button>
+            </Tooltip>
           </div>
           {resumeError
             ? <Alert type="error" showIcon message={resumeError} />
             : <ResumeQuickView resume={resume} emptyText="该候选人这一周期的简历没有填写内容" />}
+
+          {/* 作品集、成绩单这些只在附件里，速览渲染的是简历字段，看不到它们 */}
+          {resumeId != null && (
+            <div style={{ marginTop: 16 }}>
+              <ResumeAttachments resumeId={resumeId} canEdit={false} />
+            </div>
+          )}
 
           {candidateDetail && (
             <>
@@ -654,6 +686,15 @@ const EvaluationWorkspace: React.FC = () => {
       )}
 
       <EvalOverview cycleId={cycleId} open={overviewOpen} onClose={() => setOverviewOpen(false)} />
+
+      {/* 带上 scheduleId：勾中的题记进这场面试的选题记录，而不是只记到简历上 */}
+      <EvaluationQbankDrawer
+        open={qbankOpen}
+        onClose={() => setQbankOpen(false)}
+        resumeId={resumeId}
+        cycleId={cycleId}
+        scheduleId={scheduleId}
+      />
     </div>
   );
 };

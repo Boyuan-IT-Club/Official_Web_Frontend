@@ -87,6 +87,17 @@ $mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
         letter-spacing: 0;
         color: #a8a8b3;
       }
+
+      // 标题栏是 baseline 对齐的，按钮自带的内边距会把这一行撑高；
+      // 压掉高度并推到右端，让它收在标题右角而不是挤在文字旁边
+      .ws-pane-action {
+        margin-left: auto;
+        align-self: center;
+        height: 20px;
+        padding: 0 4px;
+        font-size: 12px;
+        letter-spacing: 0;
+      }
     }
   }
 
