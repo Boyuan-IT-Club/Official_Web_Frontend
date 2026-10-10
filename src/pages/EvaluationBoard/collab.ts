@@ -297,6 +297,35 @@ function readColumns(doc: Y.Doc): BoardColumn[] {
   return columns.sort((a, b) => a.order - b.order);
 }
 
+/**
+ * 把某人写进该场次所有行的面试官名单。幂等；不认识的场次什么都不做。
+ *
+ * 「把我加为这场的面试官」改的是数据库，而文档里的名单是服务端播种进来的，
+ * 要等下一轮对账（默认 5 分钟）才刷新 —— 期间同场其他人看不到他的评分列。
+ * 这里顺手把文档也改了，在线的人立刻就能看见。
+ *
+ * 写错也没有后果：对账时 writeRowInfo 会用库里的权威值整个覆盖 _info。
+ * 而这个名单只是界面闸门，真正的权限在物化时由后端按库里的绑定逐条校验。
+ */
+export function addInterviewerToSessionRows(doc: Y.Doc, sessionId: number, userId: number): number {
+  if (sessionId == null || !Number.isFinite(userId)) return 0;
+  let touched = 0;
+  doc.transact(() => {
+    doc.getMap<Y.Map<any>>('rows').forEach((rowMap) => {
+      if (!(rowMap instanceof Y.Map)) return;
+      const info = rowMap.get('_info');
+      if (!(info instanceof Y.Map)) return;
+      if (Number(info.get('sessionId')) !== Number(sessionId)) return;
+      const current = info.get('interviewerUserIds');
+      const ids = Array.isArray(current) ? current.map(Number) : [];
+      if (ids.includes(userId)) return;
+      info.set('interviewerUserIds', [...ids, userId]);
+      touched += 1;
+    });
+  }, 'join-session');
+  return touched;
+}
+
 function readRows(doc: Y.Doc): BoardRow[] {
   const rows: BoardRow[] = [];
   doc.getMap<Y.Map<any>>('rows').forEach((rowMap) => {
@@ -388,6 +417,18 @@ export interface CollabBoard {
   writeRecommendation: (scheduleId: number, value: number | null) => void;
   writeStatus: (scheduleId: number, status: number) => void;
   /** 广播我正在看哪位候选人 */
+  /**
+   * 把某人即时加进该场次所有行的面试官名单，广播给在线的所有人。
+   *
+   * 「把我加为这场的面试官」写的是数据库，而文档里的名单是播种进来的，
+   * 要等协同服务下一轮对账（默认 5 分钟）才刷新 —— 期间同场其他人看不到
+   * 他的评分列。这里顺手把文档也改了，大家立刻就能看见。
+   *
+   * 不怕写错：对账时 writeRowInfo 会用库里的权威值整个覆盖 _info，
+   * 值一致则无变化，不一致也会被纠正。而这个名单只是界面闸门，
+   * 真正的权限在物化时由后端按库里的绑定逐条校验。
+   */
+  addSessionInterviewer: (sessionId: number, userId: number) => void;
   setActiveRow: (scheduleId: number | null) => void;
   /**
    * 广播「我正在输入某个字段」。每次调用都会把自动清除的计时器推后，
@@ -555,6 +596,10 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     (row: BoardRow) => !readOnly && !row.removed && row.interviewerUserIds.includes(userId),
     [readOnly, userId],
   );
+
+  const addSessionInterviewer = useCallback((sessionId: number, userId: number) => {
+    if (docRef.current) addInterviewerToSessionRows(docRef.current, sessionId, userId);
+  }, []);
 
   const readCell = useCallback(
     (scheduleId: number, colId: string) => {
@@ -733,6 +778,7 @@ export function useCollabBoard(options: UseCollabBoardOptions): CollabBoard {
     interviewerNames,
     version,
     canEdit,
+    addSessionInterviewer,
     readCell,
     readEvaluation,
     writeScore,

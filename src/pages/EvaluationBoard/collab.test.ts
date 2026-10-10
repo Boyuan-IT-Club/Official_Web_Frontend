@@ -1,5 +1,7 @@
 import * as Y from 'yjs';
-import { applyTextDiff, dimensionColId, weightedTotal, BoardColumn } from './collab';
+import {
+  addInterviewerToSessionRows, applyTextDiff, dimensionColId, weightedTotal, BoardColumn,
+} from './collab';
 
 const textOf = (doc: Y.Doc) => doc.getText('t');
 
@@ -96,5 +98,75 @@ describe('weightedTotal', () => {
 
   it('忽略已被删除的维度留下的历史得分', () => {
     expect(weightedTotal({ 'dim:1': 6, 'dim:99': 10 }, columns)).toBe(6);
+  });
+});
+
+/**
+ * 自助顶班后让同场其他人立刻看见。
+ *
+ * 文档里的面试官名单是服务端播种的，要等下一轮对账（默认 5 分钟）才刷新。
+ * 之前只在本地记一笔，结果：加入的人自己退出重进就失效，同场其他人更是
+ * 五分钟内都看不到他的评分列。
+ */
+describe('addInterviewerToSessionRows', () => {
+  const docWithRows = (rows: { scheduleId: number; sessionId: number | null; ids: number[] }[]) => {
+    const doc = new Y.Doc();
+    doc.transact(() => {
+      const map = doc.getMap<Y.Map<any>>('rows');
+      rows.forEach((r) => {
+        const rowMap = new Y.Map<any>();
+        const info = new Y.Map<any>();
+        info.set('scheduleId', r.scheduleId);
+        info.set('sessionId', r.sessionId);
+        info.set('interviewerUserIds', r.ids);
+        rowMap.set('_info', info);
+        map.set(String(r.scheduleId), rowMap);
+      });
+    });
+    return doc;
+  };
+
+  const idsOf = (doc: Y.Doc, scheduleId: number) =>
+    doc.getMap<Y.Map<any>>('rows').get(String(scheduleId))!.get('_info').get('interviewerUserIds');
+
+  it('写进该场次的每一行，不碰别的场次', () => {
+    const doc = docWithRows([
+      { scheduleId: 1, sessionId: 17, ids: [7] },
+      { scheduleId: 2, sessionId: 17, ids: [] },
+      { scheduleId: 3, sessionId: 23, ids: [7] },
+    ]);
+
+    expect(addInterviewerToSessionRows(doc, 17, 2)).toBe(2);
+
+    expect(idsOf(doc, 1)).toEqual([7, 2]);
+    expect(idsOf(doc, 2)).toEqual([2]);
+    expect(idsOf(doc, 3)).toEqual([7]);
+  });
+
+  it('已经在名单里就不重复加', () => {
+    const doc = docWithRows([{ scheduleId: 1, sessionId: 17, ids: [2] }]);
+
+    expect(addInterviewerToSessionRows(doc, 17, 2)).toBe(0);
+    expect(idsOf(doc, 1)).toEqual([2]);
+  });
+
+  it('线上面试那类没有场次的行不受影响', () => {
+    const doc = docWithRows([{ scheduleId: 1, sessionId: null, ids: [] }]);
+
+    expect(addInterviewerToSessionRows(doc, 17, 2)).toBe(0);
+    expect(idsOf(doc, 1)).toEqual([]);
+  });
+
+  it('一次事务，对端只收到一个更新', () => {
+    const doc = docWithRows([
+      { scheduleId: 1, sessionId: 17, ids: [] },
+      { scheduleId: 2, sessionId: 17, ids: [] },
+    ]);
+    let updates = 0;
+    doc.on('update', () => { updates += 1; });
+
+    addInterviewerToSessionRows(doc, 17, 2);
+
+    expect(updates).toBe(1);
   });
 });
