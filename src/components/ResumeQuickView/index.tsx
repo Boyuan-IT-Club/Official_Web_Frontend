@@ -1,8 +1,8 @@
 // 简历速览：把简历的动态字段（simpleFields）排版成一页纸的紧凑视图。
 // 学生端在「我的申请」里看自己的简历，管理端在面试评价表里速览候选人，共用这一份排版。
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { sortByCanonicalOrder, specOf } from '@/config/resumeFieldRegistry';
-import { Space, Tag, Typography } from 'antd';
+import { Image, Space, Tag, Typography } from 'antd';
 import { useResumePhoto } from '@/hooks/useResumePhoto';
 import './index.scss';
 
@@ -74,6 +74,26 @@ const ResumeQuickView: React.FC<ResumeQuickViewProps> = ({ resume, emptyText }) 
   const resumeId = resume?.resumeId ?? resume?.resume_id ?? resume?.id;
   const photoUrl = useResumePhoto(resumeId, photoField?.fieldValue);
 
+  // 证件照点开看大图。76×100 的缩略图看不清长相，面试官对人时得能放大
+  const [photoPreview, setPhotoPreview] = useState(false);
+  // 换了候选人就收起大图，别把上一位的照片留在屏幕上
+  useEffect(() => { setPhotoPreview(false); }, [photoUrl]);
+  // 预览打开期间接管键盘。评价舞台在 window 上监听了 Esc（退出舞台）、Ctrl+←→（换人）、
+  // [ ]（折叠分栏），而且比预览的监听注册得早、先执行——不拦的话，按 Esc 关大图会把
+  // 整个舞台一起退掉，开着大图按 Ctrl+→ 会在底下悄悄换了人。
+  // 捕获阶段挂在 window 上，比所有冒泡阶段的监听都先到，拦下后自己负责关预览。
+  useEffect(() => {
+    if (!photoPreview) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      // stopImmediatePropagation 而不只是 stopPropagation：万一事件就派发在 window 上，
+      // 同一节点上后注册的监听（舞台的）也得拦住
+      e.stopImmediatePropagation();
+      if (e.key === 'Escape') setPhotoPreview(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [photoPreview]);
+
   if (filled.length === 0) {
     return <Text type="secondary">{emptyText || '该周期的简历还没有填写内容'}</Text>;
   }
@@ -109,7 +129,19 @@ const ResumeQuickView: React.FC<ResumeQuickViewProps> = ({ resume, emptyText }) 
             ))}
           </div>
         </div>
-        {photoUrl && <img className="rv-photo" src={photoUrl} alt="证件照" />}
+        {photoUrl && (
+          <Image
+            rootClassName="rv-photo-wrap"
+            className="rv-photo"
+            src={photoUrl}
+            alt="证件照"
+            preview={{
+              visible: photoPreview,
+              onVisibleChange: (visible) => setPhotoPreview(visible),
+              mask: '查看大图',
+            }}
+          />
+        )}
       </div>
 
       <div className="rv-basics">
