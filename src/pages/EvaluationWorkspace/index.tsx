@@ -61,6 +61,8 @@ const DimensionCard: React.FC<{
     () => board.readCell(scheduleId, dimensionNoteColId(dimensionId)),
     (text) => board.writeDimensionNote(scheduleId, dimensionId, text),
     board.version,
+    // 维度卡的 key 只有列 ID，换人不会重建组件，靠这个身份让 hook 重读
+    `${scheduleId}:${dimensionNoteColId(dimensionId)}`,
   );
 
   const filled = score !== '' || note.trim() !== '';
@@ -345,6 +347,7 @@ const EvaluationWorkspace: React.FC = () => {
     () => board.readCell(scheduleId, 'comment'),
     (text) => board.writeComment(scheduleId, text),
     board.version,
+    `${scheduleId}:comment`,
   );
 
   if (!Number.isFinite(cycleId) || !Number.isFinite(scheduleId)) {
