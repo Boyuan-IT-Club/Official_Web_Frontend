@@ -49,13 +49,23 @@
       gap: 6px;
     }
 
+    // antd Image 外面包了一层 .ant-image，flex 子项是这层而不是 img
+    .rv-photo-wrap {
+      flex-shrink: 0;
+      border-radius: 8px;
+      overflow: hidden;   // 悬浮蒙层跟着圆角裁
+      line-height: 0;     // 去掉 inline-block 下方的基线空隙
+      cursor: zoom-in;
+
+      .ant-image-mask { font-size: 12px; }
+    }
+
     .rv-photo {
       width: 76px;
       height: 100px;
       object-fit: cover;
       border-radius: 8px;
       border: 1px solid var(--ant-color-border-secondary, #e5e9f0);
-      flex-shrink: 0;
     }
   }
 
