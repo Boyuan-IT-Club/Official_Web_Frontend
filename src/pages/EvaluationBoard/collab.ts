@@ -931,18 +931,35 @@ export function useSharedText(
   read: () => string,
   write: (text: string) => void,
   version: number,
+  /**
+   * 这段文字对应哪一格，形如 `${scheduleId}:${field}`。
+   *
+   * 必填。只按 version 重读是不够的：在评价舞台上换人时文档没有任何变化，
+   * version 原地不动，于是上一位的评语留在 state 里继续显示（线上报的就是这个）。
+   * 更糟的是它同时就是待写入的值——有人在这个状态下补一个字，
+   * 提交的是「上一位的全文 + 这次的改动」，直接盖掉当前这位的评语。
+   */
+  cellKey: string,
 ): [string, (text: string) => void] {
   const [value, setValue] = useState(read);
   const lastWritten = useRef<string | null>(null);
+  const lastCell = useRef(cellKey);
 
   useEffect(() => {
+    // 换了格子：上一格的文本与待写标记一律作废，无条件按新格子重读
+    if (lastCell.current !== cellKey) {
+      lastCell.current = cellKey;
+      lastWritten.current = null;
+      setValue(read());
+      return;
+    }
     const remote = read();
     if (remote !== lastWritten.current) {
       lastWritten.current = null;
       setValue(remote);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version]);
+  }, [version, cellKey]);
 
   const change = useCallback(
     (next: string) => {

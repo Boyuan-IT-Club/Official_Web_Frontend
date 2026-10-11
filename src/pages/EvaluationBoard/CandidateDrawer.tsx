@@ -122,7 +122,10 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
     (text: string) => { if (scheduleId) board.writeComment(scheduleId, text); },
     [board, scheduleId],
   );
-  const [comment, setComment] = useSharedText(readComment, writeComment, board.version);
+  // 抽屉常驻不卸载，换候选人只是换 props——没有这个身份，上一位的总评会留在框里
+  const [comment, setComment] = useSharedText(
+    readComment, writeComment, board.version, `${scheduleId ?? 'none'}:${COMMENT_COL}`,
+  );
 
   if (!row || !scheduleId) {
     return <Drawer open={open} onClose={onClose} width={720} />;
