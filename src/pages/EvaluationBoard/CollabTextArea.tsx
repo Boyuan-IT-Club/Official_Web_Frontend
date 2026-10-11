@@ -9,7 +9,13 @@
 // 在同事光标所在的字符间隙塞一个零宽 span，量出它的位置后再把竖线和名旗
 // 悬浮到那一点上。选区高亮直接由镜像里那段文字的半透明背景呈现，
 // 换行、折行都由浏览器排版天然对齐。
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+//
+// 镜像的排版必须时刻与 textarea 一致，不能只在挂载时拷一份：同一个评语框的
+// 内边距、边框、字号会随外层样式变化（进出评价舞台时是 0 ↔ 7px 10px、
+// 0 ↔ 1px、13px ↔ 13.5px），而切换舞台不会重新挂载。只拷一次的话，镜像里的
+// 文字从左上角起排、真身却缩进了一圈，同事光标整体往左上偏（实测偏 24px/7.5px，
+// 字号差还会沿行累积、长评语折行错位）。见 issue #267。
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Input } from 'antd';
 import type { TextAreaProps, TextAreaRef } from 'antd/es/input/TextArea';
 import type { CollabBoard } from './collab';
@@ -43,17 +49,49 @@ const FLAG_HEIGHT_PX = 18;
 
 const ZERO_WIDTH_SPACE = '​';
 
+/**
+ * 决定排版的属性，逐项从 textarea 的计算样式拷到镜像上。
+ * 一律用长写：getComputedStyle 的 padding / borderWidth 简写在部分浏览器里会返回空串，
+ * 拷过去等于没拷，文字又会从左上角起排。
+ */
+const MIRRORED_PROPS = [
+  'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+  'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontVariant',
+  'lineHeight', 'letterSpacing', 'wordSpacing', 'textIndent', 'textTransform', 'tabSize',
+] as const;
+
+type MirroredProp = typeof MIRRORED_PROPS[number];
+
+/** 从 textarea 真身上量出镜像此刻应有的排版样式 */
+export function readMirrorStyle(textarea: HTMLTextAreaElement): Record<MirroredProp, string> {
+  const cs = window.getComputedStyle(textarea);
+  const style = {} as Record<MirroredProp, string>;
+  MIRRORED_PROPS.forEach((prop) => { style[prop] = cs[prop] as string; });
+  // 非覆盖式滚动条（Windows，或 macOS 设了「始终显示」）会吃掉内容区宽度；
+  // 镜像没有滚动条，得把这块宽度补进右内边距，否则两边折行的位置不同
+  const borderX = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+  const scrollbar = Math.max(0, textarea.offsetWidth - textarea.clientWidth - borderX);
+  if (scrollbar > 0) {
+    style.paddingRight = `${(parseFloat(cs.paddingRight) || 0) + scrollbar}px`;
+  }
+  return style;
+}
+
 const CollabTextArea: React.FC<CollabTextAreaProps> = ({
   board, scheduleId, field, onChange, onBlur, onFocus, onClick, onKeyUp, onSelect, onScroll,
   ...rest
 }) => {
   const taRef = useRef<TextAreaRef>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const markerRefs = useRef(new Map<number, HTMLSpanElement>());
   const mirrorRefs = useRef(new Map<number, HTMLDivElement>());
   const focusedRef = useRef(false);
 
-  const [mirrorStyle, setMirrorStyle] = useState<React.CSSProperties>({});
-  const [scroll, setScroll] = useState({ top: 0, left: 0 });
+  // 只用来触发重量：textarea 滚动、过渡结束、尺寸变化都不经过 React，
+  // 得靠自增一下让下面的测量 effect 再跑一遍
+  const [, setLayoutTick] = useState(0);
+  const bumpLayout = useCallback(() => setLayoutTick((n) => n + 1), []);
   const [markerBoxes, setMarkerBoxes] = useState<Record<number, { left: number; top: number; height: number }>>({});
 
   const value = String(rest.value ?? '');
@@ -85,30 +123,39 @@ const CollabTextArea: React.FC<CollabTextAreaProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board.peers, board.version, scheduleId, field, value]);
 
-  // 镜像要和 textarea 排版逐项一致，字体与内边距从真实节点上拷
-  useLayoutEffect(() => {
-    const textarea = taRef.current?.resizableTextArea?.textArea;
-    if (!textarea || typeof window.getComputedStyle !== 'function') return;
-    const cs = window.getComputedStyle(textarea);
-    setMirrorStyle({
-      fontFamily: cs.fontFamily,
-      fontSize: cs.fontSize,
-      fontWeight: cs.fontWeight as React.CSSProperties['fontWeight'],
-      lineHeight: cs.lineHeight,
-      letterSpacing: cs.letterSpacing,
-      padding: cs.padding,
-      borderWidth: cs.borderWidth,
-    });
-  }, []);
-
-  // 每次渲染后量一遍各个零宽 span 的落点——文本、光标、宽度任何变化都会影响落点，
-  // 所以刻意不写依赖数组；下面的相等性守卫保证量出来没变时不触发下一轮渲染。
+  // 每次渲染后：先把镜像的排版与滚动对齐到真身，再量各个零宽 span 的落点。
+  // 文本、光标、宽度、外层样式任何变化都会影响落点，所以刻意不写依赖数组；
+  // 下面的相等性守卫保证量出来没变时不触发下一轮渲染。
+  //
+  // 镜像样式直接写 DOM 而不走 React 的 style：同一轮里写完立刻要量，
+  // 走 state 得多渲染一轮，第一轮量到的就是旧排版下的落点。
+  //
+  // 落点用 getBoundingClientRect 相对容器取：offsetLeft/Top 是相对镜像「内边框」算的，
+  // 漏掉镜像自己的边框宽度，光标会再往左上偏一个边框（1px）；
+  // 矩形也已经包含了镜像的滚动量，不必再减。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const next: Record<number, { left: number; top: number; height: number }> = {};
-    markerRefs.current.forEach((el, clientId) => {
-      next[clientId] = { left: el.offsetLeft, top: el.offsetTop, height: el.offsetHeight };
-    });
+    const container = containerRef.current;
+    const textarea = taRef.current?.resizableTextArea?.textArea;
+    if (container && textarea && mirrorRefs.current.size > 0
+        && typeof window.getComputedStyle === 'function') {
+      const mirrored = readMirrorStyle(textarea);
+      mirrorRefs.current.forEach((el) => {
+        Object.assign(el.style, mirrored);
+        el.scrollTop = textarea.scrollTop;
+        el.scrollLeft = textarea.scrollLeft;
+      });
+      const origin = container.getBoundingClientRect();
+      markerRefs.current.forEach((el, clientId) => {
+        const rect = el.getBoundingClientRect();
+        next[clientId] = {
+          left: rect.left - origin.left - container.clientLeft,
+          top: rect.top - origin.top - container.clientTop,
+          height: rect.height,
+        };
+      });
+    }
     setMarkerBoxes((prev) => {
       const prevKeys = Object.keys(prev);
       const nextKeys = Object.keys(next);
@@ -122,13 +169,25 @@ const CollabTextArea: React.FC<CollabTextAreaProps> = ({
     });
   });
 
-  // textarea 滚动时镜像跟着滚，悬浮的竖线则靠减去滚动量对齐
-  useLayoutEffect(() => {
-    mirrorRefs.current.forEach((el) => {
-      el.scrollTop = scroll.top;
-      el.scrollLeft = scroll.left;
-    });
-  }, [scroll, carets]);
+  // 不经过 React 的排版变化也要补量一次：
+  //  - antd 输入框带 0.2s 的 transition: all，进出舞台时渲染当下量到的是过渡起点，
+  //    过渡结束时又不会触发任何渲染，镜像会停在起点的值上；
+  //  - 拖分栏、窗口缩放改变宽度会让文字重新折行。
+  // 只在格子里确实有同事光标时才触发，免得自己打字时 autoSize 长高也跟着白渲染。
+  const hasCaretsRef = useRef(false);
+  hasCaretsRef.current = carets.length > 0;
+  useEffect(() => {
+    const textarea = taRef.current?.resizableTextArea?.textArea;
+    if (!textarea) return undefined;
+    const onLayoutChange = () => { if (hasCaretsRef.current) bumpLayout(); };
+    textarea.addEventListener('transitionend', onLayoutChange);
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(onLayoutChange) : null;
+    observer?.observe(textarea);
+    return () => {
+      textarea.removeEventListener('transitionend', onLayoutChange);
+      observer?.disconnect();
+    };
+  }, [bumpLayout]);
 
   const broadcastCursor = useCallback((target: HTMLTextAreaElement) => {
     const start = target.selectionStart ?? 0;
@@ -150,7 +209,7 @@ const CollabTextArea: React.FC<CollabTextAreaProps> = ({
   }, []);
 
   return (
-    <div className="collab-ta">
+    <div className="collab-ta" ref={containerRef}>
       <Input.TextArea
         {...rest}
         ref={taRef}
@@ -184,7 +243,8 @@ const CollabTextArea: React.FC<CollabTextAreaProps> = ({
           onSelect?.(e);
         }}
         onScroll={(e) => {
-          setScroll({ top: e.currentTarget.scrollTop, left: e.currentTarget.scrollLeft });
+          // 镜像的滚动在测量 effect 里直接读真身的 scrollTop 对齐，这里只负责触发重量
+          bumpLayout();
           onScroll?.(e);
         }}
       />
@@ -193,7 +253,6 @@ const CollabTextArea: React.FC<CollabTextAreaProps> = ({
         <div
           key={caret.clientId}
           className="collab-ta__mirror"
-          style={mirrorStyle}
           aria-hidden
           ref={(el) => {
             if (el) mirrorRefs.current.set(caret.clientId, el);
@@ -224,8 +283,7 @@ const CollabTextArea: React.FC<CollabTextAreaProps> = ({
       {carets.map((caret) => {
         const box = markerBoxes[caret.clientId];
         if (!box) return null;
-        const left = box.left - scroll.left;
-        const top = box.top - scroll.top;
+        const { left, top } = box;
         return (
           <div
             key={caret.clientId}
