@@ -36,7 +36,9 @@ import {
 import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
 import type { ScoreEntry } from '@/pages/Resume/scorePanel';
 import EvalOverview from './EvalOverview';
-import { chipStatus, currentScheduleId, resumeScoreTip, sortSessionRows } from './evalStage';
+import {
+  chipStatus, currentScheduleId, resolveBackAction, resumeScoreTip, sortSessionRows,
+} from './evalStage';
 import { PaneFold, clampRatio, gridColumns, loadLayoutPrefs, nextFold, saveLayoutPrefs } from './stageLayout';
 import './index.scss';
 
@@ -146,6 +148,17 @@ const EvaluationWorkspace: React.FC = () => {
   const setStage = useCallback((on: boolean) => {
     navigate(`/evaluation/${cycleId}/${scheduleId}${on ? '?stage=1' : ''}`, { replace: true });
   }, [navigate, cycleId, scheduleId]);
+  // 返回按钮的去向只在进页面时判定一次：舞台内部换人、开关舞台走的都是 replace，
+  // history 的位置不会变，不必跟着重算
+  const backAction = useMemo(
+    () => resolveBackAction((window.history.state as { idx?: number } | null)?.idx),
+    [],
+  );
+  const goBack = useCallback(() => {
+    if (backAction === 'back') navigate(-1);
+    else navigate('/evaluation');
+  }, [backAction, navigate]);
+
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [qbankOpen, setQbankOpen] = useState(false);
 
@@ -393,8 +406,8 @@ const EvaluationWorkspace: React.FC = () => {
   return (
     <div className={`eval-ws${stageOn ? ' is-stage' : ''}`}>
       <div className="eval-ws-bar">
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/evaluation')}>
-          评价表
+        <Button type="text" icon={<ArrowLeftOutlined />} onClick={goBack}>
+          {backAction === 'back' ? '返回' : '评价表'}
         </Button>
         <span className="ws-name">{row.candidateName || `候选人 #${row.scheduleId}`}</span>
         {row.deptName && <Tag color="processing">{row.deptName}</Tag>}

@@ -11,6 +11,22 @@ export interface StageRow {
   sessionId?: number;
 }
 
+/**
+ * 顶栏那个返回按钮该往哪走。
+ *
+ * 'back' = 退回上一页，'board' = 回评价表首页。
+ * 原先一律回首页：从总览点进来、或在评价表里筛完场次/地点再点进来的人，
+ * 返回之后落在初始页，筛选、滚动位置、原来看的那一屏全没了，得重来一遍。
+ *
+ * React Router 把自己在本次会话里的位置记在 history.state.idx。大于 0
+ * 说明站内还有上一页可退；为 0 表示这是会话里的第一页（直接打开链接、刷新、
+ * 从站外跳进来），此时退回去就离开本站了，只能回评价表。
+ */
+export function resolveBackAction(historyIdx: unknown): 'back' | 'board' {
+  const idx = Number(historyIdx);
+  return Number.isFinite(idx) && idx > 0 ? 'back' : 'board';
+}
+
 /** 同场次的行按面试时间升序（无时间垫底） */
 export function sortSessionRows<T extends StageRow>(rows: T[]): T[] {
   return [...rows].sort((a, b) => (a.interviewTime ?? '9999') < (b.interviewTime ?? '9999') ? -1 : 1);
