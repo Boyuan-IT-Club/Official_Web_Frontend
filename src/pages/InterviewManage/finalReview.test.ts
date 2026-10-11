@@ -28,6 +28,30 @@ describe('终审舞台纯逻辑', () => {
     expect(ranked.map((r) => r.resultId)).toEqual([2, 1, 3]);
   });
 
+  it('排序：线上面试整体排在线下之后，各组内仍按面试分降序', () => {
+    // 线上是零散单独约的，和按教室成批面的线下混在一起不好对照
+    const ranked = rankCandidates([
+      { resultId: 1, userId: 1, name: 'a', evalTotal: 45, online: true } as any,
+      { resultId: 2, userId: 2, name: 'b', evalTotal: 30, online: false } as any,
+      { resultId: 3, userId: 3, name: 'c', evalTotal: 20, online: true } as any,
+      { resultId: 4, userId: 4, name: 'd', evalTotal: 40, online: false } as any,
+    ]);
+    // 线上的 a 分最高也排在所有线下之后
+    expect(ranked.map((r) => r.resultId)).toEqual([4, 2, 1, 3]);
+  });
+
+  it('线上标记取自结果行的 onlineInterview，缺省按线下', () => {
+    const rows = assembleCandidates(
+      [
+        { resultId: 1, userId: 1, decision: 0, onlineInterview: true } as any,
+        { resultId: 2, userId: 2, decision: 0, onlineInterview: false } as any,
+        { resultId: 3, userId: 3, decision: 0 } as any,
+      ],
+      [], [],
+    );
+    expect(rows.map((r) => r.online)).toEqual([true, false, false]);
+  });
+
   it('矩阵着色：列内相对分档，空值与齐值不着色', () => {
     const col = [38, 34, 30, null];
     expect(heatTier(38, col)).toBe(3);

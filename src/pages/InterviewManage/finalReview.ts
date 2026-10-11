@@ -28,6 +28,8 @@ export interface FinalCandidate {
   /** 预录取草稿 */
   preDeptId?: number | null;
   preDeptName?: string | null;
+  /** 线上面试：排序时整体排在线下之后 */
+  online?: boolean;
 }
 
 /** 三份数据按 scheduleId / resultId 对齐成终审行 */
@@ -67,13 +69,20 @@ export function assembleCandidates(
       submittedAt: ev?.submittedAt,
       preDeptId: draft?.assignedDeptId ?? null,
       preDeptName: draft?.departmentName ?? null,
+      online: r.onlineInterview === true,
     };
   });
 }
 
-/** 按面试总分降序排（无分的排最后，其间按简历分降序）——舞台与矩阵的默认顺序 */
+/**
+ * 舞台与矩阵的默认顺序：线下面试在前、线上面试在后；各组内按面试总分降序
+ * （无分的排最后，其间按简历分降序）。
+ *
+ * 线上面试是零散单独约的，和按教室成批面的线下混在一起不好对照，所以整体放到最后。
+ */
 export function rankCandidates(list: FinalCandidate[]): FinalCandidate[] {
   return [...list].sort((a, b) => {
+    if (Boolean(a.online) !== Boolean(b.online)) return a.online ? 1 : -1;
     const at = a.evalTotal ?? -1;
     const bt = b.evalTotal ?? -1;
     if (at !== bt) return bt - at;

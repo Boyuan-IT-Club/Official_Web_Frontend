@@ -27,7 +27,10 @@ const FinalStage: React.FC<FinalStageProps> = ({
     <div className="final-stage">
       <div className="fs-grid">
         <div className="fs-main">
-          <h1 className="fs-name">{c.name}</h1>
+          <h1 className="fs-name">
+            {c.name}
+            {c.online && <Tag color="purple" style={{ marginLeft: 10, verticalAlign: 'middle' }}>线上面试</Tag>}
+          </h1>
           <p className="fs-meta">
             {c.username ? `${c.username} · ` : ''}
             志愿 <b>{c.firstDeptName ?? '—'}</b>{c.secondDeptName ? ` / ${c.secondDeptName}` : ''}
