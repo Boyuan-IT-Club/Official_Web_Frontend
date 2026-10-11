@@ -1,4 +1,6 @@
-import { aggregateOverview, chipStatus, currentScheduleId, sortSessionRows } from './evalStage';
+import {
+  aggregateOverview, chipStatus, currentScheduleId, resolveBackAction, sortSessionRows,
+} from './evalStage';
 
 const T = (s: string) => new Date(s);
 
@@ -45,5 +47,25 @@ describe('评价舞台纯逻辑', () => {
     expect(ov.notStarted).toBe(1);
     expect(ov.perSession[0]).toEqual({ label: '场次 #12', done: 1, inProgress: 0, total: 3 });
     expect(ov.dimAverages[0].avg).toBe(30);
+  });
+});
+
+// 顶栏返回按钮：原先一律回评价表首页，从总览或筛过的列表点进来的人
+// 返回后筛选与滚动位置全没了，得重新找一遍。
+describe('resolveBackAction', () => {
+  it('站内还有上一页就退回上一页', () => {
+    expect(resolveBackAction(1)).toBe('back');
+    expect(resolveBackAction(7)).toBe('back');
+  });
+
+  it('会话里的第一页（直接开链接、刷新、从站外跳进来）回评价表', () => {
+    // idx 为 0 时退回去就离开本站了
+    expect(resolveBackAction(0)).toBe('board');
+  });
+
+  it('拿不到 history 位置时回评价表，不冒险往站外退', () => {
+    expect(resolveBackAction(undefined)).toBe('board');
+    expect(resolveBackAction(null)).toBe('board');
+    expect(resolveBackAction('不是数字')).toBe('board');
   });
 });
