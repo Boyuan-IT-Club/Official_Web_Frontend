@@ -1430,8 +1430,13 @@ const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: number
               （V34 之后他们也进结果名单了），姓名就退化成「用户#14」——
               尽管库里明明存着他的名字。名册只作兜底。
             */
-            render: (uid: number, r: InterviewResultItem) =>
-              displayName(r.userName || nameMap[uid]?.name, nameMap[uid]?.username, uid) },
+            render: (uid: number, r: InterviewResultItem) => (
+              <>
+                {displayName(r.userName || nameMap[uid]?.name, nameMap[uid]?.username, uid)}
+                {/* 列表按线上/线下分段（线上在后），打个标记让分界一眼可见 */}
+                {r.onlineInterview && <Tag color="purple" style={{ marginLeft: 6 }}>线上</Tag>}
+              </>
+            ) },
           {
             /* 同上：来源是 user.username 而非简历里填的学号 */
             title: "学号 / 登录名", dataIndex: "userId", width: 130,

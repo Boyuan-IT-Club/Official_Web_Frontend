@@ -35,6 +35,8 @@ const FinalMatrix: React.FC<FinalMatrixProps> = ({ candidates, dimensions, onOpe
         <a onClick={(e) => { e.stopPropagation();
           setExpanded((prev) => (prev.includes(r.resultId) ? prev.filter((x) => x !== r.resultId) : [...prev, r.resultId])); }}>
           {v} {expanded.includes(r.resultId) ? '▴' : '▾'}
+          {/* 线上面试整体排在最后，标记出来免得看着像乱序 */}
+          {r.online && <Tag color="purple" style={{ marginLeft: 6 }}>线上</Tag>}
         </a>
       ),
     },

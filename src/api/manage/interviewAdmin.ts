@@ -404,6 +404,11 @@ export interface InterviewResultItem {
   evalRecommendation?: number | null;
   firstDeptName?: string | null;
   secondDeptName?: string | null;
+  /**
+   * 是否线上面试（后端派生）：有生效安排看安排的线上/线下，没有安排看简历里
+   * 是否选了「不能参加线下面试」。结果列表把线上排在最后。
+   */
+  onlineInterview?: boolean | null;
 }
 
 export function listResults(params: { cycleId: number; name?: string; decision?: string; department?: string; page?: number; size?: number }) {
