@@ -78,7 +78,13 @@ export interface CandidateSummary {
   resumeId: number;
   userId: number;
   candidateName: string;
+  /** 这场实际面的部门（调剂后可能既不是第一也不是第二志愿） */
   deptName?: string;
+  /** 面试地点，取自场次；线上面试没有场次，为空 */
+  location?: string;
+  /** 简历里填的第一 / 第二志愿部门，与 deptName 是两回事 */
+  firstDeptName?: string;
+  secondDeptName?: string;
   interviewTime?: string;
   /** 各维度得分 {dimensionId: 得分} */
   scores: Record<number, number>;
