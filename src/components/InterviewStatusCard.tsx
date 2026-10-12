@@ -22,6 +22,17 @@ const InterviewStatusCard: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   const [schedule, setSchedule] = useState<MySchedule | null>(null);
 
   useEffect(() => {
+    /*
+     * cycleId 是父页异步加载的，首屏渲染时还是 undefined —— 没有这道守卫就会
+     * 发出不带 cycleId 的请求。后端的 cycleId 是必填，于是每开一次页面产生两个
+     * 失败请求；2026-10-12 的 5xx 告警就是这么来的（后端已把这类参数错误改成
+     * 400，不再污染 5xx，但请求本身就不该发）。
+     * 父页 Publish 自己的 effect 一直有同样的守卫，这里当初漏了。
+     */
+    if (!Number.isFinite(cycleId) || !cycleId) {
+      setLoading(false);
+      return undefined;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true);
