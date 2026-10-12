@@ -12,6 +12,9 @@ jest.mock('../../api/manage/interviewAdmin', () => ({
 }));
 jest.mock('../../api/manage/interviewEvaluation', () => ({
   getEvaluationSummary: jest.fn(),
+  // 筛选栏的「结论」下拉要用它；只 mock 发请求的函数会让这个常量变成 undefined
+  RECOMMENDATION_OPTIONS: jest.requireActual('../../api/manage/interviewEvaluation')
+    .RECOMMENDATION_OPTIONS,
 }));
 jest.mock('../../utils', () => ({
   // 组件树用到的工具（displayName 等）保留真实实现，只拦掉发请求的 request
@@ -127,5 +130,42 @@ describe('全屏与视图模式互不绑定', () => {
 
     fireEvent.click(screen.getByText(/退出/));
     await waitFor(() => expect(document.querySelector('.stage-shell')).not.toBeInTheDocument());
+  });
+
+});
+
+describe('就地预录取与筛选', () => {
+  it('矩阵里就地改预录取部门，不用进舞台', async () => {
+    render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
+    await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
+
+    // 预录取列是个下拉：选一个部门就应当直接落库
+    const pickers = document.querySelectorAll('.ant-table-tbody .ant-select-selector');
+    expect(pickers.length).toBeGreaterThan(0);
+    fireEvent.mouseDown(pickers[0]);
+    await waitFor(() => expect(screen.getAllByText('项目部').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText('项目部').slice(-1)[0]);
+
+    await waitFor(() => expect(api.savePreAdmission).toHaveBeenCalledWith(
+      expect.objectContaining({ cycleId: 6, assignedDeptId: 2 })));
+  });
+
+  it('按结论筛选，矩阵与舞台看到的是同一批人', async () => {
+    render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
+    await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
+    // 丁华烨没有评价、也就没有结论，筛「倾向通过」后应当只剩饶俊晨
+    expect(screen.getByText('丁华烨 ▾')).toBeInTheDocument();
+
+    // 「结论」在表头也出现，这里要的是筛选栏那个下拉的 placeholder
+    const conclusion = document.querySelector('.ant-select-selection-placeholder');
+    const picker = Array.from(document.querySelectorAll('.ant-select-selection-placeholder'))
+      .find((el) => el.textContent === '结论') ?? conclusion;
+    fireEvent.mouseDown(picker!);
+    await waitFor(() => expect(screen.getAllByText('倾向通过').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText('倾向通过').slice(-1)[0]);
+
+    await waitFor(() => expect(screen.queryByText('丁华烨 ▾')).not.toBeInTheDocument());
+    expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument();
+    expect(screen.getByText(/筛选后 1 \/ 2 人/)).toBeInTheDocument();
   });
 });

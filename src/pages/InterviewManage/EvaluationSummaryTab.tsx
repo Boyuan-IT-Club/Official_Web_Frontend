@@ -12,9 +12,14 @@ import {
   Tag,
   Tooltip,
   Typography,
+  message,
 } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { ONLINE_LOCATION } from '../EvaluationBoard/collab';
+import {
+  listPreAdmission, listResults, removePreAdmission, savePreAdmission,
+} from '@/api/manage/interviewAdmin';
+import PreAdmitPicker from './PreAdmitPicker';
 import {
   CandidateSummary, EVALUATION_STATUS, EvaluationSummary, RECOMMENDATION_OPTIONS, getEvaluationSummary,
 } from '@/api/manage/interviewEvaluation';
@@ -27,6 +32,12 @@ const RECOMMENDATION_COLOR: Record<number, string> = { 1: 'green', 2: 'orange', 
 
 const recommendationLabel = (value?: number | null) =>
   RECOMMENDATION_OPTIONS.find((o) => o.value === value)?.label ?? '—';
+
+/** 一行候选人对应的预录取引用：resultId 是操作句柄，部门是当前草稿状态 */
+interface PreAdmitRef {
+  resultId: number;
+  deptId: number | null;
+}
 
 /**
  * 下拉选项取自当前数据本身，不用再从外面传部门表进来。
@@ -50,7 +61,10 @@ const optionsOf = (
     .map((n) => ({ value: n, label: n }));
 };
 
-const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
+const EvaluationSummaryTab: React.FC<{
+  cycleId: number;
+  depts?: Array<{ deptId: number; deptName: string }>;
+}> = ({ cycleId, depts = [] }) => {
   const [summary, setSummary] = useState<EvaluationSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +74,13 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   /** 志愿部门：按「第一或第二志愿命中」筛，录取时两档都要看 */
   const [choiceFilter, setChoiceFilter] = useState<string | undefined>();
   const [recommendFilter, setRecommendFilter] = useState<number | undefined>();
+  /*
+   * 预录取就地操作：看完评语当场把人放进部门，不用切到「预录取」tab 再搜一遍名字。
+   *
+   * 汇总接口给的是 scheduleId，而预录取按 resultId 操作 —— 两者的对应关系只有
+   * 面试结果列表知道，所以额外拉一次，按 scheduleId 建索引。
+   */
+  const [preBySchedule, setPreBySchedule] = useState<Map<number, PreAdmitRef>>(new Map());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,7 +96,60 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
     }
   }, [cycleId]);
 
+  const loadPreAdmit = useCallback(async () => {
+    try {
+      const [res, pre]: any[] = await Promise.all([
+        listResults({ cycleId, page: 1, size: 500 }),
+        listPreAdmission({ cycleId, page: 1, size: 500 }),
+      ]);
+      const deptByResult = new Map<number, number | null>();
+      (pre?.data?.candidates ?? []).forEach((d: any) => {
+        deptByResult.set(Number(d.resultId), d.assignedDeptId ?? null);
+      });
+      const next = new Map<number, PreAdmitRef>();
+      (res?.data?.interviewResults ?? []).forEach((r: any) => {
+        if (r.scheduleId == null) return;
+        next.set(Number(r.scheduleId), {
+          resultId: Number(r.resultId),
+          deptId: deptByResult.get(Number(r.resultId)) ?? null,
+        });
+      });
+      setPreBySchedule(next);
+    } catch {
+      // 拉不到就不显示这一列，评语与分数照常看 —— 不值得为它挡住整页
+      setPreBySchedule(new Map());
+    }
+  }, [cycleId]);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { void loadPreAdmit(); }, [loadPreAdmit]);
+
+  const assignPre = useCallback(async (scheduleId: number, deptId: number) => {
+    const ref = preBySchedule.get(scheduleId);
+    if (!ref) return;
+    try {
+      await savePreAdmission({ cycleId, resultIds: [ref.resultId], assignedDeptId: deptId });
+      // 先就地更新，再静默对账，免得整表闪一下
+      setPreBySchedule((prev) => new Map(prev).set(scheduleId, { ...ref, deptId }));
+      message.success(`已预录取到${depts.find((d) => d.deptId === deptId)?.deptName ?? '该部门'}`);
+      void loadPreAdmit();
+    } catch (e: any) {
+      message.error(e?.message || '预录取失败');
+    }
+  }, [cycleId, depts, preBySchedule, loadPreAdmit]);
+
+  const removePre = useCallback(async (scheduleId: number) => {
+    const ref = preBySchedule.get(scheduleId);
+    if (!ref) return;
+    try {
+      await removePreAdmission({ cycleId, resultIds: [ref.resultId] });
+      setPreBySchedule((prev) => new Map(prev).set(scheduleId, { ...ref, deptId: null }));
+      message.success('已移出预录取名单');
+      void loadPreAdmit();
+    } catch (e: any) {
+      message.error(e?.message || '移出失败');
+    }
+  }, [cycleId, preBySchedule, loadPreAdmit]);
 
   const dimensions = summary?.dimensions ?? [];
 
@@ -200,6 +274,26 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
           );
         }
         return <Text type="secondary">未开始</Text>;
+      },
+    },
+    {
+      // 看完评语当场把人放进部门，不用切到「预录取」tab 再搜一遍名字
+      title: '预录取',
+      key: 'preAdmit',
+      width: 124,
+      fixed: 'right' as const,
+      render: (_v: unknown, row: CandidateSummary) => {
+        const ref = preBySchedule.get(row.scheduleId);
+        return (
+          <PreAdmitPicker
+            deptId={ref?.deptId ?? null}
+            depts={depts}
+            onAssign={(deptId) => assignPre(row.scheduleId, deptId)}
+            onRemove={() => removePre(row.scheduleId)}
+            disabled={!ref}
+            disabledReason="这个人还没有面试结果记录，无法预录取"
+          />
+        );
       },
     },
   ];

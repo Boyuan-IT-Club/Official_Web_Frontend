@@ -12,6 +12,8 @@ export interface FinalCandidate {
   username?: string;
   firstDeptName?: string | null;
   secondDeptName?: string | null;
+  /** 面试地点（取自评价汇总）；线上面试没有场次，为空 */
+  location?: string | null;
   resumeScore?: number | null;
   decision?: number;
   /** 评价（可能没有：未面试或未填） */
@@ -55,6 +57,7 @@ export function assembleCandidates(
       username: usernameOf[r.userId],
       firstDeptName: r.firstDeptName,
       secondDeptName: r.secondDeptName,
+      location: ev?.location ?? null,
       resumeScore: r.resumeScore ?? null,
       decision: r.decision,
       evalTotal: r.evalTotalScore != null ? Number(r.evalTotalScore) : (ev?.totalScore ?? null),
