@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux';
 import { getToken, parseJwtPayload } from '@/utils';
 import { hasAnyPermission } from '@/utils/jwt';
 import { RecruitmentCycle, getAllCycles } from '@/api/manage/cycleApis';
+import { listSchedulesRoster } from '@/api/manage/interviewAdmin';
 import {
   EVALUATION_STATUS, EvaluationBoard as EvaluationBoardState, RECOMMENDATION_OPTIONS,
   getBoard, openBoard, setBoardLocked,
@@ -64,6 +65,19 @@ const EvaluationBoardPage: React.FC = () => {
   const [onlyMine, setOnlyMine] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [locationFilter, setLocationFilter] = useState<string | undefined>();
+  /** 志愿部门：第一或第二命中都算 —— 录取时常常是「报了这个部门的人都看一遍」 */
+  const [choiceFilter, setChoiceFilter] = useState<string | undefined>();
+  const [recommendFilter, setRecommendFilter] = useState<number | undefined>();
+
+  /*
+   * 志愿部门不在协同文档里：文档的行信息是服务端播种的那几项，没有志愿。
+   * 与其为一个筛选条件动「后端播种 → 协同服务 writeRowInfo → 前端 readRows」
+   * 三层再做联动部署，不如按 scheduleId 从管理端名单接口关联一次。
+   *
+   * 该接口要管理员权限，面试官调会 403 —— 所以只在有权限时拉，
+   * 拉不到就不显示这个筛选，面试官那边界面照旧。
+   */
+  const [choiceBySchedule, setChoiceBySchedule] = useState<Map<number, string[]>>(new Map());
   const [activeRow, setActiveRow] = useState<BoardRow | null>(null);
   const [dimensionOpen, setDimensionOpen] = useState(false);
 
@@ -100,6 +114,24 @@ const EvaluationBoardPage: React.FC = () => {
   useEffect(() => {
     if (cycleId) loadBoard(cycleId);
   }, [cycleId, loadBoard]);
+
+  useEffect(() => {
+    if (!cycleId || !isAdmin) { setChoiceBySchedule(new Map()); return undefined; }
+    let cancelled = false;
+    listSchedulesRoster(cycleId)
+      .then((res: any) => {
+        if (cancelled) return;
+        const next = new Map<number, string[]>();
+        (res?.data ?? []).forEach((r: any) => {
+          const choices = [r.firstDeptName, r.secondDeptName].filter(Boolean) as string[];
+          if (choices.length > 0) next.set(Number(r.scheduleId), choices);
+        });
+        setChoiceBySchedule(next);
+      })
+      // 拉不到就不显示志愿筛选，其余照旧 —— 不值得为一个筛选条件弹错误打扰人
+      .catch(() => { if (!cancelled) setChoiceBySchedule(new Map()); });
+    return () => { cancelled = true; };
+  }, [cycleId, isAdmin]);
 
   const board = useCollabBoard({
     docName: boardState?.docName,
@@ -138,16 +170,28 @@ const EvaluationBoardPage: React.FC = () => {
       .map(([value, count]) => ({ value, count, label: `${value}（${count}）` }));
   }, [derivedRows]);
 
+  /** 志愿下拉的选项取自关联到的数据本身 */
+  const choiceOptions = useMemo(() => {
+    const names = new Set<string>();
+    choiceBySchedule.forEach((list) => list.forEach((n) => names.add(n)));
+    return Array.from(names)
+      .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+      .map((n) => ({ value: n, label: n }));
+  }, [choiceBySchedule]);
+
   const visibleRows = useMemo(() => {
     const text = keyword.trim().toLowerCase();
     return derivedRows.filter((row) => {
       if (onlyMine && !row.interviewerUserIds.includes(currentUserId)) return false;
       if (onlyPending && row.submitted) return false;
       if (locationFilter && row.location !== locationFilter) return false;
+      if (choiceFilter && !(choiceBySchedule.get(row.scheduleId) ?? []).includes(choiceFilter)) return false;
+      if (recommendFilter != null && row.evaluation.recommendation !== recommendFilter) return false;
       if (!text) return true;
       return `${row.candidateName}${row.account ?? ''}${row.deptName ?? ''}`.toLowerCase().includes(text);
     });
-  }, [derivedRows, keyword, onlyMine, onlyPending, locationFilter, currentUserId]);
+  }, [derivedRows, keyword, onlyMine, onlyPending, locationFilter,
+    choiceFilter, recommendFilter, choiceBySchedule, currentUserId]);
 
   const myPendingCount = useMemo(
     () => derivedRows.filter((row) => row.interviewerUserIds.includes(currentUserId) && !row.submitted).length,
@@ -468,6 +512,24 @@ const EvaluationBoardPage: React.FC = () => {
                 onChange={(v) => setLocationFilter(v)}
               />
             )}
+            {choiceOptions.length > 0 && (
+              <Select
+                allowClear
+                placeholder="按志愿部门"
+                style={{ minWidth: 130 }}
+                value={choiceFilter}
+                options={choiceOptions}
+                onChange={(v) => setChoiceFilter(v)}
+              />
+            )}
+            <Select
+              allowClear
+              placeholder="按结论"
+              style={{ minWidth: 110 }}
+              value={recommendFilter}
+              options={[...RECOMMENDATION_OPTIONS]}
+              onChange={(v) => setRecommendFilter(v)}
+            />
             {myPendingCount > 0 && (
               <Text type="secondary">我负责的候选人里还有 {myPendingCount} 位未定稿</Text>
             )}

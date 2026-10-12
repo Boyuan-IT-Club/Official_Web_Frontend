@@ -14,6 +14,7 @@ import {
   Typography,
 } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
+import { ONLINE_LOCATION } from '../EvaluationBoard/collab';
 import {
   CandidateSummary, EVALUATION_STATUS, EvaluationSummary, RECOMMENDATION_OPTIONS, getEvaluationSummary,
 } from '@/api/manage/interviewEvaluation';
@@ -27,12 +28,38 @@ const RECOMMENDATION_COLOR: Record<number, string> = { 1: 'green', 2: 'orange', 
 const recommendationLabel = (value?: number | null) =>
   RECOMMENDATION_OPTIONS.find((o) => o.value === value)?.label ?? '—';
 
+/**
+ * 下拉选项取自当前数据本身，不用再从外面传部门表进来。
+ *
+ * 写成模块级纯函数而不是组件内闭包：放在组件里每次渲染都是新函数，
+ * 挂进 useMemo 的依赖就永远不等，等于白缓存（eslint 也会一直报）。
+ */
+const optionsOf = (
+  candidates: CandidateSummary[] | undefined,
+  pick: (c: CandidateSummary) => (string | undefined)[],
+) => {
+  const names = new Set<string>();
+  (candidates ?? []).forEach((c) => pick(c).forEach((n) => { if (n) names.add(n); }));
+  return Array.from(names)
+    .sort((a, b) => {
+      // 线上面试不是教室，固定排最后（与评价表页同一规则）
+      if (a === ONLINE_LOCATION) return 1;
+      if (b === ONLINE_LOCATION) return -1;
+      return a.localeCompare(b, 'zh-CN');
+    })
+    .map((n) => ({ value: n, label: n }));
+};
+
 const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   const [summary, setSummary] = useState<EvaluationSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
   const [deptFilter, setDeptFilter] = useState<string | undefined>();
+  const [locationFilter, setLocationFilter] = useState<string | undefined>();
+  /** 志愿部门：按「第一或第二志愿命中」筛，录取时两档都要看 */
+  const [choiceFilter, setChoiceFilter] = useState<string | undefined>();
+  const [recommendFilter, setRecommendFilter] = useState<number | undefined>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,16 +82,26 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
   const rows = useMemo(() => {
     let list = summary?.candidates ?? [];
     if (deptFilter) list = list.filter((c) => c.deptName === deptFilter);
+    if (locationFilter) {
+      list = list.filter((c) => (c.location ?? ONLINE_LOCATION) === locationFilter);
+    }
+    // 第一或第二志愿命中都算：录取时常常是「这个部门报了的人都看一遍」
+    if (choiceFilter) {
+      list = list.filter((c) => c.firstDeptName === choiceFilter || c.secondDeptName === choiceFilter);
+    }
+    if (recommendFilter != null) list = list.filter((c) => c.recommendation === recommendFilter);
     const text = keyword.trim().toLowerCase();
     if (text) list = list.filter((c) => `${c.candidateName}${c.deptName ?? ''}`.toLowerCase().includes(text));
     return list;
-  }, [summary, keyword, deptFilter]);
+  }, [summary, keyword, deptFilter, locationFilter, choiceFilter, recommendFilter]);
 
-  /** 部门下拉的选项来自当前数据本身，不用再传 depts 进来 */
-  const deptOptions = useMemo(() => {
-    const names = new Set((summary?.candidates ?? []).map((c) => c.deptName).filter(Boolean));
-    return Array.from(names).map((n) => ({ value: n as string, label: n as string }));
-  }, [summary]);
+  const candidates = summary?.candidates;
+  const deptOptions = useMemo(() => optionsOf(candidates, (c) => [c.deptName]), [candidates]);
+  // 线上面试没有场次、也就没有地点，归进「线上面试」这一组
+  const locationOptions = useMemo(
+    () => optionsOf(candidates, (c) => [c.location ?? ONLINE_LOCATION]), [candidates]);
+  const choiceOptions = useMemo(
+    () => optionsOf(candidates, (c) => [c.firstDeptName, c.secondDeptName]), [candidates]);
 
   const columns: any[] = [
     {
@@ -220,10 +257,34 @@ const EvaluationSummaryTab: React.FC<{ cycleId: number }> = ({ cycleId }) => {
         <Select
           allowClear
           placeholder="按面试部门筛选"
-          style={{ width: 160 }}
+          style={{ width: 150 }}
           value={deptFilter}
           onChange={setDeptFilter}
           options={deptOptions}
+        />
+        <Select
+          allowClear
+          placeholder="按面试地点筛选"
+          style={{ width: 170 }}
+          value={locationFilter}
+          onChange={setLocationFilter}
+          options={locationOptions}
+        />
+        <Select
+          allowClear
+          placeholder="按志愿部门筛选"
+          style={{ width: 150 }}
+          value={choiceFilter}
+          onChange={setChoiceFilter}
+          options={choiceOptions}
+        />
+        <Select
+          allowClear
+          placeholder="按结论筛选"
+          style={{ width: 130 }}
+          value={recommendFilter}
+          onChange={setRecommendFilter}
+          options={[...RECOMMENDATION_OPTIONS]}
         />
         <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>刷新</Button>
         <Text type="secondary">评价由协同服务定期回写，最新改动可能有几十秒延迟</Text>
