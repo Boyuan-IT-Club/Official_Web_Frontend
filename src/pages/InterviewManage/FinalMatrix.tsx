@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { Table, Tag, Tooltip, Typography } from 'antd';
 import type { EvaluationDimension } from '@/api/manage/interviewEvaluation';
 import { FinalCandidate, RECOMMENDATION_LABEL, heatTier, orderedDimensions } from './finalReview';
+import PreAdmitPicker from './PreAdmitPicker';
 import './finalMatrix.scss';
 
 const { Text } = Typography;
@@ -13,9 +14,15 @@ export interface FinalMatrixProps {
   dimensions: EvaluationDimension[];
   /** 点行进入舞台细看 */
   onOpenStage: (resultId: number) => void;
+  /** 就地改预录取部门：扫表时看到合适的直接放进去，不必进舞台 */
+  depts: Array<{ deptId: number; deptName: string }>;
+  onAssign: (c: FinalCandidate, deptId: number) => Promise<void> | void;
+  onRemove: (c: FinalCandidate) => Promise<void> | void;
 }
 
-const FinalMatrix: React.FC<FinalMatrixProps> = ({ candidates, dimensions, onOpenStage }) => {
+const FinalMatrix: React.FC<FinalMatrixProps> = ({
+  candidates, dimensions, onOpenStage, depts, onAssign, onRemove,
+}) => {
   const dims = orderedDimensions(dimensions);
   const [expanded, setExpanded] = useState<number[]>([]);
 
@@ -74,8 +81,22 @@ const FinalMatrix: React.FC<FinalMatrixProps> = ({ candidates, dimensions, onOpe
         const rec = r.recommendation != null ? RECOMMENDATION_LABEL[r.recommendation] : null;
         return rec ? <Tag color={rec.color}>{rec.text}</Tag> : '—';
       } },
-    { title: '预录取', dataIndex: 'preDeptName', width: 96,
-      render: (v: string | null) => (v ? <Tag color="blue">{v}</Tag> : '—') },
+    {
+      title: '预录取', dataIndex: 'preDeptName', width: 120, fixed: 'right' as const,
+      render: (_: string | null, r: FinalCandidate) => (
+        // 点下拉不该连带触发行的双击进舞台
+        <span onDoubleClick={(e) => e.stopPropagation()}>
+          <PreAdmitPicker
+            deptId={r.preDeptId}
+            depts={depts}
+            onAssign={(deptId) => onAssign(r, deptId)}
+            onRemove={() => onRemove(r)}
+            disabled={r.scheduleId == null}
+            disabledReason="这个人没有面试安排，没有可预录取的面试结果"
+          />
+        </span>
+      ),
+    },
   ];
 
   return (

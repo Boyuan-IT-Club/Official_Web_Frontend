@@ -10,7 +10,8 @@
 // 数据一次拉齐四个现有接口，前端关联（finalReview.ts），后端零改动。
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Button, Card, Drawer, Empty, Modal, Popconfirm, Segmented, Space, Spin, Table, Tag, Typography, message,
+  Button, Card, Drawer, Empty, Modal, Popconfirm, Segmented, Select, Space, Spin, Table, Tag,
+  Typography, message,
 } from 'antd';
 import { ReloadOutlined, RocketOutlined, FullscreenOutlined } from '@ant-design/icons';
 import { request } from '@/utils';
@@ -19,7 +20,10 @@ import {
   finalizePreAdmission, listPreAdmission, listResults, listSchedulesRoster,
   removePreAdmission, savePreAdmission,
 } from '@/api/manage/interviewAdmin';
-import { EvaluationDimension, getEvaluationSummary } from '@/api/manage/interviewEvaluation';
+import {
+  EvaluationDimension, RECOMMENDATION_OPTIONS, getEvaluationSummary,
+} from '@/api/manage/interviewEvaluation';
+import { ONLINE_LOCATION } from '../EvaluationBoard/collab';
 import ResumeAttachments from '@/components/ResumeAttachments';
 import StageShell from '@/components/stage/StageShell';
 import FilmStrip, { FilmChip } from '@/components/stage/FilmStrip';
@@ -47,6 +51,10 @@ const PreAdmitTab: React.FC<{
   const [stats, setStats] = useState<PreAdmissionDeptStat[]>([]);
   const [draftTotal, setDraftTotal] = useState(0);
   const [stageIndex, setStageIndex] = useState(0);
+  const [locationFilter, setLocationFilter] = useState<string | undefined>();
+  const [choiceFilter, setChoiceFilter] = useState<string | undefined>();
+  const [recommendFilter, setRecommendFilter] = useState<number | undefined>();
+  const [preAdmitFilter, setPreAdmitFilter] = useState<'in' | 'out' | undefined>();
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   // 简历速览抽屉
@@ -121,14 +129,16 @@ const PreAdmitTab: React.FC<{
   }, [cycleId]);
 
   // ── 舞台键盘流 ──
-  const stageRef = useRef({ candidates, stageIndex, depts });
-  stageRef.current = { candidates, stageIndex, depts };
+  // 这里要跟着「筛选后」的名单走，否则筛完 ←→ 还在翻没筛掉的人。
+  // ref 在此声明、在 visible 算出来之后赋值（见下方 stageRef.current = ...）
+  const stageRef = useRef<{ list: FinalCandidate[]; stageIndex: number; depts: typeof depts }>(
+    { list: candidates, stageIndex, depts });
   useEffect(() => {
     if (mode !== 'stage') return undefined;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      const { candidates: list, stageIndex: idx, depts: ds } = stageRef.current;
+      const { list, stageIndex: idx, depts: ds } = stageRef.current;
       const act = stageKeyAction(e.key, ds.length);
       if (!act || list.length === 0) return;
       e.preventDefault();
@@ -164,14 +174,73 @@ const PreAdmitTab: React.FC<{
     }
   };
 
-  const filmItems: FilmChip[] = useMemo(() => candidates.map((c, i) => ({
+  /*
+   * 三个视图（矩阵 / 舞台 / 名单）共用同一份筛选结果 —— 在矩阵里筛出「技术部志愿
+   * 且倾向通过」的人，切到舞台就是逐个翻这批，翻完就是翻完，不会又冒出没筛的人。
+   * 排名编号仍沿用全局名次（rankCandidates 已排好），筛选只是隐藏行。
+   */
+  const visible = useMemo(() => {
+    let list = candidates;
+    if (locationFilter) {
+      list = list.filter((c) => (c.location ?? ONLINE_LOCATION) === locationFilter);
+    }
+    if (choiceFilter) {
+      list = list.filter((c) => c.firstDeptName === choiceFilter || c.secondDeptName === choiceFilter);
+    }
+    if (recommendFilter != null) list = list.filter((c) => c.recommendation === recommendFilter);
+    if (preAdmitFilter === 'in') list = list.filter((c) => c.preDeptId != null);
+    if (preAdmitFilter === 'out') list = list.filter((c) => c.preDeptId == null);
+    return list;
+  }, [candidates, locationFilter, choiceFilter, recommendFilter, preAdmitFilter]);
+
+  // 筛完之后原来的游标可能越界，把舞台拉回范围内
+  useEffect(() => {
+    setStageIndex((i) => clampIndex(i, visible.length));
+  }, [visible.length]);
+
+  stageRef.current = { list: visible, stageIndex, depts };
+
+  const optionsOf = (pick: (c: FinalCandidate) => (string | null | undefined)[]) => {
+    const names = new Set<string>();
+    candidates.forEach((c) => pick(c).forEach((n) => { if (n) names.add(n); }));
+    return Array.from(names)
+      .sort((a, b) => {
+        if (a === ONLINE_LOCATION) return 1;
+        if (b === ONLINE_LOCATION) return -1;
+        return a.localeCompare(b, 'zh-CN');
+      })
+      .map((n) => ({ value: n, label: n }));
+  };
+  const locationOptions = useMemo(
+    () => optionsOf((c) => [c.location ?? ONLINE_LOCATION]), [candidates]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const choiceOptions = useMemo(
+    () => optionsOf((c) => [c.firstDeptName, c.secondDeptName]), [candidates]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filterBar = (
+    <Space wrap size={6}>
+      <Select allowClear size="small" placeholder="面试地点" style={{ width: 150 }}
+              value={locationFilter} options={locationOptions} onChange={setLocationFilter} />
+      <Select allowClear size="small" placeholder="志愿部门" style={{ width: 120 }}
+              value={choiceFilter} options={choiceOptions} onChange={setChoiceFilter} />
+      <Select allowClear size="small" placeholder="结论" style={{ width: 110 }}
+              value={recommendFilter} options={[...RECOMMENDATION_OPTIONS]} onChange={setRecommendFilter} />
+      <Select allowClear size="small" placeholder="预录取" style={{ width: 110 }}
+              value={preAdmitFilter} onChange={setPreAdmitFilter}
+              options={[{ value: 'in', label: '已入名单' }, { value: 'out', label: '未入名单' }]} />
+      {visible.length !== candidates.length && (
+        <Text type="secondary">筛选后 {visible.length} / {candidates.length} 人</Text>
+      )}
+    </Space>
+  );
+
+  const filmItems: FilmChip[] = useMemo(() => visible.map((c, i) => ({
     key: c.resultId,
     name: c.name,
     sub: c.evalTotal != null ? `#${i + 1} · ${Number(c.evalTotal).toFixed(1)}` : `#${i + 1} · —`,
     tag: c.scheduleId == null ? '无面试' : (c.preDeptName ?? '未入名单'),
     tagTone: c.preDeptName ? 'good' : c.scheduleId == null ? 'warn' : 'muted',
     selected: i === stageIndex,
-  })), [candidates, stageIndex]);
+  })), [visible, stageIndex]);
 
   const deptPills = (
     <Space wrap size={6}>
@@ -193,7 +262,7 @@ const PreAdmitTab: React.FC<{
     />
   );
 
-  const current = candidates[clampIndex(stageIndex, Math.max(1, candidates.length))];
+  const current = visible[clampIndex(stageIndex, Math.max(1, visible.length))];
 
   /** 三种视图的正文；全屏与否都渲染同一份，避免两套分支各写一遍 */
   const body = (
@@ -203,8 +272,11 @@ const PreAdmitTab: React.FC<{
           ? <Spin style={{ display: 'block', margin: '48px auto' }} />
           : (
             <FinalMatrix
-              candidates={candidates}
+              candidates={visible}
               dimensions={dimensions}
+              depts={depts}
+              onAssign={assign}
+              onRemove={remove}
               onOpenStage={(resultId) => {
                 const i = candidates.findIndex((c) => c.resultId === resultId);
                 if (i >= 0) setStageIndex(i);
@@ -261,10 +333,15 @@ const PreAdmitTab: React.FC<{
       {immersive ? (
         <StageShell
           title={`终审舞台 · 周期 #${cycleId}`}
-          meta={mode === 'stage' ? `${candidates.length} 位候选人` : undefined}
+          meta={mode === 'stage'
+            ? (visible.length === candidates.length
+                ? `${candidates.length} 位候选人`
+                : `筛选后 ${visible.length} / ${candidates.length} 位候选人`)
+            : undefined}
           topExtra={(
-            <Space>
+            <Space wrap>
               {deptPills}
+              {filterBar}
               {modeSeg}
               <Button size="small" icon={<RocketOutlined />} disabled={!draftTotal} loading={finalizing}
                       onClick={() => setFinalizeOpen(true)}>
@@ -276,7 +353,7 @@ const PreAdmitTab: React.FC<{
           /* 胶片条是逐人翻看用的，矩阵/名单视图下没有「当前这一位」，不渲染 */
           film={mode === 'stage'
             ? <FilmStrip items={filmItems} onSelect={(key) => {
-                const i = candidates.findIndex((c) => c.resultId === Number(key));
+                const i = visible.findIndex((c) => c.resultId === Number(key));
                 if (i >= 0) setStageIndex(i);
               }} />
             : undefined}
@@ -286,6 +363,8 @@ const PreAdmitTab: React.FC<{
       ) : (
         <>
           {toolbar}
+          {/* 筛选独立一行：工具栏那行已经有模式切换、部门统计与两个主操作，再塞四个下拉会挤成一团 */}
+          <div style={{ marginBottom: 12 }}>{filterBar}</div>
           {body}
         </>
       )}
