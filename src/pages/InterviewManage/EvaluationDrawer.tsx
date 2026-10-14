@@ -21,6 +21,101 @@ export interface EvaluationDrawerProps {
   dimensions: EvaluationDimension[];
 }
 
+/**
+ * 一位候选人的面试评价：总分、结论、各维度得分与评语（带署名）、总评、参与面试官。
+ * 抽屉和「录取结果」表格的展开行共用这一份，两处看到的内容不会对不上。
+ */
+export const EvaluationDetail: React.FC<{
+  summary?: CandidateSummary | null;
+  dimensions: EvaluationDimension[];
+  /** 表格展开行里用：空态用小图，免得几百行「暂无评价」铺满屏 */
+  compact?: boolean;
+}> = React.memo(({ summary, dimensions, compact = false }) => (
+  <>
+  {!summary ? (
+    <Empty
+      image={compact ? Empty.PRESENTED_IMAGE_SIMPLE : undefined}
+      description="这位同学还没有面试评价（未面试，或面试官还没填写）"
+    />
+  ) : (
+    <>
+      <Descriptions column={2} size="small" style={{ marginBottom: 16 }}>
+        <Descriptions.Item label="加权总分">
+          <Text strong style={{ fontSize: 18 }}>{summary.totalScore ?? '—'}</Text>
+        </Descriptions.Item>
+        <Descriptions.Item label="共同结论">
+          {summary.recommendation != null
+            ? <Tag color={REC[summary.recommendation]?.color}>{REC[summary.recommendation]?.text}</Tag>
+            : '—'}
+        </Descriptions.Item>
+        <Descriptions.Item label="状态">
+          {summary.status === 2 ? <Tag color="green">已定稿</Tag> : <Tag color="orange">进行中</Tag>}
+        </Descriptions.Item>
+        <Descriptions.Item label="面试部门">{summary.deptName ?? '—'}</Descriptions.Item>
+        {summary.submittedByName && (
+          <Descriptions.Item label="定稿人" span={2}>
+            {summary.submittedByName}
+            {summary.submittedAt ? ` · ${String(summary.submittedAt).replace('T', ' ').slice(0, 16)}` : ''}
+          </Descriptions.Item>
+        )}
+      </Descriptions>
+
+      <Table
+        size="small"
+        rowKey={(d: EvaluationDimension) => d.dimensionId}
+        pagination={false}
+        dataSource={dimensions}
+        style={{ marginBottom: 16 }}
+        columns={[
+          { title: '维度', dataIndex: 'name', width: 110 },
+          {
+            title: '得分', width: 90, align: 'right' as const,
+            render: (_: unknown, d: EvaluationDimension) => {
+              const v = summary.scores?.[d.dimensionId];
+              return v == null
+                ? <Text type="secondary">—</Text>
+                : <span>{v} <Text type="secondary">/ {d.maxScore}</Text></span>;
+            },
+          },
+          {
+            // 评价的主要内容在各维度评语里，署名来自协同表格的单元格级记录
+            title: '评语（署名）',
+            render: (_: unknown, d: EvaluationDimension) => {
+              const note = summary.dimensionNotes?.[d.dimensionId];
+              const writer = summary.dimensionWriters?.[d.dimensionId]?.name;
+              if (!note) return <Text type="secondary">—</Text>;
+              return (
+                <>
+                  <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{note}</Paragraph>
+                  {writer && <Text type="secondary" style={{ fontSize: 12 }}>—— {writer}</Text>}
+                </>
+              );
+            },
+          },
+        ]}
+      />
+
+      {summary.comment && (
+        <>
+          <Text strong>面试记录与总评</Text>
+          <Paragraph style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{summary.comment}</Paragraph>
+        </>
+      )}
+
+      <Text strong>参与面试官</Text>
+      <div style={{ marginTop: 6 }}>
+        {(summary.contributors ?? []).length === 0
+          ? <Text type="secondary">—</Text>
+          : summary.contributors.map((c: any) => (
+            <Tag key={c.userId}>{c.name ?? `#${c.userId}`}</Tag>
+          ))}
+      </div>
+    </>
+  )}
+  </>
+));
+EvaluationDetail.displayName = 'EvaluationDetail';
+
 const EvaluationDrawer: React.FC<EvaluationDrawerProps> = ({
   open, onClose, candidateName, summary, dimensions,
 }) => (
@@ -30,83 +125,7 @@ const EvaluationDrawer: React.FC<EvaluationDrawerProps> = ({
     width={560}
     title={`面试评价 · ${candidateName ?? summary?.candidateName ?? ''}`}
   >
-    {!summary ? (
-      <Empty description="这位同学还没有面试评价（未面试，或面试官还没填写）" />
-    ) : (
-      <>
-        <Descriptions column={2} size="small" style={{ marginBottom: 16 }}>
-          <Descriptions.Item label="加权总分">
-            <Text strong style={{ fontSize: 18 }}>{summary.totalScore ?? '—'}</Text>
-          </Descriptions.Item>
-          <Descriptions.Item label="共同结论">
-            {summary.recommendation != null
-              ? <Tag color={REC[summary.recommendation]?.color}>{REC[summary.recommendation]?.text}</Tag>
-              : '—'}
-          </Descriptions.Item>
-          <Descriptions.Item label="状态">
-            {summary.status === 2 ? <Tag color="green">已定稿</Tag> : <Tag color="orange">进行中</Tag>}
-          </Descriptions.Item>
-          <Descriptions.Item label="面试部门">{summary.deptName ?? '—'}</Descriptions.Item>
-          {summary.submittedByName && (
-            <Descriptions.Item label="定稿人" span={2}>
-              {summary.submittedByName}
-              {summary.submittedAt ? ` · ${String(summary.submittedAt).replace('T', ' ').slice(0, 16)}` : ''}
-            </Descriptions.Item>
-          )}
-        </Descriptions>
-
-        <Table
-          size="small"
-          rowKey={(d: EvaluationDimension) => d.dimensionId}
-          pagination={false}
-          dataSource={dimensions}
-          style={{ marginBottom: 16 }}
-          columns={[
-            { title: '维度', dataIndex: 'name', width: 110 },
-            {
-              title: '得分', width: 90, align: 'right' as const,
-              render: (_: unknown, d: EvaluationDimension) => {
-                const v = summary.scores?.[d.dimensionId];
-                return v == null
-                  ? <Text type="secondary">—</Text>
-                  : <span>{v} <Text type="secondary">/ {d.maxScore}</Text></span>;
-              },
-            },
-            {
-              // 评价的主要内容在各维度评语里，署名来自协同表格的单元格级记录
-              title: '评语（署名）',
-              render: (_: unknown, d: EvaluationDimension) => {
-                const note = summary.dimensionNotes?.[d.dimensionId];
-                const writer = summary.dimensionWriters?.[d.dimensionId]?.name;
-                if (!note) return <Text type="secondary">—</Text>;
-                return (
-                  <>
-                    <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{note}</Paragraph>
-                    {writer && <Text type="secondary" style={{ fontSize: 12 }}>—— {writer}</Text>}
-                  </>
-                );
-              },
-            },
-          ]}
-        />
-
-        {summary.comment && (
-          <>
-            <Text strong>面试记录与总评</Text>
-            <Paragraph style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{summary.comment}</Paragraph>
-          </>
-        )}
-
-        <Text strong>参与面试官</Text>
-        <div style={{ marginTop: 6 }}>
-          {(summary.contributors ?? []).length === 0
-            ? <Text type="secondary">—</Text>
-            : summary.contributors.map((c: any) => (
-              <Tag key={c.userId}>{c.name ?? `#${c.userId}`}</Tag>
-            ))}
-        </div>
-      </>
-    )}
+    <EvaluationDetail summary={summary} dimensions={dimensions} />
   </Drawer>
 );
 

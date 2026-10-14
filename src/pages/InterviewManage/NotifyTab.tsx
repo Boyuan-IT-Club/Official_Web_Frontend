@@ -18,7 +18,7 @@ import {
   ScheduleNoticeItem,
   ScreenedOutItem,
   getNotificationOverview,
-  listResults,
+  listAllResults,
   sendResultNotifications,
   sendScheduleNotices,
 } from '@/api/manage/interviewAdmin';
@@ -130,7 +130,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     try {
       const [o, r]: any[] = await Promise.all([
         getNotificationOverview(cycleId),
-        listResults({ cycleId, page: 1, size: 500 }).catch(() => null),
+        listAllResults(cycleId).catch(() => null),
       ]);
       setOverview(o?.data ?? null);
       setResults(r?.data?.interviewResults ?? []);
