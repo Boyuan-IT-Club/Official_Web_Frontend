@@ -1,4 +1,4 @@
-// 某个招募周期的二维码配置：部门群（每部门一张）、社团大群、招新答疑群。
+// 某个招募周期的二维码配置：部门群（每部门一张）、社团大群（可配第二个）、招新答疑群。
 //
 // 为什么按周期配：群每一届都会换。挂全局要年年手改，而且历史周期发出去的
 // 录取通知里是哪个群，事后无从追溯。
@@ -21,7 +21,7 @@ export interface QrCodesDrawerProps {
 
 interface Slot {
   key: string;
-  qrType: 'DEPT' | 'MAIN_GROUP' | 'QA_GROUP';
+  qrType: 'DEPT' | 'MAIN_GROUP' | 'MAIN_GROUP_2' | 'QA_GROUP';
   deptId?: number;
   title: string;
   hint: string;
@@ -49,6 +49,11 @@ const QrCodesDrawer: React.FC<QrCodesDrawerProps> = ({ open, cycleId, cycleName,
         {
           key: 'MAIN_GROUP', qrType: 'MAIN_GROUP',
           title: '社团大群', hint: '所有被录取的同学都会收到这张',
+        },
+        {
+          // 微信群上限 500 人，大群满了要开第二个；配了就和第一个大群一起发给所有录取者
+          key: 'MAIN_GROUP_2', qrType: 'MAIN_GROUP_2',
+          title: '社团大群 2', hint: '第二个大群，所有被录取的同学也会收到这张；不需要就留空',
         },
         {
           key: 'QA_GROUP', qrType: 'QA_GROUP',
@@ -117,7 +122,7 @@ const QrCodesDrawer: React.FC<QrCodesDrawerProps> = ({ open, cycleId, cycleName,
       destroyOnClose
     >
       <PageHint>
-        录取通知会附上「本人部门群 + 社团大群」两张；答疑群显示在简历填写页。同一位置重新上传即替换。
+        录取通知会附上「本人部门群 + 社团大群」，配了「社团大群 2」就一并附上；答疑群显示在简历填写页。同一位置重新上传即替换。
       </PageHint>
 
       <Spin spinning={loading}>

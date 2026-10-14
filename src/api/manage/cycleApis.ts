@@ -41,11 +41,11 @@ export interface CyclePayload {
   contactInfo?: string | null;
 }
 
-/** 招新二维码。qrType: DEPT / MAIN_GROUP / QA_GROUP */
+/** 招新二维码。qrType: DEPT / MAIN_GROUP / MAIN_GROUP_2 / QA_GROUP */
 export interface RecruitmentQrCode {
   id: number;
   cycleId: number;
-  qrType: 'DEPT' | 'MAIN_GROUP' | 'QA_GROUP';
+  qrType: 'DEPT' | 'MAIN_GROUP' | 'MAIN_GROUP_2' | 'QA_GROUP';
   deptId: number;
   imageUrl: string;
   remark?: string | null;
