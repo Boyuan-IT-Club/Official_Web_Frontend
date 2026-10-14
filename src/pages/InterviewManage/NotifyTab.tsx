@@ -72,7 +72,7 @@ const SCHEDULE_KINDS: Record<string, 'BOOKING_SUCCESS' | 'EVE_REMINDER' | 'DAY_R
 const DECISION_TAG: Record<number, { text: string; color: string }> = {
   0: { text: '待定', color: 'default' },
   1: { text: '通过', color: 'green' },
-  2: { text: '不通过', color: 'red' },
+  2: { text: '未通过', color: 'red' },
   3: { text: '待调剂', color: 'orange' },
 };
 
