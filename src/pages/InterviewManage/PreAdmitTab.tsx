@@ -17,7 +17,7 @@ import { ReloadOutlined, RocketOutlined, FullscreenOutlined } from '@ant-design/
 import { request } from '@/utils';
 import {
   InterviewResultItem, PreAdmissionDeptStat, PreAdmissionDraftItem,
-  finalizePreAdmission, listPreAdmission, listResults, listSchedulesRoster,
+  finalizePreAdmission, listPreAdmission, listAllResults, listSchedulesRoster,
   removePreAdmission, savePreAdmission,
 } from '@/api/manage/interviewAdmin';
 import {
@@ -64,7 +64,7 @@ const PreAdmitTab: React.FC<{
     setLoading(true);
     try {
       const [res, evalRes, pre, roster]: any[] = await Promise.all([
-        listResults({ cycleId, page: 1, size: 500 }),
+        listAllResults(cycleId),
         getEvaluationSummary(cycleId).catch(() => null),
         listPreAdmission({ cycleId, page: 1, size: 500 }),
         listSchedulesRoster(cycleId).catch(() => null),

@@ -17,7 +17,7 @@ import {
 import { ReloadOutlined } from '@ant-design/icons';
 import { ONLINE_LOCATION } from '../EvaluationBoard/collab';
 import {
-  listPreAdmission, listResults, removePreAdmission, savePreAdmission,
+  listPreAdmission, listAllResults, removePreAdmission, savePreAdmission,
 } from '@/api/manage/interviewAdmin';
 import PreAdmitPicker from './PreAdmitPicker';
 import {
@@ -99,7 +99,7 @@ const EvaluationSummaryTab: React.FC<{
   const loadPreAdmit = useCallback(async () => {
     try {
       const [res, pre]: any[] = await Promise.all([
-        listResults({ cycleId, page: 1, size: 500 }),
+        listAllResults(cycleId),
         listPreAdmission({ cycleId, page: 1, size: 500 }),
       ]);
       const deptByResult = new Map<number, number | null>();

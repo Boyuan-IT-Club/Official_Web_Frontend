@@ -7,7 +7,7 @@ jest.mock('../../api/manage/interviewAdmin', () => ({
   removePreAdmission: jest.fn(),
   finalizePreAdmission: jest.fn(),
   savePreAdmission: jest.fn(),
-  listResults: jest.fn(),
+  listAllResults: jest.fn(),
   listSchedulesRoster: jest.fn(),
 }));
 jest.mock('../../api/manage/interviewEvaluation', () => ({
@@ -32,7 +32,7 @@ const DEPTS = [
 ];
 
 beforeEach(() => {
-  api.listResults.mockResolvedValue({ data: { interviewResults: [
+  api.listAllResults.mockResolvedValue({ data: { interviewResults: [
     { resultId: 8, scheduleId: 5, userId: 2, userName: '饶俊晨', resumeScore: 100, firstDeptName: '技术部', evalTotalScore: 39, evalRecommendation: 1 },
     { resultId: 7, scheduleId: null, userId: 1, userName: '丁华烨', resumeScore: 90 },
   ] } });

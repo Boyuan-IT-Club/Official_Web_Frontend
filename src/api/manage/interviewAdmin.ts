@@ -1,4 +1,5 @@
 import { request } from '@/utils';
+import { fetchAllPages } from '@/utils/fetchAllPages';
 
 /** 面试管理（对应后端 /api/interview/admin，方案B：时间段/场次维护 + 一键分配 + 人工调剂） */
 
@@ -416,6 +417,18 @@ export function listResults(params: { cycleId: number; name?: string; decision?:
 }
 
 /**
+ * 本周期全部结果行（自动翻页取齐）。返回体形状与 listResults 相同，调用方无需改解析。
+ * 不要再写 listResults({ page: 1, size: N }) 去「拉全」——超过 N 的人会静默消失。
+ */
+export async function listAllResults(cycleId: number) {
+  const { rows, total } = await fetchAllPages<InterviewResultItem>(async (page, size) => {
+    const res: any = await listResults({ cycleId, page, size });
+    return { rows: res?.data?.interviewResults ?? [], total: Number(res?.data?.total ?? 0) };
+  }, (r) => r.resultId);
+  return { data: { interviewResults: rows, total } };
+}
+
+/**
  * 从本周期的生效面试安排生成结果名单（decision=0 待定），已有结果行的安排跳过（幂等）。
  * 结果行此前只有飞书拉取会创建 —— 不接飞书「结果与通知」就是空的。
  */
@@ -443,6 +456,11 @@ export function batchDecision(data: {
   resultIds: number[];
   decision: 1 | 2;
   assignedDeptId?: number;
+  /**
+   * 只改执行时仍为待定的行（服务端判定），其余计入 skipped。
+   * 「待定全部标为未通过」必须带上：列表可能是几分钟前加载的，期间别人录取的人不能被覆盖。
+   */
+  onlyPending?: boolean;
 }) {
   return request({ url: '/api/interview/result/batch-decision', method: 'post', data });
 }
