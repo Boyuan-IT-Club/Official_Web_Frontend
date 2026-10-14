@@ -3,6 +3,7 @@
 import type { CandidateSummary, EvaluationDimension } from '@/api/manage/interviewEvaluation';
 import type { InterviewResultItem, PreAdmissionDraftItem } from '@/api/manage/interviewAdmin';
 import { displayName } from '@/utils';
+import { isDecided } from './resultBatch';
 
 export interface FinalCandidate {
   resultId: number;
@@ -120,9 +121,33 @@ export function stageKeyAction(
   return null;
 }
 
+/**
+ * 把游标限制在 [0, len-1]。到头就停住，不回绕：
+ * 原先翻过最后一位会跳回第一位，审到后面的人一不留神又从头审一遍。
+ */
 export function clampIndex(i: number, len: number): number {
   if (len === 0) return 0;
-  return ((i % len) + len) % len;   // 回绕
+  return Math.min(Math.max(i, 0), len - 1);
+}
+
+/**
+ * 冲突：人已经有正式结果（通过 / 未通过），却还挂在预录取名单里。
+ * 转正发布不了他，要先移出名单。
+ */
+export function isConflict(c: Pick<FinalCandidate, 'preDeptId' | 'decision'>): boolean {
+  return c.preDeptId != null && isDecided(c.decision);
+}
+
+/** 还没决定、也没进预录取名单的人数：转正后他们仍是待定，需要另行处理 */
+export function countPendingOutside(list: FinalCandidate[]): number {
+  return list.filter((c) => !isDecided(c.decision) && c.preDeptId == null).length;
+}
+
+export function decisionText(d?: number | null): string {
+  if (d === 1) return '已录取';
+  if (d === 2) return '未通过';
+  if (d === 3) return '待调剂';
+  return '待定';
 }
 
 export const RECOMMENDATION_LABEL: Record<number, { text: string; color: string }> = {

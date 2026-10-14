@@ -3,7 +3,10 @@
 import React from 'react';
 import { Button, Tag, Typography } from 'antd';
 import type { EvaluationDimension } from '@/api/manage/interviewEvaluation';
-import { FinalCandidate, RECOMMENDATION_LABEL, orderedDimensions } from './finalReview';
+import {
+  FinalCandidate, RECOMMENDATION_LABEL, decisionText, isConflict, orderedDimensions,
+} from './finalReview';
+import { isDecided } from './resultBatch';
 import './finalStage.scss';
 
 const { Text } = Typography;
@@ -23,6 +26,8 @@ const FinalStage: React.FC<FinalStageProps> = ({
   candidate: c, rank, total, dimensions, depts, onAssign, onRemove, onViewResume,
 }) => {
   const rec = c.recommendation != null ? RECOMMENDATION_LABEL[c.recommendation] : null;
+  // 已有正式结果的人不能再预录取：部门按钮置灰，要改只能去「录取结果」逐个更正
+  const locked = isDecided(c.decision);
   return (
     <div className="final-stage">
       <div className="fs-grid">
@@ -93,11 +98,22 @@ const FinalStage: React.FC<FinalStageProps> = ({
       </div>
 
       <div className="fs-actions">
+        {isConflict(c) && (
+          <Text type="danger" style={{ width: '100%' }}>
+            冲突：这位同学已经{decisionText(c.decision)}，却还在预录取名单里，转正前请先移出。
+          </Text>
+        )}
+        {locked && !isConflict(c) && (
+          <Text type="secondary" style={{ width: '100%' }}>
+            这位同学已经{decisionText(c.decision)}，不能再预录取；如需改动请到「录取结果」更正。
+          </Text>
+        )}
         <Text type="secondary">预录取到：</Text>
         {depts.map((d, i) => (
           <button
             type="button"
             key={d.deptId}
+            disabled={locked}
             className={`fs-dept${c.preDeptId === d.deptId ? ' is-on' : ''}`}
             onClick={() => (c.preDeptId === d.deptId ? onRemove() : onAssign(d.deptId))}
           >
@@ -107,17 +123,10 @@ const FinalStage: React.FC<FinalStageProps> = ({
         {c.preDeptId != null && (
           <Button size="small" danger type="text" onClick={onRemove}>移出名单（0）</Button>
         )}
-        <span className="fs-hint">← → 翻人 · 数字键选部门 · 再点高亮部门或按 0 移出 · Esc 退出</span>
+        <span className="fs-hint">← → 翻人（到头停住） · 数字键选部门 · 再点高亮部门或按 0 移出 · Esc 退出</span>
       </div>
     </div>
   );
 };
-
-function decisionText(d?: number): string {
-  if (d === 1) return '已录取';
-  if (d === 2) return '未通过';
-  if (d === 3) return '待调剂';
-  return '待定';
-}
 
 export default FinalStage;
