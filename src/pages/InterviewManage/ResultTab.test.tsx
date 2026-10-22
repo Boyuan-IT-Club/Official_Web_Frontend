@@ -1,4 +1,4 @@
-// 「录取结果」页的交互守卫：录取去向、行内看评价、待定全部标为未通过。
+// 「录取结果」页的交互守卫：录取去向、行内看评价、待定全部标为未通过、已定即锁（更正须填原因）。
 import React from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { ResultTab } from './index';
@@ -9,6 +9,8 @@ jest.mock('../../api/manage/interviewAdmin', () => ({
   listSchedulesRoster: jest.fn(),
   listPreAdmission: jest.fn(),
   batchDecision: jest.fn(),
+  getResultSummary: jest.fn(),
+  updateResult: jest.fn(),
 }));
 jest.mock('../../api/manage/interviewEvaluation', () => ({
   ...jest.requireActual('../../api/manage/interviewEvaluation'),
@@ -41,6 +43,15 @@ beforeEach(() => {
   api.listSchedulesRoster.mockResolvedValue({ data: [] });
   api.listPreAdmission.mockResolvedValue({ data: { total: 0, candidates: [], departmentStats: [] } });
   api.batchDecision.mockResolvedValue({ data: { updated: 2, skipped: [] } });
+  api.updateResult.mockResolvedValue({ data: null });
+  const dept = (deptId: number, deptName: string, admitted: number) => ({
+    deptId, deptName, firstChoice: 0, secondChoice: 0, preAdmitted: 0, admitted,
+    admittedFirstChoice: admitted, admittedSecondChoice: 0, admittedOther: 0, admittedNotified: 0,
+  });
+  api.getResultSummary.mockResolvedValue({ data: {
+    totals: { candidates: 5, pending: 2, adjusting: 0, admitted: 2, rejected: 1, inPreAdmission: 0, notified: 0 },
+    departments: [dept(1, '技术部', 1), dept(2, '项目部', 1)],
+  } });
   evalApi.getEvaluationSummary.mockResolvedValue({ data: {
     dimensions: [{ dimensionId: 7, name: '能力', maxScore: 10, weight: 1 }],
     candidates: [
@@ -78,7 +89,7 @@ describe('录取结果页', () => {
     expect(screen.getAllByText(/陈睿/).length).toBeGreaterThan(0);
   });
 
-  it('待定全部标为未通过：只发待定的人，并带上 onlyPending 让服务端再判一次', async () => {
+  it('待定全部标为未通过：只发待定的人（服务端再判一次）', async () => {
     await renderTab();
     fireEvent.click(screen.getByText('待定全部标为未通过（2）'));
 
@@ -91,7 +102,7 @@ describe('录取结果页', () => {
 
     fireEvent.click(within(dialog).getByText('全部标为未通过'));
     await waitFor(() => expect(api.batchDecision).toHaveBeenCalledWith({
-      cycleId: 14, resultIds: [1, 4], decision: 2, onlyPending: true,
+      cycleId: 14, resultIds: [1, 4], decision: 2,
     }));
   });
 
@@ -129,7 +140,59 @@ describe('录取结果页', () => {
     expect(within(dialog).getByText(/另有 1 位待定的同学在预录取名单里/)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByText('全部标为未通过'));
     await waitFor(() => expect(api.batchDecision).toHaveBeenCalledWith({
-      cycleId: 14, resultIds: [4], decision: 2, onlyPending: true,
+      cycleId: 14, resultIds: [4], decision: 2,
     }));
+  });
+
+  it('录取统一走预录取：没有「批量录取」和「从面试安排生成名单」', async () => {
+    await renderTab();
+    expect(screen.queryByText(/^批量录取/)).not.toBeInTheDocument();
+    expect(screen.queryByText('从面试安排生成名单')).not.toBeInTheDocument();
+    expect(screen.getByText('预录取（已选 0）')).toBeInTheDocument();
+  });
+
+  it('已定的人不能勾选，行操作是「更正」；待定的人是「录入」', async () => {
+    await renderTab();
+    const rowOf = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
+    expect(within(rowOf('乙录技术')).getByRole('checkbox')).toBeDisabled();
+    expect(within(rowOf('甲待定')).getByRole('checkbox')).not.toBeDisabled();
+    expect(within(rowOf('乙录技术')).getByText('更正')).toBeInTheDocument();
+    expect(within(rowOf('甲待定')).getByText('录入')).toBeInTheDocument();
+  });
+
+  it('更正已定的结果：讲清后果，不填原因不提交，填了原因带上原因', async () => {
+    await renderTab();
+    const row = screen.getByText('乙录技术').closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByText('更正'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('学生刷新页面就会看到新结果。')).toBeInTheDocument();
+    expect(within(dialog).getByText(/对方可能已经扫码进群/)).toBeInTheDocument();
+
+    // 改成未通过
+    fireEvent.mouseDown(within(dialog).getByText('通过（录取）').closest('.ant-select-selector') as HTMLElement);
+    const option = await waitFor(() => {
+      const el = document.querySelector('.ant-select-item-option[title="未通过"]');
+      if (!el) throw new Error('下拉选项还没出来');
+      return el as HTMLElement;
+    });
+    fireEvent.click(option);
+
+    fireEvent.click(within(dialog).getByText('确认更正'));
+    expect(api.updateResult).not.toHaveBeenCalled();
+
+    fireEvent.change(within(dialog).getByPlaceholderText(/复核发现/), { target: { value: '面试记录记错了人' } });
+    fireEvent.click(within(dialog).getByText('确认更正'));
+    await waitFor(() => expect(api.updateResult).toHaveBeenCalledWith(2, {
+      decision: 2, assignedDeptId: undefined, reason: '面试记录记错了人',
+    }));
+  });
+
+  it('预录取名单里的人：结果列标出拟录取部门，录入置灰，要到预录取页处理', async () => {
+    api.listPreAdmission.mockResolvedValue({ data: { total: 1, departmentStats: [],
+      candidates: [{ draftId: 1, cycleId: 14, resultId: 1, assignedDeptId: 1, departmentName: '技术部' }] } });
+    await renderTab();
+    const row = screen.getByText('甲待定').closest('tr') as HTMLElement;
+    expect(await within(row).findByText('预录取·技术部')).toBeInTheDocument();
+    expect(within(row).getByText('录入').closest('button')).toBeDisabled();
   });
 });

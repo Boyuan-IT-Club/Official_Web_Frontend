@@ -9,6 +9,8 @@ jest.mock('../../api/manage/interviewAdmin', () => ({
   savePreAdmission: jest.fn(),
   listAllResults: jest.fn(),
   listSchedulesRoster: jest.fn(),
+  getResultSummary: jest.fn(),
+  RESULT_ERROR: jest.requireActual('../../api/manage/interviewAdmin').RESULT_ERROR,
 }));
 jest.mock('../../api/manage/interviewEvaluation', () => ({
   getEvaluationSummary: jest.fn(),
@@ -57,7 +59,17 @@ beforeEach(() => {
   api.savePreAdmission.mockResolvedValue({ data: { affected: 1, skipped: [] } });
   api.finalizePreAdmission.mockResolvedValue({ data: { published: 1 } });
   api.removePreAdmission.mockResolvedValue({ data: { affected: 1, skipped: [] } });
+  api.getResultSummary.mockResolvedValue({ data: {
+    totals: { candidates: 2, pending: 2, adjusting: 0, admitted: 0, rejected: 0, inPreAdmission: 1, notified: 0 },
+    departments: [{
+      deptId: 1, deptName: '技术部', firstChoice: 1, secondChoice: 0, preAdmitted: 1, admitted: 0,
+      admittedFirstChoice: 0, admittedSecondChoice: 0, admittedOther: 0, admittedNotified: 0,
+    }],
+  } });
 });
+
+/** 切到舞台视图（不全屏） */
+const openStage = () => fireEvent.click(screen.getByText('舞台'));
 
 describe('终审工作台', () => {
   it('默认总览矩阵：维度列、着色分数、预录取列都在，悬浮格有评语', async () => {
@@ -82,7 +94,7 @@ describe('终审工作台', () => {
     render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
     // 等数据到位——按钮在空数据时禁用
     await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('进入终审舞台'));
+    openStage();
 
     // 排名第一的饶俊晨在舞台上：加权总分大字 + 结论
     await waitFor(() => expect(screen.getByText('39.0')).toBeInTheDocument());
@@ -103,14 +115,79 @@ describe('终审工作台', () => {
     expect(screen.queryByText('丁华烨')).not.toBeInTheDocument();
   });
 
-  it('按名单最终录取：确认弹窗列部门人数并调 finalize', async () => {
+  it('按名单最终录取：确认弹窗列部门人数、如实说明后果与名单外的待定，并调 finalize', async () => {
     render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
     await waitFor(() => expect(screen.getByText(/按名单最终录取（1 人）/)).toBeInTheDocument());
     fireEvent.click(screen.getByText(/按名单最终录取（1 人）/));
     await waitFor(() => expect(screen.getByText('按名单最终录取？')).toBeInTheDocument());
     expect(screen.getByText('技术部 · 1 人')).toBeInTheDocument();
+    expect(screen.getByText(/学生刷新页面就能看到「已录取」/)).toBeInTheDocument();
+    expect(screen.getByText(/名单外还有 1 位待定的同学/)).toBeInTheDocument();
     fireEvent.click(screen.getByText('确认录取'));
     await waitFor(() => expect(api.finalizePreAdmission).toHaveBeenCalledWith({ cycleId: 6 }));
+  });
+
+  it('部门标签显示「预录取 / 已录取」，并单列名单外的待定人数', async () => {
+    render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
+    expect(await screen.findByText('技术部 · 预录取 1 / 已录取 0')).toBeInTheDocument();
+    expect(screen.getByText('待定未入名单 1')).toBeInTheDocument();
+  });
+});
+
+describe('已定即锁', () => {
+  beforeEach(() => {
+    // 饶俊晨已经被录取了，却还挂在预录取名单里（历史数据）
+    api.listAllResults.mockResolvedValue({ data: { interviewResults: [
+      { resultId: 8, scheduleId: 5, userId: 2, userName: '饶俊晨', decision: 1, assignedDeptId: 1, evalTotalScore: 39 },
+      { resultId: 7, scheduleId: null, userId: 1, userName: '丁华烨', decision: 2, resumeScore: 90 },
+    ] } });
+  });
+
+  it('冲突的人在矩阵里标红并可移出；转正弹窗点名且不让确认', async () => {
+    render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
+    await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
+    expect(screen.getAllByText('冲突').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByText(/按名单最终录取（1 人）/));
+    expect(await screen.findByText('名单里有 1 人已经有正式结果，转正不了')).toBeInTheDocument();
+    expect(screen.getByText(/饶俊晨（已录取）/)).toBeInTheDocument();
+    expect(screen.getByText('确认录取').closest('button')).toBeDisabled();
+  });
+
+  it('已定的人在舞台上部门按钮置灰，点了也不会加入名单', async () => {
+    render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
+    await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
+    openStage();
+    const btn = await screen.findByRole('button', { name: /项目部/ });
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn);
+    expect(api.savePreAdmission).not.toHaveBeenCalled();
+  });
+});
+
+describe('舞台键盘', () => {
+  it('页签没在显示时，数字键不会把人加进名单', async () => {
+    render(<PreAdmitTab cycleId={6} depts={DEPTS} active={false} />);
+    await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
+    openStage();
+    await screen.findByText('39.0');
+    fireEvent.keyDown(window, { key: '2' });
+    expect(api.savePreAdmission).not.toHaveBeenCalled();
+  });
+
+  it('页签在显示时，数字键预录取到对应部门；翻到最后一位再按 → 不会回到第一位', async () => {
+    render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
+    await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
+    openStage();
+    await screen.findByText('39.0');
+    fireEvent.keyDown(window, { key: '2' });
+    await waitFor(() => expect(api.savePreAdmission).toHaveBeenCalledWith({
+      cycleId: 6, resultIds: [8], assignedDeptId: 2,
+    }));
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    await screen.findByRole('heading', { name: /丁华烨/ });
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(screen.getByRole('heading', { name: /丁华烨/ })).toBeInTheDocument();
   });
 });
 
@@ -118,7 +195,8 @@ describe('全屏与视图模式互不绑定', () => {
   it('在终审舞台里切到总览矩阵/名单仍是全屏，退出键才回到普通页面', async () => {
     render(<PreAdmitTab cycleId={6} depts={DEPTS} />);
     await waitFor(() => expect(screen.getByText('饶俊晨 ▾')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('进入终审舞台'));
+    openStage();
+    fireEvent.click(screen.getByRole('button', { name: '全屏' }));
     await waitFor(() => expect(document.querySelector('.stage-shell')).toBeInTheDocument());
 
     // 用户实际撞到的：切到矩阵就被踢出全屏

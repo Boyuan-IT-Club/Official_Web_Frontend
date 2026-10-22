@@ -1,9 +1,12 @@
 // 总览矩阵：候选人 × 全部评分维度的着色表格。
 // 评语两级呈现：悬浮分数格看该维度署名评语；点姓名整行展开看全部评语加总评。
 import React, { useMemo, useState } from 'react';
-import { Table, Tag, Tooltip, Typography } from 'antd';
+import { Button, Popconfirm, Table, Tag, Tooltip, Typography } from 'antd';
 import type { EvaluationDimension } from '@/api/manage/interviewEvaluation';
-import { FinalCandidate, RECOMMENDATION_LABEL, heatTier, orderedDimensions } from './finalReview';
+import {
+  FinalCandidate, RECOMMENDATION_LABEL, decisionText, heatTier, isConflict, orderedDimensions,
+} from './finalReview';
+import { isDecided } from './resultBatch';
 import PreAdmitPicker from './PreAdmitPicker';
 import './finalMatrix.scss';
 
@@ -82,18 +85,38 @@ const FinalMatrix: React.FC<FinalMatrixProps> = ({
         return rec ? <Tag color={rec.color}>{rec.text}</Tag> : '—';
       } },
     {
-      title: '预录取', dataIndex: 'preDeptName', width: 120, fixed: 'right' as const,
+      // 预录取只对还没决定的人有意义；已经录取/未通过的人放在这里看得到，免得以为漏了人
+      title: '当前结果', width: 88, fixed: 'right' as const,
+      render: (_: unknown, r: FinalCandidate) => (isDecided(r.decision)
+        ? <Tag color={r.decision === 1 ? 'green' : 'red'}>{decisionText(r.decision)}</Tag>
+        : <Text type="secondary">{decisionText(r.decision)}</Text>),
+    },
+    {
+      title: '预录取', dataIndex: 'preDeptName', width: 128, fixed: 'right' as const,
       render: (_: string | null, r: FinalCandidate) => (
         // 点下拉不该连带触发行的双击进舞台
         <span onDoubleClick={(e) => e.stopPropagation()}>
-          <PreAdmitPicker
-            deptId={r.preDeptId}
-            depts={depts}
-            onAssign={(deptId) => onAssign(r, deptId)}
-            onRemove={() => onRemove(r)}
-            disabled={r.scheduleId == null}
-            disabledReason="这个人没有面试安排，没有可预录取的面试结果"
-          />
+          {isConflict(r)
+            ? (
+              <>
+                <Tooltip title={`已经${decisionText(r.decision)}却还在名单里（${r.preDeptName ?? ''}），转正前要先移出`}>
+                  <Tag color="red">冲突</Tag>
+                </Tooltip>
+                <Popconfirm title="移出预录取名单？" okText="移出" cancelText="取消" onConfirm={() => onRemove(r)}>
+                  <Button type="link" size="small" danger style={{ padding: 0 }}>移出</Button>
+                </Popconfirm>
+              </>
+            )
+            : (
+              <PreAdmitPicker
+                deptId={r.preDeptId}
+                depts={depts}
+                onAssign={(deptId) => onAssign(r, deptId)}
+                onRemove={() => onRemove(r)}
+                disabled={isDecided(r.decision)}
+                disabledReason={`已经${decisionText(r.decision)}，不能再预录取；如需改动请到「录取结果」更正`}
+              />
+            )}
         </span>
       ),
     },
