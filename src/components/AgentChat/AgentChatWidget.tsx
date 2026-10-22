@@ -10,7 +10,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Drawer, Input, List, Spin, Tag, message } from "antd";
 import {
+  CheckOutlined,
+  CloseOutlined,
   CustomerServiceOutlined,
+  ExclamationCircleOutlined,
   HistoryOutlined,
   PlusOutlined,
   RobotOutlined,
@@ -25,7 +28,7 @@ import {
   fetchSessionMessages,
   fetchSessions,
 } from "./sessions";
-import { ChatMessage, useAgentChat } from "./useAgentChat";
+import { ChatMessage, PendingConfirm, useAgentChat } from "./useAgentChat";
 import "./index.scss";
 
 
@@ -37,10 +40,74 @@ const TOOL_LABEL: Record<string, string> = {
   get_my_interview: "查询面试安排",
   get_open_cycle: "查询招新周期",
   search_resumes: "检索简历",
+  get_resume_detail: "查看简历详情",
+  find_available_sessions: "查询可用场次",
+  list_unassigned: "查询待调剂名单",
+  list_reschedule_requests: "查询改期申请",
+  get_recruit_statistics: "统计招新数据",
+  search_knowledge: "查询社团知识库",
+  assign_interview: "分配面试场次",
+  handle_reschedule: "处理改期申请",
 };
 
+const CONFIRM_STATE_TEXT: Record<PendingConfirm["state"], string> = {
+  pending: "",
+  approved: "已确认执行",
+  rejected: "已取消",
+  cancelled: "未确认,已取消",
+  expired: "已过期",
+};
+
+/** 写操作确认卡片:操作摘要 + 确认/取消。只有等待中的卡片可以点。 */
+function ConfirmCard({
+  confirm,
+  disabled,
+  onRespond,
+}: {
+  confirm: PendingConfirm;
+  disabled: boolean;
+  onRespond: (decision: "approve" | "reject") => void;
+}) {
+  const pending = confirm.state === "pending";
+  return (
+    <div className={`agent-chat__confirm${pending ? "" : " is-settled"}`}>
+      <div className="agent-chat__confirm-title">
+        <ExclamationCircleOutlined />
+        <span>需要你确认的操作</span>
+      </div>
+      <div className="agent-chat__confirm-summary">{confirm.summary}</div>
+      {pending ? (
+        <div className="agent-chat__confirm-actions">
+          <Button size="small" icon={<CloseOutlined />} disabled={disabled} onClick={() => onRespond("reject")}>
+            取消
+          </Button>
+          <Button
+            size="small"
+            type="primary"
+            icon={<CheckOutlined />}
+            disabled={disabled}
+            onClick={() => onRespond("approve")}
+          >
+            确认执行
+          </Button>
+        </div>
+      ) : (
+        <div className="agent-chat__confirm-state">{CONFIRM_STATE_TEXT[confirm.state]}</div>
+      )}
+    </div>
+  );
+}
+
 /** 单条 assistant 消息:机器人头像 + 工具折叠 + 流式/状态渲染 */
-function AssistantBubble({ msg }: { msg: ChatMessage }) {
+function AssistantBubble({
+  msg,
+  busy,
+  onRespond,
+}: {
+  msg: ChatMessage;
+  busy: boolean;
+  onRespond: (decision: "approve" | "reject") => void;
+}) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const streaming = msg.status === "streaming" || msg.status === "queued";
 
@@ -88,6 +155,8 @@ function AssistantBubble({ msg }: { msg: ChatMessage }) {
           </div>
         ) : null}
 
+        {msg.confirm && <ConfirmCard confirm={msg.confirm} disabled={busy} onRespond={onRespond} />}
+
         {msg.status === "error" && (
           <div className="agent-chat__error">{msg.errorText || "出错了,请重试"}</div>
         )}
@@ -109,8 +178,19 @@ export default function AgentChatWidget() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(false);
-  const { messages, streaming, sessionId, input, setInput, send, stop, adoptSession, setAuthExpiredHandler, reset } =
-    useAgentChat(AGENT_URL);
+  const {
+    messages,
+    streaming,
+    sessionId,
+    input,
+    setInput,
+    send,
+    respond,
+    stop,
+    adoptSession,
+    setAuthExpiredHandler,
+    reset,
+  } = useAgentChat(AGENT_URL);
   const listRef = useRef<HTMLDivElement>(null);
   const [stuckTop, setStuckTop] = useState(false); // 用户是否滚离底部
 
@@ -331,7 +411,7 @@ export default function AgentChatWidget() {
                   m.role === "user" ? (
                     <UserBubble key={m.id} msg={m} />
                   ) : (
-                    <AssistantBubble key={m.id} msg={m} />
+                    <AssistantBubble key={m.id} msg={m} busy={streaming} onRespond={respond} />
                   ),
                 )
               )}

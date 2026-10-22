@@ -10,6 +10,8 @@ export type AgentEvent =
   | { type: "session"; session_id: string; created: boolean }
   | { type: "delta"; role: string; content: string }
   | { type: "tool"; role: string; name: string }
+  /** 写操作挂起待确认:渲染确认卡片,用户决定后经 POST {chat}/confirm 续跑 */
+  | { type: "confirm"; summary: string; tool?: string | null; fingerprint?: string | null }
   | { type: "done"; session_id: string }
   | { type: "error"; code: string; message: string };
 
@@ -53,7 +55,16 @@ export async function sseFetch(
     throw Object.assign(new Error("登录已过期"), { code: "http_401" });
   }
   if (!resp.ok || !resp.body) {
-    throw new Error(`请求失败(HTTP ${resp.status})`);
+    // 带上服务端 detail(如「确认卡片已过期」),调用方按 code 区分处理
+    let detail = "";
+    try {
+      detail = (await resp.json())?.detail ?? "";
+    } catch {
+      // 非 JSON 响应体:只报状态码
+    }
+    throw Object.assign(new Error(detail || `请求失败(HTTP ${resp.status})`), {
+      code: `http_${resp.status}`,
+    });
   }
 
   const reader = resp.body.getReader();

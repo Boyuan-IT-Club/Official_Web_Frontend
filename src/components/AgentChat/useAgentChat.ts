@@ -9,10 +9,21 @@
  * - 续传带原 session_id(断线/刷新/重登录后)
  * - delta → 追加当前 assistant 消息;tool → 当前 assistant 消息标记工具调用
  * - done → 收尾;error:auth_expired → 触发登出回调(外部清 token 跳登录)
+ * - confirm → 当前 assistant 消息挂一张确认卡片(写操作待确认);用户点确认/取消
+ *   经 POST {chat}/confirm 续跑。卡片还在等待时直接发新消息 = 服务端取消该操作,
+ *   卡片同步标成「已取消」
  */
 import { useCallback, useReducer, useRef, useState } from "react";
 import { getToken, removeToken } from "@/utils/token";
 import { sseFetch, AgentEvent } from "./sse";
+
+/** 写操作确认卡片 */
+export interface PendingConfirm {
+  summary: string;
+  tool?: string | null;
+  fingerprint?: string | null;
+  state: "pending" | "approved" | "rejected" | "cancelled" | "expired";
+}
 
 export interface ChatMessage {
   id: string;
@@ -22,6 +33,7 @@ export interface ChatMessage {
   status: "complete" | "streaming" | "error" | "queued" | "stopped";
   errorCode?: string;
   errorText?: string;
+  confirm?: PendingConfirm;
 }
 
 interface State {
@@ -36,6 +48,8 @@ type Action =
   | { type: "assistant_start" } // 添加 assistant 占位(queued)
   | { type: "delta"; content: string }
   | { type: "tool"; name: string }
+  | { type: "confirm"; confirm: PendingConfirm }
+  | { type: "confirm_state"; state: PendingConfirm["state"] }
   | { type: "done" }
   | { type: "stopped" } // 用户主动停止(保留部分输出,标记可辨)
   | { type: "error"; code: string; message: string }
@@ -91,6 +105,21 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, messages };
     }
+    case "confirm": {
+      const messages = state.messages.slice();
+      const last = messages[messages.length - 1];
+      if (last && last.role === "assistant") {
+        messages[messages.length - 1] = { ...last, confirm: action.confirm };
+      }
+      return { ...state, messages };
+    }
+    case "confirm_state": {
+      // 只改仍在等待的那张卡片(同一时刻至多一张)
+      const messages = state.messages.map((m) =>
+        m.confirm?.state === "pending" ? { ...m, confirm: { ...m.confirm, state: action.state } } : m,
+      );
+      return { ...state, messages };
+    }
     case "done":
     case "stopped": {
       const messages = state.messages.slice();
@@ -143,6 +172,17 @@ export function useAgentChat(targetUrl: string) {
       case "tool":
         dispatch({ type: "tool", name: evt.name });
         break;
+      case "confirm":
+        dispatch({
+          type: "confirm",
+          confirm: {
+            summary: evt.summary,
+            tool: evt.tool,
+            fingerprint: evt.fingerprint,
+            state: "pending",
+          },
+        });
+        break;
       case "done":
         dispatch({ type: "done" });
         break;
@@ -180,6 +220,8 @@ export function useAgentChat(targetUrl: string) {
         return;
       }
 
+      // 还有没处理的确认卡片:服务端会把那个操作取消,卡片同步标成已取消
+      dispatch({ type: "confirm_state", state: "cancelled" });
       dispatch({ type: "append_user", content });
       dispatch({ type: "assistant_start" });
       const controller = new AbortController();
@@ -221,6 +263,54 @@ export function useAgentChat(targetUrl: string) {
     [state.streaming, state.sessionId, targetUrl, handleEvent],
   );
 
+  /** 对确认卡片做出决定(确认执行 / 取消),续跑本轮。 */
+  const respond = useCallback(
+    async (decision: "approve" | "reject") => {
+      if (state.streaming || !state.sessionId) return;
+      const pending = state.messages.find((m) => m.confirm?.state === "pending")?.confirm;
+      if (!pending) return;
+      const token = getToken();
+      if (!token) {
+        onAuthExpiredRef.current?.();
+        return;
+      }
+      dispatch({ type: "confirm_state", state: decision === "approve" ? "approved" : "rejected" });
+      dispatch({ type: "assistant_start" });
+      const controller = new AbortController();
+      abortRef.current = controller;
+      try {
+        await sseFetch(
+          {
+            url: `${targetUrl}/confirm`,
+            body: {
+              session_id: state.sessionId,
+              decision,
+              fingerprint: pending.fingerprint ?? "",
+            },
+            token,
+            signal: controller.signal,
+          },
+          handleEvent,
+        );
+      } catch (err: unknown) {
+        if ((err as Error).name === "AbortError") return;
+        const e = err as { code?: string; message?: string };
+        if (e.code === "http_401") {
+          dispatch({ type: "error", code: "auth_expired", message: "登录已过期,请重新登录" });
+          removeToken();
+          onAuthExpiredRef.current?.();
+          return;
+        }
+        dispatch({
+          type: "error",
+          code: e.code === "http_409" ? "confirm_expired" : "backend_unavailable",
+          message: e.message || "网络异常,请稍后重试",
+        });
+      }
+    },
+    [state.streaming, state.sessionId, state.messages, targetUrl, handleEvent],
+  );
+
   /** 停止当前生成(中断 fetch)。 */
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -240,6 +330,7 @@ export function useAgentChat(targetUrl: string) {
     input,
     setInput,
     send,
+    respond,
     stop,
     adoptSession,
     setAuthExpiredHandler,

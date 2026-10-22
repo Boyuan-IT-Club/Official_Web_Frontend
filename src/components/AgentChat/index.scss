@@ -496,3 +496,46 @@ $text-sub: #7b8ba0;
     color: #8c8c8c;
   }
 }
+
+// 写操作确认卡片:醒目但不刺眼;处理过的卡片降为灰态,只留结果文字
+.agent-chat__confirm {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  background: #fffbe6;
+
+  &.is-settled {
+    border-color: #f0f0f0;
+    background: #fafafa;
+  }
+
+  &-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #ad6800;
+
+    .is-settled & {
+      color: #8c8c8c;
+    }
+  }
+
+  &-summary {
+    margin: 6px 0 8px;
+    color: #262626;
+    line-height: 1.6;
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  &-state {
+    font-size: 12px;
+    color: #8c8c8c;
+  }
+}
