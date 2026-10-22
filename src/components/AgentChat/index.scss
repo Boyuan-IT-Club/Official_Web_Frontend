@@ -539,3 +539,22 @@ $text-sub: #7b8ba0;
     color: #8c8c8c;
   }
 }
+
+// 长期记忆视图:一条一行,右侧删除;顶部一句说明
+.agent-chat__memory {
+  &-tip {
+    margin: 12px 16px 4px;
+    font-size: 12px;
+    color: #8c8c8c;
+  }
+
+  &-item {
+    padding: 8px 16px !important;
+  }
+
+  &-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 16px 16px;
+  }
+}
