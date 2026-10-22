@@ -8,9 +8,11 @@
  * auth_expired → 清 token 提示重登录(onAuthExpired),session 保留可续传。
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Drawer, Input, List, Spin, Tag, message } from "antd";
+import { Button, Drawer, Input, List, Popconfirm, Spin, Tag, message } from "antd";
 import {
+  BulbOutlined,
   CheckOutlined,
+  DeleteOutlined,
   CloseOutlined,
   CustomerServiceOutlined,
   ExclamationCircleOutlined,
@@ -28,6 +30,7 @@ import {
   fetchSessionMessages,
   fetchSessions,
 } from "./sessions";
+import { AgentMemory, clearMemories, deleteMemory, fetchMemories } from "./memories";
 import { ChatMessage, PendingConfirm, useAgentChat } from "./useAgentChat";
 import "./index.scss";
 
@@ -194,8 +197,11 @@ export default function AgentChatWidget() {
   const listRef = useRef<HTMLDivElement>(null);
   const [stuckTop, setStuckTop] = useState(false); // 用户是否滚离底部
 
-  // G2:历史会话视图状态
-  const [view, setView] = useState<"chat" | "history">("chat");
+  // G2:历史会话视图状态;memory:长期记忆管理视图
+  const [view, setView] = useState<"chat" | "history" | "memory">("chat");
+  const [memories, setMemories] = useState<AgentMemory[]>([]);
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [adopting, setAdopting] = useState(false);
@@ -269,6 +275,44 @@ export default function AgentChatWidget() {
     [adoptSession, onAuthExpired]
   );
 
+  /** 打开长期记忆视图:列出助手记住的本人偏好与事实。 */
+  const openMemories = useCallback(async () => {
+    setView("memory");
+    setMemoriesLoading(true);
+    try {
+      const data = await fetchMemories(AGENT_BASE);
+      setMemories(data.items);
+      setMemoryEnabled(data.enabled);
+    } catch (err: unknown) {
+      if ((err as { code?: string }).code === "http_401") {
+        onAuthExpired();
+        return;
+      }
+      message.error((err as Error).message || "加载记忆失败");
+    } finally {
+      setMemoriesLoading(false);
+    }
+  }, [onAuthExpired]);
+
+  const removeMemory = useCallback(async (memoryId: string) => {
+    try {
+      await deleteMemory(AGENT_BASE, memoryId);
+      setMemories((items) => items.filter((m) => m.memory_id !== memoryId));
+    } catch (err: unknown) {
+      message.error((err as Error).message || "删除失败");
+    }
+  }, []);
+
+  const removeAllMemories = useCallback(async () => {
+    try {
+      await clearMemories(AGENT_BASE);
+      setMemories([]);
+      message.success("已清空记忆");
+    } catch (err: unknown) {
+      message.error((err as Error).message || "清空失败");
+    }
+  }, []);
+
   /** 新建会话(G1):清空本地状态;下次发送不带 session_id → 服务端开新会话。 */
   const startNewSession = useCallback(() => {
     reset();
@@ -296,6 +340,15 @@ export default function AgentChatWidget() {
           title="历史会话"
         >
           <HistoryOutlined />
+        </button>
+        <button
+          type="button"
+          className={`agent-chat__header-action${view === "memory" ? " is-active" : ""}`}
+          onClick={() => (view === "memory" ? setView("chat") : openMemories())}
+          aria-label="我的记忆"
+          title="我的记忆"
+        >
+          <BulbOutlined />
         </button>
         <button
           type="button"
@@ -339,7 +392,72 @@ export default function AgentChatWidget() {
         closable
         styles={{ body: { padding: 0, display: "flex", flexDirection: "column" } }}
       >
-        {view === "history" ? (
+        {view === "memory" ? (
+          <div className="agent-chat__history agent-chat__memory">
+            {memoriesLoading ? (
+              <div className="agent-chat__history-loading">
+                <Spin />
+              </div>
+            ) : !memoryEnabled ? (
+              <div className="agent-chat__empty">
+                <span className="agent-chat__empty-icon">
+                  <BulbOutlined />
+                </span>
+                <p className="agent-chat__empty-title">当前身份未开启长期记忆</p>
+              </div>
+            ) : memories.length === 0 ? (
+              <div className="agent-chat__empty">
+                <span className="agent-chat__empty-icon">
+                  <BulbOutlined />
+                </span>
+                <p className="agent-chat__empty-title">还没有记住什么</p>
+                <p className="agent-chat__empty-sub">
+                  聊天时提到的偏好(如「回答先给结论」)和工作信息,
+                  <br />
+                  助手会记下来,下次对话直接用上
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="agent-chat__memory-tip">
+                  助手从你以前的对话里记住了这些,只在回答你时参考;不准确可以删掉。
+                </p>
+                <List
+                  dataSource={memories}
+                  renderItem={(m) => (
+                    <List.Item
+                      className="agent-chat__memory-item"
+                      actions={[
+                        <Button
+                          key="del"
+                          type="text"
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          aria-label="删除这条记忆"
+                          onClick={() => removeMemory(m.memory_id)}
+                        />,
+                      ]}
+                    >
+                      <span>
+                        <Tag color={m.kind === "preference" ? "blue" : "default"}>
+                          {m.kind === "preference" ? "偏好" : "事实"}
+                        </Tag>
+                        {m.content}
+                      </span>
+                    </List.Item>
+                  )}
+                />
+                <div className="agent-chat__memory-actions">
+                  <Popconfirm title="清空全部记忆?" okText="清空" cancelText="取消" onConfirm={removeAllMemories}>
+                    <Button size="small" danger>
+                      清空全部
+                    </Button>
+                  </Popconfirm>
+                </div>
+              </>
+            )}
+          </div>
+        ) : view === "history" ? (
           <div className="agent-chat__history">
             {sessionsLoading ? (
               <div className="agent-chat__history-loading">
