@@ -106,6 +106,8 @@ export interface KbSourceRow {
   updated_by: string;
   chunk_count?: number;
   question?: string;
+  /** FAQ 的附加问法(同一个答案的其他问法);只在详情里回显,旧版 Agent 不返回 */
+  alt_questions?: string[];
   answer?: string;
   content_md?: string;
   created_at?: string;
@@ -136,6 +138,11 @@ export interface KbSourcePayload {
   kind: 'normal' | 'test';
   tags: string[];
   question?: string;
+  /**
+   * FAQ 的附加问法,至多 20 条,只对 FAQ 生效。更新 FAQ 时务必带上:
+   * 上游把「不传」当成空列表,漏传会把已有的问法清掉。
+   */
+  alt_questions?: string[];
   answer?: string;
   content_md?: string;
 }
