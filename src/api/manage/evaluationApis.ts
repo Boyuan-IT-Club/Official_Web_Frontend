@@ -48,6 +48,53 @@ export interface ScorecardRow extends AiGrades {
   user_id?: number;
   intended_first?: string | null;
   transfer_hint?: TransferHint | null;
+  /**
+   * 以下四项由「带批判者」的评分模式产出(Agent 仓 screening-panel §5.1)。
+   * 不是分数,有 resume:audit 就能看到。旧版 Agent 不返回它们,都按可缺失处理。
+   */
+  /** critic = 带批判者;null = 单评委模式的卡 */
+  scoring_mode?: 'critic' | string | null;
+  /** AI 对这张卡的把握;null = 单评委模式的卡,没有置信度 */
+  confidence?: AiConfidence | null;
+  /** 批判者质疑、评委没有改判的条数;单评委模式为 0 */
+  dispute_count?: number;
+  /** 简历里是否检出疑似写给 AI 的指令 */
+  injection_detected?: boolean;
+}
+
+export type AiConfidence = 'low' | 'medium' | 'high';
+
+/** 批判者质疑、评委没有改判的一条 */
+export interface PanelDispute {
+  /** 哪张清单(部门名,或认真程度清单) */
+  checklist?: string;
+  item?: string;
+  /** quote_not_supporting 引文撑不住 / missed_evidence 漏判 */
+  kind?: string;
+  /** upheld 评委维持原判 / no_response 答辩失败 */
+  judge_decision?: string;
+  reason?: string;
+}
+
+/**
+ * 评分卡里的合议信息(card.panel)。只有带批判者模式的卡才有;
+ * 单评委模式的卡与旧卡没有这个块。字段都按可缺失处理。
+ */
+export interface ScorecardPanel {
+  mode?: string;
+  confidence?: AiConfidence | string | null;
+  /** ok 正常 / unavailable 批判者调用失败 / skipped 命中绝对卡、没有可复核的判定 */
+  critic?: string;
+  /** spans 是简历里的原文片段(已脱敏) */
+  injection?: { detected?: boolean; spans?: string[] };
+  disputes?: PanelDispute[];
+  /** 评委在答辩中改判的条目 */
+  revised?: { checklist?: string; item?: string }[];
+  /** 由代码改判为未达成的条目与原因 */
+  overrides?: { checklist?: string; item?: string; reason?: string }[];
+  /** 评委判态度不端而批判者不同意(或没表态) */
+  attitude_dispute?: boolean;
+  judges?: Record<string, unknown>;
 }
 
 /** 清单里一个判定项的结果。met=false 时 reason 写「缺什么」。 */
@@ -97,6 +144,8 @@ export interface ScorecardDetail extends AiGrades {
     hard_zero_reasons?: Record<string, string>;
     /** 旧版卡才有 */
     traits?: TraitVerdict[];
+    /** 带批判者模式的卡才有;不因缺少看分权限而剥离 */
+    panel?: ScorecardPanel | null;
   };
   created_at?: string;
 }
@@ -122,8 +171,14 @@ export function listEvaluationJobs(cycleId: number, status?: string) {
   });
 }
 
-/** 评审队列:queue=zero → 需重点复核子队列 */
-export function listEvaluationQueue(cycleId: number, queue: 'zero' | 'all' = 'all') {
+/**
+ * 评审队列:queue=zero → 需重点复核子队列;low_confidence → 只看置信度为 low 的卡
+ * (旧版 Agent 不认这个取值,返回 400)。三种队列都是低置信的卡在前。
+ */
+export function listEvaluationQueue(
+  cycleId: number,
+  queue: 'zero' | 'all' | 'low_confidence' = 'all',
+) {
   return request({
     url: '/api/admin/agent/evaluation/queue',
     method: 'get',

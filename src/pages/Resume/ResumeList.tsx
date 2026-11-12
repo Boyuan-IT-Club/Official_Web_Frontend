@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { readFilters, writeFilters, SUBMITTED_STATUSES } from './filterParams';
 import { isUngradedBy, othersHidden } from './scorePanel';
 import { scorersTip } from './ScorersTip';
 import { isRevealed, setRevealAll, toggleRevealOne, useScoreReveal } from './scoreReveal';
-import { AiFilter, chunkIds, matchesAiFilter } from './aiScreening';
+import { AiFilter, chunkIds, hasConfidenceInfo, matchesAiFilter } from './aiScreening';
+import { QueueSignalTags } from '@/components/ResumeAiEvaluation/PanelSection';
 import { loadAllResumes } from './stage/loadAllResumes';
 import { fetchSearchPage } from './stage/fetchSearchPage';
 import {
@@ -259,6 +260,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
   const [allMatchIds, setAllMatchIds] = useState<string[] | null>(null);
   const [selectingAll, setSelectingAll] = useState(false);
   const [scorecards, setScorecards] = useState<Record<string, ScorecardRow>>({});
+  // 本周期的评分卡里有没有任何一张带置信度（没有时「置信度低 / 提示注入」两档要说明原因）
+  const confidenceAvailable = useMemo(() => hasConfidenceInfo(Object.values(scorecards)), [scorecards]);
   const [screeningIds, setScreeningIds] = useState<React.Key[]>([]);
   // 初筛失败的简历 → 错误文案(闸门4:失败可观测 + 重新评分入口)
   const [failedScreening, setFailedScreening] = useState<Record<string, string>>({});
@@ -844,6 +847,13 @@ const ResumeList: React.FC<ResumeListProps> = ({
               {/* AI 状态筛选只作用于本页，明说，免得把本页命中数当成全部 */}
               {aiFilter !== 'all' && `，本页符合 AI 筛选 ${visibleIds.length} 份`}
             </div>
+            {/* 置信度只有「带批判者」的评分模式才出。一张卡都不带时这两档必然为空，
+                得说明是「没有这项信息」，别让人读成「没有需要细看的」 */}
+            {(aiFilter === 'low_confidence' || aiFilter === 'injection') && !confidenceAvailable && (
+              <div className="results-info">
+                本周期的 AI 初筛结果不带置信度信息（没有启用带批判者的评分模式，或 Agent 服务尚未升级），这一档筛不出结果
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -925,6 +935,8 @@ const ResumeList: React.FC<ResumeListProps> = ({
               { value: 'effort_low', label: '认真程度一般' },
               { value: 'transfer', label: '有调剂建议' },
               { value: 'review', label: '需重点复核' },
+              { value: 'low_confidence', label: 'AI 置信度低' },
+              { value: 'injection', label: '疑似提示注入' },
               { value: 'rerun', label: '旧版结果待重评' },
             ]}
           />
@@ -956,7 +968,9 @@ const ResumeList: React.FC<ResumeListProps> = ({
         ) : (
           <>
             <List
-              dataSource={resumes}
+              // 用筛过的这一份：AI 状态筛选要真的收窄列表。#203 临时停用 AI 初筛时这里改成了
+              // resumes，恢复后没改回来，于是选了「需重点复核」等任何一档，列表都纹丝不动
+              dataSource={visibleResumes}
               grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 3 }}
               renderItem={(resume) => {
                 const statusInfo = getStatusInfo(resume.status);
@@ -971,7 +985,11 @@ const ResumeList: React.FC<ResumeListProps> = ({
                 // ResumePhotoAvatar 内部两种都认；没传照片时回落到占位图标
                 const photo = getFieldValueFromResume(resume, '个人照片');
                 const isScreening = screeningIds.includes(String(resume.resumeId));
-                const transferHint = scorecards[String(resume.resumeId)]?.transfer_hint ?? null;
+                const aiCard = scorecards[String(resume.resumeId)];
+                const transferHint = aiCard?.transfer_hint ?? null;
+                // 这两项不是等级,是「这张卡该有人细看」的信号,所以和调剂建议一样上卡片
+                const lowConfidence = aiCard?.confidence === 'low';
+                const injectionDetected = aiCard?.injection_detected === true;
                 return (
                   <List.Item key={String(resume.resumeId)}>
                     <Card
@@ -1094,8 +1112,10 @@ const ResumeList: React.FC<ResumeListProps> = ({
                           <div className="resume-card-description">
                             {/* AI 的等级不上卡片：批量扫简历时它最抢眼，容易先入为主，
                                 等级去详情里看。卡片上只留「初筛中 / 失败可重跑」这类进度状态，
-                                外加 AI 建议调剂——那是分派信息，扫列表时就该看到。 */}
-                            {(isScreening || failedScreening[String(resume.resumeId)] || transferHint) && (
+                                外加 AI 建议调剂——那是分派信息，扫列表时就该看到。
+                                「置信度低 / 疑似提示注入」同理：说的是这张卡该有人细看，不是等级。 */}
+                            {(isScreening || failedScreening[String(resume.resumeId)] || transferHint
+                              || lowConfidence || injectionDetected) && (
                               <div className="resume-card-ai">
                                 <RobotOutlined />
                                 {isScreening ? (
@@ -1113,11 +1133,16 @@ const ResumeList: React.FC<ResumeListProps> = ({
                                       重新评分
                                     </Button>
                                   </>
-                                ) : transferHint ? (
-                                  <Tag color="purple">
-                                    {`AI 建议调剂：${transferHint.dept}${transferHint.is_second_choice ? '（第二志愿）' : ''}`}
-                                  </Tag>
-                                ) : null}
+                                ) : (
+                                  <>
+                                    {transferHint && (
+                                      <Tag color="purple">
+                                        {`AI 建议调剂：${transferHint.dept}${transferHint.is_second_choice ? '（第二志愿）' : ''}`}
+                                      </Tag>
+                                    )}
+                                    <QueueSignalTags card={aiCard} />
+                                  </>
+                                )}
                               </div>
                             )}
                             <div>

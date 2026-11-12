@@ -15,6 +15,14 @@ describe('AI 简历评估入口布局', () => {
     );
   });
 
+  test('AI 状态筛选真的收窄列表，而不是只改一个计数', () => {
+    // 「置信度低」这类队列就是靠这个筛选实现的：列表若仍渲染全部简历，队列等于没有。
+    // 提交历史里出过一次：#203 临时停用 AI 初筛时把数据源改成了全量，恢复后没改回来。
+    const list = source('ResumeList.tsx');
+    expect(list).toContain('dataSource={visibleResumes}');
+    expect(list).not.toContain('dataSource={resumes}');
+  });
+
   test('面试评价表仍提供 AI 预设题库', () => {
     const drawer = source('..', 'EvaluationBoard', 'CandidateDrawer.tsx');
     expect(drawer).toContain('<EvaluationQbankDrawer');
