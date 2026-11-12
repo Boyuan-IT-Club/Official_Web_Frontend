@@ -110,6 +110,12 @@ export interface KbSourceRow {
   content_md?: string;
   created_at?: string;
   updated_at?: string;
+  /**
+   * 绑定的招新周期。null = 常青条目,任何时候都可被检索;填周期 id = 只在该周期
+   * 开放期间可被检索,周期结束后自动退出检索。
+   * 旧版 Agent 不返回这个字段,所以是可选的——缺失按常青处理(见 AgentKB/cycleBinding)。
+   */
+  cycle_id?: number | null;
 }
 
 /** 条目分页列表(kind=normal|test 过滤,keyword 匹配标题) */
@@ -138,6 +144,11 @@ export interface KbSourcePayload {
   question?: string;
   answer?: string;
   content_md?: string;
+  /**
+   * 招新周期 id(≥1)或 null(常青)。更新时务必带上:上游把「不传」当成 null,
+   * 漏传会把已有绑定悄悄清掉。
+   */
+  cycle_id?: number | null;
 }
 
 /** 新建并入库(分块+embedding;EMBED 未配置时上游 503) */

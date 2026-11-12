@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Button,
   Empty,
   Form,
@@ -28,6 +29,9 @@ import {
   setKbSourceEnabled,
   updateKbSource,
 } from "@/api/manage/agentApis";
+import { CycleBindingTag, CycleSelect } from "./CycleSelect";
+import { describeBinding, directoryProblem, normalizeCycleId } from "./cycleBinding";
+import { useCycleDirectory } from "./useCycleDirectory";
 
 const { Text } = Typography;
 
@@ -48,6 +52,11 @@ const AgentKB: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
   const docType = Form.useWatch("type", form) ?? "faq";
+
+  // 招新周期:取不到时 directory 的对应部分为 null,页面其余功能照常
+  const { directory, loading: cyclesLoading, reload: reloadCycles } = useCycleDirectory();
+  const cycleProblem = cyclesLoading ? null : directoryProblem(directory);
+  const editingBinding = describeBinding(Form.useWatch("cycle_id", form), directory);
 
   const load = useCallback(
     async (p = page, s = size, kind = kindFilter, kw = keyword) => {
@@ -78,12 +87,14 @@ const AgentKB: React.FC = () => {
   const openCreate = () => {
     setCreating(true);
     form.resetFields();
-    form.setFieldsValue({ type: "faq", kind: "normal", tags: [] });
+    form.setFieldsValue({ type: "faq", kind: "normal", tags: [], cycle_id: null });
   };
 
   const openEdit = async (row: KbSourceRow) => {
     setEditing(row);
     form.resetFields();
+    // 详情取不到时也别丢绑定:先用列表行里的值垫上,保存时才不会把它清成常青
+    form.setFieldsValue({ cycle_id: normalizeCycleId(row.cycle_id) });
     try {
       const res: any = await getKbSource(row.source_id);
       const d = res?.data ?? row;
@@ -95,6 +106,7 @@ const AgentKB: React.FC = () => {
         question: d.question ?? "",
         answer: d.answer ?? "",
         content_md: d.content_md ?? "",
+        cycle_id: normalizeCycleId(d.cycle_id),
       });
     } catch (e: any) {
       message.error(e?.message || "加载条目详情失败");
@@ -106,19 +118,44 @@ const AgentKB: React.FC = () => {
     setEditing(null);
   };
 
+  /**
+   * 旧版 Agent 不认识 cycle_id:照常保存成功,只是把这个字段悄悄丢掉。
+   * 存完回读一次,绑定没落上就明说——否则管理员会以为这条内容会随周期自动下线。
+   */
+  const warnIfBindingDropped = async (sourceId: string | undefined, sent: number | null) => {
+    if (!sourceId || sent === null) return;
+    try {
+      const res: any = await getKbSource(sourceId);
+      if (res?.data && normalizeCycleId(res.data.cycle_id) !== sent) {
+        message.warning(
+          "周期绑定没有生效:Agent 服务可能还没升级到支持周期绑定的版本,这条内容目前仍按常青处理",
+          8
+        );
+      }
+    } catch {
+      // 回读只为提示,失败不影响已经成功的保存
+    }
+  };
+
   const submit = async () => {
     const values = await form.validateFields();
+    // 始终显式带上 cycle_id:上游把「不传」当成 null,漏传会把已有绑定清掉
+    const payload = { ...values, cycle_id: normalizeCycleId(values.cycle_id) };
     setSubmitting(true);
     try {
+      let sourceId: string | undefined;
       if (editing) {
-        await updateKbSource(editing.source_id, values);
+        await updateKbSource(editing.source_id, payload);
+        sourceId = editing.source_id;
         message.success("已更新并重嵌");
       } else {
-        await createKbSource(values);
+        const res: any = await createKbSource(payload);
+        sourceId = res?.data?.source_id;
         message.success("已创建并入库");
       }
       closeEditor();
       load(1, size, kindFilter, keyword);
+      warnIfBindingDropped(sourceId, payload.cycle_id);
     } catch (e: any) {
       message.error(e?.message || "保存失败");
     } finally {
@@ -182,6 +219,14 @@ const AgentKB: React.FC = () => {
       width: 90,
       render: (v: string) =>
         v === "test" ? <Tag color="warning">测试</Tag> : <Tag>常规</Tag>,
+    },
+    {
+      title: "招新周期",
+      dataIndex: "cycle_id",
+      width: 170,
+      render: (v: unknown) => (
+        <CycleBindingTag cycleId={v} directory={directory} loading={cyclesLoading} />
+      ),
     },
     {
       title: "标签",
@@ -271,6 +316,20 @@ const AgentKB: React.FC = () => {
         </Text>
       </Space>
 
+      {cycleProblem && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={cycleProblem}
+          action={
+            <Button size="small" onClick={reloadCycles}>
+              重试
+            </Button>
+          }
+        />
+      )}
+
       <Table
         rowKey="source_id"
         size="small"
@@ -333,6 +392,21 @@ const AgentKB: React.FC = () => {
           </Space>
           <Form.Item name="tags" label="标签">
             <Select mode="tags" placeholder="回车添加,如:招新 / 部门" />
+          </Form.Item>
+          <Form.Item
+            name="cycle_id"
+            label="招新周期"
+            extra={
+              editingBinding.unsearchable ? (
+                <Text type="danger">{editingBinding.hint}</Text>
+              ) : editingBinding.status === "evergreen" ? (
+                "常青内容任何时候都可被检索;绑定周期后只在该周期开放期间可被检索,周期结束后自动退出检索"
+              ) : editingBinding.status === "unknown" && cyclesLoading ? null : (
+                editingBinding.hint
+              )
+            }
+          >
+            <CycleSelect directory={directory} loading={cyclesLoading} />
           </Form.Item>
           {docType === "faq" ? (
             <>
