@@ -40,6 +40,7 @@ import {
   approveFailure,
   approveOutcome,
   draftFlags,
+  errorText,
   evidenceRows,
   kindHint,
   kindLabel,
@@ -143,7 +144,7 @@ const DraftDrawer: React.FC<{
       onChanged();
       await load(draft.draft_id);
     } catch (e: any) {
-      setFailure({ message: e?.message || "保存失败", note: "修改没有保存;知识库没有被改动。" });
+      setFailure({ message: errorText(e, "保存失败"), note: "修改没有保存;知识库没有被改动。" });
     } finally {
       setBusy(null);
     }
@@ -211,7 +212,7 @@ const DraftDrawer: React.FC<{
       onChanged();
       onClose();
     } catch (e: any) {
-      setFailure({ message: e?.message || "驳回失败", note: "驳回没有生效;知识库没有被改动。" });
+      setFailure({ message: errorText(e, "驳回失败"), note: "驳回没有生效;知识库没有被改动。" });
       onChanged();
     } finally {
       setBusy(null);

@@ -103,11 +103,11 @@ export function updateKbDraft(
 }
 
 /**
- * 批准并发布到知识库。要重建向量,可能超过默认的 10 秒,单独放宽。
- * 失败时的文案写明了知识库有没有被改动,调用方要原样展示。
+ * 批准并发布到知识库。要重建向量,比一般请求慢,所以放宽到与后端代理的读超时一致(15 秒);
+ * 再长没有意义——代理会先断。失败时的文案写明了知识库有没有被改动,调用方要原样展示。
  */
 export function approveKbDraft(draftId: number) {
-  return request({ url: `${BASE}/${draftId}/approve`, method: 'post', timeout: 60000 });
+  return request({ url: `${BASE}/${draftId}/approve`, method: 'post', timeout: 15000 });
 }
 
 /** 驳回 */

@@ -123,6 +123,15 @@ export function approveOutcome(data: any): ApproveOutcome {
   return { level: "success", text: `已批准并发布到知识库${source}` };
 }
 
+/**
+ * 接口出错时给人看的一句话。422(请求体没过校验)时后端信封里的 message 是空的,
+ * 直接显示会是一片空白或一句英文的「status code 422」,换成一句通用的说明。
+ */
+export function errorText(error: any, fallback: string): string {
+  if (error?.status === 422) return "请求内容不符合要求,请检查后重试";
+  return error?.message || fallback;
+}
+
 export interface ActionFailure {
   /** 接口返回的原文,原样展示 */
   message: string;
@@ -135,13 +144,23 @@ export interface ActionFailure {
  * 这里只按契约补一句处置建议,拿不准的不替接口下结论。
  */
 export function approveFailure(error: any): ActionFailure {
-  const message: string = error?.message || "批准失败";
+  const message: string = errorText(error, "批准失败");
   const status = error?.status;
   if (message.includes("内容已写入知识库")) {
     return { message, note: "内容其实已经发布,只是草稿状态没更新。再点一次「批准并发布」即可,不会重复发布。" };
   }
-  if ([400, 404, 409, 502, 503].includes(status)) {
+  // 400 / 404 / 409 是 Agent 在动知识库之前就拒绝的,可以放心说没改
+  if ([400, 404, 409].includes(status)) {
     return { message, note: "知识库没有被改动。" };
   }
-  return { message, note: "请以上面的说明为准;拿不准时先刷新,核对这份草稿的状态和知识库里的条目。" };
+  // 502 / 503 要看是谁说的:Agent 自己回的(嵌入端点、审计服务不可用)会在文案里写明
+  // 「未发布 / 未改动」;但后端代理连不上 Agent 或读超时也是 502,那时 Agent 可能已经
+  // 发布完了。所以只在文案自己这么说的时候才下结论
+  if (/未发布|未改动|没有被改动/.test(message)) {
+    return { message, note: "知识库没有被改动。" };
+  }
+  return {
+    message,
+    note: "这次请求没有拿到明确的结果,知识库有没有被改动不确定。请先刷新,核对这份草稿的状态和知识库里的条目,再决定要不要重试。",
+  };
 }

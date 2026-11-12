@@ -3,6 +3,7 @@ import {
   approveFailure,
   approveOutcome,
   draftFlags,
+  errorText,
   evidenceRows,
   kindLabel,
   normalizeDraftList,
@@ -108,16 +109,48 @@ describe('批准的结果', () => {
   });
 });
 
+describe('出错时给人看的一句话', () => {
+  it('422 时后端信封里没有文案:给一句通用说明,不显示空白或英文状态码', () => {
+    expect(errorText({ status: 422, message: '' }, '保存失败')).toBe('请求内容不符合要求,请检查后重试');
+    expect(errorText({ status: 422, message: 'Request failed with status code 422' }, '保存失败'))
+      .toBe('请求内容不符合要求,请检查后重试');
+  });
+
+  it('其余情况用接口的原文;没有就用兜底', () => {
+    expect(errorText({ status: 409, message: '草稿已被处理,无法修改' }, '保存失败')).toBe('草稿已被处理,无法修改');
+    expect(errorText({}, '保存失败')).toBe('保存失败');
+  });
+});
+
 describe('批准失败的说明', () => {
   it('接口的原文原样保留', () => {
     const f = approveFailure({ status: 503, message: '审计服务不可用,草稿未发布,请稍后重试' });
     expect(f.message).toBe('审计服务不可用,草稿未发布,请稍后重试');
   });
 
-  it('契约明确说知识库没被改动的几种状态码:照说', () => {
-    [400, 404, 409, 502, 503].forEach((status) => {
+  it('Agent 在动知识库之前就拒绝的几种状态码:可以放心说没改', () => {
+    [400, 404, 409].forEach((status) => {
       expect(approveFailure({ status, message: 'x' }).note).toBe('知识库没有被改动。');
     });
+  });
+
+  it('502 / 503:文案自己写明未发布、未改动时才下结论', () => {
+    expect(approveFailure({ status: 503, message: '审计服务不可用,草稿未发布,请稍后重试' }).note)
+      .toBe('知识库没有被改动。');
+    expect(approveFailure({ status: 502, message: '嵌入端点不可用,知识库未改动' }).note)
+      .toBe('知识库没有被改动。');
+  });
+
+  it('后端代理连不上或读超时也是 502:Agent 可能已经发布完,不能说没改', () => {
+    const f = approveFailure({ status: 502, message: 'Agent 服务暂时不可用' });
+    expect(f.note).not.toBe('知识库没有被改动。');
+    expect(f.note).toContain('不确定');
+    expect(f.note).toContain('核对');
+  });
+
+  it('请求超时(没有状态码):同样不确定,提示先核对', () => {
+    const f = approveFailure({ message: '网络较慢，请求超时了，请稍后重试' });
+    expect(f.note).toContain('不确定');
   });
 
   it('内容其实已经写入知识库:说明重试即可、不会重复发布', () => {
@@ -129,10 +162,11 @@ describe('批准失败的说明', () => {
     expect(f.note).not.toContain('没有被改动');
   });
 
-  it('其他情况不替接口下结论', () => {
+  it('500:接口说了未改动就照说;什么都没说就提示先核对', () => {
     const f = approveFailure({ status: 500, message: '发布失败,知识库未改动,请稍后重试' });
     expect(f.message).toBe('发布失败,知识库未改动,请稍后重试');
-    expect(f.note).not.toContain('没有被改动');
+    expect(f.note).toBe('知识库没有被改动。');
+    expect(approveFailure({ status: 500, message: '系统异常' }).note).toContain('不确定');
     expect(approveFailure({}).message).toBe('批准失败');
   });
 });
