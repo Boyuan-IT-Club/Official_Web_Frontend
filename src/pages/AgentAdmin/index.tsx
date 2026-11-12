@@ -4,17 +4,19 @@ import {
   BarChartOutlined,
   BookOutlined,
   CommentOutlined,
+  FileSearchOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
 import AgentOps from "../AgentOps";
 import AgentConfig from "../AgentConfig";
 import AgentUsage from "../AgentUsage";
 import AgentKB from "../AgentKB";
+import AgentKBOps from "../AgentKBOps";
 
 /**
  * Agent 管理工作台(M6 #115,按用户要求三块合并为单页内 Tabs)。
  * 权限:菜单项 anyOf agent:monitor / kb:manage(AdminLayout,RAG #134);
- * 运营/用量/配置子页属 agent:monitor,知识库 Tab 属 kb:manage(独立授权,
+ * 运营/用量/配置子页属 agent:monitor,知识库与知识缺口两个 Tab 属 kb:manage(独立授权,
  * #121:tab 内数据面 403 时由接口提示,不在此做权限分支)。
  */
 const AgentAdmin: React.FC = () => (
@@ -65,6 +67,15 @@ const AgentAdmin: React.FC = () => (
             </span>
           ),
           children: <AgentKB />,
+        },
+        {
+          key: "kb-ops",
+          label: (
+            <span>
+              <FileSearchOutlined /> 知识缺口
+            </span>
+          ),
+          children: <AgentKBOps />,
         },
       ]}
     />
