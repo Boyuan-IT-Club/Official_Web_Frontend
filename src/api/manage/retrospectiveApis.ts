@@ -118,3 +118,91 @@ export function getRetrospectiveSnapshot(params: {
 export function listRetrospectiveSnapshots(cycleId: number) {
   return request({ url: `${BASE}/snapshots`, method: 'get', params: { cycle_id: cycleId } });
 }
+
+/** ── 复盘报告(契约:cycle-retrospective.md §5「报告接口契约」)── */
+
+/** generating 生成中 / draft 草稿 / failed 生成失败 / published 已发布 / superseded 已被新发布的版本取代 */
+export type ReportStatus = 'generating' | 'draft' | 'failed' | 'published' | 'superseded';
+
+export interface ReportParagraph {
+  text?: string;
+  /** 快照 metrics 的 id,或目录项 id(表示引用它名下的每一格) */
+  metric_ids?: string[];
+}
+
+export interface ReportSection {
+  /** data / qa / evaluation */
+  role?: string;
+  title?: string;
+  /** ok / analyst_failed(分析员没有产出)/ no_data(这一节的数据不可用) */
+  status?: string;
+  items?: ReportParagraph[];
+  findings?: ReportParagraph[];
+}
+
+export interface ReportSections {
+  summary?: ReportParagraph | null;
+  sections?: ReportSection[];
+  /** 候选教训;kind: lesson / norm / calendar */
+  lessons?: { kind?: string; content?: string; metric_ids?: string[] }[];
+  rubric_candidates?: ReportParagraph[];
+  /** ok / failed(撰稿人没有产出,各节直接列分析员的发现)/ skipped(没有任何发现可写) */
+  writer_status?: string;
+  [key: string]: unknown;
+}
+
+/** 报告版本列表的一行(不含正文) */
+export interface ReportVersionRow {
+  cycle_id: number;
+  version: number;
+  status?: ReportStatus | string;
+  metrics_schema?: string;
+  snapshot_version?: number | null;
+  baseline_cycle_id?: number | null;
+  error?: string | null;
+  created_by?: number | null;
+  created_at?: string | null;
+  finished_at?: string | null;
+  published_by?: number | null;
+  published_at?: string | null;
+}
+
+export interface ReportResponse extends ReportVersionRow {
+  baseline_snapshot_version?: number | null;
+  /** generating 与 failed 时是空对象 */
+  sections?: ReportSections;
+  /** 渲染好的 Markdown 全文 */
+  report_md?: string;
+  /** 没有进入报告的内容(被数字落地守卫删掉的句子等),审阅时要展示出来 */
+  unverified?: { where?: string; text?: string; reason?: string }[];
+  prompt_versions?: Record<string, string>;
+  usage?: { input_tokens?: number; output_tokens?: number };
+}
+
+/**
+ * 先采一次快照,再后台生成一版报告草稿;202 立即返回占到的版本号,之后轮询报告接口。
+ * 报告生成没有开启时返回 503(功能未开放,不是故障)。后端代理这条的读超时是 60 秒。
+ */
+export function runRetrospectiveReport(cycleId: number, baselineCycleId?: number | null) {
+  return request({
+    url: `${BASE}/run`,
+    method: 'post',
+    data: { cycle_id: cycleId, ...(baselineCycleId != null ? { baseline_cycle_id: baselineCycleId } : {}) },
+    timeout: 60000,
+  });
+}
+
+/** 读最新一版或指定 version。没有 evaluation:run 的人只找得到已发布的版本 */
+export function getRetrospectiveReport(params: { cycle_id: number; version?: number }) {
+  return request({ url: `${BASE}/report`, method: 'get', params });
+}
+
+/** 一个周期的报告版本列表(新版本在前),不含正文 */
+export function listRetrospectiveReports(cycleId: number) {
+  return request({ url: `${BASE}/reports`, method: 'get', params: { cycle_id: cycleId } });
+}
+
+/** 发布一个草稿版本。审计写入失败返回 503,报告没有发布 */
+export function publishRetrospectiveReport(cycleId: number, version: number) {
+  return request({ url: `${BASE}/publish`, method: 'post', data: { cycle_id: cycleId, version } });
+}
