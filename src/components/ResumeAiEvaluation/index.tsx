@@ -7,6 +7,7 @@ import {
   AiGrade, AiGrades, DeptMatch, ItemVerdict, ScorecardDetail, ScorecardRow, TransferHint,
   getEvaluationQbank, getEvaluationScorecard, pickQuestions,
 } from '@/api/manage/evaluationApis';
+import { PanelSection, PanelTags } from './PanelSection';
 import './index.scss';
 
 const { Paragraph, Text } = Typography;
@@ -127,6 +128,8 @@ export const AiScorecardBody: React.FC<{ detail: ScorecardDetail }> = ({ detail 
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
       <AiGradeTags grades={{ ...detail, transfer_hint: card.transfer_hint }} />
       {basis && <Text type="secondary">{basis}</Text>}
+      {/* 带批判者模式的卡才有 panel;单评委模式的卡与旧卡没有,这里什么都不渲染 */}
+      <PanelSection panel={card.panel} />
       {card.summary && <Paragraph style={{ marginBottom: 0 }}>{card.summary}</Paragraph>}
       {hints.length > 0 && (
         <Alert
@@ -419,6 +422,7 @@ export const ResumeAiSummary: React.FC<ResumeAiSummaryProps> = ({ resumeId, cycl
       <div className="resume-ai-summary__collapsed">
         <span className="resume-ai-summary__label"><RobotOutlined /> AI 初筛</span>
         <AiGradeTags grades={{ ...detail, transfer_hint: detail.card?.transfer_hint }} />
+        <PanelTags panel={detail.card?.panel} />
         <Button size="small" type="link" onClick={() => setExpanded(true)}>
           查看完整评价
         </Button>

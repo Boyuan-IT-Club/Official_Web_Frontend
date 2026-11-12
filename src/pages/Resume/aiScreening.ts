@@ -2,7 +2,12 @@
 
 import type { ScorecardRow } from '@/api/manage/evaluationApis';
 
-export type AiFilter = 'all' | 'pending' | 'match_top' | 'effort_low' | 'transfer' | 'review' | 'rerun';
+export type AiFilter =
+  | 'all' | 'pending' | 'match_top' | 'effort_low' | 'transfer' | 'review' | 'rerun'
+  /** AI 自己把握不大的卡(置信度 low)——最需要人细看的那一批 */
+  | 'low_confidence'
+  /** 简历里检出疑似写给 AI 的指令 */
+  | 'injection';
 
 /** 列表顶部「AI 状态」下拉的判定；card 为该简历在当前周期的评分卡（没有即未初筛） */
 export function matchesAiFilter(card: ScorecardRow | undefined, filter: AiFilter): boolean {
@@ -12,7 +17,25 @@ export function matchesAiFilter(card: ScorecardRow | undefined, filter: AiFilter
   if (filter === 'transfer') return Boolean(card?.transfer_hint);
   if (filter === 'review') return Boolean(card?.hard_zero);
   if (filter === 'rerun') return Boolean(card?.needs_rerun);
+  if (filter === 'low_confidence') return card?.confidence === 'low';
+  if (filter === 'injection') return card?.injection_detected === true;
   return true;
+}
+
+/**
+ * 这些评分卡里有没有任何一张带置信度。
+ *
+ * 置信度只有「带批判者」的评分模式才出;单评委模式的卡是 null,旧版 Agent 根本不返回这个字段。
+ * 一张都没有时,「置信度低 / 提示注入」两档筛不出东西——那不代表「没有需要细看的」,
+ * 而是这个周期压根没有这项信息,页面要把这一点说出来。
+ */
+export function hasConfidenceInfo(cards: Iterable<ScorecardRow | undefined>): boolean {
+  for (const card of Array.from(cards)) {
+    if (card && (card.confidence === 'low' || card.confidence === 'medium' || card.confidence === 'high')) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Agent 单次 /admin/evaluation/run 最多 200 条（evaluation_admin.py: max_length=200） */
