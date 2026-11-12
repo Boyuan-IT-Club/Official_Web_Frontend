@@ -9,6 +9,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { message } from 'antd';
+import dayjs from 'dayjs';
 import Retrospective from '../index';
 
 jest.mock('../../../api/manage/retrospectiveApis', () => ({
@@ -230,7 +231,10 @@ describe('查看快照', () => {
   it('切到指定版本时带上 version', async () => {
     render(<Retrospective />);
     await screen.findByText('投递总数');
-    await pick('快照版本', '第 2 版 · 11-01 08:30 · 有缺域');
+    // 版本下拉里的时间按浏览器所在时区显示。期望值用同一种方式算出来,
+    // 不能写死成某个时区下的样子——CI 跑在 UTC,写死东八区的「08:30」在那里永远对不上
+    const takenAt = dayjs(VERSIONS.data.items[1].taken_at).format('MM-DD HH:mm');
+    await pick('快照版本', `第 2 版 · ${takenAt} · 有缺域`);
     await waitFor(() =>
       expect(api.getRetrospectiveSnapshot).toHaveBeenLastCalledWith({ cycle_id: 2, version: 2 }));
   });
