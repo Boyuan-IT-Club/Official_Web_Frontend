@@ -18,6 +18,8 @@ import {
 import { CloudUploadOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { ColumnsType } from "antd/es/table";
+import AltQuestionsInput from "./AltQuestionsInput";
+import { ALT_QUESTIONS_MAX, normalizeAltQuestions } from "./altQuestions";
 import {
   KbSourceRow,
   createKbSource,
@@ -93,6 +95,8 @@ const AgentKB: React.FC = () => {
         kind: d.kind,
         tags: d.tags ?? [],
         question: d.question ?? "",
+        // 旧版 Agent 不返回这个字段:按没有处理
+        alt_questions: normalizeAltQuestions(d.alt_questions),
         answer: d.answer ?? "",
         content_md: d.content_md ?? "",
       });
@@ -342,6 +346,13 @@ const AgentKB: React.FC = () => {
                 rules={[{ required: true, message: "FAQ 问题必填" }]}
               >
                 <Input.TextArea rows={2} maxLength={4000} placeholder="用户会怎么问" />
+              </Form.Item>
+              <Form.Item
+                name="alt_questions"
+                label="附加问法"
+                extra={`同一个答案的其他问法,每种问法都参与检索;至多 ${ALT_QUESTIONS_MAX} 条,可不填`}
+              >
+                <AltQuestionsInput />
               </Form.Item>
               <Form.Item
                 name="answer"

@@ -1,11 +1,13 @@
 import React from "react";
 import { Tabs, Typography } from "antd";
 import {
+  AuditOutlined,
   BarChartOutlined,
   BookOutlined,
   CommentOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
+import AgentKBDrafts from "../AgentKBDrafts";
 import AgentOps from "../AgentOps";
 import AgentConfig from "../AgentConfig";
 import AgentUsage from "../AgentUsage";
@@ -65,6 +67,15 @@ const AgentAdmin: React.FC = () => (
             </span>
           ),
           children: <AgentKB />,
+        },
+        {
+          key: "kb-drafts",
+          label: (
+            <span>
+              <AuditOutlined /> 草稿审核
+            </span>
+          ),
+          children: <AgentKBDrafts />,
         },
       ]}
     />
