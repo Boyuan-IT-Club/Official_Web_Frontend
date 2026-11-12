@@ -19,6 +19,7 @@ import {
   FlagOutlined,
   CodeOutlined,
   ControlOutlined,
+  FundOutlined,
   LogoutOutlined,
   ExportOutlined,
   BgColorsOutlined,
@@ -57,6 +58,7 @@ const MENU_DEFS: Array<{
   { key: "/evaluation", icon: <FormOutlined />, label: "面试评价表", anyOf: ["resume:audit", "interview:evaluate"] },
   { key: "/activities", icon: <FlagOutlined />, label: "活动管理", anyOf: ["activity:manage"] },
   { key: "/evaluations", icon: <CodeOutlined />, label: "autograding", anyOf: ["evaluation:view"] },
+  { key: "/retrospective", icon: <FundOutlined />, label: "周期复盘", anyOf: ["resume:audit", "evaluation:run"] }, // 与 Agent 侧读取快照的权限一致
   { key: "/agent-admin", icon: <ControlOutlined />, label: "Agent 管理", anyOf: ["agent:monitor", "kb:manage"] }, // RAG #134:kb:manage 单独授权也能见知识库 Tab
 ];
 

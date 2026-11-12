@@ -22,6 +22,8 @@ const EvaluationManage = lazy(() => import("@/pages/EvaluationManage"));
 // 客服 Agent 管理(M6 #115, agent:monitor; 三块合并为单页内 Tabs)
 const AgentAdmin = lazy(() => import("@/pages/AgentAdmin"));
 const FeedbackManage = lazy(() => import("@/pages/FeedbackManage"));
+// 周期复盘 · 指标快照(查看 resume:audit / evaluation:run,采集 evaluation:run)
+const Retrospective = lazy(() => import("@/pages/Retrospective"));
 
 const LazyLoad: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}><Spin size="large" /></div>}>
@@ -78,6 +80,10 @@ const router = createBrowserRouter([
       {
         path: "evaluations",
         element: <LazyLoad><EvaluationManage /></LazyLoad>,
+      },
+      {
+        path: "retrospective",
+        element: <LazyLoad><Retrospective /></LazyLoad>,
       },
       {
         path: "agent-admin",
