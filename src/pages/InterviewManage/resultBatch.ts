@@ -1,6 +1,6 @@
 // 「录取结果」页的纯逻辑：哪些人算待定、一键标未通过要动谁、确认框里该提醒什么。
 // 单独抽出来是为了能直接测——这些判断一旦错，后果是把人的录取改掉或漏发感谢信。
-import type { InterviewResultItem } from '@/api/manage/interviewAdmin';
+import type { InterviewResultItem, ResultSummary } from '@/api/manage/interviewAdmin';
 import type { CandidateSummary } from '@/api/manage/interviewEvaluation';
 
 /**
@@ -10,6 +10,14 @@ import type { CandidateSummary } from '@/api/manage/interviewEvaluation';
  */
 export function isPendingDecision(decision: number | null | undefined): boolean {
   return decision == null || decision === 0;
+}
+
+/**
+ * 已有正式结果（通过 / 未通过）。已定的结果不能再被批量操作覆盖，只能逐个「更正」并填原因。
+ * 待调剂（3）是历史取值，按未决定处理。
+ */
+export function isDecided(decision: number | null | undefined): boolean {
+  return decision === 1 || decision === 2;
 }
 
 /** 「按结果筛选」的选项，取值与 decision 一致 */
@@ -72,47 +80,97 @@ export function planRejectPending(
   };
 }
 
-/** 勾选的人里当前已是「通过」的人数：批量标未通过会把他们的录取覆盖掉 */
-export function countAdmittedAmong(rows: InterviewResultItem[], selectedIds: number[]): number {
-  const set = new Set(selectedIds);
-  return rows.filter((r) => set.has(r.resultId) && r.decision === 1).length;
-}
-
-/** 录取部门筛选里「录取了但没填部门」的占位值（真实部门 ID 都是正数） */
-export const NO_ASSIGNED_DEPT = -1;
-
-export interface AdmittedDeptCount {
-  deptId: number;
-  deptName: string;
-  count: number;
+export interface BatchRejectPlan {
+  /** 真正会被标未通过的人 */
+  ids: number[];
+  /** 已有正式结果、会被跳过的人数 */
+  decided: number;
+  /** 在预录取名单里、会被跳过的人数 */
+  drafted: number;
 }
 
 /**
- * 已录取的人按最终录取部门分组计数，人多的部门排前。
- * 录取了却没填部门的单独成一组（NO_ASSIGNED_DEPT），这种数据要能被看见，而不是悄悄不计。
+ * 勾选的人里哪些会被「批量标记未通过」真正改动。
+ * 已定的和预录取名单里的服务端一律跳过，确认框里先说清楚，免得以为全改了。
  */
-export function admittedByDept(
+export function planBatchReject(
   rows: InterviewResultItem[],
-  deptNameOf: (deptId: number, sample?: InterviewResultItem) => string,
-): { total: number; groups: AdmittedDeptCount[] } {
-  const counts = new Map<number, number>();
-  const samples = new Map<number, InterviewResultItem>();
-  let total = 0;
-  rows.forEach((r) => {
-    if (r.decision !== 1) return;
-    total += 1;
-    const key = r.assignedDeptId ?? NO_ASSIGNED_DEPT;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-    if (!samples.has(key)) samples.set(key, r);
-  });
-  const groups = Array.from(counts.entries())
-    .map(([deptId, count]) => ({
-      deptId,
-      count,
-      // 传一行样本给取名函数：部门停用后只能靠结果行自带的部门名兜底
-      deptName: deptId === NO_ASSIGNED_DEPT ? '未填部门' : deptNameOf(deptId, samples.get(deptId)),
+  selectedIds: number[],
+  draftedIds: Set<number> = new Set(),
+): BatchRejectPlan {
+  const set = new Set(selectedIds);
+  const picked = rows.filter((r) => set.has(r.resultId));
+  const decided = picked.filter((r) => isDecided(r.decision));
+  const drafted = picked.filter((r) => !isDecided(r.decision) && draftedIds.has(r.resultId));
+  return {
+    ids: picked.filter((r) => !isDecided(r.decision) && !draftedIds.has(r.resultId)).map((r) => r.resultId),
+    decided: decided.length,
+    drafted: drafted.length,
+  };
+}
+
+/** 批量操作返回后的提示语：改了几个、各因为什么跳过了几个 */
+export function describeBatchResult(
+  verb: string,
+  res: { updated?: number; skipped?: number[]; skippedDecided?: number; skippedInPreAdmission?: number } | undefined,
+): { ok: boolean; text: string } {
+  const updated = res?.updated ?? 0;
+  const decided = res?.skippedDecided ?? 0;
+  const drafted = res?.skippedInPreAdmission ?? 0;
+  const other = Math.max(0, (res?.skipped?.length ?? 0) - decided - drafted);
+  const reasons = [
+    decided > 0 ? `${decided} 人已有正式结果` : '',
+    drafted > 0 ? `${drafted} 人在预录取名单里` : '',
+    other > 0 ? `${other} 人不属于本周期` : '',
+  ].filter(Boolean);
+  return reasons.length === 0
+    ? { ok: true, text: `已${verb} ${updated} 人` }
+    : { ok: false, text: `已${verb} ${updated} 人；跳过 ${reasons.join('、')}，未改动` };
+}
+
+/** 录取统计里「未填部门」的占位值（真实部门 ID 都是正数） */
+export const NO_ASSIGNED_DEPT = -1;
+
+export interface AdmittedDeptGroup {
+  deptId: number;
+  deptName: string;
+  admitted: number;
+  firstChoice: number;
+  secondChoice: number;
+  /** 调剂：两个志愿都不是本部门 */
+  other: number;
+  notified: number;
+}
+
+/**
+ * 录取去向：各部门最终录了几个人（服务端统计，不随列表筛选变化），人多的部门排前。
+ * 录取了却没填部门的人单独成一组，这种数据要能被看见，而不是悄悄不计。
+ */
+export function admittedGroups(summary: ResultSummary | null | undefined): {
+  total: number;
+  groups: AdmittedDeptGroup[];
+} {
+  if (!summary) return { total: 0, groups: [] };
+  const groups: AdmittedDeptGroup[] = summary.departments
+    .filter((d) => d.admitted > 0)
+    .map((d) => ({
+      deptId: d.deptId,
+      deptName: d.deptName,
+      admitted: d.admitted,
+      firstChoice: d.admittedFirstChoice,
+      secondChoice: d.admittedSecondChoice,
+      other: d.admittedOther,
+      notified: d.admittedNotified,
     }))
-    .sort((a, b) => b.count - a.count || a.deptName.localeCompare(b.deptName, 'zh-CN'));
+    .sort((a, b) => b.admitted - a.admitted || a.deptName.localeCompare(b.deptName, 'zh-CN'));
+  const total = summary.totals.admitted;
+  const counted = groups.reduce((n, g) => n + g.admitted, 0);
+  if (total > counted) {
+    groups.push({
+      deptId: NO_ASSIGNED_DEPT, deptName: '未填部门', admitted: total - counted,
+      firstChoice: 0, secondChoice: 0, other: 0, notified: 0,
+    });
+  }
   return { total, groups };
 }
 

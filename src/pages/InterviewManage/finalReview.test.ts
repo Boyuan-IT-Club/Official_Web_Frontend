@@ -1,5 +1,5 @@
 import {
-  assembleCandidates, clampIndex, heatTier, rankCandidates, stageKeyAction,
+  assembleCandidates, clampIndex, countPendingOutside, heatTier, isConflict, rankCandidates, stageKeyAction,
 } from './finalReview';
 
 describe('终审舞台纯逻辑', () => {
@@ -70,8 +70,26 @@ describe('终审舞台纯逻辑', () => {
     expect(stageKeyAction('a', 4)).toBeNull();
   });
 
-  it('索引回绕：翻过末尾回到开头', () => {
-    expect(clampIndex(3, 3)).toBe(0);
-    expect(clampIndex(-1, 3)).toBe(2);
+  it('翻到头停住，不回绕到另一端', () => {
+    expect(clampIndex(3, 3)).toBe(2);
+    expect(clampIndex(-1, 3)).toBe(0);
+    expect(clampIndex(1, 3)).toBe(1);
+    expect(clampIndex(5, 0)).toBe(0);
+  });
+
+  it('冲突：已有正式结果却还在预录取名单里；待调剂不算已定', () => {
+    expect(isConflict({ preDeptId: 1, decision: 1 })).toBe(true);
+    expect(isConflict({ preDeptId: 1, decision: 2 })).toBe(true);
+    expect(isConflict({ preDeptId: 1, decision: 0 })).toBe(false);
+    expect(isConflict({ preDeptId: 1, decision: 3 })).toBe(false);
+    expect(isConflict({ preDeptId: null, decision: 1 })).toBe(false);
+  });
+
+  it('名单外的待定：没决定、也没进预录取名单的人', () => {
+    const list = [
+      { decision: 0, preDeptId: null }, { decision: 0, preDeptId: 2 }, { decision: 1, preDeptId: null },
+      { decision: 3, preDeptId: null }, { decision: 2, preDeptId: null },
+    ] as any;
+    expect(countPendingOutside(list)).toBe(2);
   });
 });

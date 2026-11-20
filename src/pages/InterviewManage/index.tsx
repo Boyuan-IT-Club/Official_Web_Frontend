@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import PageHint from '@/components/PageHint';
 import {
-  DECISION_FILTER_OPTIONS, admittedByDept, admittedTo, countAdmittedAmong, isPendingDecision,
-  matchesDecisionFilter, planRejectPending,
+  DECISION_FILTER_OPTIONS, NO_ASSIGNED_DEPT, admittedGroups, admittedTo, describeBatchResult, isDecided,
+  isPendingDecision, matchesDecisionFilter, planBatchReject, planRejectPending,
 } from './resultBatch';
 import {
   Alert,
@@ -51,7 +51,9 @@ import {
   listReschedules,
   InterviewResultItem,
   listAllResults,
-  seedResultsFromSchedules,
+  getResultSummary,
+  RESULT_ERROR,
+  type ResultSummary,
   listSchedulesRoster,
   listPreAdmission,
   listOfflineUnavailable,
@@ -1227,13 +1229,12 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
   const [nameMap, setNameMap] = useState<Record<number, { name?: string; username?: string }>>({});
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
+  // 录入（待定的人）/ 更正（已有正式结果的人，必须填原因）
   const [editing, setEditing] = useState<InterviewResultItem | null>(null);
-  const [editDecision, setEditDecision] = useState<number | undefined>();
+  const [editDecision, setEditDecision] = useState<1 | 2 | undefined>();
   const [editDept, setEditDept] = useState<number | undefined>();
+  const [editReason, setEditReason] = useState("");
   const [saving, setSaving] = useState(false);
-  const [batchOpen, setBatchOpen] = useState(false);
-  const [batchDept, setBatchDept] = useState<number | undefined>();
-  const [batching, setBatching] = useState(false);
   // 批量加入预录取名单（草稿，不动 decision、不发通知）
   const [preOpen, setPreOpen] = useState(false);
   const [preDept, setPreDept] = useState<number | undefined>();
@@ -1249,8 +1250,11 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
   const [admittedDeptFilter, setAdmittedDeptFilter] = useState<number | undefined>();
   // 表格行内展开面试评价，免得一个个点开抽屉
   const [expandedKeys, setExpandedKeys] = useState<number[]>([]);
-  // 已在预录取名单里的人：转正前结果仍是待定，但部门已打算录取，一键标未通过不能动他们
-  const [draftedIds, setDraftedIds] = useState<Set<number>>(new Set());
+  // 预录取名单里的人（resultId → 拟录取部门名）：转正前结果仍是待定，但部门已打算录取，
+  // 这一页的录入、批量、一键标未通过都不能动他们，要到「预录取」页处理
+  const [drafts, setDrafts] = useState<Map<number, string>>(new Map());
+  // 录取统计由服务端算：不随列表筛选变化，也不会因为只拉到一部分人而少算
+  const [summary, setSummary] = useState<ResultSummary | null>(null);
   // 评价汇总就地关联：面试分/结论列的兜底数据源（后端联表字段上线前也能显示），
   // 也是「查看评价」抽屉的数据。按 scheduleId 对行。
   const [evalMap, setEvalMap] = useState<Record<number, CandidateSummary>>({});
@@ -1260,17 +1264,24 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [res, roster, evalRes, pre]: any[] = await Promise.all([
-        // 原先 size 200 只取第一页：超过 200 人时后面的人不显示，批量操作也勾不到
+      const [res, roster, evalRes, pre, sum]: any[] = await Promise.all([
+        // 原先 size 200 只取第一页：超过 200 人时后面的人不显示，批量操作也勾不到。
+        // 名单由后端在查询时自动补齐，不用再手动「生成名单」
         listAllResults(cycleId),
         listSchedulesRoster(cycleId).catch(() => null),
         // 拉不到评价不挡结果名单：面试分列显示「—」，抽屉里给空态
         getEvaluationSummary(cycleId).catch(() => null),
-        // 拉不到草稿就当没有：服务端 onlyPending 还会再排除一次预录取名单里的人
+        // 拉不到草稿就当没有：服务端批量操作还会再排除一次预录取名单里的人
         listPreAdmission({ cycleId, page: 1, size: 1000 }).catch(() => null),
+        getResultSummary(cycleId).catch(() => null),
       ]);
       setList(res?.data?.interviewResults ?? []);
-      setDraftedIds(new Set((pre?.data?.candidates ?? []).map((d: any) => Number(d.resultId))));
+      const draftMap = new Map<number, string>();
+      (pre?.data?.candidates ?? []).forEach((d: any) => {
+        draftMap.set(Number(d.resultId), d.departmentName ?? `#${d.assignedDeptId}`);
+      });
+      setDrafts(draftMap);
+      setSummary(sum?.data ?? null);
       const map: Record<number, { name?: string; username?: string }> = {};
       (roster?.data ?? []).forEach((r: any) => {
         if (r.userId != null) map[r.userId] = { name: r.name, username: r.username };
@@ -1292,6 +1303,7 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
   }, [load, refreshToken]);
 
   const deptName = useCallback((id?: number) => depts.find((d: any) => d.deptId === id)?.deptName || (id ? `#${id}` : "-"), [depts]);
+  const draftedIds = useMemo(() => new Set(drafts.keys()), [drafts]);
 
   /** 志愿或拟录取部门命中筛选即保留：调剂场景里两者都可能是决策依据 */
   const visibleList = useMemo(() => list.filter((r) => {
@@ -1312,7 +1324,7 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
       depts.find((d: any) => d.deptId === id)?.deptName || sample?.departmentName || `#${id}`,
     [depts],
   );
-  const admitted = useMemo(() => admittedByDept(list, admittedDeptName), [list, admittedDeptName]);
+  const admitted = useMemo(() => admittedGroups(summary), [summary]);
   const allExpanded = visibleList.length > 0 && visibleList.every((r) => expandedKeys.includes(r.resultId));
   // 展开行渲染函数保持稳定，配合 EvaluationDetail 的 memo：展开几百行后，
   // 勾选、筛选等交互不必把每一行的评价表都重渲染一遍
@@ -1326,87 +1338,107 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
     </div>
   ), [evalMap, dimensions]);
 
+  const nameOfResult = (r: InterviewResultItem) =>
+    displayName(r.userName || nameMap[r.userId]?.name, nameMap[r.userId]?.username, r.userId);
+
   const openEditResult = (r: InterviewResultItem) => {
     setEditing(r);
-    setEditDecision(r.decision ?? undefined);
-    setEditDept(r.assignedDeptId ?? undefined);
+    setEditDecision(isDecided(r.decision) ? (r.decision as 1 | 2) : undefined);
+    setEditDept(r.decision === 1 ? r.assignedDeptId ?? undefined : undefined);
+    setEditReason("");
   };
+
+  // 已有正式结果的人再改就是「更正」：必须填原因，学生刷新即见，改动留痕
+  const correcting = editing != null && isDecided(editing.decision);
+  const editUnchanged = correcting
+    && editDecision === editing?.decision
+    && (editDecision !== 1 || editDept === editing?.assignedDeptId);
 
   const saveResult = async () => {
     if (!editing) return;
+    if (editDecision == null) { message.warning("请选择结果"); return; }
     if (editDecision === 1 && !editDept) { message.warning("录取时请选择录取部门"); return; }
+    if (editUnchanged) { setEditing(null); return; }
+    if (correcting && !editReason.trim()) { message.warning("更正已定的结果必须填写原因"); return; }
     setSaving(true);
     try {
-      await updateResult(editing.resultId, { decision: editDecision, assignedDeptId: editDecision === 1 ? editDept : undefined });
-      message.success("结果已更新");
+      await updateResult(editing.resultId, {
+        decision: editDecision,
+        assignedDeptId: editDecision === 1 ? editDept : undefined,
+        reason: editReason.trim() || undefined,
+      });
+      if (!correcting) {
+        message.success("结果已录入");
+      } else if (editing.notifiedAt) {
+        message.warning("已更正。这位同学之前收到过结果通知，记得到「通知」页补发", 6);
+      } else {
+        message.success("已更正");
+      }
       setEditing(null);
       load();
     } catch (e: any) {
-      message.error(e?.message || "更新失败");
+      if (e?.code === RESULT_ERROR.IN_PRE_ADMISSION || e?.code === RESULT_ERROR.CONFLICT) {
+        // 列表是几分钟前拉的：期间有人把他加进了预录取、或者改了结果。刷新后让管理员重新核对
+        message.warning(e?.message || "数据刚被别人改过，已刷新，请核对后重试");
+        setEditing(null);
+        load();
+      } else {
+        message.error(e?.message || "保存失败");
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  /** 批量写入决定。decision=1 需带部门；=2 由服务端清空部门。 */
-  const runBatch = async (decision: 1 | 2, deptId?: number) => {
-    setBatching(true);
+  const runBatchReject = async (ids: number[]) => {
     try {
-      const res: any = await batchDecision({ cycleId, resultIds: selected, decision, assignedDeptId: deptId });
-      const d = res?.data;
-      const skipped = d?.skipped?.length ?? 0;
-      if (skipped > 0) {
-        message.warning(`已更新 ${d?.updated ?? 0} 人，跳过 ${skipped} 条（不属于本周期）`);
-      } else {
-        message.success(
-          decision === 1
-            ? `已录取 ${d?.updated ?? selected.length} 人到${deptName(deptId)}`
-            : `已标记 ${d?.updated ?? selected.length} 人未通过`,
-        );
-      }
-      setBatchOpen(false);
+      const res: any = await batchDecision({ cycleId, resultIds: ids, decision: 2 });
+      const { ok, text } = describeBatchResult("标记未通过", res?.data);
+      if (ok) message.success(text); else message.warning(text, 6);
       setSelected([]);
       load();
     } catch (e: any) {
       message.error(e?.message || "批量操作失败");
-    } finally {
-      setBatching(false);
     }
   };
 
   const confirmBatchReject = () => {
-    // 表头全选会把已录取的人一起勾上，这里把会被覆盖的录取单独点出来
-    const admitted = countAdmittedAmong(list, selected);
+    const plan = planBatchReject(list, selected, draftedIds);
+    if (plan.ids.length === 0) {
+      message.info("所选的人都已有正式结果或在预录取名单里，没有可标记的");
+      return;
+    }
+    const skipped = plan.decided + plan.drafted;
     Modal.confirm({
-      title: `标记 ${selected.length} 人未通过？`,
+      title: `标记 ${plan.ids.length} 人未通过？`,
       content: (
         <>
-          {admitted > 0 && (
+          {skipped > 0 && (
             <Alert
-              type="error"
+              type="info"
               showIcon
               style={{ marginBottom: 8 }}
-              message={`其中 ${admitted} 人当前是「通过」，他们的录取会被改成未通过。`}
+              message={[
+                plan.decided > 0 ? `${plan.decided} 人已有正式结果` : "",
+                plan.drafted > 0 ? `${plan.drafted} 人在预录取名单里` : "",
+              ].filter(Boolean).join("、") + "，会被跳过。"}
             />
           )}
-          会清空这些人已填的录取部门。此操作可以再次修改，但会覆盖原有结果。
+          会清空这些人已填的录取部门。不会发邮件，感谢信要到「通知」页单独发送。
         </>
       ),
       okText: "确认标记",
       okButtonProps: { danger: true },
-      onOk: () => runBatch(2),
+      onOk: () => runBatchReject(plan.ids),
     });
   };
-
-  const nameOfResult = (r: InterviewResultItem) =>
-    displayName(r.userName || nameMap[r.userId]?.name, nameMap[r.userId]?.username, r.userId);
 
   /**
    * 待定全部标为未通过：动的是全周期结果仍为待定、且不在预录取名单里的人。
    *
    * 不按部门/结论筛选的子集来做：未通过是这个人的最终结果、不分部门——在「技术部」筛选下
    * 一键标掉，会把第二志愿是别的部门、那边还没决定的人一起婉拒。所以有这两种筛选时按钮禁用。
-   * 服务端带 onlyPending 再判一次——列表可能是几分钟前加载的，期间别人录取或加进预录取的人不能被改。
+   * 服务端再判一次——列表可能是几分钟前加载的，期间别人定了结果或加进预录取的人不会被改。
    */
   const rejectPlan = useMemo(
     () => planRejectPending(list, evalMap, nameOfResult, draftedIds),
@@ -1452,54 +1484,34 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
             {plan.ids.length > plan.previewNames.length ? ` 等 ${plan.ids.length} 人` : ""}
           </p>
           <p style={{ margin: 0, color: "rgba(0,0,0,0.45)" }}>
-            只会改执行这一刻仍是待定的人，期间被别人改过结果或加进预录取的会自动跳过。
+            只会改执行这一刻仍是待定的人，期间被别人定了结果或加进预录取的会自动跳过。
             不会发邮件，感谢信要到「通知」页单独发送。
           </p>
         </div>
       ),
       okText: "全部标为未通过",
       okButtonProps: { danger: true },
-      onOk: async () => {
-        try {
-          const res: any = await batchDecision({
-            cycleId, resultIds: plan.ids, decision: 2, onlyPending: true,
-          });
-          const updated = res?.data?.updated ?? 0;
-          const skipped = res?.data?.skipped?.length ?? 0;
-          if (skipped > 0) {
-            message.warning(`已标记 ${updated} 人未通过；${skipped} 人在此期间已被改为其他结果或加进了预录取，未改动`);
-          } else {
-            message.success(`已标记 ${updated} 人未通过`);
-          }
-          setSelected([]);
-          load();
-        } catch (e: any) {
-          message.error(e?.message || "操作失败");
-        }
-      },
+      onOk: () => runBatchReject(plan.ids),
     });
   };
 
-  // 待定 = decision 为 0（生成名单时的初始值）或为空；原先只认空，提示永远不出现
+  // 待定 = decision 为 0（名单补齐时的初始值）或为空
   const undecided = list.filter((r) => isPendingDecision(r.decision)).length;
   const rejectableCount = rejectPlan.ids.length;
-  const selectedUndecided = list.filter(
-    (r) => selected.includes(r.resultId) && isPendingDecision(r.decision),
-  ).length;
+  const totals = summary?.totals;
 
   return (
     <>
-      <PageHint style={{ marginBottom: 12 }}>先「生成名单」，再勾选批量录取或标记未通过；录取邮件在「通知」页统一发送。</PageHint>
+      <PageHint style={{ marginBottom: 12 }}>
+        名单自动生成：本届过了初筛的同学都在这里。录取统一在「预录取」页圈名单后转正；剩下的待定可一键标为未通过。
+        已定的结果只能逐个「更正」并填写原因。录取/感谢邮件在「通知」页发送。
+      </PageHint>
       <Space style={{ marginBottom: 12 }} wrap>
-        <Button
-          type="primary"
-          disabled={selected.length === 0}
-          onClick={() => { setBatchDept(undefined); setBatchOpen(true); }}
-        >
-          批量录取（已选 {selected.length}）
+        <Button type="primary" disabled={selected.length === 0} onClick={() => { setPreDept(undefined); setPreOpen(true); }}>
+          预录取（已选 {selected.length}）
         </Button>
         <Button danger disabled={selected.length === 0} onClick={confirmBatchReject}>
-          批量标记未通过
+          批量标记未通过（已选 {selected.length}）
         </Button>
         <Tooltip title={rejectBlockedByFilter
           ? "未通过是这个人的最终结果、不分部门。请先清除「按部门」「按结论」筛选，再对全部待定操作"
@@ -1508,26 +1520,6 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
             待定全部标为未通过（{rejectableCount}）
           </Button>
         </Tooltip>
-        {/* 名单来源：结果行此前只有飞书拉取会创建，站内闭环靠这个按钮起步 */}
-        <Button
-          onClick={async () => {
-            try {
-              const res: any = await seedResultsFromSchedules(cycleId);
-              const created = res?.data?.created ?? 0;
-              message.success(created > 0
-                ? `已从面试安排生成 ${created} 行待定结果`
-                : '没有新的安排需要生成（已有结果行的安排会跳过）');
-              load();
-            } catch (e: any) {
-              message.error(e?.message || '生成失败');
-            }
-          }}
-        >
-          从面试安排生成名单
-        </Button>
-        <Button disabled={selected.length === 0} onClick={() => { setPreDept(undefined); setPreOpen(true); }}>
-          预录取（已选 {selected.length}）
-        </Button>
         {undecided > 0 && <Tag color="orange">{undecided} 人待定</Tag>}
         {/* 录取决策的现场筛选：志愿/拟录取部门 + 面试官结论。
             数据一次拉全，筛选纯前端，不打接口 */}
@@ -1569,23 +1561,35 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
           {allExpanded ? "收起全部评价" : "展开全部评价"}
         </Button>
       </Space>
-      {/* 录取去向：最终各部门录了几个人，点部门只看录到那里的人 */}
-      {(admitted.total > 0 || admittedDeptFilter != null) && (
+      {/* 录取去向：最终各部门录了几个人（服务端统计），点部门只看录到那里的人 */}
+      {totals && (
         <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-          <span style={{ color: "rgba(0,0,0,0.65)" }}>已录取 <b>{admitted.total}</b> 人：</span>
+          <span style={{ color: "rgba(0,0,0,0.65)" }}>已录取 <b>{admitted.total}</b> 人{admitted.groups.length > 0 ? "：" : ""}</span>
           {admitted.groups.map((g) => (
-            <Tag.CheckableTag
+            <Tooltip
               key={g.deptId}
-              checked={admittedDeptFilter === g.deptId}
-              onChange={(checked) => setAdmittedDeptFilter(checked ? g.deptId : undefined)}
-              style={{ border: "1px solid #b7eb8f", marginInlineEnd: 0 }}
+              title={g.deptId === NO_ASSIGNED_DEPT
+                ? "录取了但没填录取部门，请逐个更正"
+                : `一志愿 ${g.firstChoice} · 二志愿 ${g.secondChoice} · 调剂 ${g.other} · 已通知 ${g.notified}`}
             >
-              {g.deptName} {g.count}
-            </Tag.CheckableTag>
+              <Tag.CheckableTag
+                checked={admittedDeptFilter === g.deptId}
+                onChange={(checked) => setAdmittedDeptFilter(checked ? g.deptId : undefined)}
+                style={{ border: "1px solid #b7eb8f", marginInlineEnd: 0 }}
+              >
+                {g.deptName} {g.admitted}
+              </Tag.CheckableTag>
+            </Tooltip>
           ))}
           {admittedDeptFilter != null && (
             <Button type="link" size="small" onClick={() => setAdmittedDeptFilter(undefined)}>看全部</Button>
           )}
+          <span style={{ color: "rgba(0,0,0,0.45)", marginLeft: 8 }}>
+            待定 {totals.pending + totals.adjusting}
+            {totals.inPreAdmission > 0 ? `（其中预录取中 ${totals.inPreAdmission}）` : ""}
+            {" · "}未通过 {totals.rejected}
+            {" · "}已通知 {totals.notified} / {totals.candidates}
+          </span>
         </div>
       )}
       <Table
@@ -1594,12 +1598,13 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
         loading={loading}
         dataSource={visibleList}
         pagination={false}
-        locale={{ emptyText: "暂无面试结果 —— 点上方「从面试安排生成名单」生成待定列表，或从「飞书同步」拉回" }}
+        locale={{ emptyText: "暂无名单 —— 本届还没有过了初筛的同学" }}
         rowSelection={{
           selectedRowKeys: selected,
           onChange: (keys) => setSelected(keys as number[]),
-          // 不再禁用"未录入决定"的行——批量录取的目标恰恰是这些人；
-          // 发送通知的按钮会自行判断所选名单里是否还有未录入的
+          // 已定的人没有可用的批量操作（预录取、标未通过都只改未决定的人），不让勾，
+          // 免得表头全选把录取了的人也带进去
+          getCheckboxProps: (r: InterviewResultItem) => ({ disabled: isDecided(r.decision) }),
         }}
         expandable={{
           expandedRowKeys: expandedKeys,
@@ -1629,9 +1634,8 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
           },
           {
             title: "面试", dataIndex: "scheduleId", width: 120,
-            // 没有面试安排的人此前根本进不了这张表（结果行要求挂在一场面试上）。
-            // 现在他们也在名单里，标出来免得管理员以为是数据错乱。
-            // scheduleId 由后端实时回退补齐：先生成名单、后排面试也能显示。
+            // 没有面试安排的人也在名单里，标出来免得管理员以为是数据错乱。
+            // scheduleId 由后端实时回退补齐：名单先生成、后排面试也能显示。
             render: (v: number | null, r: InterviewResultItem) => (v == null
               ? <Tooltip title="未参加线下面试（本人选择不能参加，或未被排上场次）">
                   <Tag color="orange">无面试</Tag>
@@ -1686,15 +1690,24 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
                   </Tag>;
             },
           },
-          { title: "结果", dataIndex: "decision", width: 90,
-            render: (d: number) => d != null
-              ? <Tag color={DECISION_TAG[d]?.color}>{DECISION_TAG[d]?.text ?? d}</Tag>
-              : <Tag color="orange">待录入</Tag> },
+          { title: "结果", dataIndex: "decision", width: 150,
+            render: (d: number, r: InterviewResultItem) => (
+              <>
+                {d != null
+                  ? <Tag color={DECISION_TAG[d]?.color}>{DECISION_TAG[d]?.text ?? d}</Tag>
+                  : <Tag color="orange">待录入</Tag>}
+                {drafts.has(r.resultId) && (
+                  <Tooltip title="在预录取名单里，转正后才是正式录取">
+                    <Tag color="cyan">预录取·{drafts.get(r.resultId)}</Tag>
+                  </Tooltip>
+                )}
+              </>
+            ) },
           { title: "录取部门", dataIndex: "assignedDeptId", width: 110,
-            // 录取了的人用醒目的标签，扫一眼就知道最后去了哪
+            // 只有通过的人才有录取部门；未通过的人库里若残留了部门也不显示，免得看着像录取了
             render: (v: number, r: InterviewResultItem) => (r.decision === 1 && v
               ? <Tag color="green" style={{ marginInlineEnd: 0 }}>{admittedDeptName(v, r)}</Tag>
-              : (v ? admittedDeptName(v, r) : <span style={{ color: "#bbb" }}>—</span>)) },
+              : <span style={{ color: "#bbb" }}>—</span>) },
           { title: "决定时间", dataIndex: "decisionAt", width: 150,
             render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },
           { title: "通知状态", dataIndex: "notifiedAt", width: 130,
@@ -1707,7 +1720,17 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
             render: (_: unknown, r: InterviewResultItem) => (
               <>
                 <Button type="link" size="small" onClick={() => setViewingEval(r)}>查看评价</Button>
-                <Button type="link" size="small" onClick={() => openEditResult(r)}>录入/修改</Button>
+                {drafts.has(r.resultId)
+                  ? (
+                    <Tooltip title="在预录取名单里，请到「预录取」页调整部门或移出">
+                      <Button type="link" size="small" disabled>录入</Button>
+                    </Tooltip>
+                  )
+                  : (
+                    <Button type="link" size="small" onClick={() => openEditResult(r)}>
+                      {isDecided(r.decision) ? "更正" : "录入"}
+                    </Button>
+                  )}
               </>
             ) },
         ] as any}
@@ -1727,11 +1750,12 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
             const skipped = res?.data?.skipped?.length ?? 0;
             message.success(
               `已加入 ${res?.data?.affected ?? 0} 人到「${deptName(preDept)}」预录取名单` +
-              (skipped > 0 ? `，跳过 ${skipped} 人（已定稿或不属于本周期）` : "") +
-              "，到「预录取」页查看全名单",
+              (skipped > 0 ? `，跳过 ${skipped} 人（已有正式结果或不属于本周期）` : "") +
+              "，到「预录取」页查看全名单并转正",
             );
             setPreOpen(false);
             setSelected([]);
+            load();
           } catch (e: any) {
             message.error(e?.message || "加入失败");
           } finally {
@@ -1755,24 +1779,41 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
       <EvaluationDrawer
         open={!!viewingEval}
         onClose={() => setViewingEval(null)}
-        candidateName={viewingEval
-          ? displayName(viewingEval.userName || nameMap[viewingEval.userId]?.name, nameMap[viewingEval.userId]?.username, viewingEval.userId)
-          : undefined}
+        candidateName={viewingEval ? nameOfResult(viewingEval) : undefined}
         summary={viewingEval ? evalMap[viewingEval.scheduleId] ?? null : null}
         dimensions={dimensions}
       />
 
       <Modal
-        title={editing
-          ? `录入结果：${displayName(editing.userName || nameMap[editing.userId]?.name, nameMap[editing.userId]?.username, editing.userId)}`
-          : ""}
+        title={editing ? `${correcting ? "更正结果" : "录入结果"}：${nameOfResult(editing)}` : ""}
         open={!!editing}
         onOk={saveResult}
+        okText={correcting ? "确认更正" : "保存"}
+        okButtonProps={{ danger: correcting && !editUnchanged }}
         confirmLoading={saving}
         onCancel={() => setEditing(null)}
         destroyOnClose
       >
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          {editing && correcting && (
+            <Alert
+              type="warning"
+              showIcon
+              message={`当前结果：${DECISION_TAG[editing.decision as number]?.text}${
+                editing.decision === 1 && editing.assignedDeptId
+                  ? ` · ${admittedDeptName(editing.assignedDeptId, editing)}` : ""}`}
+              description={(
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  <li>学生刷新页面就会看到新结果。</li>
+                  {editing.notifiedAt
+                    ? <li>这位同学已经收到过结果通知，改完要到「通知」页补发。</li>
+                    : <li>还没给这位同学发过结果通知。</li>}
+                  {editing.decision === 1 && <li>从通过改为未通过时，对方可能已经扫码进群，记得私下沟通。</li>}
+                  <li>谁在什么时候、因为什么改的，都会留痕。</li>
+                </ul>
+              )}
+            />
+          )}
           <div>
             <div style={{ marginBottom: 4, color: "#888", fontSize: 13 }}>面试决定</div>
             <Select
@@ -1795,43 +1836,21 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
               />
             </div>
           )}
-        </Space>
-      </Modal>
-
-      <Modal
-        title={`批量录取（${selected.length} 人）`}
-        open={batchOpen}
-        onOk={() => {
-          if (!batchDept) { message.warning("请选择录取部门"); return; }
-          runBatch(1, batchDept);
-        }}
-        okText="确认录取"
-        confirmLoading={batching}
-        onCancel={() => setBatchOpen(false)}
-        destroyOnClose
-      >
-        <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <PageHint>统一标记为通过并录取进所选部门，已有决定会被覆盖。</PageHint>
-          {selectedUndecided < selected.length && (
-            <Alert
-              type="warning"
-              showIcon
-              message={`所选 ${selected.length} 人中有 ${selected.length - selectedUndecided} 人已录入过结果，本次会被覆盖。`}
-            />
+          {correcting && (
+            <div>
+              <div style={{ marginBottom: 4, color: "#888", fontSize: 13 }}>更正原因（必填）</div>
+              <Input.TextArea
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                maxLength={255}
+                showCount
+                autoSize={{ minRows: 2, maxRows: 5 }}
+                placeholder="例如：复核发现面试记录记错了人"
+              />
+            </div>
           )}
-          <div>
-            <div style={{ marginBottom: 4, color: "#888", fontSize: 13 }}>录取部门</div>
-            <Select
-              style={{ width: "100%" }}
-              placeholder="选择部门"
-              value={batchDept}
-              onChange={setBatchDept}
-              options={depts.map((d: any) => ({ value: d.deptId, label: d.deptName }))}
-            />
-          </div>
         </Space>
       </Modal>
-
     </>
   );
 };
@@ -2191,6 +2210,14 @@ const InterviewManage: React.FC = () => {
     [cycles]
   );
 
+  /** 切到某个页签并让它重新拉数据（与手动点页签同一效果） */
+  const gotoTab = useCallback((key: string) => {
+    setActiveTab(key);
+    setTabTokens((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+  }, []);
+  // 流程指引跟着页签切换刷新：在某一页做完一步，切页时进度条就能跟上
+  const flowToken = useMemo(() => Object.values(tabTokens).reduce((a, b) => a + b, 0), [tabTokens]);
+
   return (
     <Card
       title="面试管理"
@@ -2225,13 +2252,10 @@ const InterviewManage: React.FC = () => {
         <RecruitFlowGuide
           cycleId={cycleId}
           highlightKey={FLOW_KEY_BY_TAB[activeTab]}
+          refreshToken={flowToken}
           onJump={(stage) => {
             if (stage.target.path === "/interviews" && stage.target.tab) {
-              setActiveTab(stage.target.tab);
-              setTabTokens((prev) => ({
-                ...prev,
-                [stage.target.tab as string]: (prev[stage.target.tab as string] ?? 0) + 1,
-              }));
+              gotoTab(stage.target.tab);
               return true;
             }
             return false;
@@ -2239,18 +2263,23 @@ const InterviewManage: React.FC = () => {
         />
         <Tabs
           activeKey={activeTab}
-          onChange={(key) => {
-            setActiveTab(key);
-            setTabTokens((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
-          }}
+          onChange={gotoTab}
           items={[
             { key: "slots", label: "时间段", children: <TimeSlotTab cycleId={cycleId} refreshToken={tabTokens.slots ?? 0} /> },
             { key: "sessions", label: "场次", children: <SessionTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.sessions ?? 0} /> },
             { key: "assign", label: "分配与调剂", children: <AssignmentTab cycleId={cycleId} cycle={cycles.find((c) => c.cycleId === cycleId)} refreshToken={tabTokens.assign ?? 0} /> },
             { key: "roster", label: "面试名单", children: <RosterTab cycleId={cycleId} refreshToken={tabTokens.roster ?? 0} /> },
             { key: "reschedule", label: "改期申请", children: <RescheduleTab cycleId={cycleId} refreshToken={tabTokens.reschedule ?? 0} /> },
-            { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} depts={depts} /> },
-            { key: "preadmit", label: "预录取", children: <PreAdmitTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.preadmit ?? 0} /> },
+            { key: "evaluation", label: "评价汇总", children: <EvaluationSummaryTab cycleId={cycleId} depts={depts} refreshToken={tabTokens.evaluation ?? 0} /> },
+            { key: "preadmit", label: "预录取", children: (
+              <PreAdmitTab
+                cycleId={cycleId}
+                depts={depts}
+                refreshToken={tabTokens.preadmit ?? 0}
+                active={activeTab === "preadmit"}
+                onNavigate={gotoTab}
+              />
+            ) },
             { key: "results", label: "录取结果", children: <ResultTab key={cycleId} cycleId={cycleId} depts={depts} refreshToken={tabTokens.results ?? 0} /> },
             { key: "notify", label: "通知", children: <NotifyTab cycleId={cycleId} refreshToken={tabTokens.notify ?? 0} /> },
             /* 飞书同步暂时不用，先从标签页里撤下（FeishuTab 与后端接口都保留，

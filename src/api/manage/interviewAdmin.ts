@@ -349,6 +349,11 @@ export interface PreAdmissionDraftItem {
   userId?: number;
   userName?: string;
   departmentName?: string;
+  /**
+   * 这个人当前的正式结果（0 待定 1 通过 2 未通过 3 待调剂）。
+   * 不是待定的草稿是冲突：人已经有结果了，转正不了，要先移出名单。
+   */
+  decision?: number;
   updatedAt?: string;
 }
 
@@ -428,41 +433,80 @@ export async function listAllResults(cycleId: number) {
   return { data: { interviewResults: rows, total } };
 }
 
-/**
- * 从本周期的生效面试安排生成结果名单（decision=0 待定），已有结果行的安排跳过（幂等）。
- * 结果行此前只有飞书拉取会创建 —— 不接飞书「结果与通知」就是空的。
- */
-export function seedResultsFromSchedules(cycleId: number) {
-  return request({ url: '/api/interview/result/seed-from-schedules', method: 'post', params: { cycleId } });
-}
+/** 结果写入相关的业务码（后端 BusinessExceptionEnum） */
+export const RESULT_ERROR = {
+  /** 已有正式结果：更正必须填原因 */
+  DECIDED: 3615,
+  /** 在预录取名单里：要到预录取页处理 */
+  IN_PRE_ADMISSION: 3616,
+  /** 数据刚被别人改过 */
+  CONFLICT: 5006,
+} as const;
 
-export function updateResult(resultId: number, data: { decision?: number; assignedDeptId?: number }) {
+/**
+ * 录入 / 更正一个人的结果。名单由后端自动补齐，不再需要「从面试安排生成名单」。
+ * 已有正式结果（通过/未通过）的人再改就是「更正」：reason 必填，学生刷新即见，改动留痕。
+ * decision=2 时服务端清空录取部门。
+ */
+export function updateResult(resultId: number, data: { decision: 1 | 2; assignedDeptId?: number; reason?: string }) {
   return request({ url: `/api/interview/result/update/${resultId}`, method: 'put', data });
 }
 
 export interface BatchDecisionResult {
   updated: number;
-  /** 不属于该周期或已不存在的 resultId，服务端逐条跳过而非整批失败 */
+  /** 没改的 resultId：不属于该周期、已有正式结果、或在预录取名单里 */
   skipped: number[];
+  /** 其中因已有正式结果而跳过的人数（已定的结果只能逐个更正） */
+  skippedDecided?: number;
+  /** 其中因在预录取名单里而跳过的人数 */
+  skippedInPreAdmission?: number;
 }
 
 /**
- * 批量录取 / 批量标记未通过。
- * cycleId 必传：结果的周期挂在面试安排上，服务端据此把夹带的别届 ID 挡掉。
- * decision=1 时必须给 assignedDeptId；=2 时服务端会清空录取部门。
+ * 批量标记未通过（也可批量通过，但页面上已不提供：录取统一走预录取转正）。
+ * 服务端只改执行这一刻仍未决定、且不在预录取名单里的人，其余计入 skipped。
+ * decision=2 时服务端会清空录取部门。
  */
 export function batchDecision(data: {
   cycleId: number;
   resultIds: number[];
   decision: 1 | 2;
   assignedDeptId?: number;
-  /**
-   * 只改执行时仍为待定的行（服务端判定），其余计入 skipped。
-   * 「待定全部标为未通过」必须带上：列表可能是几分钟前加载的，期间别人录取的人不能被覆盖。
-   */
-  onlyPending?: boolean;
 }) {
   return request({ url: '/api/interview/result/batch-decision', method: 'post', data });
+}
+
+/** 录取统计（服务端算，口径与结果列表一致） */
+export interface ResultSummary {
+  totals: {
+    candidates: number;
+    pending: number;
+    /** 待调剂：历史取值，按未决定处理 */
+    adjusting: number;
+    admitted: number;
+    rejected: number;
+    /** 在预录取名单里、尚未转正 */
+    inPreAdmission: number;
+    notified: number;
+  };
+  departments: Array<{
+    deptId: number;
+    deptName: string;
+    firstChoice: number;
+    secondChoice: number;
+    /** 预录取到本部门、尚未转正 */
+    preAdmitted: number;
+    admitted: number;
+    admittedFirstChoice: number;
+    admittedSecondChoice: number;
+    /** 调剂：两个志愿都不是本部门 */
+    admittedOther: number;
+    admittedNotified: number;
+  }>;
+}
+
+export function getResultSummary(cycleId: number) {
+  return request({ url: '/api/interview/result/summary', method: 'get', params: { cycleId } });
 }
 
 /** 批量发送结果通知邮件 */

@@ -20,6 +20,7 @@ import {
   listPreAdmission, listAllResults, removePreAdmission, savePreAdmission,
 } from '@/api/manage/interviewAdmin';
 import PreAdmitPicker from './PreAdmitPicker';
+import { isDecided } from './resultBatch';
 import {
   CandidateSummary, EVALUATION_STATUS, EvaluationSummary, RECOMMENDATION_OPTIONS, getEvaluationSummary,
 } from '@/api/manage/interviewEvaluation';
@@ -37,6 +38,8 @@ const recommendationLabel = (value?: number | null) =>
 interface PreAdmitRef {
   resultId: number;
   deptId: number | null;
+  /** 当前正式结果：已录取/未通过的人不能再预录取 */
+  decision?: number;
 }
 
 /**
@@ -64,7 +67,9 @@ const optionsOf = (
 const EvaluationSummaryTab: React.FC<{
   cycleId: number;
   depts?: Array<{ deptId: number; deptName: string }>;
-}> = ({ cycleId, depts = [] }) => {
+  /** 切回本页签时重新拉：antd Tabs 保留已挂载的面板，不加这个看到的是切走时的旧数据 */
+  refreshToken?: number;
+}> = ({ cycleId, depts = [], refreshToken }) => {
   const [summary, setSummary] = useState<EvaluationSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +117,7 @@ const EvaluationSummaryTab: React.FC<{
         next.set(Number(r.scheduleId), {
           resultId: Number(r.resultId),
           deptId: deptByResult.get(Number(r.resultId)) ?? null,
+          decision: r.decision,
         });
       });
       setPreBySchedule(next);
@@ -121,14 +127,20 @@ const EvaluationSummaryTab: React.FC<{
     }
   }, [cycleId]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { void loadPreAdmit(); }, [loadPreAdmit]);
+  useEffect(() => { load(); }, [load, refreshToken]);
+  useEffect(() => { void loadPreAdmit(); }, [loadPreAdmit, refreshToken]);
 
   const assignPre = useCallback(async (scheduleId: number, deptId: number) => {
     const ref = preBySchedule.get(scheduleId);
     if (!ref) return;
     try {
-      await savePreAdmission({ cycleId, resultIds: [ref.resultId], assignedDeptId: deptId });
+      const res: any = await savePreAdmission({ cycleId, resultIds: [ref.resultId], assignedDeptId: deptId });
+      if ((res?.data?.skipped?.length ?? 0) > 0) {
+        // 服务端只收还没决定的人：列表加载之后，这个人可能已经被定了结果
+        message.warning('这位同学已有正式结果，不能预录取；如需改动请到「录取结果」更正');
+        void loadPreAdmit();
+        return;
+      }
       // 先就地更新，再静默对账，免得整表闪一下
       setPreBySchedule((prev) => new Map(prev).set(scheduleId, { ...ref, deptId }));
       message.success(`已预录取到${depts.find((d) => d.deptId === deptId)?.deptName ?? '该部门'}`);
@@ -290,8 +302,10 @@ const EvaluationSummaryTab: React.FC<{
             depts={depts}
             onAssign={(deptId) => assignPre(row.scheduleId, deptId)}
             onRemove={() => removePre(row.scheduleId)}
-            disabled={!ref}
-            disabledReason="这个人还没有面试结果记录，无法预录取"
+            disabled={!ref || isDecided(ref.decision)}
+            disabledReason={!ref
+              ? '这个人还没有面试结果记录，无法预录取'
+              : '已有正式结果，不能预录取；如需改动请到「录取结果」更正'}
           />
         );
       },

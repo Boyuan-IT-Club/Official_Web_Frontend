@@ -50,10 +50,10 @@ export function buildStages(f: FlowFacts): FlowStage[] {
       done: f.schedules > 0, target: { path: '/interviews', tab: 'assign' } },
     { key: 'evaluation', title: '面试评价', hint: '面试官逐人打分并定稿',
       done: f.finalizedEvaluations > 0, target: { path: '/evaluation' } },
-    { key: 'admission', title: '预录取与录取', hint: '圈定预录取名单后一键录取',
+    { key: 'admission', title: '预录取与录取', hint: '圈定预录取名单 → 最终录取 → 处理剩余待定',
       done: f.decided > 0, target: { path: '/interviews', tab: 'preadmit' } },
     { key: 'notify', title: '结果通知', hint: '核对名单后发送录取/感谢邮件',
-      done: f.notified > 0, target: { path: '/interviews', tab: 'results' } },
+      done: f.notified > 0, target: { path: '/interviews', tab: 'notify' } },
   ];
 
   const firstTodo = raw.findIndex((r) => !r.done);

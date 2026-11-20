@@ -1,6 +1,6 @@
 import {
-  NO_ASSIGNED_DEPT, admittedByDept, admittedTo, countAdmittedAmong, isPendingDecision,
-  matchesDecisionFilter, planRejectPending,
+  NO_ASSIGNED_DEPT, admittedGroups, admittedTo, describeBatchResult, isDecided, isPendingDecision,
+  matchesDecisionFilter, planBatchReject, planRejectPending,
 } from './resultBatch';
 
 const row = (over: any) => ({ resultId: 1, userId: 1, decision: 0, ...over });
@@ -67,42 +67,69 @@ describe('录取结果页：待定与一键标未通过', () => {
     expect(plan.ids).toHaveLength(12);
   });
 
-  it('勾选里已是「通过」的人数：表头全选会把他们一起勾上，确认框要点出来', () => {
+  it('已定 = 通过或未通过；待调剂是历史取值，按未决定处理', () => {
+    expect(isDecided(1)).toBe(true);
+    expect(isDecided(2)).toBe(true);
+    expect(isDecided(0)).toBe(false);
+    expect(isDecided(3)).toBe(false);
+    expect(isDecided(null)).toBe(false);
+  });
+
+  it('批量标未通过：已定的和预录取名单里的都会被跳过，确认框先说清楚', () => {
     const rows = [
       row({ resultId: 1, decision: 1 }),
       row({ resultId: 2, decision: 0 }),
-      row({ resultId: 3, decision: 1 }),
-      row({ resultId: 4, decision: 2 }),
+      row({ resultId: 3, decision: 2 }),
+      row({ resultId: 4, decision: 0 }),
+      row({ resultId: 5, decision: 3 }),
     ] as any;
-    expect(countAdmittedAmong(rows, [1, 2, 3, 4])).toBe(2);
-    expect(countAdmittedAmong(rows, [2, 4])).toBe(0);
+    expect(planBatchReject(rows, [1, 2, 3, 4, 5], new Set([4]))).toEqual({ ids: [2, 5], decided: 2, drafted: 1 });
+    expect(planBatchReject(rows, [2], new Set())).toEqual({ ids: [2], decided: 0, drafted: 0 });
+  });
+
+  it('批量结果的提示：按原因分别说跳过了几个人', () => {
+    expect(describeBatchResult('标记未通过', { updated: 3, skipped: [] }))
+      .toEqual({ ok: true, text: '已标记未通过 3 人' });
+    expect(describeBatchResult('标记未通过', {
+      updated: 1, skipped: [7, 8, 9, 10], skippedDecided: 2, skippedInPreAdmission: 1,
+    })).toEqual({
+      ok: false,
+      text: '已标记未通过 1 人；跳过 2 人已有正式结果、1 人在预录取名单里、1 人不属于本周期，未改动',
+    });
   });
 });
 
 describe('录取去向', () => {
-  const name = (id?: number) => ({ 1: '技术部', 2: '项目部', 3: '媒体部' } as Record<number, string>)[id ?? 0] ?? `#${id}`;
+  const dept = (deptId: number, deptName: string, admitted: number, over: any = {}) => ({
+    deptId, deptName, firstChoice: 0, secondChoice: 0, preAdmitted: 0, admitted,
+    admittedFirstChoice: 0, admittedSecondChoice: 0, admittedOther: 0, admittedNotified: 0, ...over,
+  });
+  const totals = (admitted: number) => ({
+    candidates: 0, pending: 0, adjusting: 0, admitted, rejected: 0, inPreAdmission: 0, notified: 0,
+  });
 
-  it('只数已录取的人，按最终录取部门分组，人多的排前', () => {
-    const { total, groups } = admittedByDept([
-      row({ resultId: 1, decision: 1, assignedDeptId: 2 }),
-      row({ resultId: 2, decision: 1, assignedDeptId: 1 }),
-      row({ resultId: 3, decision: 1, assignedDeptId: 2 }),
-      row({ resultId: 4, decision: 0, assignedDeptId: null }),
-      row({ resultId: 5, decision: 2, assignedDeptId: null }),
-    ] as any, name);
+  it('读服务端统计：只列录了人的部门，人多的排前，带上一志愿/二志愿/调剂', () => {
+    const { total, groups } = admittedGroups({
+      totals: totals(3),
+      departments: [
+        dept(1, '技术部', 1, { admittedFirstChoice: 1 }),
+        dept(2, '项目部', 2, { admittedSecondChoice: 1, admittedOther: 1, admittedNotified: 2 }),
+        dept(3, '媒体部', 0, { firstChoice: 5 }),
+      ],
+    });
     expect(total).toBe(3);
-    expect(groups).toEqual([
-      { deptId: 2, deptName: '项目部', count: 2 },
-      { deptId: 1, deptName: '技术部', count: 1 },
-    ]);
+    expect(groups.map((g) => [g.deptName, g.admitted])).toEqual([['项目部', 2], ['技术部', 1]]);
+    expect(groups[0]).toMatchObject({ secondChoice: 1, other: 1, notified: 2 });
   });
 
   it('录取了却没填部门的单独成组，不悄悄漏算', () => {
-    const { total, groups } = admittedByDept([
-      row({ resultId: 1, decision: 1, assignedDeptId: null }),
-    ] as any, name);
-    expect(total).toBe(1);
-    expect(groups).toEqual([{ deptId: NO_ASSIGNED_DEPT, deptName: '未填部门', count: 1 }]);
+    const { total, groups } = admittedGroups({ totals: totals(2), departments: [dept(1, '技术部', 1)] });
+    expect(total).toBe(2);
+    expect(groups[1]).toMatchObject({ deptId: NO_ASSIGNED_DEPT, deptName: '未填部门', admitted: 1 });
+  });
+
+  it('统计还没拉到时是空的', () => {
+    expect(admittedGroups(null)).toEqual({ total: 0, groups: [] });
   });
 
   it('按录取部门精确筛：只认最终录取部门，志愿里填了该部门不算', () => {
@@ -114,12 +141,5 @@ describe('录取去向', () => {
     expect(admittedTo(toNone as any, NO_ASSIGNED_DEPT)).toBe(true);
     expect(admittedTo(toTech as any, NO_ASSIGNED_DEPT)).toBe(false);
     expect(admittedTo(wishTech as any, undefined)).toBe(true);
-  });
-
-  it('部门停用后取不到名字时，用结果行自带的部门名兜底', () => {
-    const { groups } = admittedByDept([
-      row({ resultId: 1, decision: 1, assignedDeptId: 7, departmentName: '宣传部' }),
-    ] as any, (id, sample) => (sample as any)?.departmentName ?? `#${id}`);
-    expect(groups[0].deptName).toBe('宣传部');
   });
 });
