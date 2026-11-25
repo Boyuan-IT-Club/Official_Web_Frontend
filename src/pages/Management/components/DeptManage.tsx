@@ -126,12 +126,6 @@ const DeptManagePage: React.FC = () => {
   // ── 表格列 ────────────────────────────────────────────────────────────────
   const columns = [
     {
-      title: '部门编码',
-      dataIndex: 'deptCode',
-      key: 'deptCode',
-      width: 120,
-    },
-    {
       title: '部门名称',
       dataIndex: 'deptName',
       key: 'deptName',
@@ -253,13 +247,6 @@ const DeptManagePage: React.FC = () => {
           disabled={modalMode === 'view'}
           style={{ marginTop: 16 }}
         >
-          <Form.Item
-            label="部门编码"
-            name="deptCode"
-            rules={[{ required: true, message: '请输入部门编码' }]}
-          >
-            <Input placeholder="如：TECH、HR" />
-          </Form.Item>
 
           <Form.Item
             label="部门名称"

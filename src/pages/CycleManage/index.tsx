@@ -152,7 +152,6 @@ const CycleManage: React.FC = () => {
         description: record.description,
         startDate: record.startDate,
         endDate: record.endDate,
-        status: record.status,
         isActive: open ? 0 : 1,
       } as any);
       message.success(open

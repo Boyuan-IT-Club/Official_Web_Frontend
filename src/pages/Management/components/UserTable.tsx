@@ -22,6 +22,7 @@ const { confirm } = Modal;
 export interface User {
   createTime: string;
   dept: null | string;
+  deptId?: number | null;
   email: string;
   isMember: boolean;
   name: null | string;
@@ -120,18 +121,18 @@ const UserTable: React.FC<UserTableProps> = ({
 
   // ── 分配部门弹窗 ──
   const [deptModalUser, setDeptModalUser] = React.useState<User | null>(null);
-  const [deptModalValue, setDeptModalValue] = React.useState<string | undefined>();
-  const [deptOptions, setDeptOptions] = React.useState<{ value: string; label: string }[]>([]);
+  const [deptModalValue, setDeptModalValue] = React.useState<number | undefined>();
+  const [deptOptions, setDeptOptions] = React.useState<{ value: number; label: string }[]>([]);
   const [deptSaving, setDeptSaving] = React.useState(false);
 
   const openDeptModal = async (user: User) => {
-    setDeptModalValue(user.dept || undefined);
+    setDeptModalValue(user.deptId ?? undefined);
     setDeptModalUser(user);
     if (deptOptions.length === 0) {
       try {
         const res: any = await getValidDept();
         setDeptOptions(
-          (res?.data ?? []).map((d: any) => ({ value: d.deptName, label: d.deptName })),
+          (res?.data ?? []).map((d: any) => ({ value: d.deptId, label: d.deptName })),
         );
       } catch (e) {
         console.error(e);
@@ -162,7 +163,7 @@ const UserTable: React.FC<UserTableProps> = ({
     setDeptSaving(true);
     try {
       await batchUpdateUserDept([deptModalUser.userId], deptModalValue);
-      message.success(`${deptModalUser.name || deptModalUser.username} 的部门已更新为 ${deptModalValue}`);
+      message.success(`${deptModalUser.name || deptModalUser.username} 的部门已更新`);
       setDeptModalUser(null);
       refreshUsers();
     } catch (e) {
@@ -382,7 +383,7 @@ const UserTable: React.FC<UserTableProps> = ({
       title={deptModalUser ? `分配部门：${deptModalUser.name || deptModalUser.username}` : ''}
       open={!!deptModalUser}
       onOk={handleAssignDept}
-      okButtonProps={{ disabled: !deptModalValue || deptModalValue === deptModalUser?.dept }}
+      okButtonProps={{ disabled: !deptModalValue || deptModalValue === deptModalUser?.deptId }}
       okText="保存"
       confirmLoading={deptSaving}
       onCancel={() => setDeptModalUser(null)}

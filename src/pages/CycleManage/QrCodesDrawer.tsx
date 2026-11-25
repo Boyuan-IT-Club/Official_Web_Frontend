@@ -103,10 +103,11 @@ const QrCodesDrawer: React.FC<QrCodesDrawerProps> = ({ open, cycleId, cycleName,
     return false;   // 阻止 antd 自己发请求，上面已经传过了
   };
 
-  const handleDelete = async (id: number, title: string) => {
+  const handleDelete = async (slot: Slot) => {
+    if (cycleId == null) return;
     try {
-      await deleteQrCode(id);
-      message.success(`已删除${title}的二维码`);
+      await deleteQrCode(cycleId, slot.qrType, slot.deptId);
+      message.success(`已删除${slot.title}的二维码`);
       await load();
     } catch (e: any) {
       message.error(e?.message || '删除失败');
@@ -137,7 +138,7 @@ const QrCodesDrawer: React.FC<QrCodesDrawerProps> = ({ open, cycleId, cycleName,
                     <Popconfirm
                       title={`删除${slot.title}的二维码？`}
                       description="删除后录取通知里就不会附这张了，可以随时重新上传。"
-                      onConfirm={() => handleDelete(code.id, slot.title)}
+                      onConfirm={() => handleDelete(slot)}
                       okText="删除"
                       okButtonProps={{ danger: true }}
                     >
