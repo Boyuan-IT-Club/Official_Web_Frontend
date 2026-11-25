@@ -62,7 +62,6 @@ const EvaluationBoardPage: React.FC = () => {
   const [opening, setOpening] = useState(false);
 
   const [keyword, setKeyword] = useState('');
-  const [onlyMine, setOnlyMine] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [locationFilter, setLocationFilter] = useState<string | undefined>();
   /** 志愿部门：第一或第二命中都算 —— 录取时常常是「报了这个部门的人都看一遍」 */
@@ -182,7 +181,6 @@ const EvaluationBoardPage: React.FC = () => {
   const visibleRows = useMemo(() => {
     const text = keyword.trim().toLowerCase();
     return derivedRows.filter((row) => {
-      if (onlyMine && !row.interviewerUserIds.includes(currentUserId)) return false;
       if (onlyPending && row.submitted) return false;
       if (locationFilter && row.location !== locationFilter) return false;
       if (choiceFilter && !(choiceBySchedule.get(row.scheduleId) ?? []).includes(choiceFilter)) return false;
@@ -190,11 +188,11 @@ const EvaluationBoardPage: React.FC = () => {
       if (!text) return true;
       return `${row.candidateName}${row.account ?? ''}${row.deptName ?? ''}`.toLowerCase().includes(text);
     });
-  }, [derivedRows, keyword, onlyMine, onlyPending, locationFilter,
+  }, [derivedRows, keyword, onlyPending, locationFilter,
     choiceFilter, recommendFilter, choiceBySchedule, currentUserId]);
 
-  const myPendingCount = useMemo(
-    () => derivedRows.filter((row) => row.interviewerUserIds.includes(currentUserId) && !row.submitted).length,
+  const pendingCount = useMemo(
+    () => derivedRows.filter((row) => !row.removed && !row.submitted).length,
     [derivedRows, currentUserId],
   );
 
@@ -481,9 +479,6 @@ const EvaluationBoardPage: React.FC = () => {
               style={{ width: 240 }}
               onChange={(e) => setKeyword(e.target.value)}
             />
-            <Checkbox checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)}>
-              只看我负责的
-            </Checkbox>
             <Checkbox checked={onlyPending} onChange={(e) => setOnlyPending(e.target.checked)}>
               只看未定稿的
             </Checkbox>
@@ -530,8 +525,8 @@ const EvaluationBoardPage: React.FC = () => {
               options={[...RECOMMENDATION_OPTIONS]}
               onChange={(v) => setRecommendFilter(v)}
             />
-            {myPendingCount > 0 && (
-              <Text type="secondary">我负责的候选人里还有 {myPendingCount} 位未定稿</Text>
+            {pendingCount > 0 && (
+              <Text type="secondary">当前名单还有 {pendingCount} 位未定稿</Text>
             )}
           </Space>
 
@@ -569,11 +564,7 @@ const EvaluationBoardPage: React.FC = () => {
           open={dimensionOpen}
           cycleId={cycleId}
           onClose={() => setDimensionOpen(false)}
-          onSaved={(dimensions) => {
-            // 列存在协同文档里，改库不会自动传导过去。协同服务每轮对账会追平，
-            // 但默认 5 分钟一轮——管理员保存完当场看不到变化会以为没生效（线上报过）。
-            // 这里按同一套规则就地写一次，其余在线的人靠 CRDT 立即同步。
-            board.syncDimensionColumns(dimensions);
+          onSaved={() => {
             loadBoard(cycleId);
           }}
         />

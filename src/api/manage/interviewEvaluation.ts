@@ -184,44 +184,6 @@ export function getCandidateResume(cycleId: number, scheduleId: number) {
   });
 }
 
-/** 查询某场次已绑定的面试官 */
-export function listSessionInterviewers(sessionId: number) {
-  return call<number[]>({
-    url: `/api/interview/admin/sessions/${sessionId}/interviewers`,
-    method: 'get',
-  });
-}
-
-/** 覆盖式绑定场次面试官，决定评价表里谁能编辑这一场的候选人 */
-export function bindSessionInterviewers(sessionId: number, userIds: number[]) {
-  return call<number[]>({
-    url: `/api/interview/admin/sessions/${sessionId}/interviewers`,
-    method: 'put',
-    data: { userIds },
-  });
-}
-
-/**
- * 把自己补进该场次的面试官（增量，不动已有绑定）。
- *
- * 面试当天常有临时顶班：原本排在 A 场的人去了 B 场，而评价表的可编辑范围按场次
- * 绑定判定 —— 不加进来就只能看不能打分。原先只能去场次管理页用覆盖式接口重设
- * 整场名单，既绕远又容易把别人删掉。
- *
- * 权限与场次管理一致（resume:audit / interview:schedule），纯面试官调不通。
- */
-export function joinSessionAsInterviewer(sessionId: number) {
-  return call<number[]>({
-    url: `/api/interview/admin/sessions/${sessionId}/interviewers/me`,
-    method: 'post',
-  });
-}
-
-/**
- * 打分工作台展示候选人获奖经历与 Autograding 评测成绩（全部周期汇总）。
- * 走用户级聚合详情接口；后端已对该接口放开 interview:evaluate 权限（见 ADR-0002），
- * 面试官可直接读，无需 resume:view。
- */
 export interface CandidateAward {
   awardId: number;
   awardName: string;
@@ -246,9 +208,9 @@ export interface CandidateProfileDetailForWorkspace {
   submissions: CandidateSubmission[];
 }
 
-export function getCandidateProfileDetail(userId: number) {
+export function getCandidateProfileDetail(userId: number, cycleId: number, resumeId: number) {
   return call<CandidateProfileDetailForWorkspace>({
-    url: `/api/admin/profiles/${userId}`,
+    url: `/api/admin/profiles/${userId}/cycles/${cycleId}/resumes/${resumeId}`,
     method: 'get',
   });
 }
