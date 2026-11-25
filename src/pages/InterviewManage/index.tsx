@@ -87,7 +87,6 @@ import NotifyTab from "./NotifyTab";
 import RecruitFlowGuide from "@/components/RecruitFlowGuide";
 import { CandidateSummary, EvaluationDimension, getEvaluationSummary } from "@/api/manage/interviewEvaluation";
 import { savePreAdmission, updateScheduleInterviewTime } from "@/api/manage/interviewAdmin";
-import SessionInterviewersModal from "./SessionInterviewersModal";
 
 const fmtTime = (t?: string) => (t ? t.slice(0, 5) : "-");
 
@@ -265,7 +264,6 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
   const [timeEditing, setTimeEditing] = useState<ScheduleRosterItem | null>(null);
   const [timeValue, setTimeValue] = useState<any>(null);
   const [timeSaving, setTimeSaving] = useState(false);
-  const [interviewerSession, setInterviewerSession] = useState<InterviewSession | null>(null);
   const [resumeDetail, setResumeDetail] = useState<any>(null);
   const [resumeDetailLoading, setResumeDetailLoading] = useState(false);
   const [resumeDetailOpen, setResumeDetailOpen] = useState(false);
@@ -425,9 +423,6 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
               <Space>
                 <Button type="link" size="small" onClick={() => openRoster(r)}>
                   名单
-                </Button>
-                <Button type="link" size="small" onClick={() => setInterviewerSession(r)}>
-                  面试官
                 </Button>
                 <Button type="link" size="small" onClick={() => openEdit(r)}>
                   编辑
@@ -618,14 +613,6 @@ const SessionTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?: numbe
           )}
         </div>
       )}
-      <SessionInterviewersModal
-        open={!!interviewerSession}
-        sessionId={interviewerSession?.sessionId}
-        sessionLabel={interviewerSession
-          ? `#${interviewerSession.sessionId} ${interviewerSession.deptName || ''} @${interviewerSession.location}`
-          : undefined}
-        onClose={() => setInterviewerSession(null)}
-      />
     </>
   );
 };

@@ -242,7 +242,7 @@ const EvaluationSummaryTab: React.FC<{
         const contributors = row.contributors ?? [];
         if (contributors.length === 0) return <Text type="secondary">还没有人填写</Text>;
         return (
-          <Tooltip title={`本场共绑定 ${row.assignedInterviewerCount} 位面试官`}>
+          <Tooltip title={`已有 ${contributors.length} 人填写评价`}>
             <Space size={4} wrap>
               {contributors.map((c) => (
                 <Tag key={c.userId}>{c.name || `#${c.userId}`}</Tag>

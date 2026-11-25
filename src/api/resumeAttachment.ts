@@ -70,7 +70,7 @@ export async function fetchAttachmentUrl(id: number, inline: boolean): Promise<s
   const res: any = await request({
     url: `/api/resumes/attachments/${id}/url`,
     method: 'get',
-    params: { inline },
+    params: { inline, controlled: true },
   });
   return res?.data?.url ?? null;
 }

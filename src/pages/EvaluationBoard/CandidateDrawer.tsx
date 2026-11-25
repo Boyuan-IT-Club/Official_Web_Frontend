@@ -8,14 +8,11 @@ import {
 } from 'antd';
 import ResumeQuickView from '@/components/ResumeQuickView';
 import { EvaluationQbankDrawer } from '@/components/ResumeAiEvaluation';
-import JoinSessionButton from '@/components/JoinSessionButton';
 import { BookOutlined } from '@ant-design/icons';
 import {
-  CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS, listSessionInterviewers,
+  CandidateResume, EVALUATION_STATUS, RECOMMENDATION_OPTIONS,
 } from '@/api/manage/interviewEvaluation';
-import { getToken } from '@/utils';
-import { hasAnyPermission } from '@/utils/jwt';
-import { loadCandidateResume, prefetchCandidateResume } from './resumeCache';
+import { loadCandidateResume } from './resumeCache';
 import CollabTextArea from './CollabTextArea';
 import {
   BoardRow, CollabBoard, COMMENT_COL, RECOMMENDATION_COL, STATUS_COL,
@@ -46,20 +43,12 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [qbankOpen, setQbankOpen] = useState(false);
-  // 自助顶班后直接问库要这一场的面试官名单，不只信协同文档 ——
-  // 文档要等对账（默认 5 分钟）才刷新，而本地记一笔的做法关掉抽屉就没了。
-  // 理由与评价工作台里那处相同，注释写在那边。
-  const [boundInterviewers, setBoundInterviewers] = useState<number[] | null>(null);
-  const [claimTick, setClaimTick] = useState(0);
-
   const scheduleId = row?.scheduleId;
-  const boundInDb = !!row && !row.removed
-    && boundInterviewers != null && boundInterviewers.includes(currentUserId);
-  const editable = row ? (board.canEdit(row) || boundInDb) : false;
+  const editable = !!row && board.canEdit(row);
   const scoreColumns = board.columns.filter((c) => c.type === 'score');
 
   // 简历按需拉取：名单可能有几百人，没必要在列表阶段就把简历全取回来。
-  // 走 resumeCache：同一位重复打开直接命中内存，不再每次一个完整往返。
+  // 每次重新打开都由后端验证当下的材料权限。
   useEffect(() => {
     if (!open || !scheduleId) return;
     let cancelled = false;
@@ -73,23 +62,6 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
     return () => { cancelled = true; };
   }, [open, cycleId, scheduleId]);
 
-  // 这一场的面试官名单（权威在库里）。接口要管理员权限，面试官调会 403；
-  // 而只有管理员能自助加入，也只有他们需要这条旁路
-  const rowSessionId = row?.sessionId ?? null;
-  const canJoin = hasAnyPermission(getToken(), ['resume:audit', 'interview:schedule']);
-  useEffect(() => {
-    if (!open || !canJoin || rowSessionId == null) {
-      setBoundInterviewers(null);
-      return undefined;
-    }
-    let cancelled = false;
-    listSessionInterviewers(rowSessionId)
-      .then((res: any) => { if (!cancelled) setBoundInterviewers((res?.data ?? []).map(Number)); })
-      // 查不到就退回只信文档，不打扰用户
-      .catch(() => { if (!cancelled) setBoundInterviewers(null); });
-    return () => { cancelled = true; };
-  }, [open, canJoin, rowSessionId, claimTick]);
-
   // 打分顺序上的后几位：既用来渲染跳转按钮，也顺手预取，
   // 面试官点「下一位」时简历已经在内存里
   const upcoming = React.useMemo<BoardRow[]>(() => {
@@ -99,10 +71,6 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
     return orderedRows.slice(at + 1, at + 4);
   }, [orderedRows, scheduleId]);
 
-  useEffect(() => {
-    if (!open) return;
-    upcoming.forEach((r) => prefetchCandidateResume(cycleId, r.scheduleId));
-  }, [open, cycleId, upcoming]);
 
   // 关掉抽屉、或切到另一位候选人时立刻收回打字状态，
   // 否则会在上一位那里留下一个永远亮着的「正在输入」
@@ -140,9 +108,6 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
   const recommendation = board.readCell(scheduleId, RECOMMENDATION_COL);
   const submitted = Number(board.readCell(scheduleId, STATUS_COL)) === EVALUATION_STATUS.SUBMITTED;
 
-  const nameOf = (userId: number) =>
-    (userId === currentUserId ? '我' : board.interviewerNames[userId]) || `面试官 #${userId}`;
-
   // 同时打开这位候选人的同事，编辑时可据此知道「现在还有谁在这一页上」
   const peersHere = board.peers.filter((p) => p.activeScheduleId === scheduleId);
 
@@ -163,28 +128,11 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
     );
   };
 
-  const canJoinSession = canJoin;
-  const rememberClaim = (sessionId: number) => {
-    board.addSessionInterviewer(sessionId, currentUserId);
-    setClaimTick((t) => t + 1);
-  };
-
   const notEditableReason = (): React.ReactNode => {
     if (board.locked) return '评价表已锁定，当前为只读状态。';
     if (board.status !== 'connected') return '尚未连上协同服务，暂时无法编辑。';
     if (row.removed) return '该候选人已被移出名单，历史评价保留但不可再修改。';
-    if (!row.interviewerUserIds.includes(currentUserId)) {
-      if (row.sessionId == null) {
-        // 线上面试不占场次，没有「这一场」可加
-        return '线上面试由本周期的面试官共同负责；你还不是，请先在任意一场线下面试里把自己加为面试官。';
-      }
-      return canJoinSession ? (
-        <Space size={8} wrap>
-          <span>你不是这一场的面试官，只能查看。</span>
-          <JoinSessionButton sessionId={row.sessionId} onJoined={rememberClaim} />
-        </Space>
-      ) : '你不是该场次的面试官，只能查看。如需评价请让管理员在「场次」里绑定你。';
-    }
+    if (!editable) return '当前账号仅可查看这份评价。';
     return null;
   };
   const blockedReason = notEditableReason();
@@ -343,15 +291,6 @@ const CandidateDrawer: React.FC<CandidateDrawerProps> = ({
       <Descriptions size="small" column={2} style={{ marginBottom: 16 }}>
         <Descriptions.Item label="面试时间">{fmtDateTime(row.interviewTime)}</Descriptions.Item>
         <Descriptions.Item label="账号">{row.account || '—'}</Descriptions.Item>
-        <Descriptions.Item label="本场面试官" span={2}>
-          <Space size={4} wrap>
-            {row.interviewerUserIds.length === 0
-              ? <Text type="secondary">尚未绑定</Text>
-              : row.interviewerUserIds.map((id) => (
-                <Tag key={id} color={id === currentUserId ? 'blue' : undefined}>{nameOf(id)}</Tag>
-              ))}
-          </Space>
-        </Descriptions.Item>
       </Descriptions>
 
       <Tabs

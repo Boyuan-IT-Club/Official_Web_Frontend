@@ -94,7 +94,7 @@ const ResumeAttachments: React.FC<ResumeAttachmentsProps> = ({ resumeId, canEdit
   const resolveUrl = async (att: ResumeAttachment, inline: boolean): Promise<{ url: string; isBlob: boolean }> => {
     try {
       const direct = await fetchAttachmentUrl(att.id, inline);
-      if (direct) return { url: direct, isBlob: false };
+      if (direct && !direct.startsWith('/api/resumes/attachments/')) return { url: direct, isBlob: false };
     } catch (e: any) {
       // 403 是真的没权限，退回旧路径也一样会被拒，没必要再试一次
       if (e?.status === 403) throw e;
