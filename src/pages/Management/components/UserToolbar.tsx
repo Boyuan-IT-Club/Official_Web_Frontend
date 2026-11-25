@@ -74,26 +74,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
 
   // ── 部门选项 ────────────────────────────────────────────────────────────
-  const [deptOptions, setDeptOptions] = useState<{ value: string; label: string }[]>([]);
+  const [deptOptions, setDeptOptions] = useState<{ value: number; label: string }[]>([]);
 
   useEffect(() => {
     const fetchDepts = async () => {
       try {
         const res: any = await getValidDept();
         const list = res?.data || res || [];
-        // 字段名是 deptName（Department 实体的 dept_name），不是 name。
-        // 原先写的 String(d.name ?? d) 在 d.name 为 undefined 时回退到整个对象，
-        // String({...}) 得到 "[object Object]"，于是下拉里全是这个。
-        //
-        // value 取部门名而非 deptId 是刻意的：后端按 user.dept 字符串精确匹配
-        // （UserMapper.xml: AND dept = #{dept}），批量设置部门的接口也收字符串。
         setDeptOptions(
           (Array.isArray(list) ? list : [])
-            .map((d: any) => {
-              const name = typeof d === 'string' ? d : (d?.deptName ?? d?.name);
-              return name ? { value: String(name), label: String(name) } : null;
-            })
-            .filter((o): o is { value: string; label: string } => o !== null),
+            .filter((d: any) => Number.isInteger(d?.deptId) && d.deptName)
+            .map((d: any) => ({ value: d.deptId, label: d.deptName })),
         );
       } catch (e) {
         console.error(e);
@@ -123,15 +114,15 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
   // ── 批量修改部门弹窗 ────────────────────────────────────────────────────
   const [deptModalOpen, setDeptModalOpen] = useState(false);
-  const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [selectedDeptId, setSelectedDeptId] = useState<number>();
 
   const handleBatchUpdateDept = async () => {
-    if (!selectedDeptId.trim()) { message.warning('请输入部门名称'); return; }
+    if (!selectedDeptId) { message.warning('请选择部门'); return; }
     try {
-      await batchUpdateUserDept(selectedRowIds, selectedDeptId.trim());
+      await batchUpdateUserDept(selectedRowIds, selectedDeptId);
       message.success(`已更新 ${selectedRowsCount} 名用户的部门`);
       setDeptModalOpen(false);
-      setSelectedDeptId('');
+      setSelectedDeptId(undefined);
       onClearSelection();
       refreshUsers();
     } catch (e) {
@@ -340,7 +331,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             onClear={() => onDeptChange('')}
           >
             {deptOptions.map((d) => (
-              <Option key={d.value} value={d.value}>{d.label}</Option>
+              <Option key={d.value} value={d.label}>{d.label}</Option>
             ))}
           </Select>
         </Space>
@@ -380,7 +371,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         title="批量修改部门"
         open={deptModalOpen}
         onOk={handleBatchUpdateDept}
-        onCancel={() => { setDeptModalOpen(false); setSelectedDeptId('undefined'); }}
+        onCancel={() => { setDeptModalOpen(false); setSelectedDeptId(undefined); }}
         okText="确认修改" cancelText="取消"
       >
         <p>为已选 <b>{selectedRowsCount}</b> 名用户设置部门：</p>

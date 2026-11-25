@@ -2,7 +2,6 @@
 import { request } from '@/utils/request';
 
 export interface DeptData {
-  deptCode: string;
   deptId?: number;
   deptName: string;
   description?: string;

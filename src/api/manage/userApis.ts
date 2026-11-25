@@ -150,17 +150,12 @@ export const batchUnfreezeUsers = (userIds: number[]) => {
 }
 
 // put: 批量修改用户部门
-/**
- * 批量设置部门。dept 传 null 表示取消分配。
- *
- * 后端按「请求体里有没有 dept 键」区分「漏传」与「显式清空」，
- * 所以这里必须把 null 显式放进 data，不能省略该键。
- */
-export const batchUpdateUserDept = (userIds: number[], dept: string | null) => {
+/** 显式提交 null 可清空现有部门。 */
+export const batchUpdateUserDept = (userIds: number[], deptId: number | null) => {
   return request({
     url: `/api/admin/users/batch-dept`,
     method: 'put',
-    data: { userIds, dept },
+    data: { userIds, deptId },
   });
 } 
 

@@ -70,8 +70,8 @@ export function uploadQrCode(params: {
   return request({ url: '/api/recruitment/qrcodes', method: 'post', params: query, data: fd });
 }
 
-export function deleteQrCode(id: number) {
-  return request({ url: `/api/recruitment/qrcodes/${id}`, method: 'delete' });
+export function deleteQrCode(cycleId: number, qrType: string, deptId?: number) {
+  return request({ url: '/api/recruitment/qrcodes', method: 'delete', params: { cycleId, qrType, deptId } });
 }
 
 export function getCyclesPage(params: { page?: number; size?: number }) {
