@@ -1,3 +1,4 @@
+import { DeliveryStateTag } from './DeliveryStateTag';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import PageHint from '@/components/PageHint';
 import {
@@ -1684,12 +1685,9 @@ export const ResultTab: React.FC<{ cycleId: number; depts: any[]; refreshToken?:
               : (v ? admittedDeptName(v, r) : <span style={{ color: "#bbb" }}>—</span>)) },
           { title: "决定时间", dataIndex: "decisionAt", width: 150,
             render: (v: string) => (v ? String(v).replace("T", " ").slice(0, 16) : "-") },
-          { title: "通知状态", dataIndex: "notifiedAt", width: 130,
-            render: (v: string) => v
-              ? <Tooltip title={`发送于 ${String(v).replace("T", " ").slice(0, 16)}`}>
-                  <Tag color="green">已通知</Tag>
-                </Tooltip>
-              : <Tag>未通知</Tag> },
+          { title: "通知状态", width: 130,
+            render: (_: unknown, r: InterviewResultItem) =>
+              <DeliveryStateTag state={r.mailState ?? (r.notifiedAt ? 'SENT' : 'UNSENT')} at={r.notifiedAt} /> },
           { title: "操作", width: 150,
             render: (_: unknown, r: InterviewResultItem) => (
               <>

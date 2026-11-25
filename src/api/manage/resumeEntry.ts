@@ -655,8 +655,8 @@ export const batchScreening = (resumeIds: number[], passed: boolean) =>
   request({ url: '/api/resumes/screening/batch', method: 'post', data: { resumeIds, passed } });
 
 /** 给初筛未通过的同学批量发通知；仅状态确为未通过的会被发送 */
-export const notifyScreenedOut = (resumeIds: number[], customMessage?: string) =>
-  request({ url: '/api/resumes/screening/notify', method: 'post', data: { resumeIds, customMessage } });
+export const notifyScreenedOut = (resumeIds: number[], customMessage?: string, actionId?: string) =>
+  request({ url: '/api/resumes/screening/notify', method: 'post', data: { resumeIds, customMessage, actionId } });
 
 /**
  * 管理员为简历打分（0~100），可附评语。

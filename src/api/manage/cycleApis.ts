@@ -43,7 +43,7 @@ export interface CyclePayload {
 
 /** 招新二维码。qrType: DEPT / MAIN_GROUP / MAIN_GROUP_2 / QA_GROUP */
 export interface RecruitmentQrCode {
-  id: number;
+  id: number | string;
   cycleId: number;
   qrType: 'DEPT' | 'MAIN_GROUP' | 'MAIN_GROUP_2' | 'QA_GROUP';
   deptId: number;

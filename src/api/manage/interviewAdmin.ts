@@ -389,6 +389,7 @@ export interface InterviewResultItem {
   resumeId?: number | null;
   /** 最近一次结果通知的发送时间；空 = 从未通知（V27 起后端返回） */
   notifiedAt?: string;
+  mailState?: string;
   /**
    * 联表查出来的展示字段。优先用它，别再去「面试安排名册」里凑名字——
    * 没有面试安排的同学不在那份名册里，姓名会退化成「未填姓名(#14)」。
@@ -466,7 +467,7 @@ export function batchDecision(data: {
 }
 
 /** 批量发送结果通知邮件 */
-export function sendResultNotifications(data: { resultIds: number[]; notificationType: string; customMessage?: string }) {
+export function sendResultNotifications(data: { resultIds: number[]; notificationType: string; customMessage?: string; actionId?: string }) {
   return request({ url: '/api/interview/result/send-notifications', method: 'post', data });
 }
 
@@ -503,6 +504,7 @@ export interface ScreenedOutItem {
   resumeScore?: number | null;
   /** 最近一次初筛未通过通知的发送时间；null = 还没通知 */
   notifiedAt?: string | null;
+  mailState?: string;
 }
 
 /** 面试安排名单里的一行，附三类通知各自发没发 */
@@ -516,6 +518,9 @@ export interface ScheduleNoticeItem {
   location?: string | null;
   /** 面试安排通知已发 */
   arranged: boolean;
+  arrangedState?: string;
+  eveState?: string;
+  dayState?: string;
   /** 收到过安排通知，但那封发出去之后安排又被改过——他手上拿的是旧时间 */
   noticeStale?: boolean;
   /** 最后一封安排通知的发送时间 */

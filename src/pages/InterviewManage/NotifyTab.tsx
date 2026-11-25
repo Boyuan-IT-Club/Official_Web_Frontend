@@ -7,7 +7,7 @@
 // 交互按实际用法定：五张卡各是一类通知，点开是一个弹窗——里面有这一类
 // 该发多少人、谁发过谁没发过，可以直接勾人补发。第一版做成卡片下方就地
 // 筛选的长列表，管理员反馈「点不动、也看不出谁通知过」，于是改成弹窗。
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Input, Modal, Segmented, Space, Table, Tag, Tooltip, message } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import PageHint from '@/components/PageHint';
@@ -24,6 +24,7 @@ import {
 } from '@/api/manage/interviewAdmin';
 import { notifyScreenedOut } from '@/api/manage/resumeEntry';
 import { displayName } from '@/utils';
+import { canQueue, DeliveryStateTag } from './DeliveryStateTag';
 import './notifyTab.scss';
 
 const fmt = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
@@ -31,7 +32,7 @@ const fmt = (v?: string | null) => (v ? String(v).replace('T', ' ').slice(0, 16)
 /** 五类通知 */
 type Kind = 'rejected' | 'arranged' | 'eve' | 'day' | 'result';
 /** 名单看全部还是只看已发/未发 */
-type Filter = 'all' | 'sent' | 'pending' | 'stale';
+type Filter = 'all' | 'sent' | 'pending' | 'processing' | 'review' | 'failed' | 'stale';
 
 interface KindMeta {
   title: string;
@@ -76,12 +77,6 @@ const DECISION_TAG: Record<number, { text: string; color: string }> = {
   3: { text: '待调剂', color: 'orange' },
 };
 
-const sentTag = (sent: boolean, at?: string | null) => (sent
-  ? (at
-    ? <Tooltip title={`发送于 ${fmt(at)}`}><Tag color="green">已发送</Tag></Tooltip>
-    : <Tag color="green">已发送</Tag>)
-  : <Tag color="orange">未发送</Tag>);
-
 /** 一类通知的进度卡。整块可点，点开是这一类的名单弹窗 */
 const BucketCard: React.FC<{
   meta: KindMeta;
@@ -123,6 +118,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const [filter, setFilter] = useState<Filter>('all');
   const [selected, setSelected] = useState<React.Key[]>([]);
   const [customMsg, setCustomMsg] = useState('');
+  const action = useRef<{ selection: string; id: string } | null>(null);
   const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
@@ -147,7 +143,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const scheduleRows = overview?.schedules ?? [];
   // 只有已录入决定的人才该收到结果通知，「待定」发出去等于乱通知
   const decided = useMemo(
-    () => results.filter((r) => r.decision != null && r.decision !== 0), [results]);
+    () => results.filter((r) => r.decision === 1 || r.decision === 2), [results]);
 
   const bucketOf = (k: Kind) => (k === 'rejected' ? overview?.resumeRejected
     : k === 'arranged' ? overview?.interviewArranged
@@ -159,18 +155,17 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
   const scheduleSent = (r: ScheduleNoticeItem, k: Kind) =>
     (k === 'eve' ? r.eve : k === 'day' ? r.day : r.arranged);
 
-  /** 弹窗里的行：统一成 {key, sent} 以便共用筛选与勾选逻辑 */
+  const scheduleState = (r: ScheduleNoticeItem, kind: Kind) =>
+    (kind === 'eve' ? r.eveState : kind === 'day' ? r.dayState : r.arrangedState)
+    ?? (scheduleSent(r, kind) ? 'SENT' : 'UNSENT');
+  const requestState = (r: { mailState?: string; notifiedAt?: string | null }) =>
+    r.mailState ?? (r.notifiedAt ? 'SENT' : 'UNSENT');
+
   const rows = useMemo(() => {
-    if (!openKind) return [] as Array<{ key: number; sent: boolean; raw: any }>;
-    if (openKind === 'rejected') {
-      return screenedOut.map((i) => ({ key: i.resumeId, sent: !!i.notifiedAt, raw: i }));
-    }
-    if (openKind === 'result') {
-      return decided.map((r) => ({ key: r.resultId, sent: !!r.notifiedAt, raw: r }));
-    }
-    return scheduleRows.map((r) => ({
-      key: r.scheduleId, sent: scheduleSent(r, openKind), raw: r,
-    }));
+    if (!openKind) return [] as Array<{ key: number; state: string; raw: any }>;
+    if (openKind === 'rejected') return screenedOut.map(i => ({ key: i.resumeId, state: requestState(i), raw: i }));
+    if (openKind === 'result') return decided.map(r => ({ key: r.resultId, state: requestState(r), raw: r }));
+    return scheduleRows.map(r => ({ key: r.scheduleId, state: scheduleState(r, openKind), raw: r }));
   }, [openKind, screenedOut, decided, scheduleRows]);
 
   /** 这一行是不是「发过旧的、需要补发」——只有面试安排通知有这个概念 */
@@ -180,15 +175,19 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     () => rows.filter((r) => {
       if (filter === 'all') return true;
       if (filter === 'stale') return isStale(r);
-      return filter === 'sent' ? r.sent : !r.sent;
+      if (filter === 'sent') return r.state === 'SENT';
+      if (filter === 'review') return r.state === 'UNKNOWN';
+      if (filter === 'processing') return ['PENDING', 'SENDING'].includes(r.state);
+      if (filter === 'failed') return r.state === 'FAILED';
+      return canQueue(r.state);
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, filter, openKind]);
 
   const counts = useMemo(() => {
-    const sent = rows.filter((r) => r.sent).length;
+    const sent = rows.filter((r) => r.state === 'SENT').length;
     const stale = rows.filter(isStale).length;
-    return { total: rows.length, sent, pending: rows.length - sent, stale };
+    return { total: rows.length, sent, pending: rows.filter(r => canQueue(r.state)).length, stale };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, openKind]);
 
@@ -202,7 +201,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
      * 有这种人就默认落在那个筛选上并全勾，没有才退回「未发」。
      */
     const stale = k === 'arranged'
-      ? scheduleRows.filter((r) => r.noticeStale).map((r) => r.scheduleId) : [];
+      ? scheduleRows.filter((r) => r.noticeStale && canQueue(scheduleState(r, k))).map((r) => r.scheduleId) : [];
     if (stale.length > 0) {
       setFilter('stale');
       setSelected(stale);
@@ -210,10 +209,10 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     }
     setFilter('pending');
     const pending = (k === 'rejected'
-      ? screenedOut.filter((i) => !i.notifiedAt).map((i) => i.resumeId)
+      ? screenedOut.filter((i) => canQueue(requestState(i))).map((i) => i.resumeId)
       : k === 'result'
-        ? decided.filter((r) => !r.notifiedAt).map((r) => r.resultId)
-        : scheduleRows.filter((r) => !scheduleSent(r, k)).map((r) => r.scheduleId));
+        ? decided.filter((r) => canQueue(requestState(r))).map((r) => r.resultId)
+        : scheduleRows.filter((r) => canQueue(scheduleState(r, k))).map((r) => r.scheduleId));
     setSelected(pending);
   };
 
@@ -221,9 +220,12 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
     if (!openKind || selected.length === 0) return;
     setSending(true);
     try {
-      const ids = selected.map(Number);
+      const ids = selected.map(Number).sort((a, b) => a - b);
+      const selection = JSON.stringify([cycleId, openKind, ids, customMsg.trim()]);
+      if (action.current?.selection !== selection) action.current = { selection, id: crypto.randomUUID() };
+      const actionId = action.current.id;
       if (openKind === 'rejected') {
-        const res: any = await notifyScreenedOut(ids, customMsg.trim() || undefined);
+        const res: any = await notifyScreenedOut(ids, customMsg.trim() || undefined, actionId);
         const d = res?.data ?? {};
         const skipped = d.skipped?.length ?? 0;
         // 这一步只是入队，邮件由 MQ 消费者实际发出，「已发送」几秒后才会变
@@ -231,15 +233,15 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           + (skipped > 0 ? `，跳过 ${skipped} 人（状态已不是未通过）` : '')
           + '，稍后刷新查看发送状态');
       } else if (openKind === 'result') {
-        const res: any = await sendResultNotifications({
+        const res: any = await sendResultNotifications({ actionId,
           resultIds: ids, notificationType: 'email',
           customMessage: customMsg.trim() || undefined,
         });
         const d = res?.data ?? {};
         if ((d.failedCount ?? 0) > 0) {
-          message.warning(`发送完成：成功 ${d.sentCount ?? 0}，失败 ${d.failedCount}`);
+          message.warning(`已受理 ${d.queued ?? d.sentCount ?? 0} 封，${d.failedCount} 封未受理`);
         } else {
-          message.success(`已发送 ${d.sentCount ?? ids.length} 封结果通知`);
+          message.success(`已受理 ${d.queued ?? d.sentCount ?? 0} 封结果通知`);
         }
       } else {
         const res: any = await sendScheduleNotices(cycleId, SCHEDULE_KINDS[openKind], ids);
@@ -252,6 +254,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
       setOpenKind(null);
       setSelected([]);
       load();
+      action.current = null;
     } catch (e: any) {
       message.error(e?.message || '发送失败');
     } finally {
@@ -273,7 +276,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
           render: (_: unknown, r: any) => (r.raw.resumeScore == null
             ? <span style={{ color: '#bbb' }}>未打分</span> : r.raw.resumeScore) },
         { title: '通知状态', width: 140,
-          render: (_: unknown, r: any) => sentTag(r.sent, r.raw.notifiedAt) },
+          render: (_: unknown, r: any) => <DeliveryStateTag state={r.state} at={r.raw.notifiedAt} /> },
       ];
     }
     if (openKind === 'result') {
@@ -292,7 +295,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
             ? <span>{r.raw.firstDeptName}{r.raw.secondDeptName ? ` / ${r.raw.secondDeptName}` : ''}</span>
             : <span style={{ color: '#bbb' }}>—</span>) },
         { title: '通知状态', width: 140,
-          render: (_: unknown, r: any) => sentTag(r.sent, r.raw.notifiedAt) },
+          render: (_: unknown, r: any) => <DeliveryStateTag state={r.state} at={r.raw.notifiedAt} /> },
       ];
     }
     return [
@@ -303,7 +306,7 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
       { title: '学号', width: 140, render: (_: unknown, r: any) => r.raw.studentId || '-' },
       { title: '部门', width: 100, render: (_: unknown, r: any) => r.raw.deptName || '-' },
       { title: '地点', ellipsis: true, render: (_: unknown, r: any) => r.raw.location || '-' },
-      { title: '本类通知', width: 130, render: (_: unknown, r: any) => sentTag(r.sent) },
+      { title: '本类通知', width: 130, render: (_: unknown, r: any) => <DeliveryStateTag state={r.state} /> },
       {
         // 三类一起列出来：管理员多半是想确认「这个人该收到的都收到了没」
         title: '安排 / 前一天 / 当天', width: 200,
@@ -361,14 +364,14 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
         {meta && (
           <>
             <p className="notify-modal__scope">
-              {meta.scope}。共 <b>{counts.total}</b> 人，已发 <b>{counts.sent}</b>，未发 <b>{counts.pending}</b>。
+              {meta.scope}。共 <b>{counts.total}</b> 人，已发 <b>{counts.sent}</b>，可发送 <b>{counts.pending}</b>。
               {meta.auto && '这一类由系统定时发送，手动发只用于补发漏掉的人。'}
               {openKind === 'arranged' && counts.stale > 0 ? (
                 <>
                   <b style={{ color: '#d46b08' }}>其中 {counts.stale} 人收到的是作废的旧安排</b>
                   ——通知里写的时间和现在的安排对不上，他们手上拿的是错的。这些人必须补发。
                 </>
-              ) : '已发过的再发一次会被跳过，不会重复打扰。'}
+              ) : null}
             </p>
 
             <Space wrap style={{ marginBottom: 10 }}>
@@ -379,13 +382,14 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
                 options={[
                   { label: `全部 ${counts.total}`, value: 'all' },
                   { label: `已发 ${counts.sent}`, value: 'sent' },
-                  { label: `未发 ${counts.pending}`, value: 'pending' },
+                  { label: `可发送 ${counts.pending}`, value: 'pending' },
+                  { label: '处理中', value: 'processing' }, { label: '待核实', value: 'review' }, { label: '失败', value: 'failed' },
                   // 只有面试安排通知有「发过但作废了」这回事
                   ...(openKind === 'arranged' && counts.stale > 0
                     ? [{ label: `需补发 ${counts.stale}`, value: 'stale' }] : []),
                 ]}
               />
-              <Button size="small" onClick={() => setSelected(visible.map((r) => r.key))}>
+              <Button size="small" onClick={() => setSelected(visible.filter(r => canQueue(r.state) || (r.state === 'SENT' && (openKind === 'result' || openKind === 'rejected'))).map(r => r.key))}>
                 全选当前 {visible.length} 人
               </Button>
               <Button size="small" onClick={() => setSelected([])}>清空勾选</Button>
@@ -404,7 +408,9 @@ const NotifyTab: React.FC<{ cycleId: number; refreshToken?: number }> = ({ cycle
                   : filter === 'stale' ? '没有人拿着过期的安排'
                     : filter === 'sent' ? '还没有发送记录' : '都发过了，没有待发的',
               }}
-              rowSelection={{ selectedRowKeys: selected, onChange: setSelected }}
+              rowSelection={{ selectedRowKeys: selected,
+                  getCheckboxProps: (r: { state: string }) => ({ disabled: !canQueue(r.state)
+                    && !(r.state === 'SENT' && (openKind === 'result' || openKind === 'rejected')) }), onChange: setSelected }}
               columns={columns as any}
             />
 
